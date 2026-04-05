@@ -1,0 +1,138 @@
+'use client';
+
+import { useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+export function ProfileSetup() {
+  const [name, setName] = useState('');
+  const [bio, setBio] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async () => {
+    if (!name.trim()) return;
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error: insertError } = await supabase.from('users').insert({
+        id: user.id,
+        phone: user.phone || '',
+        email: user.email || null,
+        display_name: name.trim(),
+        bio: bio.trim() || null,
+        instagram_handle: instagram.trim() || null,
+      });
+
+      if (insertError) throw insertError;
+      window.location.href = '/';
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '12px 14px',
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.15)',
+    background: 'rgba(255,255,255,0.05)',
+    color: '#fff',
+    fontSize: 14,
+    outline: 'none',
+    fontFamily: "'Outfit', sans-serif",
+    boxSizing: 'border-box',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: 600,
+    display: 'block',
+    marginBottom: 6,
+    marginTop: 14,
+  };
+
+  return (
+    <div
+      style={{
+        background: 'rgba(255,255,255,0.08)',
+        borderRadius: 18,
+        padding: 24,
+        backdropFilter: 'blur(14px)',
+        border: '1px solid rgba(255,255,255,0.1)',
+      }}
+    >
+      <div style={{ textAlign: 'center', marginBottom: 16 }}>
+        <div style={{ fontSize: 28, marginBottom: 8 }}>👋</div>
+        <div style={{ fontSize: 16, color: '#fff', fontWeight: 700, fontFamily: "'Fraunces', serif" }}>
+          Welcome to Rally
+        </div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+          Set up your profile so your friends know it&apos;s you
+        </div>
+      </div>
+
+      <label style={labelStyle}>Name *</label>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Your name"
+        style={inputStyle}
+      />
+
+      <label style={labelStyle}>Bio</label>
+      <input
+        value={bio}
+        onChange={(e) => setBio(e.target.value)}
+        placeholder="Trip dad. Spreadsheet enthusiast."
+        style={inputStyle}
+      />
+
+      <label style={labelStyle}>Instagram</label>
+      <input
+        value={instagram}
+        onChange={(e) => setInstagram(e.target.value)}
+        placeholder="@your.handle"
+        style={inputStyle}
+      />
+
+      <button
+        onClick={save}
+        disabled={!name.trim() || loading}
+        style={{
+          width: '100%',
+          padding: 14,
+          borderRadius: 12,
+          border: 'none',
+          background: name.trim() ? 'linear-gradient(135deg, #2d6b5a, #3a8a7a)' : 'rgba(255,255,255,0.1)',
+          color: name.trim() ? '#fff' : 'rgba(255,255,255,0.3)',
+          fontSize: 15,
+          fontWeight: 700,
+          cursor: name.trim() ? 'pointer' : 'default',
+          marginTop: 20,
+          fontFamily: "'Outfit', sans-serif",
+        }}
+      >
+        {loading ? 'Saving...' : "Let's go →"}
+      </button>
+
+      {error && (
+        <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(255,100,100,0.15)', color: '#ff8a8a', fontSize: 12, textAlign: 'center' }}>
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}

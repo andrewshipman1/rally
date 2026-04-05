@@ -1,0 +1,144 @@
+'use client';
+
+import Link from 'next/link';
+import { format } from 'date-fns';
+import type { Trip, Theme, TripMember } from '@/types';
+import { SignOutButton } from './SignOutButton';
+
+type TripRow = Trip & {
+  theme: Theme | null;
+  trip_members: TripMember[];
+};
+
+const PHASE_BADGES: Record<string, { label: string; bg: string; color: string }> = {
+  sketch: { label: 'Draft', bg: '#f0ebe5', color: '#8b6f5c' },
+  sell: { label: 'Selling', bg: '#e0f0eb', color: '#2d6b5a' },
+  lock: { label: 'Locked', bg: '#e0ebf0', color: '#1a3d4a' },
+  go: { label: 'Live!', bg: '#fff3e0', color: '#e65100' },
+};
+
+export function Dashboard({
+  trips,
+  userName,
+}: {
+  trips: TripRow[];
+  userName: string;
+}) {
+  return (
+    <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 20px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 800, color: '#1a3a4a', margin: 0 }}>
+            Rally
+          </h1>
+          <p style={{ fontSize: 14, color: '#888', margin: '2px 0 0' }}>
+            Hey {userName} 👋
+          </p>
+        </div>
+        <SignOutButton />
+      </div>
+
+      {/* Create trip CTA */}
+      <Link
+        href="/create"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          padding: 16,
+          borderRadius: 14,
+          background: 'linear-gradient(135deg, #2d6b5a, #3a8a7a)',
+          color: '#fff',
+          fontSize: 15,
+          fontWeight: 700,
+          textDecoration: 'none',
+          boxShadow: '0 4px 24px rgba(45,107,90,.25)',
+          marginBottom: 24,
+          transition: 'all .15s',
+        }}
+      >
+        + Create a trip
+      </Link>
+
+      {/* Trip list */}
+      {trips.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: '#aaa' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>✈️</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#666' }}>No trips yet</div>
+          <div style={{ fontSize: 13, marginTop: 4 }}>Create your first trip to get started</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#aaa', marginBottom: 4 }}>
+            Your trips
+          </div>
+          {trips.map((trip) => {
+            const phase = PHASE_BADGES[trip.phase] || PHASE_BADGES.sketch;
+            const memberCount = trip.trip_members?.length || 0;
+            const dateStr =
+              trip.date_start && trip.date_end
+                ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd')}`
+                : 'Dates TBD';
+
+            return (
+              <Link
+                key={trip.id}
+                href={`/edit/${trip.id}`}
+                style={{
+                  display: 'block',
+                  background: '#fff',
+                  borderRadius: 14,
+                  padding: 16,
+                  textDecoration: 'none',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                  transition: 'all .15s',
+                  border: '1px solid rgba(0,0,0,0.04)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span
+                        style={{
+                          fontFamily: "'Fraunces', serif",
+                          fontSize: 18,
+                          fontWeight: 700,
+                          color: '#1a3a4a',
+                        }}
+                      >
+                        {trip.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          padding: '2px 8px',
+                          borderRadius: 10,
+                          background: phase.bg,
+                          color: phase.color,
+                        }}
+                      >
+                        {phase.label}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#888' }}>
+                      {trip.destination || 'Destination TBD'}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                    <div style={{ fontSize: 12, color: '#1a3a4a', fontWeight: 600 }}>{dateStr}</div>
+                    <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
+                      {memberCount} {memberCount === 1 ? 'person' : 'people'}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
