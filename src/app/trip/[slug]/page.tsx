@@ -74,12 +74,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .reduce((sum, b) => sum + (b.cost ?? 0), 0);
   const perPerson = confirmedCount > 0 ? Math.round(sharedTotal / confirmedCount) : 0;
 
+  const individualTotal = blocks
+    .filter((b) => b.cost_type === 'individual' && b.cost)
+    .reduce((sum, b) => sum + (b.cost ?? 0), 0);
+  const totalPerPerson = perPerson + individualTotal;
+
+  const description = [
+    trip.destination,
+    dateStr,
+    totalPerPerson > 0 ? `~$${totalPerPerson}/person` : '',
+  ]
+    .filter(Boolean)
+    .join(' • ');
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
   return {
     title: `${trip.name} — Rally`,
-    description: `${trip.destination || ''} ${dateStr ? `• ${dateStr}` : ''} ${perPerson > 0 ? `• ~$${perPerson}/person` : ''}`.trim(),
+    description,
     openGraph: {
       title: trip.name,
-      description: trip.tagline || `${trip.destination || 'Trip'} ${dateStr}`,
+      description: trip.tagline
+        ? `${trip.tagline} — ${description}`
+        : description,
+      type: 'website',
+      siteName: 'Rally',
+      url: `${appUrl}/trip/${slug}`,
+      ...(trip.cover_image_url
+        ? { images: [{ url: trip.cover_image_url, width: 1200, height: 630, alt: trip.name }] }
+        : {}),
+    },
+    twitter: {
+      card: trip.cover_image_url ? 'summary_large_image' : 'summary',
+      title: trip.name,
+      description,
       ...(trip.cover_image_url ? { images: [trip.cover_image_url] } : {}),
     },
   };
