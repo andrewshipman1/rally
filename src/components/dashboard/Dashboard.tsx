@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import type { Trip, Theme, TripMember } from '@/types';
 import { SignOutButton } from './SignOutButton';
@@ -9,6 +11,14 @@ type TripRow = Trip & {
   theme: Theme | null;
   trip_members: TripMember[];
 };
+
+const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+function isPastTrip(t: TripRow): boolean {
+  if (t.archived_at) return true;
+  if (!t.date_end) return false;
+  return new Date(t.date_end).getTime() < Date.now() - THIRTY_DAYS;
+}
 
 const PHASE_BADGES: Record<string, { label: string; bg: string; color: string }> = {
   sketch: { label: 'Draft', bg: '#f0ebe5', color: '#8b6f5c' },
@@ -24,6 +34,26 @@ export function Dashboard({
   trips: TripRow[];
   userName: string;
 }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const setArchived = async (tripId: string, archived: boolean) => {
+    setBusy(tripId);
+    try {
+      await fetch(`/api/trips/${tripId}/archive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived }),
+      });
+      router.refresh();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const activeTrips = trips.filter((t) => !isPastTrip(t));
+  const pastTrips = trips.filter(isPastTrip);
+
   return (
     <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 20px' }}>
       {/* Header */}
@@ -70,75 +100,137 @@ export function Dashboard({
           <div style={{ fontSize: 13, marginTop: 4 }}>Create your first trip to get started</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#aaa', marginBottom: 4 }}>
-            Your trips
-          </div>
-          {trips.map((trip) => {
-            const phase = PHASE_BADGES[trip.phase] || PHASE_BADGES.sketch;
-            const memberCount = trip.trip_members?.length || 0;
-            const dateStr =
-              trip.date_start && trip.date_end
-                ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd')}`
-                : 'Dates TBD';
+        <>
+          {activeTrips.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#aaa', marginBottom: 4 }}>
+                Active Trips
+              </div>
+              {activeTrips.map((trip) => renderTripCard(trip, false, busy, setArchived))}
+            </div>
+          )}
+          {pastTrips.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#aaa', marginBottom: 4 }}>
+                Past Trips
+              </div>
+              {pastTrips.map((trip) => renderTripCard(trip, true, busy, setArchived))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
-            return (
-              <Link
-                key={trip.id}
-                href={`/edit/${trip.id}`}
+function renderTripCard(
+  trip: TripRow,
+  isPast: boolean,
+  busy: string | null,
+  setArchived: (id: string, archived: boolean) => void
+) {
+  const phase = PHASE_BADGES[trip.phase] || PHASE_BADGES.sketch;
+  const memberCount = trip.trip_members?.length || 0;
+  const dateStr =
+    trip.date_start && trip.date_end
+      ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd')}`
+      : 'Dates TBD';
+
+  const themePrimary = trip.theme?.color_primary || '#2d6b5a';
+  const themeAccent = trip.theme?.color_accent || '#d4a574';
+  const thumbBackground = trip.cover_image_url
+    ? `url(${trip.cover_image_url}) center / cover`
+    : `linear-gradient(135deg, ${themePrimary}, ${themeAccent})`;
+
+  return (
+    <div
+      key={trip.id}
+      style={{
+        background: '#fff',
+        borderRadius: 14,
+        padding: 16,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        border: '1px solid rgba(0,0,0,0.04)',
+        borderLeft: `4px solid ${themePrimary}`,
+        opacity: isPast ? 0.6 : 1,
+      }}
+    >
+      <Link
+        href={`/edit/${trip.id}`}
+        style={{ textDecoration: 'none', display: 'block' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+          <div
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: 10,
+              background: thumbBackground,
+              flexShrink: 0,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+            }}
+            aria-hidden
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+              <span
                 style={{
-                  display: 'block',
-                  background: '#fff',
-                  borderRadius: 14,
-                  padding: 16,
-                  textDecoration: 'none',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                  transition: 'all .15s',
-                  border: '1px solid rgba(0,0,0,0.04)',
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: '#1a3a4a',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span
-                        style={{
-                          fontFamily: "'Fraunces', serif",
-                          fontSize: 18,
-                          fontWeight: 700,
-                          color: '#1a3a4a',
-                        }}
-                      >
-                        {trip.name}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          padding: '2px 8px',
-                          borderRadius: 10,
-                          background: phase.bg,
-                          color: phase.color,
-                        }}
-                      >
-                        {phase.label}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 13, color: '#888' }}>
-                      {trip.destination || 'Destination TBD'}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                    <div style={{ fontSize: 12, color: '#1a3a4a', fontWeight: 600 }}>{dateStr}</div>
-                    <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
-                      {memberCount} {memberCount === 1 ? 'person' : 'people'}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+                {trip.name}
+              </span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: 10,
+                  background: phase.bg,
+                  color: phase.color,
+                }}
+              >
+                {phase.label}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: '#888' }}>
+              {trip.destination || 'Destination TBD'}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontSize: 12, color: '#1a3a4a', fontWeight: 600 }}>{dateStr}</div>
+            <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
+              {memberCount} {memberCount === 1 ? 'person' : 'people'}
+            </div>
+          </div>
         </div>
-      )}
+      </Link>
+      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          type="button"
+          disabled={busy === trip.id}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setArchived(trip.id, !isPast);
+          }}
+          style={{
+            background: 'none',
+            border: '1px solid rgba(0,0,0,0.1)',
+            borderRadius: 8,
+            padding: '6px 12px',
+            fontSize: 12,
+            color: '#888',
+            cursor: busy === trip.id ? 'default' : 'pointer',
+            fontFamily: "'Outfit', sans-serif",
+          }}
+        >
+          {busy === trip.id ? '...' : isPast ? 'Unarchive' : 'Archive'}
+        </button>
+      </div>
     </div>
   );
 }

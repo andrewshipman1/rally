@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import { stripHtml } from '@/lib/sanitize';
+import { getGuestUserId, setGuestCookie } from '@/lib/guest-auth';
+import { track } from '@/lib/analytics';
 
 function getAdminClient() {
   return createSupabaseClient(
@@ -9,35 +13,46 @@ function getAdminClient() {
   );
 }
 
-type RsvpStatus = 'in' | 'maybe' | 'out';
-
-const RSVP_LABELS: Record<RsvpStatus, string> = {
+const RSVP_LABELS = {
   in: 'Going',
   maybe: 'Maybe',
   out: "Can't make it",
-};
+} as const;
+
+const rsvpSchema = z
+  .object({
+    tripId: z.string().uuid(),
+    name: z.string().min(1).max(80),
+    email: z.string().email().optional(),
+    phone: z.string().min(5).max(20).optional(),
+    status: z.enum(['in', 'out', 'maybe']),
+  })
+  .refine((d) => !!d.email || !!d.phone, { message: 'email or phone required' });
 
 export async function POST(request: NextRequest) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+
+  const parsed = rsvpSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+
+  const { tripId, status } = parsed.data;
+  const cleanName = stripHtml(parsed.data.name);
+  const email = parsed.data.email?.trim();
+  const phone = parsed.data.phone?.trim();
+
+  if (!cleanName) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+
   try {
     const adminClient = getAdminClient();
-    const { tripId, email, phone, name, status } = (await request.json()) as {
-      tripId: string;
-      email?: string;
-      phone?: string;
-      name?: string;
-      status: RsvpStatus;
-    };
-
-    if (!tripId || !status || (!email && !phone)) {
-      return NextResponse.json(
-        { error: 'tripId, status, and email or phone required' },
-        { status: 400 }
-      );
-    }
-
-    if (!['in', 'maybe', 'out'].includes(status)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
-    }
 
     // Verify trip exists
     const { data: trip } = await adminClient
@@ -47,38 +62,47 @@ export async function POST(request: NextRequest) {
       .single();
     if (!trip) return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
 
-    // Find or create user
+    // If guest cookie present, lock identity to that user (cannot impersonate others).
+    const existingUserId = await getGuestUserId();
     let userId: string;
     let displayName: string;
+    let cookieJustIssued = false;
 
-    if (phone) {
+    if (existingUserId) {
+      const { data: existingUser } = await adminClient
+        .from('users')
+        .select('id, display_name')
+        .eq('id', existingUserId)
+        .maybeSingle();
+      if (!existingUser) {
+        return NextResponse.json({ error: 'Session invalid' }, { status: 401 });
+      }
+      userId = existingUser.id;
+      displayName = existingUser.display_name;
+    } else if (phone) {
       const { data: existing } = await adminClient
         .from('users')
         .select('id, display_name')
         .eq('phone', phone)
         .maybeSingle();
-
       if (existing) {
         userId = existing.id;
         displayName = existing.display_name;
-        if (name && name.trim() && existing.display_name !== name.trim()) {
-          await adminClient.from('users').update({ display_name: name.trim() }).eq('id', userId);
-          displayName = name.trim();
+        if (existing.display_name !== cleanName) {
+          await adminClient.from('users').update({ display_name: cleanName }).eq('id', userId);
+          displayName = cleanName;
         }
       } else {
         const { data: created, error: createErr } = await adminClient
           .from('users')
-          .insert({
-            phone,
-            email: email || null,
-            display_name: name?.trim() || phone,
-          })
+          .insert({ phone, email: email || null, display_name: cleanName })
           .select('id, display_name')
           .single();
         if (createErr) throw createErr;
         userId = created.id;
         displayName = created.display_name;
       }
+      cookieJustIssued = true;
     } else {
       const placeholderPhone = `email:${email}`;
       const { data: existing } = await adminClient
@@ -86,28 +110,28 @@ export async function POST(request: NextRequest) {
         .select('id, display_name')
         .eq('phone', placeholderPhone)
         .maybeSingle();
-
       if (existing) {
         userId = existing.id;
         displayName = existing.display_name;
-        if (name && name.trim() && existing.display_name !== name.trim()) {
-          await adminClient.from('users').update({ display_name: name.trim() }).eq('id', userId);
-          displayName = name.trim();
+        if (existing.display_name !== cleanName) {
+          await adminClient.from('users').update({ display_name: cleanName }).eq('id', userId);
+          displayName = cleanName;
         }
       } else {
         const { data: created, error: createErr } = await adminClient
           .from('users')
-          .insert({
-            phone: placeholderPhone,
-            email,
-            display_name: name?.trim() || email!,
-          })
+          .insert({ phone: placeholderPhone, email, display_name: cleanName })
           .select('id, display_name')
           .single();
         if (createErr) throw createErr;
         userId = created.id;
         displayName = created.display_name;
       }
+      cookieJustIssued = true;
+    }
+
+    if (cookieJustIssued) {
+      await setGuestCookie(userId);
     }
 
     // Upsert trip_member
@@ -131,19 +155,13 @@ export async function POST(request: NextRequest) {
     } else {
       const { data: created, error: createErr } = await adminClient
         .from('trip_members')
-        .insert({
-          trip_id: tripId,
-          user_id: userId,
-          role: 'guest',
-          rsvp: status,
-        })
+        .insert({ trip_id: tripId, user_id: userId, role: 'guest', rsvp: status })
         .select('id')
         .single();
       if (createErr) throw createErr;
       memberId = created.id;
     }
 
-    // Log activity feed entry (only if status actually changed)
     if (isStatusChange) {
       const emojis = (trip.rsvp_emojis as { going: string; maybe: string; cant: string } | null) || {
         going: '🙌',
@@ -162,17 +180,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      memberId,
-      userId,
-      displayName,
-    });
+    track('rsvp_submitted', { tripId, userId, metadata: { status } });
+
+    return NextResponse.json({ success: true, memberId, userId, displayName });
   } catch (err: unknown) {
     console.error('RSVP error:', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to RSVP' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 }

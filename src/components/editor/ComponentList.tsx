@@ -2,16 +2,24 @@
 
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import type { Lodging, Flight, Transport, Restaurant, Activity, TransportSubtype } from '@/types';
+import type { Lodging, Flight, Transport, Restaurant, Activity, Grocery, TransportSubtype } from '@/types';
 import { AirportInput } from './AirportInput';
 import { PlacesInput } from './PlacesInput';
+import { stripHtml } from '@/lib/sanitize';
+
+function parseCost(s: string): number | null {
+  if (!s) return null;
+  const n = parseFloat(s);
+  if (!Number.isFinite(n) || n < 0 || n > 1_000_000) return null;
+  return n;
+}
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type ComponentType = 'lodging' | 'flight' | 'transport' | 'restaurant' | 'activity';
+type ComponentType = 'lodging' | 'flight' | 'transport' | 'restaurant' | 'activity' | 'grocery';
 
 const COMPONENT_META: Record<ComponentType, { label: string; emoji: string; description: string }> = {
   lodging:    { label: 'Lodging',    emoji: '🏠', description: 'House, hotel, Airbnb — supports multiple options for voting' },
@@ -19,6 +27,7 @@ const COMPONENT_META: Record<ComponentType, { label: string; emoji: string; desc
   transport:  { label: 'Transport',  emoji: '🚗', description: 'Rental car, taxi, or public transit' },
   restaurant: { label: 'Restaurant', emoji: '🍽️', description: 'Reservation or group dinner' },
   activity:   { label: 'Activity',   emoji: '🤿', description: 'Excursion, tour, yoga class, etc.' },
+  grocery:    { label: 'Groceries',  emoji: '🛒', description: 'Grocery run with estimated total' },
 };
 
 export function ComponentList({
@@ -28,11 +37,13 @@ export function ComponentList({
   transport,
   restaurants,
   activities,
+  groceries,
   onLodgingChange,
   onFlightsChange,
   onTransportChange,
   onRestaurantsChange,
   onActivitiesChange,
+  onGroceriesChange,
 }: {
   tripId: string;
   lodging: Lodging[];
@@ -40,11 +51,13 @@ export function ComponentList({
   transport: Transport[];
   restaurants: Restaurant[];
   activities: Activity[];
+  groceries: Grocery[];
   onLodgingChange: (v: Lodging[]) => void;
   onFlightsChange: (v: Flight[]) => void;
   onTransportChange: (v: Transport[]) => void;
   onRestaurantsChange: (v: Restaurant[]) => void;
   onActivitiesChange: (v: Activity[]) => void;
+  onGroceriesChange: (v: Grocery[]) => void;
 }) {
   const [addingType, setAddingType] = useState<ComponentType | null>(null);
 
@@ -149,6 +162,23 @@ export function ComponentList({
         </Section>
       )}
 
+      {groceries.length > 0 && (
+        <Section title="Groceries" emoji="🛒">
+          {groceries.map((g) => (
+            <RowItem
+              key={g.id}
+              primary={g.name}
+              secondary={`~$${g.estimated_total || '?'} · ${g.cost_type === 'shared' ? 'Split' : 'Individual'}`}
+              onDelete={async () => {
+                if (!confirm('Remove this grocery run?')) return;
+                await supabase.from('groceries').delete().eq('id', g.id);
+                onGroceriesChange(groceries.filter((x) => x.id !== g.id));
+              }}
+            />
+          ))}
+        </Section>
+      )}
+
       {restaurants.length > 0 && (
         <Section title="Restaurants" emoji="🍽️">
           {restaurants.map((r) => (
@@ -173,6 +203,7 @@ export function ComponentList({
         transport.length === 0 &&
         restaurants.length === 0 &&
         activities.length === 0 &&
+        groceries.length === 0 &&
         !addingType && (
           <div
             style={{
@@ -207,7 +238,7 @@ export function ComponentList({
           >
             Add to trip
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
             {(Object.keys(COMPONENT_META) as ComponentType[]).map((type) => (
               <button
                 key={type}
@@ -244,6 +275,7 @@ export function ComponentList({
             if (type === 'transport') onTransportChange([...transport, item as Transport]);
             if (type === 'restaurant') onRestaurantsChange([...restaurants, item as Restaurant]);
             if (type === 'activity') onActivitiesChange([...activities, item as Activity]);
+            if (type === 'grocery') onGroceriesChange([...groceries, item as Grocery]);
             setAddingType(null);
           }}
         />
@@ -359,7 +391,7 @@ function AddForm({
   type: ComponentType;
   tripId: string;
   onCancel: () => void;
-  onAdded: (type: ComponentType, item: Lodging | Flight | Transport | Restaurant | Activity) => void;
+  onAdded: (type: ComponentType, item: Lodging | Flight | Transport | Restaurant | Activity | Grocery) => void;
 }) {
   const [saving, setSaving] = useState(false);
   const [enriching, setEnriching] = useState(false);
@@ -394,6 +426,11 @@ function AddForm({
   const [activityCost, setActivityCost] = useState('');
   const [activityCostType, setActivityCostType] = useState<'shared' | 'individual'>('individual');
 
+  // Grocery
+  const [groceryStore, setGroceryStore] = useState('');
+  const [groceryTotal, setGroceryTotal] = useState('');
+  const [groceryCostType, setGroceryCostType] = useState<'shared' | 'individual'>('shared');
+
   const enrichLink = async (url: string) => {
     if (!url) return;
     setEnriching(true);
@@ -421,14 +458,14 @@ function AddForm({
           .from('lodging')
           .insert({
             trip_id: tripId,
-            name: name.trim(),
+            name: stripHtml(name),
             link: link.trim() || null,
-            cost_per_night: costPerNight ? parseFloat(costPerNight) : null,
+            cost_per_night: parseCost(costPerNight),
             og_image_url: ogImage,
-            address: address.trim() || null,
+            address: stripHtml(address) || null,
             latitude,
             longitude,
-            notes: notes.trim() || null,
+            notes: stripHtml(notes) || null,
           })
           .select()
           .single();
@@ -439,11 +476,11 @@ function AddForm({
           .from('flights')
           .insert({
             trip_id: tripId,
-            departure_airport: depAirport.trim().toUpperCase(),
-            arrival_airport: arrAirport.trim().toUpperCase(),
-            estimated_price: flightPrice ? parseFloat(flightPrice) : null,
+            departure_airport: stripHtml(depAirport).toUpperCase(),
+            arrival_airport: stripHtml(arrAirport).toUpperCase(),
+            estimated_price: parseCost(flightPrice),
             booking_link: link.trim() || null,
-            notes: notes.trim() || null,
+            notes: stripHtml(notes) || null,
           })
           .select()
           .single();
@@ -455,10 +492,10 @@ function AddForm({
           .insert({
             trip_id: tripId,
             subtype,
-            estimated_total: transportTotal ? parseFloat(transportTotal) : null,
+            estimated_total: parseCost(transportTotal),
             cost_type: transportCostType,
             booking_link: link.trim() || null,
-            notes: notes.trim() || null,
+            notes: stripHtml(notes) || null,
           })
           .select()
           .single();
@@ -469,32 +506,50 @@ function AddForm({
           .from('restaurants')
           .insert({
             trip_id: tripId,
-            name: name.trim(),
+            name: stripHtml(name),
             link: link.trim() || null,
             og_image_url: ogImage,
-            address: address.trim() || null,
+            address: stripHtml(address) || null,
             latitude,
             longitude,
-            notes: notes.trim() || null,
+            notes: stripHtml(notes) || null,
           })
           .select()
           .single();
         if (error) throw error;
         onAdded('restaurant', data as Restaurant);
+      } else if (type === 'grocery') {
+        const { data, error } = await supabase
+          .from('groceries')
+          .insert({
+            trip_id: tripId,
+            name: stripHtml(name) || 'Grocery Run',
+            store_name: stripHtml(groceryStore) || null,
+            store_address: stripHtml(address) || null,
+            latitude,
+            longitude,
+            estimated_total: parseCost(groceryTotal),
+            cost_type: groceryCostType,
+            notes: stripHtml(notes) || null,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        onAdded('grocery', data as Grocery);
       } else if (type === 'activity') {
         const { data, error } = await supabase
           .from('activities')
           .insert({
             trip_id: tripId,
-            name: name.trim(),
-            estimated_cost: activityCost ? parseFloat(activityCost) : null,
+            name: stripHtml(name),
+            estimated_cost: parseCost(activityCost),
             cost_type: activityCostType,
             link: link.trim() || null,
             og_image_url: ogImage,
-            location: address.trim() || null,
+            location: stripHtml(address) || null,
             latitude,
             longitude,
-            notes: notes.trim() || null,
+            notes: stripHtml(notes) || null,
           })
           .select()
           .single();
@@ -512,6 +567,7 @@ function AddForm({
     if (type === 'lodging' || type === 'restaurant' || type === 'activity') return name.trim().length > 0;
     if (type === 'flight') return depAirport.trim() && arrAirport.trim();
     if (type === 'transport') return !!subtype;
+    if (type === 'grocery') return true;
     return false;
   })();
 
@@ -821,6 +877,70 @@ function AddForm({
         </>
       )}
 
+      {/* Grocery form */}
+      {type === 'grocery' && (
+        <>
+          <div>
+            <label style={labelStyle}>Name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Costco run"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Store</label>
+            <input
+              value={groceryStore}
+              onChange={(e) => setGroceryStore(e.target.value)}
+              placeholder="Costco / Trader Joe's"
+              style={inputStyle}
+            />
+          </div>
+          <PlacesInput
+            label="Store address (optional)"
+            value={address}
+            onChange={setAddress}
+            onPlaceSelected={(p) => {
+              setAddress(p.description);
+              setLatitude(p.latitude ?? null);
+              setLongitude(p.longitude ?? null);
+            }}
+            placeholder="Where to shop"
+            types={['establishment']}
+          />
+          <div>
+            <label style={labelStyle}>Estimated total</label>
+            <PriceInput value={groceryTotal} onChange={setGroceryTotal} />
+          </div>
+          <div>
+            <label style={labelStyle}>Split or individual?</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['shared', 'individual'] as const).map((ct) => (
+                <button
+                  key={ct}
+                  onClick={() => setGroceryCostType(ct)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 4px',
+                    borderRadius: 8,
+                    border: groceryCostType === ct ? '1px solid #fff' : '1px solid rgba(255,255,255,0.15)',
+                    background: groceryCostType === ct ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
+                    color: groceryCostType === ct ? '#fff' : 'rgba(255,255,255,0.55)',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {ct === 'shared' ? 'Split across group' : 'Individual'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Notes field (all types) */}
       <div>
         <label style={labelStyle}>Notes (optional)</label>
@@ -858,9 +978,17 @@ function PriceInput({ value, onChange }: { value: string; onChange: (v: string) 
     <div style={{ position: 'relative' }}>
       <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>$</span>
       <input
-        type="number"
+        type="text"
+        inputMode="decimal"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          const cleaned = e.target.value.replace(/[^0-9.]/g, '');
+          if (cleaned === '' || !isNaN(parseFloat(cleaned))) {
+            onChange(cleaned);
+          } else if (cleaned === '.') {
+            onChange(cleaned);
+          }
+        }}
         placeholder="0"
         style={{
           width: '100%',

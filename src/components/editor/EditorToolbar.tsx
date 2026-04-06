@@ -2,6 +2,7 @@
 
 import type { Theme, RsvpEmojis } from '@/types';
 import type { TripPhase } from '@/types';
+import { track } from '@/lib/analytics';
 
 type Tab = 'theme' | 'effect' | 'settings';
 
@@ -10,6 +11,13 @@ const PHASE_LABELS: Record<TripPhase, string> = {
   sell: 'Sell',
   lock: 'Lock',
   go: 'Go',
+};
+
+const PHASE_SUBTITLES: Record<TripPhase, string> = {
+  sketch: 'Building the plan',
+  sell: 'Collecting RSVPs',
+  lock: 'Trip confirmed',
+  go: 'On the trip',
 };
 
 export function EditorToolbar({
@@ -22,7 +30,9 @@ export function EditorToolbar({
   onPhaseChange,
   deadline,
   onDeadlineChange,
+  dateStart,
   shareSlug,
+  tripId,
   rsvpEmojis,
   onRsvpEmojisChange,
 }: {
@@ -35,7 +45,9 @@ export function EditorToolbar({
   onPhaseChange: (phase: TripPhase) => void;
   deadline: string;
   onDeadlineChange: (date: string) => void;
+  dateStart: string;
   shareSlug: string;
+  tripId: string;
   rsvpEmojis: RsvpEmojis;
   onRsvpEmojisChange: (e: RsvpEmojis) => void;
 }) {
@@ -46,6 +58,13 @@ export function EditorToolbar({
   const copyShareLink = () => {
     const url = `${window.location.origin}/trip/${shareSlug}`;
     navigator.clipboard.writeText(url);
+    try {
+      const key = `rally:shared:${tripId}`;
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, '1');
+        track('trip_shared', { tripId, metadata: { shareMethod: 'clipboard' } });
+      }
+    } catch {}
   };
 
   return (
@@ -80,6 +99,7 @@ export function EditorToolbar({
                 onPhaseChange={onPhaseChange}
                 deadline={deadline}
                 onDeadlineChange={onDeadlineChange}
+                dateStart={dateStart}
                 onCopyLink={copyShareLink}
                 rsvpEmojis={rsvpEmojis}
                 onRsvpEmojisChange={onRsvpEmojisChange}
@@ -265,6 +285,7 @@ function SettingsPanel({
   onPhaseChange,
   deadline,
   onDeadlineChange,
+  dateStart,
   onCopyLink,
   rsvpEmojis,
   onRsvpEmojisChange,
@@ -273,10 +294,20 @@ function SettingsPanel({
   onPhaseChange: (p: TripPhase) => void;
   deadline: string;
   onDeadlineChange: (d: string) => void;
+  dateStart: string;
   onCopyLink: () => void;
   rsvpEmojis: RsvpEmojis;
   onRsvpEmojisChange: (e: RsvpEmojis) => void;
 }) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const minDate = todayStr;
+  const maxDate = dateStart && dateStart >= todayStr ? dateStart : undefined;
+  const deadlineError = (() => {
+    if (!deadline) return null;
+    if (deadline < todayStr) return 'Deadline cannot be in the past';
+    if (dateStart && deadline > dateStart) return 'Deadline must be on or before the trip start';
+    return null;
+  })();
   return (
     <>
       <PanelLabel text="Phase" />
@@ -287,7 +318,7 @@ function SettingsPanel({
             onClick={() => onPhaseChange(p)}
             style={{
               flex: 1,
-              padding: '10px 0',
+              padding: '8px 4px',
               borderRadius: 8,
               border: phase === p ? '1px solid #fff' : '1px solid rgba(255,255,255,0.15)',
               background: phase === p ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)',
@@ -295,9 +326,25 @@ function SettingsPanel({
               fontSize: 12,
               fontWeight: 600,
               cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+              lineHeight: 1.1,
+              fontFamily: 'inherit',
             }}
           >
-            {PHASE_LABELS[p]}
+            <span>{PHASE_LABELS[p]}</span>
+            <span
+              style={{
+                fontSize: 8,
+                fontWeight: 500,
+                opacity: phase === p ? 0.85 : 0.55,
+                letterSpacing: 0.2,
+              }}
+            >
+              {PHASE_SUBTITLES[p]}
+            </span>
           </button>
         ))}
       </div>
@@ -306,20 +353,27 @@ function SettingsPanel({
       <input
         type="date"
         value={deadline}
+        min={minDate}
+        max={maxDate}
         onChange={(e) => onDeadlineChange(e.target.value)}
         style={{
           width: '100%',
           padding: '12px 14px',
           borderRadius: 10,
-          border: '1px solid rgba(255,255,255,0.15)',
+          border: deadlineError
+            ? '1px solid rgba(255,120,120,0.6)'
+            : '1px solid rgba(255,255,255,0.15)',
           background: 'rgba(255,255,255,0.05)',
           color: '#fff',
           fontSize: 13,
           outline: 'none',
           colorScheme: 'dark',
-          marginBottom: 16,
+          marginBottom: deadlineError ? 4 : 16,
         }}
       />
+      {deadlineError && (
+        <div style={{ fontSize: 11, color: '#ff8a8a', marginBottom: 14 }}>{deadlineError}</div>
+      )}
 
       <PanelLabel text="RSVP emojis" />
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 4 }}>

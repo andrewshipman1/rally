@@ -39,7 +39,7 @@ export default async function HomePage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: '#faf9f7',
         fontFamily: "'Outfit', sans-serif",
       }}

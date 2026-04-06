@@ -1,6 +1,7 @@
 import type { TripWithDetails, TripCostSummary } from '@/types';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Badge } from '@/components/ui/Badge';
+import { formatMoney } from '@/lib/money';
 
 export function CostBreakdown({
   trip,
@@ -25,7 +26,7 @@ export function CostBreakdown({
         : 1);
     const lodgingCost =
       selectedLodging.total_cost || (selectedLodging.cost_per_night || 0) * nights;
-    const perPerson = Math.round(lodgingCost / (cost.confirmed_count || 1));
+    const perPerson = Math.round(lodgingCost / (cost.divisor_used));
     if (perPerson > 0) items.push({ label: 'Accommodation', val: perPerson, icon: '🏠' });
   }
 
@@ -39,7 +40,7 @@ export function CostBreakdown({
     .filter((t) => t.cost_type === 'individual')
     .reduce((s, t) => s + (t.estimated_total || 0), 0);
   const transportPerPerson =
-    Math.round(sharedTransport / (cost.confirmed_count || 1)) + indTransport;
+    Math.round(sharedTransport / (cost.divisor_used)) + indTransport;
   if (transportPerPerson > 0) items.push({ label: 'Transport', val: transportPerPerson, icon: '🚗' });
 
   const sharedMeals = trip.restaurants
@@ -58,7 +59,7 @@ export function CostBreakdown({
     .filter((a) => a.cost_type === 'individual')
     .reduce((s, a) => s + (a.estimated_cost || 0), 0);
   const activitiesPerPerson =
-    Math.round(sharedActs / (cost.confirmed_count || 1)) + indActs;
+    Math.round(sharedActs / (cost.divisor_used)) + indActs;
   if (activitiesPerPerson > 0)
     items.push({ label: 'Activities', val: activitiesPerPerson, icon: '🤿' });
 
@@ -89,10 +90,13 @@ export function CostBreakdown({
             lineHeight: 1,
           }}
         >
-          ~${cost.per_person_total}
+          ~{formatMoney(cost.per_person_total)}
         </div>
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 3, marginBottom: 16 }}>
-          {nights} nights • {cost.confirmed_count} {cost.confirmed_count === 1 ? 'person' : 'people'}
+          {nights} nights •{' '}
+          {cost.divisor_is_estimate
+            ? `estimated for ${cost.divisor_used} people`
+            : `${cost.divisor_used} going`}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, textAlign: 'left' }}>
@@ -135,7 +139,7 @@ export function CostBreakdown({
                     fontVariantNumeric: 'tabular-nums',
                   }}
                 >
-                  ${b.val}
+                  {formatMoney(b.val)}
                 </span>
               </div>
             </div>
@@ -144,12 +148,12 @@ export function CostBreakdown({
 
         <div style={{ display: 'flex', gap: 6, marginTop: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Badge
-            text={`🏠 Shared: ~$${cost.per_person_shared}/pp`}
+            text={`🏠 Shared: ~${formatMoney(cost.per_person_shared, '/pp')}`}
             bg="rgba(45,107,90,.2)"
             color="#7ecdb8"
           />
           <Badge
-            text={`✈️ Book yours: ~$${cost.individual_total}`}
+            text={`✈️ Book yours: ~${formatMoney(cost.individual_total)}`}
             bg="rgba(26,58,74,.2)"
             color="rgba(255,255,255,.7)"
           />

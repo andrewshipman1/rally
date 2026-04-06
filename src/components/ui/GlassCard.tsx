@@ -1,9 +1,11 @@
 export function GlassCard({
   children,
   className = '',
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   return (
     <div
@@ -15,6 +17,7 @@ export function GlassCard({
         backdropFilter: 'blur(14px)',
         WebkitBackdropFilter: 'blur(14px)',
         border: '1px solid rgba(255,255,255,0.1)',
+        ...style,
       }}
     >
       {children}

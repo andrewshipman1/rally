@@ -25,7 +25,7 @@ export default async function CreatePage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: '#faf9f7',
         fontFamily: "'Outfit', sans-serif",
       }}

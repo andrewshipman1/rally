@@ -27,7 +27,7 @@ export default async function SetupPage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: 'linear-gradient(168deg, #122c35 0%, #1a3d4a 30%, #2d6b5a 60%, #3a8a7a 100%)',
         display: 'flex',
         alignItems: 'center',

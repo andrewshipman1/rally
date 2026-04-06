@@ -67,6 +67,7 @@ export interface Trip {
   playlist_url: string | null;
   house_rules: string | null;
   rsvp_emojis: RsvpEmojis;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -225,6 +226,24 @@ export interface Activity {
   updated_at: string;
 }
 
+export interface Grocery {
+  id: string;
+  trip_id: string;
+  name: string;
+  estimated_total: number | null;
+  store_name: string | null;
+  store_address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  cost_type: 'shared' | 'individual';
+  status: ComponentStatus;
+  booked_by: string | null;
+  notes: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─── Other Entities ───
 
 export interface TripMember {
@@ -234,6 +253,7 @@ export interface TripMember {
   role: MemberRole;
   rsvp: RsvpStatus;
   payment_status: PaymentStatus;
+  payment_requested_at: string | null;
   cost_share: number | null;
   plus_one: boolean;
   arrival_flight: string | null;
@@ -301,6 +321,7 @@ export interface TripWithDetails extends Trip {
   transport: Transport[];
   restaurants: Restaurant[];
   activities: Activity[];
+  groceries: Grocery[];
   members: (TripMember & { user: User })[];
   polls: (Poll & { votes: (PollVote & { user: User })[] })[];
   comments: (Comment & { user: User })[];
@@ -331,11 +352,24 @@ export interface TripCostSummary {
   per_person_shared: number;
   per_person_total: number;
   confirmed_count: number;
+  divisor_used: number;
+  divisor_is_estimate: boolean;
 }
 
 export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
   // Count members who are 'in' or 'maybe' (not 'out' or 'pending')
-  const confirmed = trip.members.filter(m => m.rsvp === 'in' || m.rsvp === 'maybe').length || 1;
+  const confirmed = trip.members.filter(m => m.rsvp === 'in' || m.rsvp === 'maybe').length;
+
+  // If fewer than 2 actual confirmed, fall back to group_size as an estimate
+  let divisor_used: number;
+  let divisor_is_estimate: boolean;
+  if (confirmed < 2 && trip.group_size && trip.group_size > 0) {
+    divisor_used = trip.group_size;
+    divisor_is_estimate = true;
+  } else {
+    divisor_used = Math.max(1, confirmed);
+    divisor_is_estimate = false;
+  }
 
   const selectedLodging = trip.lodging.find(l => l.is_selected) || trip.lodging[0];
   const nights = selectedLodging?.num_nights ||
@@ -347,9 +381,12 @@ export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
     : 0;
 
   const sharedTransport = trip.transport.filter(t => t.cost_type === 'shared').reduce((s, t) => s + (t.estimated_total || 0), 0);
-  const sharedRestaurants = trip.restaurants.filter(r => r.cost_type === 'shared').reduce((s, r) => s + (r.cost_per_person || 0) * confirmed, 0);
-  const sharedActivities = trip.activities.filter(a => a.cost_type === 'shared').reduce((s, a) => s + (a.estimated_cost || 0) * confirmed, 0);
-  const shared_total = lodgingCost + sharedTransport + sharedRestaurants + sharedActivities;
+  const sharedRestaurants = trip.restaurants.filter(r => r.cost_type === 'shared').reduce((s, r) => s + (r.cost_per_person || 0) * divisor_used, 0);
+  const sharedActivities = trip.activities.filter(a => a.cost_type === 'shared').reduce((s, a) => s + (a.estimated_cost || 0) * divisor_used, 0);
+  const sharedGroceries = (trip.groceries || [])
+    .filter(g => g.cost_type === 'shared')
+    .reduce((s, g) => s + (g.estimated_total || 0), 0);
+  const shared_total = lodgingCost + sharedTransport + sharedRestaurants + sharedActivities + sharedGroceries;
 
   const flights = trip.flights.reduce((s, f) => s + (f.estimated_price || 0), 0);
   const indActivities = trip.activities.filter(a => a.cost_type === 'individual').reduce((s, a) => s + (a.estimated_cost || 0), 0);
@@ -357,10 +394,18 @@ export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
   const indTransport = trip.transport.filter(t => t.cost_type === 'individual').reduce((s, t) => s + (t.estimated_total || 0), 0);
   const individual_total = flights + indActivities + indRestaurants + indTransport;
 
-  const per_person_shared = Math.round(shared_total / confirmed);
+  const per_person_shared = Math.round(shared_total / divisor_used);
   const per_person_total = per_person_shared + individual_total;
 
-  return { shared_total, individual_total, per_person_shared, per_person_total, confirmed_count: confirmed };
+  return {
+    shared_total,
+    individual_total,
+    per_person_shared,
+    per_person_total,
+    confirmed_count: confirmed,
+    divisor_used,
+    divisor_is_estimate,
+  };
 }
 
 // ─── Theme CSS Variables ───

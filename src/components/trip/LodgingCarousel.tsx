@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { MapsLink } from './MapsLink';
 import { createBrowserClient } from '@supabase/ssr';
+import { track } from '@/lib/analytics';
+import { formatMoney } from '@/lib/money';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,6 +66,7 @@ export function LodgingCarousel({
           ...prev,
           [current.id]: [...(prev[current.id] || []), data as LodgingVote & { user: User }],
         }));
+        track('lodging_voted', { userId: currentUserId, metadata: { lodgingId: current.id } });
       }
     }
   };
@@ -159,7 +162,7 @@ export function LodgingCarousel({
           <Badge text="🏠 The House" bg="#2d6b5a" color="#fff" />
           {ppn && (
             <span style={{ fontSize: 10, color: '#d4a574', fontWeight: 600 }}>
-              ~${ppn}/night • Split
+              ~{formatMoney(ppn, '/night')} • Split
             </span>
           )}
         </div>

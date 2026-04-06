@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Theme } from '@/types';
 import { ThemePicker } from './ThemePicker';
+import { track } from '@/lib/analytics';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,6 +55,12 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
         user_id: userId,
         role: 'organizer',
         rsvp: 'in',
+      });
+
+      track('trip_created', {
+        tripId: trip.id,
+        userId,
+        metadata: { destination: destination.trim() || null, theme: selectedTheme },
       });
 
       router.push(`/edit/${trip.id}`);

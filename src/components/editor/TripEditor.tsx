@@ -3,14 +3,15 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import type { Theme, Lodging, Flight, Transport, Restaurant, Activity, PackingItem, RsvpEmojis, HeaderImage } from '@/types';
+import type { Theme, Lodging, Flight, Transport, Restaurant, Activity, Grocery, PackingItem, RsvpEmojis } from '@/types';
 import { themeToCSS } from '@/types';
+import { stripHtml } from '@/lib/sanitize';
 import type { EditableTrip } from '@/app/edit/[id]/page';
 import { ComponentList } from './ComponentList';
 import { EditorToolbar } from './EditorToolbar';
 import { TripExtras } from './TripExtras';
 import { InviteSection } from './InviteSection';
-import { HeaderBuilder } from './HeaderBuilder';
+import { CoverPhotoUploader } from './CoverPhotoUploader';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,6 +48,7 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
   const [transport, setTransport] = useState<Transport[]>(trip.transport || []);
   const [restaurants, setRestaurants] = useState<Restaurant[]>(trip.restaurants || []);
   const [activities, setActivities] = useState<Activity[]>(trip.activities || []);
+  const [groceries, setGroceries] = useState<Grocery[]>(trip.groceries || []);
 
   // Extras state
   const [packingList, setPackingList] = useState<PackingItem[]>(trip.packing_list || []);
@@ -56,11 +58,19 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
   const [rsvpEmojis, setRsvpEmojis] = useState<RsvpEmojis>(
     trip.rsvp_emojis || { going: '🙌', maybe: '🤔', cant: '😢' }
   );
-  const [headerImages, setHeaderImages] = useState<HeaderImage[]>(trip.header_images || []);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(trip.cover_image_url);
 
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'theme' | 'effect' | 'settings' | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const committedCount = (trip.members || []).filter((m) => m.rsvp === 'in').length;
+  const deadlinePassed = useMemo(() => {
+    if (!deadline) return false;
+    return new Date(deadline).getTime() < Date.now();
+  }, [deadline]);
+  const showLockBanner = deadlinePassed && phase === 'sell';
 
   // Resolved theme (from selectedThemeId)
   const selectedTheme = useMemo(
@@ -77,23 +87,42 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
   const fontUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontDisplay)}:ital,wght@0,400;0,700;0,800;1,400&family=${encodeURIComponent(fontBody)}:wght@400;500;600;700&family=Syne:wght@600;700;800&family=Cormorant+Garamond:wght@400;600;700&family=Playfair+Display:wght@400;700;800&family=DM+Sans:wght@400;500;600;700&display=swap`;
 
   // ─── Save (debounced trigger via button) ───
-  const save = async () => {
+  const save = async (overrides?: { phase?: typeof phase }) => {
+    setSaveError(null);
+    const nextPhase = overrides?.phase ?? phase;
+    // Validation
+    if (dateStart && dateEnd && dateEnd < dateStart) {
+      setSaveError('End date must be on or after start date');
+      return;
+    }
+    if (deadline) {
+      const today = new Date().toISOString().split('T')[0];
+      if (deadline < today) {
+        setSaveError('Deadline cannot be in the past');
+        return;
+      }
+      if (dateStart && deadline > dateStart) {
+        setSaveError('Deadline must be on or before the trip start');
+        return;
+      }
+    }
     setSaving(true);
     await supabase
       .from('trips')
       .update({
-        name: name.trim(),
-        destination: destination.trim() || null,
-        tagline: tagline.trim() || null,
-        description: description.trim() || null,
+        name: stripHtml(name),
+        destination: stripHtml(destination) || null,
+        tagline: stripHtml(tagline) || null,
+        description: stripHtml(description) || null,
         date_start: dateStart || null,
         date_end: dateEnd || null,
         commit_deadline: deadline ? new Date(deadline).toISOString() : null,
         theme_id: selectedThemeId,
-        phase,
+        phase: nextPhase,
         rsvp_emojis: rsvpEmojis,
       })
       .eq('id', trip.id);
+    if (overrides?.phase) setPhase(nextPhase);
     setSaving(false);
     setSavedAt(Date.now());
     setTimeout(() => setSavedAt(null), 2000);
@@ -105,7 +134,7 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
       <link href={fontUrl} rel="stylesheet" />
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100dvh',
           background: bgStyle,
           fontFamily: `'${fontBody}', sans-serif`,
           position: 'relative',
@@ -179,7 +208,7 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
               Preview
             </a>
             <button
-              onClick={save}
+              onClick={() => save()}
               disabled={saving}
               style={{
                 padding: '10px 18px',
@@ -198,6 +227,80 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
             </button>
           </div>
         </div>
+        {showLockBanner && (
+          <div
+            style={{
+              maxWidth: 460,
+              margin: '12px auto 0',
+              padding: '12px 14px',
+              background: 'linear-gradient(135deg, rgba(255,180,80,0.22), rgba(255,120,80,0.18))',
+              border: '1px solid rgba(255,180,80,0.45)',
+              color: '#fff',
+              borderRadius: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700 }}>
+              ⏰ Deadline passed · {committedCount} {committedCount === 1 ? 'person' : 'people'} committed · Lock the trip?
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => save({ phase: 'lock' })}
+                disabled={saving}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #fff, #f0ebe5)',
+                  color: '#1a3a4a',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Lock it
+              </button>
+              <button
+                onClick={() => setActiveTab('settings')}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: '#fff',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Extend deadline
+              </button>
+            </div>
+          </div>
+        )}
+        {saveError && (
+          <div
+            style={{
+              maxWidth: 460,
+              margin: '8px auto 0',
+              padding: '8px 14px',
+              background: 'rgba(255,80,80,0.18)',
+              border: '1px solid rgba(255,80,80,0.4)',
+              color: '#ffb3b3',
+              borderRadius: 10,
+              fontSize: 12,
+              textAlign: 'center',
+            }}
+          >
+            {saveError}
+          </div>
+        )}
 
         <div style={{ maxWidth: 460, margin: '0 auto', padding: '20px 16px', position: 'relative' }}>
           {/* ─── Hero (inline editable) ─── */}
@@ -212,10 +315,11 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
               textAlign: 'center',
             }}
           >
-            <input
+            <textarea
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Trip name"
+              rows={1}
               style={{
                 width: '100%',
                 background: 'transparent',
@@ -227,10 +331,14 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
                 fontWeight: 800,
                 textAlign: 'center',
                 letterSpacing: -1.2,
-                lineHeight: 1,
+                lineHeight: 1.05,
                 padding: 0,
                 textShadow: '0 2px 30px rgba(0,0,0,.3)',
-              }}
+                resize: 'none',
+                overflow: 'hidden',
+                fieldSizing: 'content',
+                wordBreak: 'break-word',
+              } as React.CSSProperties}
             />
             <input
               value={tagline}
@@ -316,11 +424,11 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
             />
           </GlassSection>
 
-          {/* ─── Header builder ─── */}
-          <HeaderBuilder
+          {/* ─── Cover photo ─── */}
+          <CoverPhotoUploader
             tripId={trip.id}
-            headerImages={headerImages}
-            onChange={setHeaderImages}
+            coverImageUrl={coverImageUrl}
+            onChange={setCoverImageUrl}
           />
 
           {/* ─── Invite section ─── */}
@@ -348,11 +456,13 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
               transport={transport}
               restaurants={restaurants}
               activities={activities}
+              groceries={groceries}
               onLodgingChange={setLodging}
               onFlightsChange={setFlights}
               onTransportChange={setTransport}
               onRestaurantsChange={setRestaurants}
               onActivitiesChange={setActivities}
+              onGroceriesChange={setGroceries}
             />
           </div>
         </div>
@@ -368,7 +478,9 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
           onPhaseChange={setPhase}
           deadline={deadline}
           onDeadlineChange={setDeadline}
+          dateStart={dateStart}
           shareSlug={trip.share_slug}
+          tripId={trip.id}
           rsvpEmojis={rsvpEmojis}
           onRsvpEmojisChange={setRsvpEmojis}
         />

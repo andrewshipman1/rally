@@ -5,6 +5,7 @@ import type { TripMember, User } from '@/types';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { displayName } from '@/lib/display';
 
 const COLORS = ['#2d6b5a', '#c4956a', '#3a8a7a', '#d4a574', '#1a3d4a', '#8b6f5c'];
 
@@ -27,6 +28,11 @@ export function GuestList({
   const goingCount = members.filter((m) => m.rsvp === 'in').length;
   const visibleAvatars = members.slice(0, 8);
   const overflow = members.length - visibleAvatars.length;
+  const onlyOrganizer = members.length === 1 && members[0].user_id === organizerId;
+  const organizerFirstName = members[0]?.user.display_name?.split(' ')[0] || 'Organizer';
+  const headerLabel = onlyOrganizer
+    ? `👥 ${displayName(organizerFirstName)}'s hosting`
+    : `👥 Guest list · ${goingCount} going`;
 
   return (
     <>
@@ -49,7 +55,7 @@ export function GuestList({
               fontFamily: 'var(--rally-font-body)',
             }}
           >
-            👥 Guest list · {goingCount} going
+            {headerLabel}
           </div>
           <button
             onClick={() => setShowAll(true)}
@@ -101,10 +107,24 @@ export function GuestList({
                   textAlign: 'center',
                 }}
               >
-                {m.user.display_name.split(' ')[0]}
+                {displayName(m.user.display_name.split(' ')[0], 12)}
               </div>
             </div>
           ))}
+          {onlyOrganizer && (
+            <div
+              style={{
+                fontSize: 12,
+                color: 'rgba(255,255,255,0.65)',
+                fontStyle: 'italic',
+                alignSelf: 'center',
+                marginLeft: 6,
+                lineHeight: 1.3,
+              }}
+            >
+              Share the link to get your crew on board
+            </div>
+          )}
           {overflow > 0 && (
             <button
               onClick={() => setShowAll(true)}
@@ -199,7 +219,7 @@ export function GuestList({
                       />
                       <div>
                         <div style={{ fontSize: 14, color: '#fff', fontWeight: 600 }}>
-                          {m.user.display_name}
+                          {displayName(m.user.display_name, 24)}
                           {m.user.id === organizerId && (
                             <span style={{ marginLeft: 6, fontSize: 9, color: '#7ecdb8', fontWeight: 600 }}>
                               · organizer

@@ -3,6 +3,7 @@ import { SolidCard } from '@/components/ui/SolidCard';
 import { Badge } from '@/components/ui/Badge';
 import { MapsLink } from './MapsLink';
 import { format } from 'date-fns';
+import { formatMoney } from '@/lib/money';
 
 export function ActivityCard({ activity }: { activity: Activity }) {
   const dateStr = activity.date ? format(new Date(activity.date), 'EEE, MMM d') : null;
@@ -76,7 +77,7 @@ export function ActivityCard({ activity }: { activity: Activity }) {
                   fontFamily: 'var(--rally-font-body)',
                 }}
               >
-                ~${activity.estimated_cost}
+                ~{formatMoney(activity.estimated_cost)}
               </div>
               <div style={{ fontSize: 9, color: '#999' }}>
                 {activity.cost_type === 'shared' ? 'total, split' : 'per person'}

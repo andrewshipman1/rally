@@ -3,6 +3,7 @@ import { SolidCard } from '@/components/ui/SolidCard';
 import { Badge } from '@/components/ui/Badge';
 import { MapsLink } from './MapsLink';
 import { format } from 'date-fns';
+import { formatMoney } from '@/lib/money';
 
 export function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
   const dateStr = restaurant.date ? format(new Date(restaurant.date), 'EEE, MMM d') : null;
@@ -73,7 +74,7 @@ export function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
         )}
         {restaurant.cost_per_person != null && (
           <div style={{ fontSize: 11, color: '#2d6b5a', fontWeight: 700, marginTop: 4 }}>
-            ~${restaurant.cost_per_person}/person
+            ~{formatMoney(restaurant.cost_per_person, '/person')}
           </div>
         )}
       </div>

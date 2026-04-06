@@ -1,8 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { TripMember, User, RsvpStatus } from '@/types';
 import { Avatar } from '@/components/ui/Avatar';
+
+type Member = TripMember & { user: User };
+
+type UndoState = {
+  member: Member;
+  expiresAt: number;
+} | null;
 
 const COLORS = ['#2d6b5a', '#c4956a', '#3a8a7a', '#d4a574', '#1a3d4a', '#8b6f5c'];
 
@@ -20,12 +27,21 @@ export function InviteSection({
   tripId: string;
   members: (TripMember & { user: User })[];
 }) {
-  const [members, setMembers] = useState(initialMembers);
+  const [members, setMembers] = useState<Member[]>(initialMembers);
   const [identifier, setIdentifier] = useState('');
   const [name, setName] = useState('');
   const [method, setMethod] = useState<'email' | 'phone'>('email');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
+  const [undo, setUndo] = useState<UndoState>(null);
+  const [tick, setTick] = useState(0);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!undo) return;
+    const interval = setInterval(() => setTick((t) => t + 1), 250);
+    return () => clearInterval(interval);
+  }, [undo]);
 
   const invite = async () => {
     if (!identifier.trim()) return;
@@ -60,15 +76,34 @@ export function InviteSection({
     }
   };
 
-  const remove = async (memberId: string) => {
-    if (!confirm('Remove this person from the trip?')) return;
-    try {
-      await fetch(`/api/invite?memberId=${memberId}`, { method: 'DELETE' });
-      setMembers((prev) => prev.filter((m) => m.id !== memberId));
-    } catch {
-      // ignore
-    }
+  const remove = (memberId: string) => {
+    const target = members.find((m) => m.id === memberId);
+    if (!target) return;
+    setMembers((prev) => prev.filter((m) => m.id !== memberId));
+    setUndo({ member: target, expiresAt: Date.now() + 5000 });
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(async () => {
+      setUndo(null);
+      try {
+        await fetch(`/api/invite?memberId=${memberId}`, { method: 'DELETE' });
+      } catch {
+        // ignore
+      }
+    }, 5000);
   };
+
+  const undoRemove = () => {
+    if (!undo) return;
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setMembers((prev) => [...prev, undo.member]);
+    setUndo(null);
+  };
+
+  const undoSecondsLeft = undo
+    ? Math.max(0, Math.ceil((undo.expiresAt - Date.now()) / 1000))
+    : 0;
+  // Reference tick to keep linter happy and force re-render via effect.
+  void tick;
 
   return (
     <div
@@ -221,6 +256,42 @@ export function InviteSection({
       {error && (
         <div style={{ marginTop: 8, fontSize: 11, color: '#ff8a8a', textAlign: 'center' }}>
           {error}
+        </div>
+      )}
+
+      {undo && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: '10px 14px',
+            background: 'rgba(20,30,40,0.9)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <div style={{ fontSize: 12, color: '#fff' }}>
+            {undo.member.user.display_name} removed. ({undoSecondsLeft}s)
+          </div>
+          <button
+            onClick={undoRemove}
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff',
+              padding: '6px 12px',
+              borderRadius: 8,
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Undo
+          </button>
         </div>
       )}
     </div>

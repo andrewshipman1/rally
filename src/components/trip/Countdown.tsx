@@ -3,21 +3,28 @@
 import { useState, useEffect } from 'react';
 import { GlassCard } from '@/components/ui/GlassCard';
 
-function useCountdown(target: Date) {
-  const [diff, setDiff] = useState(target.getTime() - Date.now());
+type CountdownParts = { d: number; h: number; m: number; s: number } | null;
+
+function useCountdown(target: Date): CountdownParts {
+  const [parts, setParts] = useState<CountdownParts>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => setDiff(target.getTime() - Date.now()), 1000);
+    const compute = () => {
+      const diff = target.getTime() - Date.now();
+      const clamp = (n: number) => Math.max(0, n);
+      setParts({
+        d: clamp(Math.floor(diff / 864e5)),
+        h: clamp(Math.floor((diff % 864e5) / 36e5)),
+        m: clamp(Math.floor((diff % 36e5) / 6e4)),
+        s: clamp(Math.floor((diff % 6e4) / 1e3)),
+      });
+    };
+    compute();
+    const interval = setInterval(compute, 1000);
     return () => clearInterval(interval);
   }, [target]);
 
-  const clamp = (n: number) => Math.max(0, n);
-  return {
-    d: clamp(Math.floor(diff / 864e5)),
-    h: clamp(Math.floor((diff % 864e5) / 36e5)),
-    m: clamp(Math.floor((diff % 36e5) / 6e4)),
-    s: clamp(Math.floor((diff % 6e4) / 1e3)),
-  };
+  return parts;
 }
 
 const UNITS: [string, string][] = [
@@ -74,7 +81,7 @@ export function Countdown({ deadline }: { deadline: string }) {
                     fontVariantNumeric: 'tabular-nums',
                   }}
                 >
-                  {String(cd[key as keyof typeof cd]).padStart(2, '0')}
+                  {cd ? String(cd[key as keyof typeof cd]).padStart(2, '0') : '--'}
                 </div>
                 <div
                   style={{

@@ -8,19 +8,8 @@ import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Avatar } from '@/components/ui/Avatar';
 
 const COLORS = ['#2d6b5a', '#c4956a', '#3a8a7a', '#d4a574', '#1a3d4a', '#8b6f5c'];
-const STORAGE_KEY = 'rally:identity';
 
 type ActivityItem = Comment & { user: User };
-
-function loadIdentity(): { name: string; email?: string; phone?: string } | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -38,41 +27,23 @@ function timeAgo(dateStr: string): string {
 export function ActivityFeed({
   comments: initialComments,
   tripId,
+  currentUserId,
 }: {
   comments: ActivityItem[];
   tripId: string;
+  currentUserId: string | null;
 }) {
   const router = useRouter();
-  // Sort newest first
   const sorted = [...initialComments].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
   const [comments, setComments] = useState<ActivityItem[]>(sorted);
   const [composing, setComposing] = useState(false);
   const [newText, setNewText] = useState('');
-  const [identityNeeded, setIdentityNeeded] = useState(false);
-  const [name, setName] = useState('');
-  const [contact, setContact] = useState('');
-  const [contactType, setContactType] = useState<'email' | 'phone'>('email');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [liked, setLiked] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    const identity = loadIdentity();
-    if (identity) {
-      setName(identity.name || '');
-      if (identity.email) {
-        setContact(identity.email);
-        setContactType('email');
-      } else if (identity.phone) {
-        setContact(identity.phone);
-        setContactType('phone');
-      }
-    }
-  }, []);
-
-  // Re-sync when parent passes new comments (after router.refresh from RSVP)
   useEffect(() => {
     const next = [...initialComments].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -80,47 +51,21 @@ export function ActivityFeed({
     setComments(next);
   }, [initialComments]);
 
-  const startComment = () => {
-    setError('');
-    setComposing(true);
-    const identity = loadIdentity();
-    if (!identity || (!identity.email && !identity.phone)) {
-      setIdentityNeeded(true);
-    }
-  };
+  useEffect(() => {
+    if (!currentUserId) return;
+    const id = setInterval(() => router.refresh(), 30_000);
+    return () => clearInterval(id);
+  }, [currentUserId, router]);
 
   const submitComment = async () => {
-    if (!newText.trim()) return;
-
-    let identity = loadIdentity();
-    if (!identity || (!identity.email && !identity.phone)) {
-      // Need to collect identity first
-      if (!name.trim() || !contact.trim()) {
-        setIdentityNeeded(true);
-        return;
-      }
-      identity =
-        contactType === 'email'
-          ? { name: name.trim(), email: contact.trim() }
-          : { name: name.trim(), phone: contact.trim() };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
-    }
-
+    if (!newText.trim() || !currentUserId) return;
     setSubmitting(true);
     setError('');
     try {
-      const body: Record<string, string> = {
-        tripId,
-        text: newText.trim(),
-        name: identity.name,
-      };
-      if (identity.email) body.email = identity.email;
-      if (identity.phone) body.phone = identity.phone;
-
       const res = await fetch('/api/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ tripId, text: newText.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed');
@@ -128,7 +73,6 @@ export function ActivityFeed({
       setComments((prev) => [data.comment as ActivityItem, ...prev]);
       setNewText('');
       setComposing(false);
-      setIdentityNeeded(false);
       router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to post');
@@ -149,7 +93,6 @@ export function ActivityFeed({
 
   return (
     <GlassCard>
-      {/* Header with section label and Comment button */}
       <div
         style={{
           display: 'flex',
@@ -159,9 +102,9 @@ export function ActivityFeed({
         }}
       >
         <SectionLabel icon="📣" text="Activity" />
-        {!composing && (
+        {!composing && currentUserId && (
           <button
-            onClick={startComment}
+            onClick={() => setComposing(true)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -183,8 +126,24 @@ export function ActivityFeed({
         )}
       </div>
 
-      {/* Composer */}
-      {composing && (
+      {!currentUserId && (
+        <div
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px dashed rgba(255,255,255,0.12)',
+            borderRadius: 10,
+            padding: '10px 12px',
+            marginBottom: 12,
+            fontSize: 12,
+            color: 'rgba(255,255,255,0.6)',
+            textAlign: 'center',
+          }}
+        >
+          RSVP first to join the chat
+        </div>
+      )}
+
+      {composing && currentUserId && (
         <div
           style={{
             background: 'rgba(255,255,255,0.05)',
@@ -196,60 +155,19 @@ export function ActivityFeed({
             gap: 8,
           }}
         >
-          {identityNeeded && (
-            <>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>
-                Add your name to comment
-              </div>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                style={inputStyle}
-              />
-              <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 3 }}>
-                {(['email', 'phone'] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setContactType(m)}
-                    style={{
-                      flex: 1,
-                      padding: '6px 0',
-                      borderRadius: 6,
-                      border: 'none',
-                      background: contactType === m ? 'rgba(255,255,255,0.15)' : 'transparent',
-                      color: contactType === m ? '#fff' : 'rgba(255,255,255,0.5)',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    {m === 'email' ? '✉️ Email' : '📱 Phone'}
-                  </button>
-                ))}
-              </div>
-              <input
-                value={contact}
-                onChange={(e) => setContact(e.target.value)}
-                type={contactType === 'email' ? 'email' : 'tel'}
-                placeholder={contactType === 'email' ? 'you@example.com' : '+1 555 123 4567'}
-                style={inputStyle}
-              />
-            </>
-          )}
           <textarea
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             placeholder="Drop some hype..."
             rows={3}
+            maxLength={1000}
             style={{
               ...inputStyle,
               resize: 'vertical',
               lineHeight: 1.4,
             }}
           />
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <button
               onClick={() => {
                 setComposing(false);
@@ -270,19 +188,37 @@ export function ActivityFeed({
             >
               Cancel
             </button>
+            <span
+              style={{
+                fontSize: 10,
+                color: newText.length > 1000 ? '#ff8a8a' : 'rgba(255,255,255,0.45)',
+                fontFamily: 'inherit',
+                minWidth: 56,
+                textAlign: 'right',
+              }}
+            >
+              {newText.length}/1000
+            </span>
             <button
               onClick={submitComment}
-              disabled={!newText.trim() || submitting}
+              disabled={!newText.trim() || submitting || newText.length > 1000}
               style={{
                 flex: 1,
                 padding: '8px 14px',
                 borderRadius: 8,
                 border: 'none',
-                background: newText.trim() ? 'var(--rally-accent, #e8c9a0)' : 'rgba(255,255,255,0.08)',
-                color: newText.trim() ? '#1a3a4a' : 'rgba(255,255,255,0.3)',
+                background:
+                  newText.trim() && newText.length <= 1000
+                    ? 'var(--rally-accent, #e8c9a0)'
+                    : 'rgba(255,255,255,0.08)',
+                color:
+                  newText.trim() && newText.length <= 1000
+                    ? '#1a3a4a'
+                    : 'rgba(255,255,255,0.3)',
                 fontSize: 13,
                 fontWeight: 700,
-                cursor: newText.trim() ? 'pointer' : 'default',
+                cursor:
+                  newText.trim() && newText.length <= 1000 ? 'pointer' : 'default',
                 fontFamily: 'inherit',
               }}
             >
@@ -295,7 +231,6 @@ export function ActivityFeed({
         </div>
       )}
 
-      {/* Feed */}
       {comments.length === 0 ? (
         <div
           style={{

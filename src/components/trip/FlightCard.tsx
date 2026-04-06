@@ -1,6 +1,7 @@
 import type { Flight } from '@/types';
 import { SolidCard } from '@/components/ui/SolidCard';
 import { Badge } from '@/components/ui/Badge';
+import { formatMoney } from '@/lib/money';
 
 export function FlightCard({ flight }: { flight: Flight }) {
   return (
@@ -55,7 +56,7 @@ export function FlightCard({ flight }: { flight: Flight }) {
                 fontFamily: 'var(--rally-font-body)',
               }}
             >
-              ~${flight.estimated_price}
+              ~{formatMoney(flight.estimated_price)}
             </div>
             <div style={{ fontSize: 9, color: '#999' }}>per person</div>
           </div>

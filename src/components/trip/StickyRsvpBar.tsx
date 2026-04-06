@@ -1,42 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Confetti } from '@/components/ui/Confetti';
-import type { RsvpEmojis } from '@/types';
+import type { RsvpEmojis, RsvpStatus, TripMember, User } from '@/types';
 
 type RsvpState = 'in' | 'maybe' | 'out' | null;
-
-const STORAGE_KEY = 'rally:identity';
-
-type StoredIdentity = { name: string; email?: string; phone?: string };
-
-function loadIdentity(): StoredIdentity | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveIdentity(identity: StoredIdentity) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
-}
 
 export function StickyRsvpBar({
   tripId,
   emojis,
-  initialRsvp,
+  currentUserId,
+  members,
 }: {
   tripId: string;
   emojis: RsvpEmojis;
-  initialRsvp?: RsvpState;
+  currentUserId: string | null;
+  members: (TripMember & { user: User })[];
 }) {
   const router = useRouter();
-  const [rsvp, setRsvp] = useState<RsvpState>(initialRsvp || null);
+
+  const currentMember = currentUserId
+    ? members.find((m) => m.user_id === currentUserId)
+    : null;
+  const initialRsvp: RsvpState =
+    currentMember && currentMember.rsvp !== 'pending'
+      ? (currentMember.rsvp as Exclude<RsvpStatus, 'pending'>)
+      : null;
+
+  const [rsvp, setRsvp] = useState<RsvpState>(initialRsvp);
   const [showConfetti, setShowConfetti] = useState(false);
   const [step, setStep] = useState<'idle' | 'identity' | 'submitting'>('idle');
   const [pendingStatus, setPendingStatus] = useState<RsvpState>(null);
@@ -44,36 +36,24 @@ export function StickyRsvpBar({
   const [contact, setContact] = useState('');
   const [contactType, setContactType] = useState<'email' | 'phone'>('email');
   const [error, setError] = useState('');
-
-  // Load identity from localStorage on mount
-  useEffect(() => {
-    const identity = loadIdentity();
-    if (identity) {
-      setName(identity.name || '');
-      if (identity.email) {
-        setContact(identity.email);
-        setContactType('email');
-      } else if (identity.phone) {
-        setContact(identity.phone);
-        setContactType('phone');
-      }
-    }
-  }, []);
+  const [nameTouched, setNameTouched] = useState(false);
+  const [contactTouched, setContactTouched] = useState(false);
 
   const startRsvp = (status: RsvpState) => {
     setError('');
-    const identity = loadIdentity();
-    if (identity && (identity.email || identity.phone)) {
-      // We know who they are — submit directly
-      submitRsvp(status, identity);
+    if (currentUserId) {
+      // Known guest — submit directly with name from existing user
+      submitRsvp(status, { name: currentMember?.user.display_name || 'Guest' });
     } else {
-      // Need to collect identity
       setPendingStatus(status);
       setStep('identity');
     }
   };
 
-  const submitRsvp = async (status: RsvpState, identity: StoredIdentity) => {
+  const submitRsvp = async (
+    status: RsvpState,
+    identity: { name: string; email?: string; phone?: string }
+  ) => {
     if (!status) return;
     setStep('submitting');
     setError('');
@@ -94,9 +74,6 @@ export function StickyRsvpBar({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to RSVP');
 
-      // Persist identity for next time
-      saveIdentity(identity);
-
       setRsvp(status);
       setStep('idle');
       setPendingStatus(null);
@@ -104,7 +81,6 @@ export function StickyRsvpBar({
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 3500);
       }
-      // Refresh server data so the activity feed picks up the new entry
       router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to RSVP');
@@ -112,9 +88,18 @@ export function StickyRsvpBar({
     }
   };
 
+  const validContact =
+    contactType === 'email'
+      ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.trim())
+      : contact.trim().length >= 5;
+  const validName = name.trim().length > 0;
+  const formValid = validName && validContact;
+
   const submitIdentity = () => {
-    if (!name.trim() || !contact.trim() || !pendingStatus) return;
-    const identity: StoredIdentity =
+    setNameTouched(true);
+    setContactTouched(true);
+    if (!formValid || !pendingStatus) return;
+    const identity =
       contactType === 'email'
         ? { name: name.trim(), email: contact.trim() }
         : { name: name.trim(), phone: contact.trim() };
@@ -125,6 +110,8 @@ export function StickyRsvpBar({
     setStep('idle');
     setPendingStatus(null);
     setError('');
+    setNameTouched(false);
+    setContactTouched(false);
   };
 
   const statusConfig = rsvp
@@ -158,7 +145,6 @@ export function StickyRsvpBar({
         }}
       >
         <div style={{ maxWidth: 460, margin: '0 auto' }}>
-          {/* Identity collection step */}
           {step === 'identity' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div
@@ -188,9 +174,13 @@ export function StickyRsvpBar({
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onBlur={() => setNameTouched(true)}
                 placeholder="Your name"
                 style={inputStyle}
               />
+              {nameTouched && !validName && (
+                <div style={errorTextStyle}>Name is required</div>
+              )}
               <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 3 }}>
                 {(['email', 'phone'] as const).map((m) => (
                   <button
@@ -216,26 +206,31 @@ export function StickyRsvpBar({
               <input
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
+                onBlur={() => setContactTouched(true)}
                 onKeyDown={(e) => e.key === 'Enter' && submitIdentity()}
                 type={contactType === 'email' ? 'email' : 'tel'}
                 placeholder={contactType === 'email' ? 'you@example.com' : '+1 555 123 4567'}
                 style={inputStyle}
               />
+              {contactTouched && !validContact && (
+                <div style={errorTextStyle}>
+                  {contactType === 'email' ? 'Enter a valid email' : 'Enter a valid phone'}
+                </div>
+              )}
               <button
                 onClick={submitIdentity}
-                disabled={!name.trim() || !contact.trim()}
+                disabled={!formValid}
                 style={{
                   padding: 12,
                   borderRadius: 12,
                   border: 'none',
-                  background:
-                    name.trim() && contact.trim()
-                      ? 'linear-gradient(135deg, var(--rally-accent, #e8c9a0), #fff)'
-                      : 'rgba(255,255,255,0.08)',
-                  color: name.trim() && contact.trim() ? '#1a3a4a' : 'rgba(255,255,255,0.3)',
+                  background: formValid
+                    ? 'linear-gradient(135deg, var(--rally-accent, #e8c9a0), #fff)'
+                    : 'rgba(255,255,255,0.08)',
+                  color: formValid ? '#1a3a4a' : 'rgba(255,255,255,0.3)',
                   fontSize: 14,
                   fontWeight: 700,
-                  cursor: name.trim() && contact.trim() ? 'pointer' : 'default',
+                  cursor: formValid ? 'pointer' : 'default',
                   fontFamily: "'Outfit', sans-serif",
                 }}
               >
@@ -251,21 +246,17 @@ export function StickyRsvpBar({
             </div>
           )}
 
-          {/* Submitting state */}
           {step === 'submitting' && (
             <div style={{ textAlign: 'center', padding: 14, color: 'rgba(255,255,255,0.7)' }}>
               Submitting...
             </div>
           )}
 
-          {/* Idle state */}
           {step === 'idle' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {rsvp ? (
                 <button
-                  onClick={() => {
-                    setRsvp(null);
-                  }}
+                  onClick={() => setRsvp(null)}
                   style={{
                     flex: 1,
                     display: 'flex',
@@ -288,22 +279,13 @@ export function StickyRsvpBar({
                 </button>
               ) : (
                 <div style={{ flex: 1, display: 'flex', gap: 6 }}>
-                  <button
-                    onClick={() => startRsvp('in')}
-                    style={primaryRsvpButton}
-                  >
+                  <button onClick={() => startRsvp('in')} style={primaryRsvpButton}>
                     {emojis.going} Going
                   </button>
-                  <button
-                    onClick={() => startRsvp('maybe')}
-                    style={secondaryRsvpButton}
-                  >
+                  <button onClick={() => startRsvp('maybe')} style={secondaryRsvpButton}>
                     {emojis.maybe}
                   </button>
-                  <button
-                    onClick={() => startRsvp('out')}
-                    style={secondaryRsvpButton}
-                  >
+                  <button onClick={() => startRsvp('out')} style={secondaryRsvpButton}>
                     {emojis.cant}
                   </button>
                 </div>
@@ -343,6 +325,12 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 
+const errorTextStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: '#ff8a8a',
+  marginTop: -4,
+};
+
 const iconButtonStyle: React.CSSProperties = {
   width: 44,
   height: 44,
@@ -376,7 +364,7 @@ const secondaryRsvpButton: React.CSSProperties = {
   flex: 1,
   padding: '14px',
   borderRadius: 14,
-  border: '1px solid rgba(255,255,255,0.15)',
+  border: 'none',
   background: 'rgba(255,255,255,0.08)',
   color: '#fff',
   fontSize: 18,

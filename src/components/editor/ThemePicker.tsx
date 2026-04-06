@@ -2,6 +2,19 @@
 
 import type { Theme } from '@/types';
 
+function hexLightness(hex: string): number {
+  // Returns lightness 0..100 from a #rrggbb color; defaults to 50 if unparseable
+  const m = hex.trim().match(/^#?([0-9a-f]{6})$/i);
+  if (!m) return 50;
+  const n = parseInt(m[1], 16);
+  const r = ((n >> 16) & 0xff) / 255;
+  const g = ((n >> 8) & 0xff) / 255;
+  const b = (n & 0xff) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  return ((max + min) / 2) * 100;
+}
+
 export function ThemePicker({
   themes,
   selected,
@@ -22,6 +35,9 @@ export function ThemePicker({
     >
       {themes.map((theme) => {
         const isSelected = selected === theme.id;
+        const isLight = hexLightness(theme.color_primary || '#000000') > 60;
+        const labelColor = isLight ? 'rgba(20,20,20,0.85)' : 'rgba(255,255,255,0.85)';
+        const labelShadow = isLight ? '0 1px 1px rgba(255,255,255,0.4)' : '0 1px 3px rgba(0,0,0,0.3)';
         return (
           <button
             key={theme.id}
@@ -52,8 +68,8 @@ export function ThemePicker({
                 style={{
                   fontSize: 9,
                   fontWeight: 600,
-                  color: 'rgba(255,255,255,0.8)',
-                  textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  color: labelColor,
+                  textShadow: labelShadow,
                   fontFamily: "'Outfit', sans-serif",
                 }}
               >

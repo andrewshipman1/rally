@@ -1,11 +1,13 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
+import { getGuestUserId } from '@/lib/guest-auth';
 import { themeToCSS, calculateTripCost } from '@/types';
 import type { TripWithDetails } from '@/types';
 import { format } from 'date-fns';
+import { track } from '@/lib/analytics';
 
-import { CollageHeader } from '@/components/trip/CollageHeader';
+import { CoverHeader } from '@/components/trip/CoverHeader';
 import { AddToCalendarButton } from '@/components/trip/AddToCalendarButton';
 import { OrganizerCard } from '@/components/trip/OrganizerCard';
 import { Description } from '@/components/trip/Description';
@@ -16,6 +18,7 @@ import { FlightCard } from '@/components/trip/FlightCard';
 import { TransportCard } from '@/components/trip/TransportCard';
 import { RestaurantCard } from '@/components/trip/RestaurantCard';
 import { ActivityCard } from '@/components/trip/ActivityCard';
+import { GroceriesCard } from '@/components/trip/GroceriesCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
 import { GuestList } from '@/components/trip/GuestList';
@@ -38,6 +41,7 @@ async function getTrip(slug: string): Promise<TripWithDetails | null> {
       transport(*),
       restaurants(*),
       activities(*),
+      groceries(*),
       members:trip_members(*, user:users(*)),
       organizer:users!trips_organizer_id_fkey(*),
       comments(*, user:users(*)),
@@ -50,6 +54,7 @@ async function getTrip(slug: string): Promise<TripWithDetails | null> {
     .order('sort_order', { referencedTable: 'transport', ascending: true })
     .order('sort_order', { referencedTable: 'restaurants', ascending: true })
     .order('sort_order', { referencedTable: 'activities', ascending: true })
+    .order('sort_order', { referencedTable: 'groceries', ascending: true })
     .order('created_at', { referencedTable: 'comments', ascending: true })
     .single();
 
@@ -111,11 +116,17 @@ export default async function TripPage({ params }: Props) {
 
   if (!trip) notFound();
 
+  track('trip_page_viewed', { tripId: trip.id, metadata: { phase: trip.phase, slug } });
+
   // Get current user for voting
   const supabase = await createClient();
   const {
     data: { user: currentUser },
   } = await supabase.auth.getUser();
+
+  // Guest cookie identity (for RSVP / comments)
+  const guestUserId = await getGuestUserId();
+  const currentUserId = currentUser?.id || guestUserId || null;
 
   const theme = trip.theme;
   const cssVars = theme ? themeToCSS(theme) : null;
@@ -128,6 +139,7 @@ export default async function TripPage({ params }: Props) {
   const transport = trip.transport || [];
   const restaurants = trip.restaurants || [];
   const activities = trip.activities || [];
+  const groceries = trip.groceries || [];
   const members = trip.members || [];
   const organizer = trip.organizer;
   const comments = trip.comments || [];
@@ -149,7 +161,7 @@ export default async function TripPage({ params }: Props) {
       <link href={fontUrl} rel="stylesheet" />
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100dvh',
           background: bgStyle,
           fontFamily: `'${fontBody}', sans-serif`,
           position: 'relative',
@@ -184,7 +196,7 @@ export default async function TripPage({ params }: Props) {
         />
 
         <div style={{ maxWidth: 420, margin: '0 auto', position: 'relative' }}>
-          <CollageHeader
+          <CoverHeader
             trip={trip}
             theme={theme}
             organizer={organizer}
@@ -194,32 +206,30 @@ export default async function TripPage({ params }: Props) {
           />
 
           <div style={{ padding: '0 20px' }}>
-            {/* Add to calendar */}
-            <div style={{ textAlign: 'center', marginTop: 12 }}>
-              <AddToCalendarButton trip={trip} />
-            </div>
-
-            {/* Organizer Card */}
-            <Reveal delay={0.15}>
-              <div style={{ marginTop: 16, marginBottom: 4 }}>
-                <OrganizerCard organizer={organizer} />
-              </div>
-            </Reveal>
-
-            {/* Description */}
-            {trip.description && (
-              <Reveal delay={0.18}>
+            {/* Countdown */}
+            {trip.commit_deadline && (
+              <Reveal delay={0.12}>
                 <div style={{ marginTop: 14 }}>
-                  <Description text={trip.description} />
+                  <Countdown deadline={trip.commit_deadline} />
                 </div>
               </Reveal>
             )}
 
-            {/* Countdown */}
-            {trip.commit_deadline && (
-              <Reveal delay={0.2}>
-                <div style={{ marginTop: 14 }}>
-                  <Countdown deadline={trip.commit_deadline} />
+            {/* Add to calendar — action row under countdown */}
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <AddToCalendarButton trip={trip} />
+            </div>
+
+            {/* Organizer Card + Description grouped */}
+            <Reveal delay={0.15}>
+              <div style={{ marginTop: 16, marginBottom: 4 }}>
+                <OrganizerCard organizer={organizer} tripName={trip.name} />
+              </div>
+            </Reveal>
+            {trip.description && (
+              <Reveal delay={0.18}>
+                <div style={{ marginTop: 10 }}>
+                  <Description text={trip.description} />
                 </div>
               </Reveal>
             )}
@@ -246,7 +256,7 @@ export default async function TripPage({ params }: Props) {
             {transport.map((t, i) => (
               <Reveal key={t.id} delay={0.04 * i}>
                 <div style={{ marginTop: 12 }}>
-                  <TransportCard transport={t} />
+                  <TransportCard transport={t} memberCount={cost.confirmed_count} />
                 </div>
               </Reveal>
             ))}
@@ -256,6 +266,15 @@ export default async function TripPage({ params }: Props) {
               <Reveal key={a.id} delay={0.04 * i}>
                 <div style={{ marginTop: 12 }}>
                   <ActivityCard activity={a} />
+                </div>
+              </Reveal>
+            ))}
+
+            {/* Groceries */}
+            {groceries.map((g, i) => (
+              <Reveal key={g.id} delay={0.04 * i}>
+                <div style={{ marginTop: 12 }}>
+                  <GroceriesCard grocery={g} />
                 </div>
               </Reveal>
             ))}
@@ -280,7 +299,7 @@ export default async function TripPage({ params }: Props) {
             {polls.length > 0 && (
               <Reveal delay={0.05}>
                 <div style={{ marginTop: 14 }}>
-                  <DatePoll poll={polls[0]} />
+                  <DatePoll poll={polls[0]} currentUserId={currentUserId} />
                 </div>
               </Reveal>
             )}
@@ -295,7 +314,7 @@ export default async function TripPage({ params }: Props) {
             {/* Activity Feed (RSVPs + comments) */}
             <Reveal delay={0.05}>
               <div id="group-chat" style={{ marginTop: 14 }}>
-                <ActivityFeed comments={comments} tripId={trip.id} />
+                <ActivityFeed comments={comments} tripId={trip.id} currentUserId={currentUserId} />
               </div>
             </Reveal>
 
@@ -312,7 +331,12 @@ export default async function TripPage({ params }: Props) {
         </div>
 
         {/* Sticky bottom RSVP bar */}
-        <StickyRsvpBar tripId={trip.id} emojis={trip.rsvp_emojis} />
+        <StickyRsvpBar
+          tripId={trip.id}
+          emojis={trip.rsvp_emojis}
+          currentUserId={currentUserId}
+          members={members}
+        />
       </div>
     </>
   );

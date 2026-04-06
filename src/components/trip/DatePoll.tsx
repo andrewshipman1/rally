@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Poll, PollVote, User } from '@/types';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { SectionLabel } from '@/components/ui/SectionLabel';
@@ -10,15 +11,40 @@ const COLORS = ['#2d6b5a', '#c4956a', '#3a8a7a', '#d4a574', '#1a3d4a', '#8b6f5c'
 
 export function DatePoll({
   poll,
+  currentUserId,
 }: {
   poll: Poll & { votes: (PollVote & { user: User })[] };
+  currentUserId: string | null;
 }) {
-  const [selected, setSelected] = useState<string[]>([]);
+  const router = useRouter();
+
+  const myVote = currentUserId
+    ? poll.votes?.find((v) => v.user_id === currentUserId)
+    : null;
+  const [selected, setSelected] = useState<string[]>(myVote?.selected_options || []);
+  const [saving, setSaving] = useState(false);
+
+  const persist = async (next: string[]) => {
+    if (!currentUserId) return;
+    setSaving(true);
+    try {
+      await fetch('/api/polls/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pollId: poll.id, selectedOptions: next }),
+      });
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggle = (optionId: string) => {
-    setSelected((prev) =>
-      prev.includes(optionId) ? prev.filter((x) => x !== optionId) : [...prev, optionId]
-    );
+    const next = selected.includes(optionId)
+      ? selected.filter((x) => x !== optionId)
+      : [...selected, optionId];
+    setSelected(next);
+    persist(next);
   };
 
   // Count votes per option
@@ -38,7 +64,7 @@ export function DatePoll({
   return (
     <GlassCard>
       <SectionLabel icon="📅" text={poll.question || 'Which dates work?'} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, opacity: saving ? 0.85 : 1 }}>
         {poll.options.map((option) => {
           const sel = selected.includes(option.id);
           const votes = voteCounts[option.id] || { count: 0, voters: [] };
@@ -47,6 +73,7 @@ export function DatePoll({
             <button
               key={option.id}
               onClick={() => toggle(option.id)}
+              disabled={saving || !currentUserId}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -55,7 +82,7 @@ export function DatePoll({
                 borderRadius: 11,
                 border: 'none',
                 background: sel ? 'rgba(232,201,160,.18)' : 'rgba(255,255,255,.05)',
-                cursor: 'pointer',
+                cursor: currentUserId ? 'pointer' : 'default',
                 transition: 'all .25s',
                 outline: sel
                   ? '2px solid rgba(232,201,160,.45)'
