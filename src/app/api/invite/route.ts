@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { sendInviteEmail } from '@/lib/email';
+import { format } from 'date-fns';
 
 // Service-role client for admin operations (creating invitee users without auth)
 function getAdminClient() {
@@ -29,13 +31,20 @@ export async function POST(request: NextRequest) {
 
     const { data: trip } = await supabase
       .from('trips')
-      .select('organizer_id')
+      .select('organizer_id, name, tagline, destination, date_start, date_end, cover_image_url, share_slug')
       .eq('id', tripId)
       .single();
 
     if (!trip || trip.organizer_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    // Fetch organizer display name for the email
+    const { data: organizer } = await adminClient
+      .from('users')
+      .select('display_name')
+      .eq('id', user.id)
+      .single();
 
     // Find or create the invitee user
     let inviteeId: string;
@@ -114,7 +123,31 @@ export async function POST(request: NextRequest) {
 
     if (memberErr) throw memberErr;
 
-    return NextResponse.json({ success: true, member });
+    // Send invite email (best-effort — don't fail the request if email fails)
+    let emailResult: { ok: boolean; error?: string } = { ok: false, error: 'no email' };
+    if (email) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const dateStr =
+        trip.date_start && trip.date_end
+          ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
+          : null;
+      emailResult = await sendInviteEmail({
+        to: email,
+        recipientName: name || null,
+        organizerName: organizer?.display_name || 'Your friend',
+        tripName: trip.name,
+        tripTagline: trip.tagline,
+        destination: trip.destination,
+        dateStr,
+        coverImageUrl: trip.cover_image_url,
+        shareUrl: `${appUrl}/trip/${trip.share_slug}`,
+      });
+      if (!emailResult.ok) {
+        console.error('Invite email failed:', emailResult.error);
+      }
+    }
+
+    return NextResponse.json({ success: true, member, emailSent: emailResult.ok, emailError: emailResult.error });
   } catch (err: unknown) {
     console.error('Invite error:', err);
     return NextResponse.json(
