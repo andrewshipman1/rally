@@ -49,20 +49,30 @@ export function ComponentList({
   return (
     <div
       style={{
-        background: '#fff',
-        borderRadius: 16,
-        padding: 20,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-        border: '1px solid rgba(0,0,0,0.04)',
+        background: 'rgba(255,255,255,0.08)',
+        borderRadius: 18,
+        padding: 18,
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        border: '1px solid rgba(255,255,255,0.1)',
       }}
     >
       {/* Header */}
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#1a3a4a', marginBottom: 4 }}>
-          What&apos;s the trip?
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: 'rgba(255,255,255,0.7)',
+            textTransform: 'uppercase',
+            letterSpacing: 1.5,
+            marginBottom: 6,
+          }}
+        >
+          🧳 What&apos;s the trip?
         </div>
-        <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>
-          Add the house, flights, activities, and anything else. Each item shows up on the trip page.
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
+          Add the house, flights, activities, and anything else.
         </div>
       </div>
 
@@ -166,16 +176,16 @@ export function ComponentList({
             style={{
               textAlign: 'center',
               padding: '28px 0',
-              background: '#faf9f7',
+              background: 'rgba(255,255,255,0.04)',
               borderRadius: 12,
-              border: '1px dashed rgba(0,0,0,0.08)',
+              border: '1px dashed rgba(255,255,255,0.15)',
               marginBottom: 14,
             }}
           >
             <div style={{ fontSize: 28, marginBottom: 6 }}>🧳</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#1a3a4a' }}>Nothing added yet</div>
-            <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
-              Start with the lodging, then add flights and activities
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>Nothing added yet</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+              Start with lodging, then add flights and activities
             </div>
           </div>
         )}
@@ -183,7 +193,16 @@ export function ComponentList({
       {/* Add component buttons or form */}
       {!addingType ? (
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: 'rgba(255,255,255,0.5)',
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+              marginBottom: 8,
+            }}
+          >
             Add to trip
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
@@ -194,8 +213,8 @@ export function ComponentList({
                 style={{
                   padding: '12px 4px',
                   borderRadius: 10,
-                  border: '1px solid rgba(0,0,0,0.08)',
-                  background: '#fff',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  background: 'rgba(255,255,255,0.06)',
                   cursor: 'pointer',
                   display: 'flex',
                   flexDirection: 'column',
@@ -205,7 +224,7 @@ export function ComponentList({
                 }}
               >
                 <span style={{ fontSize: 22 }}>{COMPONENT_META[type].emoji}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#1a3a4a' }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#fff' }}>
                   {COMPONENT_META[type].label}
                 </span>
               </button>
@@ -246,9 +265,9 @@ function Section({
     <div style={{ marginBottom: 14 }}>
       <div
         style={{
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 700,
-          color: '#888',
+          color: 'rgba(255,255,255,0.5)',
           textTransform: 'uppercase',
           letterSpacing: 1,
           marginBottom: 6,
@@ -279,9 +298,9 @@ function RowItem({
         alignItems: 'center',
         gap: 10,
         padding: 10,
-        background: '#faf9f7',
+        background: 'rgba(255,255,255,0.05)',
         borderRadius: 10,
-        border: '1px solid rgba(0,0,0,0.04)',
+        border: '1px solid rgba(255,255,255,0.08)',
       }}
     >
       {thumb && (
@@ -300,7 +319,7 @@ function RowItem({
           style={{
             fontSize: 13,
             fontWeight: 600,
-            color: '#1a3a4a',
+            color: '#fff',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -308,7 +327,7 @@ function RowItem({
         >
           {primary}
         </div>
-        <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>{secondary}</div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 1 }}>{secondary}</div>
       </div>
       <button
         onClick={onDelete}
@@ -317,7 +336,7 @@ function RowItem({
           border: 'none',
           cursor: 'pointer',
           fontSize: 14,
-          color: '#ccc',
+          color: 'rgba(255,255,255,0.4)',
           padding: '4px 8px',
         }}
       >
@@ -484,9 +503,9 @@ function AddForm({
     width: '100%',
     padding: '10px 12px',
     borderRadius: 8,
-    border: '1px solid rgba(0,0,0,0.1)',
-    background: '#fff',
-    color: '#1a3a4a',
+    border: '1px solid rgba(255,255,255,0.15)',
+    background: 'rgba(255,255,255,0.06)',
+    color: '#fff',
     fontSize: 13,
     outline: 'none',
     fontFamily: "'Outfit', sans-serif",
@@ -496,7 +515,7 @@ function AddForm({
   const labelStyle: React.CSSProperties = {
     fontSize: 11,
     fontWeight: 600,
-    color: '#888',
+    color: 'rgba(255,255,255,0.55)',
     display: 'block',
     marginBottom: 4,
   };
@@ -508,8 +527,9 @@ function AddForm({
       style={{
         marginTop: 14,
         padding: 16,
-        background: '#faf9f7',
+        background: 'rgba(255,255,255,0.04)',
         borderRadius: 12,
+        border: '1px solid rgba(255,255,255,0.1)',
         display: 'flex',
         flexDirection: 'column',
         gap: 12,
@@ -523,8 +543,8 @@ function AddForm({
             gap: 6,
             padding: '6px 12px',
             borderRadius: 20,
-            background: '#e0f0eb',
-            color: '#2d6b5a',
+            background: 'rgba(255,255,255,0.12)',
+            color: '#fff',
             fontSize: 12,
             fontWeight: 700,
           }}
@@ -534,13 +554,13 @@ function AddForm({
         </div>
         <button
           onClick={onCancel}
-          style={{ background: 'none', border: 'none', color: '#aaa', fontSize: 12, cursor: 'pointer' }}
+          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer' }}
         >
           Cancel
         </button>
       </div>
 
-      <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4, marginTop: -4 }}>
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4, marginTop: -4 }}>
         {meta.description}
       </div>
 
@@ -629,9 +649,9 @@ function AddForm({
                     flex: 1,
                     padding: '8px 4px',
                     borderRadius: 8,
-                    border: subtype === s ? '2px solid #2d6b5a' : '1px solid rgba(0,0,0,0.1)',
-                    background: subtype === s ? '#e0f0eb' : '#fff',
-                    color: subtype === s ? '#2d6b5a' : '#888',
+                    border: subtype === s ? '1px solid #fff' : '1px solid rgba(255,255,255,0.15)',
+                    background: subtype === s ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
+                    color: subtype === s ? '#fff' : 'rgba(255,255,255,0.55)',
                     fontSize: 11,
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -657,9 +677,9 @@ function AddForm({
                     flex: 1,
                     padding: '8px 4px',
                     borderRadius: 8,
-                    border: transportCostType === ct ? '2px solid #2d6b5a' : '1px solid rgba(0,0,0,0.1)',
-                    background: transportCostType === ct ? '#e0f0eb' : '#fff',
-                    color: transportCostType === ct ? '#2d6b5a' : '#888',
+                    border: transportCostType === ct ? '1px solid #fff' : '1px solid rgba(255,255,255,0.15)',
+                    background: transportCostType === ct ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
+                    color: transportCostType === ct ? '#fff' : 'rgba(255,255,255,0.55)',
                     fontSize: 11,
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -737,9 +757,9 @@ function AddForm({
                     flex: 1,
                     padding: '8px 4px',
                     borderRadius: 8,
-                    border: activityCostType === ct ? '2px solid #2d6b5a' : '1px solid rgba(0,0,0,0.1)',
-                    background: activityCostType === ct ? '#e0f0eb' : '#fff',
-                    color: activityCostType === ct ? '#2d6b5a' : '#888',
+                    border: activityCostType === ct ? '1px solid #fff' : '1px solid rgba(255,255,255,0.15)',
+                    background: activityCostType === ct ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
+                    color: activityCostType === ct ? '#fff' : 'rgba(255,255,255,0.55)',
                     fontSize: 11,
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -771,8 +791,8 @@ function AddForm({
           padding: 12,
           borderRadius: 10,
           border: 'none',
-          background: canSave ? 'linear-gradient(135deg, #2d6b5a, #3a8a7a)' : '#e0e0e0',
-          color: canSave ? '#fff' : '#aaa',
+          background: canSave ? 'linear-gradient(135deg, #fff, #f0ebe5)' : 'rgba(255,255,255,0.08)',
+          color: canSave ? '#1a3a4a' : 'rgba(255,255,255,0.3)',
           fontSize: 14,
           fontWeight: 700,
           cursor: canSave ? 'pointer' : 'default',
@@ -788,7 +808,7 @@ function AddForm({
 function PriceInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div style={{ position: 'relative' }}>
-      <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#aaa', fontSize: 13 }}>$</span>
+      <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>$</span>
       <input
         type="number"
         value={value}
@@ -798,9 +818,9 @@ function PriceInput({ value, onChange }: { value: string; onChange: (v: string) 
           width: '100%',
           padding: '10px 12px 10px 24px',
           borderRadius: 8,
-          border: '1px solid rgba(0,0,0,0.1)',
-          background: '#fff',
-          color: '#1a3a4a',
+          border: '1px solid rgba(255,255,255,0.15)',
+          background: 'rgba(255,255,255,0.06)',
+          color: '#fff',
           fontSize: 13,
           outline: 'none',
           fontFamily: "'Outfit', sans-serif",

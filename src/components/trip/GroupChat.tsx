@@ -37,6 +37,7 @@ export function GroupChat({
       user_id: 'temp',
       text: newComment,
       reactions: [],
+      type: 'comment' as const,
       created_at: new Date().toISOString(),
       user: {
         id: 'temp',

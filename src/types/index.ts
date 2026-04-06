@@ -52,6 +52,7 @@ export interface Trip {
   name: string;
   destination: string | null;
   tagline: string | null;
+  description: string | null;
   date_start: string | null;
   date_end: string | null;
   cover_image_url: string | null;
@@ -62,8 +63,24 @@ export interface Trip {
   essential_info: EssentialInfoItem[];
   photo_album_url: string | null;
   header_images: HeaderImage[];
+  packing_list: PackingItem[];
+  playlist_url: string | null;
+  house_rules: string | null;
+  rsvp_emojis: RsvpEmojis;
   created_at: string;
   updated_at: string;
+}
+
+export interface PackingItem {
+  id: string;
+  text: string;
+  checked: boolean;
+}
+
+export interface RsvpEmojis {
+  going: string;
+  maybe: string;
+  cant: string;
 }
 
 // ─── Typed Components ───
@@ -249,6 +266,7 @@ export interface Comment {
   user_id: string;
   text: string;
   reactions: Reaction[];
+  type: 'comment' | 'rsvp';
   created_at: string;
 }
 
@@ -316,7 +334,8 @@ export interface TripCostSummary {
 }
 
 export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
-  const confirmed = trip.members.filter(m => m.rsvp === 'in').length || 1;
+  // Count members who are 'in' or 'maybe' (not 'out' or 'pending')
+  const confirmed = trip.members.filter(m => m.rsvp === 'in' || m.rsvp === 'maybe').length || 1;
 
   const selectedLodging = trip.lodging.find(l => l.is_selected) || trip.lodging[0];
   const nights = selectedLodging?.num_nights ||

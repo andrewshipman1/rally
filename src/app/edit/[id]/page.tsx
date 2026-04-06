@@ -54,19 +54,5 @@ export default async function EditPage({ params }: Props) {
     .eq('is_system', true)
     .order('template_name');
 
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#faf9f7',
-        fontFamily: "'Outfit', sans-serif",
-      }}
-    >
-      <link
-        href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;800&family=Outfit:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
-      <TripEditor trip={trip as unknown as EditableTrip} themes={(themes as Theme[]) || []} />
-    </div>
-  );
+  return <TripEditor trip={trip as unknown as EditableTrip} themes={(themes as Theme[]) || []} />;
 }

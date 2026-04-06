@@ -1,31 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Theme, Lodging, Flight, Transport, Restaurant, Activity } from '@/types';
+import { themeToCSS } from '@/types';
 import type { EditableTrip } from '@/app/edit/[id]/page';
-import { ThemePicker } from './ThemePicker';
 import { ComponentList } from './ComponentList';
+import { EditorToolbar } from './EditorToolbar';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Font family options for the editor's font selector
+export const FONT_OPTIONS = [
+  { id: 'classic', label: 'Classic', display: 'Fraunces', body: 'Outfit' },
+  { id: 'eclectic', label: 'Eclectic', display: 'Syne', body: 'Outfit' },
+  { id: 'fancy', label: 'Fancy', display: 'Cormorant Garamond', body: 'Outfit' },
+  { id: 'literary', label: 'Literary', display: 'Playfair Display', body: 'DM Sans' },
+];
+
 export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme[] }) {
   const router = useRouter();
+
+  // Trip details state
   const [name, setName] = useState(trip.name);
   const [destination, setDestination] = useState(trip.destination || '');
   const [tagline, setTagline] = useState(trip.tagline || '');
+  const [description, setDescription] = useState(trip.description || '');
   const [dateStart, setDateStart] = useState(trip.date_start || '');
   const [dateEnd, setDateEnd] = useState(trip.date_end || '');
   const [deadline, setDeadline] = useState(
     trip.commit_deadline ? trip.commit_deadline.split('T')[0] : ''
   );
-  const [selectedTheme, setSelectedTheme] = useState<string | null>(trip.theme_id);
+  const [selectedThemeId, setSelectedThemeId] = useState<string | null>(trip.theme_id);
   const [phase, setPhase] = useState(trip.phase);
 
+  // Component state
   const [lodging, setLodging] = useState<Lodging[]>(trip.lodging || []);
   const [flights, setFlights] = useState<Flight[]>(trip.flights || []);
   const [transport, setTransport] = useState<Transport[]>(trip.transport || []);
@@ -33,8 +46,24 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
   const [activities, setActivities] = useState<Activity[]>(trip.activities || []);
 
   const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'theme' | 'effect' | 'settings' | null>(null);
 
+  // Resolved theme (from selectedThemeId)
+  const selectedTheme = useMemo(
+    () => themes.find((t) => t.id === selectedThemeId) || trip.theme || null,
+    [themes, selectedThemeId, trip.theme]
+  );
+
+  const cssVars = selectedTheme ? themeToCSS(selectedTheme) : null;
+  const fontDisplay = selectedTheme?.font_display || 'Fraunces';
+  const fontBody = selectedTheme?.font_body || 'Outfit';
+  const bgStyle =
+    selectedTheme?.background_value ||
+    'linear-gradient(168deg, #122c35 0%, #1a3d4a 30%, #2d6b5a 60%, #3a8a7a 100%)';
+  const fontUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontDisplay)}:ital,wght@0,400;0,700;0,800;1,400&family=${encodeURIComponent(fontBody)}:wght@400;500;600;700&family=Syne:wght@600;700;800&family=Cormorant+Garamond:wght@400;600;700&family=Playfair+Display:wght@400;700;800&family=DM+Sans:wght@400;500;600;700&display=swap`;
+
+  // ─── Save (debounced trigger via button) ───
   const save = async () => {
     setSaving(true);
     await supabase
@@ -43,241 +72,325 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
         name: name.trim(),
         destination: destination.trim() || null,
         tagline: tagline.trim() || null,
+        description: description.trim() || null,
         date_start: dateStart || null,
         date_end: dateEnd || null,
         commit_deadline: deadline ? new Date(deadline).toISOString() : null,
-        theme_id: selectedTheme,
+        theme_id: selectedThemeId,
         phase,
       })
       .eq('id', trip.id);
     setSaving(false);
+    setSavedAt(Date.now());
+    setTimeout(() => setSavedAt(null), 2000);
     router.refresh();
   };
 
-  const copyLink = () => {
-    const shareUrl = `${window.location.origin}/trip/${trip.share_slug}`;
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '12px 14px',
-    borderRadius: 10,
-    border: '1px solid rgba(0,0,0,0.1)',
-    background: '#fff',
-    color: '#1a3a4a',
-    fontSize: 14,
-    outline: 'none',
-    fontFamily: "'Outfit', sans-serif",
-    boxSizing: 'border-box',
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: 12,
-    color: '#888',
-    fontWeight: 600,
-    display: 'block',
-    marginBottom: 6,
-    marginTop: 16,
-  };
-
   return (
-    <div style={{ maxWidth: 500, margin: '0 auto', padding: '24px 20px' }}>
-      {/* Header */}
+    <>
+      <link href={fontUrl} rel="stylesheet" />
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 20,
+          minHeight: '100vh',
+          background: bgStyle,
+          fontFamily: `'${fontBody}', sans-serif`,
+          position: 'relative',
+          paddingBottom: 80,
+          ...(cssVars as React.CSSProperties),
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {/* Grain overlay */}
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            opacity: 0.03,
+            pointerEvents: 'none',
+            mixBlendMode: 'overlay',
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          }}
+        />
+
+        {/* Top bar: Close + Save */}
+        <div
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 50,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '14px 16px',
+            background: 'rgba(0,0,0,0.15)',
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
           <button
             onClick={() => router.push('/')}
             style={{
-              background: 'none',
-              border: '1px solid rgba(0,0,0,0.1)',
-              borderRadius: 10,
-              padding: '8px 12px',
-              cursor: 'pointer',
-              fontSize: 13,
-              color: '#888',
-            }}
-          >
-            ← Back
-          </button>
-          <h1
-            style={{
-              fontFamily: "'Fraunces', serif",
-              fontSize: 22,
-              fontWeight: 800,
-              color: '#1a3a4a',
-              margin: 0,
-            }}
-          >
-            Edit trip
-          </h1>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <a
-            href={`/trip/${trip.share_slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              padding: '8px 14px',
-              borderRadius: 10,
-              border: '1px solid rgba(0,0,0,0.1)',
-              background: '#fff',
-              color: '#1a3a4a',
-              fontSize: 12,
-              fontWeight: 600,
-              textDecoration: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            Preview
-          </a>
-          <button
-            onClick={copyLink}
-            style={{
-              padding: '8px 14px',
-              borderRadius: 10,
-              border: 'none',
-              background: copied ? '#2d6b5a' : 'linear-gradient(135deg, #2d6b5a, #3a8a7a)',
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'rgba(255,255,255,0.1)',
               color: '#fff',
-              fontSize: 12,
-              fontWeight: 600,
+              fontSize: 16,
               cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            {copied ? 'Copied!' : 'Share link'}
+            ✕
           </button>
-        </div>
-      </div>
-
-      {/* Trip details */}
-      <div
-        style={{
-          background: '#fff',
-          borderRadius: 16,
-          padding: 20,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-          border: '1px solid rgba(0,0,0,0.04)',
-        }}
-      >
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#1a3a4a', marginBottom: 4 }}>
-          Trip details
-        </div>
-
-        <label style={{ ...labelStyle, marginTop: 12 }}>Name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
-
-        <label style={labelStyle}>Destination</label>
-        <input
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-          style={inputStyle}
-        />
-
-        <label style={labelStyle}>Tagline</label>
-        <input value={tagline} onChange={(e) => setTagline(e.target.value)} style={inputStyle} />
-
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Start date</label>
-            <input
-              type="date"
-              value={dateStart}
-              onChange={(e) => setDateStart(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>End date</label>
-            <input
-              type="date"
-              value={dateEnd}
-              onChange={(e) => setDateEnd(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-        </div>
-
-        <label style={labelStyle}>Commit deadline</label>
-        <input
-          type="date"
-          value={deadline}
-          onChange={(e) => setDeadline(e.target.value)}
-          style={inputStyle}
-        />
-
-        <label style={labelStyle}>Phase</label>
-        <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-          {(['sketch', 'sell', 'lock', 'go'] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPhase(p)}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <a
+              href={`/trip/${trip.share_slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
-                flex: 1,
-                padding: '8px 0',
-                borderRadius: 8,
-                border: phase === p ? '2px solid #2d6b5a' : '1px solid rgba(0,0,0,0.1)',
-                background: phase === p ? '#e0f0eb' : '#fff',
-                color: phase === p ? '#2d6b5a' : '#888',
+                padding: '8px 14px',
+                borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.1)',
+                color: '#fff',
                 fontSize: 12,
                 fontWeight: 600,
-                cursor: 'pointer',
-                textTransform: 'capitalize',
+                textDecoration: 'none',
               }}
             >
-              {p}
+              Preview
+            </a>
+            <button
+              onClick={save}
+              disabled={saving}
+              style={{
+                padding: '10px 18px',
+                borderRadius: 10,
+                border: 'none',
+                background: savedAt ? '#2d6b5a' : 'linear-gradient(135deg, #fff, #f0ebe5)',
+                color: savedAt ? '#fff' : '#1a3a4a',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: `'${fontBody}', sans-serif`,
+                transition: 'all .2s',
+              }}
+            >
+              {saving ? 'Saving...' : savedAt ? '✓ Saved' : 'Save'}
             </button>
-          ))}
+          </div>
         </div>
 
-        <label style={labelStyle}>Theme</label>
-        <ThemePicker themes={themes} selected={selectedTheme} onSelect={setSelectedTheme} />
+        <div style={{ maxWidth: 460, margin: '0 auto', padding: '20px 16px', position: 'relative' }}>
+          {/* ─── Hero (inline editable) ─── */}
+          <div
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              borderRadius: 18,
+              padding: '28px 20px',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              textAlign: 'center',
+            }}
+          >
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Trip name"
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: '#fff',
+                fontFamily: `'${fontDisplay}', serif`,
+                fontSize: 44,
+                fontWeight: 800,
+                textAlign: 'center',
+                letterSpacing: -1.2,
+                lineHeight: 1,
+                padding: 0,
+                textShadow: '0 2px 30px rgba(0,0,0,.3)',
+              }}
+            />
+            <input
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
+              placeholder="Add a tagline..."
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: 'rgba(255,255,255,0.85)',
+                fontFamily: `'${fontDisplay}', serif`,
+                fontSize: 16,
+                fontStyle: 'italic',
+                textAlign: 'center',
+                marginTop: 8,
+                padding: 0,
+              }}
+            />
+            <input
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              placeholder="Destination"
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: 'rgba(255,255,255,0.7)',
+                fontFamily: `'${fontBody}', sans-serif`,
+                fontSize: 13,
+                textAlign: 'center',
+                marginTop: 8,
+                padding: 0,
+              }}
+            />
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                marginTop: 14,
+                fontSize: 13,
+              }}
+            >
+              <input
+                type="date"
+                value={dateStart}
+                onChange={(e) => setDateStart(e.target.value)}
+                style={dateInputStyle}
+              />
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>→</span>
+              <input
+                type="date"
+                value={dateEnd}
+                onChange={(e) => setDateEnd(e.target.value)}
+                style={dateInputStyle}
+              />
+            </div>
+          </div>
 
-        <button
-          onClick={save}
-          disabled={saving}
-          style={{
-            width: '100%',
-            padding: 14,
-            borderRadius: 12,
-            border: 'none',
-            background: 'linear-gradient(135deg, #2d6b5a, #3a8a7a)',
-            color: '#fff',
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: 'pointer',
-            marginTop: 20,
-            fontFamily: "'Outfit', sans-serif",
-          }}
-        >
-          {saving ? 'Saving...' : 'Save changes'}
-        </button>
-      </div>
+          {/* ─── Description ─── */}
+          <GlassSection title="Sell the trip" emoji="📝">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Why should your friends come? What's the vibe? What's the plan?"
+              rows={4}
+              style={{
+                width: '100%',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 10,
+                padding: '12px 14px',
+                color: '#fff',
+                fontSize: 13,
+                outline: 'none',
+                fontFamily: `'${fontBody}', sans-serif`,
+                resize: 'vertical',
+                lineHeight: 1.5,
+              }}
+            />
+          </GlassSection>
 
-      {/* Components */}
-      <div style={{ marginTop: 20 }}>
-        <ComponentList
-          tripId={trip.id}
-          lodging={lodging}
-          flights={flights}
-          transport={transport}
-          restaurants={restaurants}
-          activities={activities}
-          onLodgingChange={setLodging}
-          onFlightsChange={setFlights}
-          onTransportChange={setTransport}
-          onRestaurantsChange={setRestaurants}
-          onActivitiesChange={setActivities}
+          {/* ─── Components (lodging, flights, etc) ─── */}
+          <div style={{ marginTop: 14 }}>
+            <ComponentList
+              tripId={trip.id}
+              lodging={lodging}
+              flights={flights}
+              transport={transport}
+              restaurants={restaurants}
+              activities={activities}
+              onLodgingChange={setLodging}
+              onFlightsChange={setFlights}
+              onTransportChange={setTransport}
+              onRestaurantsChange={setRestaurants}
+              onActivitiesChange={setActivities}
+            />
+          </div>
+        </div>
+
+        {/* ─── Bottom Toolbar ─── */}
+        <EditorToolbar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          themes={themes}
+          selectedThemeId={selectedThemeId}
+          onThemeChange={setSelectedThemeId}
+          phase={phase}
+          onPhaseChange={setPhase}
+          deadline={deadline}
+          onDeadlineChange={setDeadline}
+          shareSlug={trip.share_slug}
         />
       </div>
+    </>
+  );
+}
+
+const dateInputStyle: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.1)',
+  border: '1px solid rgba(255,255,255,0.15)',
+  borderRadius: 8,
+  padding: '6px 10px',
+  color: '#fff',
+  fontSize: 12,
+  fontWeight: 600,
+  outline: 'none',
+  fontFamily: 'inherit',
+  colorScheme: 'dark',
+};
+
+// ─── GlassSection: reusable glass card with title ───
+
+function GlassSection({
+  title,
+  emoji,
+  children,
+}: {
+  title: string;
+  emoji: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        marginTop: 14,
+        background: 'rgba(255,255,255,0.08)',
+        borderRadius: 18,
+        padding: 18,
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        border: '1px solid rgba(255,255,255,0.1)',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: 'rgba(255,255,255,0.7)',
+          textTransform: 'uppercase',
+          letterSpacing: 1.5,
+          marginBottom: 12,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}
+      >
+        <span>{emoji}</span>
+        <span>{title}</span>
+      </div>
+      {children}
     </div>
   );
 }
