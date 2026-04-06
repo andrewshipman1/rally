@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { TripEditor } from '@/components/editor/TripEditor';
-import type { Trip, Theme, Block } from '@/types';
+import type { Trip, Theme, Lodging, Flight, Transport, Restaurant, Activity } from '@/types';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -14,6 +14,15 @@ export async function generateMetadata({ params }: Props) {
   return { title: trip ? `Edit ${trip.name} — Rally` : 'Edit trip — Rally' };
 }
 
+export type EditableTrip = Trip & {
+  theme: Theme | null;
+  lodging: Lodging[];
+  flights: Flight[];
+  transport: Transport[];
+  restaurants: Restaurant[];
+  activities: Activity[];
+};
+
 export default async function EditPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
@@ -25,15 +34,20 @@ export default async function EditPage({ params }: Props) {
 
   const { data: trip } = await supabase
     .from('trips')
-    .select('*, theme:themes(*), blocks(*)')
+    .select(
+      '*, theme:themes(*), lodging(*), flights(*), transport(*), restaurants(*), activities(*)'
+    )
     .eq('id', id)
     .eq('organizer_id', user.id)
-    .order('sort_order', { referencedTable: 'blocks', ascending: true })
+    .order('sort_order', { referencedTable: 'lodging', ascending: true })
+    .order('sort_order', { referencedTable: 'flights', ascending: true })
+    .order('sort_order', { referencedTable: 'transport', ascending: true })
+    .order('sort_order', { referencedTable: 'restaurants', ascending: true })
+    .order('sort_order', { referencedTable: 'activities', ascending: true })
     .single();
 
   if (!trip) notFound();
 
-  // Fetch themes for theme picker
   const { data: themes } = await supabase
     .from('themes')
     .select('*')
@@ -52,10 +66,7 @@ export default async function EditPage({ params }: Props) {
         href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;800&family=Outfit:wght@400;500;600;700&display=swap"
         rel="stylesheet"
       />
-      <TripEditor
-        trip={trip as Trip & { theme: Theme | null; blocks: Block[] }}
-        themes={(themes as Theme[]) || []}
-      />
+      <TripEditor trip={trip as unknown as EditableTrip} themes={(themes as Theme[]) || []} />
     </div>
   );
 }

@@ -1,15 +1,18 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
-import { themeToCSS } from '@/types';
-import type { Trip, Theme, Block, TripMember, User, Comment, Poll, PollVote } from '@/types';
+import { themeToCSS, calculateTripCost } from '@/types';
+import type { TripWithDetails } from '@/types';
 import { format } from 'date-fns';
 
 import { CollageHeader } from '@/components/trip/CollageHeader';
 import { OrganizerCard } from '@/components/trip/OrganizerCard';
 import { Countdown } from '@/components/trip/Countdown';
-import { HouseCard } from '@/components/trip/HouseCard';
-import { BlockCard } from '@/components/trip/BlockCard';
+import { LodgingCarousel } from '@/components/trip/LodgingCarousel';
+import { FlightCard } from '@/components/trip/FlightCard';
+import { TransportCard } from '@/components/trip/TransportCard';
+import { RestaurantCard } from '@/components/trip/RestaurantCard';
+import { ActivityCard } from '@/components/trip/ActivityCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
 import { GuestList } from '@/components/trip/GuestList';
@@ -18,36 +21,37 @@ import { RsvpSection } from '@/components/trip/RsvpSection';
 import { Footer } from '@/components/trip/Footer';
 import { Reveal } from '@/components/ui/Reveal';
 
-type TripRow = Trip & {
-  theme: Theme | null;
-  blocks: Block[];
-  trip_members: (TripMember & { user: User })[];
-  organizer: User;
-  comments: (Comment & { user: User })[];
-  polls: (Poll & { poll_votes: (PollVote & { user: User })[] })[];
-};
-
-async function getTrip(slug: string) {
+async function getTrip(slug: string): Promise<TripWithDetails | null> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('trips')
-    .select(`
+    .select(
+      `
       *,
       theme:themes(*),
-      blocks(*),
-      trip_members(*, user:users(*)),
+      lodging(*, votes:lodging_votes(*, user:users(*))),
+      flights(*),
+      transport(*),
+      restaurants(*),
+      activities(*),
+      members:trip_members(*, user:users(*)),
       organizer:users!trips_organizer_id_fkey(*),
       comments(*, user:users(*)),
-      polls(*, poll_votes(*, user:users(*)))
-    `)
+      polls(*, votes:poll_votes(*, user:users(*)))
+    `
+    )
     .eq('share_slug', slug)
-    .order('sort_order', { referencedTable: 'blocks', ascending: true })
+    .order('sort_order', { referencedTable: 'lodging', ascending: true })
+    .order('sort_order', { referencedTable: 'flights', ascending: true })
+    .order('sort_order', { referencedTable: 'transport', ascending: true })
+    .order('sort_order', { referencedTable: 'restaurants', ascending: true })
+    .order('sort_order', { referencedTable: 'activities', ascending: true })
     .order('created_at', { referencedTable: 'comments', ascending: true })
     .single();
 
   if (error || !data) return null;
-  return data as unknown as TripRow;
+  return data as unknown as TripWithDetails;
 }
 
 type Props = {
@@ -58,31 +62,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const trip = await getTrip(slug);
 
-  if (!trip) {
-    return { title: 'Trip not found — Rally' };
-  }
+  if (!trip) return { title: 'Trip not found — Rally' };
 
   const dateStr =
     trip.date_start && trip.date_end
       ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
       : '';
 
-  const confirmedCount = trip.trip_members.filter((m) => m.rsvp === 'in').length;
-  const blocks = trip.blocks || [];
-  const sharedTotal = blocks
-    .filter((b) => b.cost_type === 'shared' && b.cost)
-    .reduce((sum, b) => sum + (b.cost ?? 0), 0);
-  const perPerson = confirmedCount > 0 ? Math.round(sharedTotal / confirmedCount) : 0;
-
-  const individualTotal = blocks
-    .filter((b) => b.cost_type === 'individual' && b.cost)
-    .reduce((sum, b) => sum + (b.cost ?? 0), 0);
-  const totalPerPerson = perPerson + individualTotal;
-
+  const cost = calculateTripCost(trip);
   const description = [
     trip.destination,
     dateStr,
-    totalPerPerson > 0 ? `~$${totalPerPerson}/person` : '',
+    cost.per_person_total > 0 ? `~$${cost.per_person_total}/person` : '',
   ]
     .filter(Boolean)
     .join(' • ');
@@ -94,9 +85,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description,
     openGraph: {
       title: trip.name,
-      description: trip.tagline
-        ? `${trip.tagline} — ${description}`
-        : description,
+      description: trip.tagline ? `${trip.tagline} — ${description}` : description,
       type: 'website',
       siteName: 'Rally',
       url: `${appUrl}/trip/${slug}`,
@@ -119,29 +108,38 @@ export default async function TripPage({ params }: Props) {
 
   if (!trip) notFound();
 
+  // Get current user for voting
+  const supabase = await createClient();
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser();
+
   const theme = trip.theme;
   const cssVars = theme ? themeToCSS(theme) : null;
   const fontDisplay = theme?.font_display || 'Fraunces';
   const fontBody = theme?.font_body || 'Outfit';
   const fontUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontDisplay)}:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,800;1,9..144,400&family=${encodeURIComponent(fontBody)}:wght@400;500;600;700&display=swap`;
 
-  const blocks = trip.blocks || [];
-  const members = trip.trip_members || [];
-  const confirmedCount = members.filter((m) => m.rsvp === 'in').length;
+  const lodging = trip.lodging || [];
+  const flights = trip.flights || [];
+  const transport = trip.transport || [];
+  const restaurants = trip.restaurants || [];
+  const activities = trip.activities || [];
+  const members = trip.members || [];
   const organizer = trip.organizer;
   const comments = trip.comments || [];
   const polls = trip.polls || [];
 
-  // Separate the "house" block (first block / sort_order 0) from other blocks
-  const houseBlock = blocks.find((b) => b.sort_order === 0);
-  const otherBlocks = blocks.filter((b) => b.sort_order !== 0);
+  const cost = calculateTripCost(trip);
 
   const dateStr =
     trip.date_start && trip.date_end
       ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
       : '';
 
-  const bgStyle = theme?.background_value || 'linear-gradient(168deg, #122c35 0%, #1a3d4a 12%, #2d6b5a 28%, #3a8a7a 42%, #d4a574 62%, #e8c9a0 78%, #f5e6d0 92%, #faf3eb 100%)';
+  const bgStyle =
+    theme?.background_value ||
+    'linear-gradient(168deg, #122c35 0%, #1a3d4a 12%, #2d6b5a 28%, #3a8a7a 42%, #d4a574 62%, #e8c9a0 78%, #f5e6d0 92%, #faf3eb 100%)';
 
   return (
     <>
@@ -167,7 +165,6 @@ export default async function TripPage({ params }: Props) {
               "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
           }}
         />
-        {/* Ambient glow */}
         <div
           style={{
             position: 'fixed',
@@ -183,14 +180,13 @@ export default async function TripPage({ params }: Props) {
         />
 
         <div style={{ maxWidth: 420, margin: '0 auto', position: 'relative' }}>
-          {/* Collage Header */}
           <CollageHeader
             trip={trip}
             theme={theme}
             organizer={organizer}
             members={members}
             dateStr={dateStr}
-            confirmedCount={confirmedCount}
+            confirmedCount={cost.confirmed_count}
           />
 
           <div style={{ padding: '0 20px' }}>
@@ -210,20 +206,47 @@ export default async function TripPage({ params }: Props) {
               </Reveal>
             )}
 
-            {/* House Card */}
-            {houseBlock && (
+            {/* Lodging Carousel */}
+            {lodging.length > 0 && (
               <Reveal delay={0.1}>
                 <div style={{ marginTop: 14 }}>
-                  <HouseCard block={houseBlock} confirmedCount={confirmedCount} />
+                  <LodgingCarousel lodging={lodging} currentUserId={currentUser?.id || null} />
                 </div>
               </Reveal>
             )}
 
-            {/* Other Blocks */}
-            {otherBlocks.map((block, i) => (
-              <Reveal key={block.id} delay={0.04 * i}>
+            {/* Flights */}
+            {flights.map((flight, i) => (
+              <Reveal key={flight.id} delay={0.04 * i}>
                 <div style={{ marginTop: 12 }}>
-                  <BlockCard block={block} />
+                  <FlightCard flight={flight} />
+                </div>
+              </Reveal>
+            ))}
+
+            {/* Transport */}
+            {transport.map((t, i) => (
+              <Reveal key={t.id} delay={0.04 * i}>
+                <div style={{ marginTop: 12 }}>
+                  <TransportCard transport={t} />
+                </div>
+              </Reveal>
+            ))}
+
+            {/* Activities */}
+            {activities.map((a, i) => (
+              <Reveal key={a.id} delay={0.04 * i}>
+                <div style={{ marginTop: 12 }}>
+                  <ActivityCard activity={a} />
+                </div>
+              </Reveal>
+            ))}
+
+            {/* Restaurants */}
+            {restaurants.map((r, i) => (
+              <Reveal key={r.id} delay={0.04 * i}>
+                <div style={{ marginTop: 12 }}>
+                  <RestaurantCard restaurant={r} />
                 </div>
               </Reveal>
             ))}
@@ -231,7 +254,7 @@ export default async function TripPage({ params }: Props) {
             {/* Cost Breakdown */}
             <Reveal delay={0.1}>
               <div style={{ marginTop: 14 }}>
-                <CostBreakdown blocks={blocks} confirmedCount={confirmedCount} dateStr={dateStr} />
+                <CostBreakdown trip={trip} cost={cost} dateStr={dateStr} />
               </div>
             </Reveal>
 
@@ -239,10 +262,7 @@ export default async function TripPage({ params }: Props) {
             {polls.length > 0 && (
               <Reveal delay={0.05}>
                 <div style={{ marginTop: 14 }}>
-                  <DatePoll
-                    poll={polls[0]}
-                    members={members}
-                  />
+                  <DatePoll poll={polls[0]} />
                 </div>
               </Reveal>
             )}
@@ -268,7 +288,6 @@ export default async function TripPage({ params }: Props) {
               </div>
             </Reveal>
 
-            {/* Footer */}
             <Footer />
           </div>
         </div>

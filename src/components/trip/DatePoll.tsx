@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Poll, PollVote, TripMember, User } from '@/types';
+import type { Poll, PollVote, User } from '@/types';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Avatar } from '@/components/ui/Avatar';
@@ -10,10 +10,8 @@ const COLORS = ['#2d6b5a', '#c4956a', '#3a8a7a', '#d4a574', '#1a3d4a', '#8b6f5c'
 
 export function DatePoll({
   poll,
-  members,
 }: {
-  poll: Poll & { poll_votes: (PollVote & { user: User })[] };
-  members: (TripMember & { user: User })[];
+  poll: Poll & { votes: (PollVote & { user: User })[] };
 }) {
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -28,7 +26,7 @@ export function DatePoll({
   for (const option of poll.options) {
     voteCounts[option.id] = { count: 0, voters: [] };
   }
-  for (const vote of poll.poll_votes || []) {
+  for (const vote of poll.votes || []) {
     for (const optId of vote.selected_options) {
       if (voteCounts[optId]) {
         voteCounts[optId].count++;

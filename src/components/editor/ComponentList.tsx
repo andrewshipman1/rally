@@ -1,0 +1,812 @@
+'use client';
+
+import { useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+import type { Lodging, Flight, Transport, Restaurant, Activity, TransportSubtype } from '@/types';
+
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+type ComponentType = 'lodging' | 'flight' | 'transport' | 'restaurant' | 'activity';
+
+const COMPONENT_META: Record<ComponentType, { label: string; emoji: string; description: string }> = {
+  lodging:    { label: 'Lodging',    emoji: '🏠', description: 'House, hotel, Airbnb — supports multiple options for voting' },
+  flight:     { label: 'Flight',     emoji: '✈️', description: 'Flight route with estimated price' },
+  transport:  { label: 'Transport',  emoji: '🚗', description: 'Rental car, taxi, or public transit' },
+  restaurant: { label: 'Restaurant', emoji: '🍽️', description: 'Reservation or group dinner' },
+  activity:   { label: 'Activity',   emoji: '🤿', description: 'Excursion, tour, yoga class, etc.' },
+};
+
+export function ComponentList({
+  tripId,
+  lodging,
+  flights,
+  transport,
+  restaurants,
+  activities,
+  onLodgingChange,
+  onFlightsChange,
+  onTransportChange,
+  onRestaurantsChange,
+  onActivitiesChange,
+}: {
+  tripId: string;
+  lodging: Lodging[];
+  flights: Flight[];
+  transport: Transport[];
+  restaurants: Restaurant[];
+  activities: Activity[];
+  onLodgingChange: (v: Lodging[]) => void;
+  onFlightsChange: (v: Flight[]) => void;
+  onTransportChange: (v: Transport[]) => void;
+  onRestaurantsChange: (v: Restaurant[]) => void;
+  onActivitiesChange: (v: Activity[]) => void;
+}) {
+  const [addingType, setAddingType] = useState<ComponentType | null>(null);
+
+  return (
+    <div
+      style={{
+        background: '#fff',
+        borderRadius: 16,
+        padding: 20,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        border: '1px solid rgba(0,0,0,0.04)',
+      }}
+    >
+      {/* Header */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#1a3a4a', marginBottom: 4 }}>
+          What&apos;s the trip?
+        </div>
+        <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>
+          Add the house, flights, activities, and anything else. Each item shows up on the trip page.
+        </div>
+      </div>
+
+      {/* Existing components — grouped by type */}
+      {lodging.length > 0 && (
+        <Section title="Lodging" emoji="🏠">
+          {lodging.map((l) => (
+            <RowItem
+              key={l.id}
+              primary={l.name}
+              secondary={`$${l.cost_per_night || '?'}/night${l.is_selected ? ' · ✨ Picked' : ''}`}
+              thumb={l.og_image_url}
+              onDelete={async () => {
+                if (!confirm('Remove this lodging option?')) return;
+                await supabase.from('lodging').delete().eq('id', l.id);
+                onLodgingChange(lodging.filter((x) => x.id !== l.id));
+              }}
+            />
+          ))}
+        </Section>
+      )}
+
+      {flights.length > 0 && (
+        <Section title="Flights" emoji="✈️">
+          {flights.map((f) => (
+            <RowItem
+              key={f.id}
+              primary={`${f.departure_airport} → ${f.arrival_airport}`}
+              secondary={`~$${f.estimated_price || '?'} per person${f.airline ? ' · ' + f.airline : ''}`}
+              onDelete={async () => {
+                if (!confirm('Remove this flight?')) return;
+                await supabase.from('flights').delete().eq('id', f.id);
+                onFlightsChange(flights.filter((x) => x.id !== f.id));
+              }}
+            />
+          ))}
+        </Section>
+      )}
+
+      {transport.length > 0 && (
+        <Section title="Transport" emoji="🚗">
+          {transport.map((t) => (
+            <RowItem
+              key={t.id}
+              primary={t.provider || t.subtype.replace('_', ' ')}
+              secondary={`~$${t.estimated_total || '?'} · ${t.cost_type === 'shared' ? 'Split' : 'Individual'}`}
+              onDelete={async () => {
+                if (!confirm('Remove this transport?')) return;
+                await supabase.from('transport').delete().eq('id', t.id);
+                onTransportChange(transport.filter((x) => x.id !== t.id));
+              }}
+            />
+          ))}
+        </Section>
+      )}
+
+      {activities.length > 0 && (
+        <Section title="Activities" emoji="🤿">
+          {activities.map((a) => (
+            <RowItem
+              key={a.id}
+              primary={a.name}
+              secondary={`~$${a.estimated_cost || '?'} · ${a.cost_type === 'shared' ? 'Split' : 'Individual'}`}
+              thumb={a.og_image_url}
+              onDelete={async () => {
+                if (!confirm('Remove this activity?')) return;
+                await supabase.from('activities').delete().eq('id', a.id);
+                onActivitiesChange(activities.filter((x) => x.id !== a.id));
+              }}
+            />
+          ))}
+        </Section>
+      )}
+
+      {restaurants.length > 0 && (
+        <Section title="Restaurants" emoji="🍽️">
+          {restaurants.map((r) => (
+            <RowItem
+              key={r.id}
+              primary={r.name}
+              secondary={r.cost_per_person ? `~$${r.cost_per_person} per person` : 'No cost set'}
+              thumb={r.og_image_url}
+              onDelete={async () => {
+                if (!confirm('Remove this restaurant?')) return;
+                await supabase.from('restaurants').delete().eq('id', r.id);
+                onRestaurantsChange(restaurants.filter((x) => x.id !== r.id));
+              }}
+            />
+          ))}
+        </Section>
+      )}
+
+      {/* Empty state */}
+      {lodging.length === 0 &&
+        flights.length === 0 &&
+        transport.length === 0 &&
+        restaurants.length === 0 &&
+        activities.length === 0 &&
+        !addingType && (
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '28px 0',
+              background: '#faf9f7',
+              borderRadius: 12,
+              border: '1px dashed rgba(0,0,0,0.08)',
+              marginBottom: 14,
+            }}
+          >
+            <div style={{ fontSize: 28, marginBottom: 6 }}>🧳</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#1a3a4a' }}>Nothing added yet</div>
+            <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
+              Start with the lodging, then add flights and activities
+            </div>
+          </div>
+        )}
+
+      {/* Add component buttons or form */}
+      {!addingType ? (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            Add to trip
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+            {(Object.keys(COMPONENT_META) as ComponentType[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => setAddingType(type)}
+                style={{
+                  padding: '12px 4px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2,
+                  transition: 'all .15s',
+                }}
+              >
+                <span style={{ fontSize: 22 }}>{COMPONENT_META[type].emoji}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#1a3a4a' }}>
+                  {COMPONENT_META[type].label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <AddForm
+          type={addingType}
+          tripId={tripId}
+          onCancel={() => setAddingType(null)}
+          onAdded={(type, item) => {
+            if (type === 'lodging') onLodgingChange([...lodging, item as Lodging]);
+            if (type === 'flight') onFlightsChange([...flights, item as Flight]);
+            if (type === 'transport') onTransportChange([...transport, item as Transport]);
+            if (type === 'restaurant') onRestaurantsChange([...restaurants, item as Restaurant]);
+            if (type === 'activity') onActivitiesChange([...activities, item as Activity]);
+            setAddingType(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Helper components ───
+
+function Section({
+  title,
+  emoji,
+  children,
+}: {
+  title: string;
+  emoji: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: '#888',
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+          marginBottom: 6,
+        }}
+      >
+        {emoji} {title}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{children}</div>
+    </div>
+  );
+}
+
+function RowItem({
+  primary,
+  secondary,
+  thumb,
+  onDelete,
+}: {
+  primary: string;
+  secondary: string;
+  thumb?: string | null;
+  onDelete: () => void;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: 10,
+        background: '#faf9f7',
+        borderRadius: 10,
+        border: '1px solid rgba(0,0,0,0.04)',
+      }}
+    >
+      {thumb && (
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            background: `url(${thumb}) center/cover`,
+            flexShrink: 0,
+          }}
+        />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#1a3a4a',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {primary}
+        </div>
+        <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>{secondary}</div>
+      </div>
+      <button
+        onClick={onDelete}
+        style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          fontSize: 14,
+          color: '#ccc',
+          padding: '4px 8px',
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+// ─── Add form ───
+
+function AddForm({
+  type,
+  tripId,
+  onCancel,
+  onAdded,
+}: {
+  type: ComponentType;
+  tripId: string;
+  onCancel: () => void;
+  onAdded: (type: ComponentType, item: Lodging | Flight | Transport | Restaurant | Activity) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+
+  // Shared fields
+  const [name, setName] = useState('');
+  const [link, setLink] = useState('');
+  const [notes, setNotes] = useState('');
+
+  // Lodging
+  const [costPerNight, setCostPerNight] = useState('');
+  const [ogImage, setOgImage] = useState<string | null>(null);
+
+  // Flight
+  const [depAirport, setDepAirport] = useState('');
+  const [arrAirport, setArrAirport] = useState('');
+  const [flightPrice, setFlightPrice] = useState('');
+
+  // Transport
+  const [subtype, setSubtype] = useState<TransportSubtype>('car_rental');
+  const [transportTotal, setTransportTotal] = useState('');
+  const [transportCostType, setTransportCostType] = useState<'shared' | 'individual'>('shared');
+
+  // Restaurant (just name + link — most optional in Sketch)
+
+  // Activity
+  const [activityCost, setActivityCost] = useState('');
+  const [activityCostType, setActivityCostType] = useState<'shared' | 'individual'>('individual');
+
+  const enrichLink = async (url: string) => {
+    if (!url) return;
+    setEnriching(true);
+    try {
+      const res = await fetch('/api/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (data.title && !name) setName(data.title);
+      if (data.image) setOgImage(data.image);
+    } catch {
+      // best-effort
+    } finally {
+      setEnriching(false);
+    }
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      if (type === 'lodging') {
+        const { data, error } = await supabase
+          .from('lodging')
+          .insert({
+            trip_id: tripId,
+            name: name.trim(),
+            link: link.trim() || null,
+            cost_per_night: costPerNight ? parseFloat(costPerNight) : null,
+            og_image_url: ogImage,
+            notes: notes.trim() || null,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        onAdded('lodging', data as Lodging);
+      } else if (type === 'flight') {
+        const { data, error } = await supabase
+          .from('flights')
+          .insert({
+            trip_id: tripId,
+            departure_airport: depAirport.trim().toUpperCase(),
+            arrival_airport: arrAirport.trim().toUpperCase(),
+            estimated_price: flightPrice ? parseFloat(flightPrice) : null,
+            booking_link: link.trim() || null,
+            notes: notes.trim() || null,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        onAdded('flight', data as Flight);
+      } else if (type === 'transport') {
+        const { data, error } = await supabase
+          .from('transport')
+          .insert({
+            trip_id: tripId,
+            subtype,
+            estimated_total: transportTotal ? parseFloat(transportTotal) : null,
+            cost_type: transportCostType,
+            booking_link: link.trim() || null,
+            notes: notes.trim() || null,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        onAdded('transport', data as Transport);
+      } else if (type === 'restaurant') {
+        const { data, error } = await supabase
+          .from('restaurants')
+          .insert({
+            trip_id: tripId,
+            name: name.trim(),
+            link: link.trim() || null,
+            og_image_url: ogImage,
+            notes: notes.trim() || null,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        onAdded('restaurant', data as Restaurant);
+      } else if (type === 'activity') {
+        const { data, error } = await supabase
+          .from('activities')
+          .insert({
+            trip_id: tripId,
+            name: name.trim(),
+            estimated_cost: activityCost ? parseFloat(activityCost) : null,
+            cost_type: activityCostType,
+            link: link.trim() || null,
+            og_image_url: ogImage,
+            notes: notes.trim() || null,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        onAdded('activity', data as Activity);
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to add');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const canSave = (() => {
+    if (type === 'lodging' || type === 'restaurant' || type === 'activity') return name.trim().length > 0;
+    if (type === 'flight') return depAirport.trim() && arrAirport.trim();
+    if (type === 'transport') return !!subtype;
+    return false;
+  })();
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: 8,
+    border: '1px solid rgba(0,0,0,0.1)',
+    background: '#fff',
+    color: '#1a3a4a',
+    fontSize: 13,
+    outline: 'none',
+    fontFamily: "'Outfit', sans-serif",
+    boxSizing: 'border-box',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#888',
+    display: 'block',
+    marginBottom: 4,
+  };
+
+  const meta = COMPONENT_META[type];
+
+  return (
+    <div
+      style={{
+        marginTop: 14,
+        padding: 16,
+        background: '#faf9f7',
+        borderRadius: 12,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 12px',
+            borderRadius: 20,
+            background: '#e0f0eb',
+            color: '#2d6b5a',
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          <span style={{ fontSize: 14 }}>{meta.emoji}</span>
+          Adding {meta.label.toLowerCase()}
+        </div>
+        <button
+          onClick={onCancel}
+          style={{ background: 'none', border: 'none', color: '#aaa', fontSize: 12, cursor: 'pointer' }}
+        >
+          Cancel
+        </button>
+      </div>
+
+      <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4, marginTop: -4 }}>
+        {meta.description}
+      </div>
+
+      {/* Lodging form */}
+      {type === 'lodging' && (
+        <>
+          <div>
+            <label style={labelStyle}>Airbnb / hotel link (auto-fills title + image)</label>
+            <input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              onBlur={() => enrichLink(link)}
+              placeholder="https://airbnb.com/rooms/..."
+              style={inputStyle}
+            />
+            {enriching && <div style={{ fontSize: 11, color: '#2d6b5a', marginTop: 4 }}>⏳ Fetching...</div>}
+          </div>
+          <div>
+            <label style={labelStyle}>Name *</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Casa Palapa — Beachfront Villa"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Cost per night</label>
+            <PriceInput value={costPerNight} onChange={setCostPerNight} />
+          </div>
+        </>
+      )}
+
+      {/* Flight form */}
+      {type === 'flight' && (
+        <>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>From *</label>
+              <input
+                value={depAirport}
+                onChange={(e) => setDepAirport(e.target.value.toUpperCase())}
+                placeholder="JFK"
+                maxLength={4}
+                style={{ ...inputStyle, textAlign: 'center', fontSize: 15, fontWeight: 700 }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>To *</label>
+              <input
+                value={arrAirport}
+                onChange={(e) => setArrAirport(e.target.value.toUpperCase())}
+                placeholder="CUN"
+                maxLength={4}
+                style={{ ...inputStyle, textAlign: 'center', fontSize: 15, fontWeight: 700 }}
+              />
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Estimated price per person</label>
+            <PriceInput value={flightPrice} onChange={setFlightPrice} />
+          </div>
+          <div>
+            <label style={labelStyle}>Booking link (optional)</label>
+            <input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://google.com/flights/..."
+              style={inputStyle}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Transport form */}
+      {type === 'transport' && (
+        <>
+          <div>
+            <label style={labelStyle}>Type</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['car_rental', 'taxi', 'public_transit'] as TransportSubtype[]).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSubtype(s)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 4px',
+                    borderRadius: 8,
+                    border: subtype === s ? '2px solid #2d6b5a' : '1px solid rgba(0,0,0,0.1)',
+                    background: subtype === s ? '#e0f0eb' : '#fff',
+                    color: subtype === s ? '#2d6b5a' : '#888',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {s === 'car_rental' ? '🚗 Car rental' : s === 'taxi' ? '🚕 Taxi' : '🚆 Transit'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Estimated total cost</label>
+            <PriceInput value={transportTotal} onChange={setTransportTotal} />
+          </div>
+          <div>
+            <label style={labelStyle}>Split or individual?</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['shared', 'individual'] as const).map((ct) => (
+                <button
+                  key={ct}
+                  onClick={() => setTransportCostType(ct)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 4px',
+                    borderRadius: 8,
+                    border: transportCostType === ct ? '2px solid #2d6b5a' : '1px solid rgba(0,0,0,0.1)',
+                    background: transportCostType === ct ? '#e0f0eb' : '#fff',
+                    color: transportCostType === ct ? '#2d6b5a' : '#888',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {ct === 'shared' ? 'Split across group' : 'Individual'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Restaurant form — minimal, just name + link */}
+      {type === 'restaurant' && (
+        <>
+          <div>
+            <label style={labelStyle}>Restaurant link (auto-fills title + image)</label>
+            <input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              onBlur={() => enrichLink(link)}
+              placeholder="Google Maps, Resy, Yelp URL"
+              style={inputStyle}
+            />
+            {enriching && <div style={{ fontSize: 11, color: '#2d6b5a', marginTop: 4 }}>⏳ Fetching...</div>}
+          </div>
+          <div>
+            <label style={labelStyle}>Name *</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Hartwood"
+              style={inputStyle}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Activity form */}
+      {type === 'activity' && (
+        <>
+          <div>
+            <label style={labelStyle}>Booking link (auto-fills title + image)</label>
+            <input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              onBlur={() => enrichLink(link)}
+              placeholder="Viator, Airbnb Experiences URL"
+              style={inputStyle}
+            />
+            {enriching && <div style={{ fontSize: 11, color: '#2d6b5a', marginTop: 4 }}>⏳ Fetching...</div>}
+          </div>
+          <div>
+            <label style={labelStyle}>Name *</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Cenote day trip"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Estimated cost</label>
+            <PriceInput value={activityCost} onChange={setActivityCost} />
+          </div>
+          <div>
+            <label style={labelStyle}>Split or individual?</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['shared', 'individual'] as const).map((ct) => (
+                <button
+                  key={ct}
+                  onClick={() => setActivityCostType(ct)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 4px',
+                    borderRadius: 8,
+                    border: activityCostType === ct ? '2px solid #2d6b5a' : '1px solid rgba(0,0,0,0.1)',
+                    background: activityCostType === ct ? '#e0f0eb' : '#fff',
+                    color: activityCostType === ct ? '#2d6b5a' : '#888',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {ct === 'shared' ? 'Split across group' : 'Per person'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Notes field (all types) */}
+      <div>
+        <label style={labelStyle}>Notes (optional)</label>
+        <input
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Anything your friends should know..."
+          style={inputStyle}
+        />
+      </div>
+
+      <button
+        onClick={save}
+        disabled={!canSave || saving}
+        style={{
+          padding: 12,
+          borderRadius: 10,
+          border: 'none',
+          background: canSave ? 'linear-gradient(135deg, #2d6b5a, #3a8a7a)' : '#e0e0e0',
+          color: canSave ? '#fff' : '#aaa',
+          fontSize: 14,
+          fontWeight: 700,
+          cursor: canSave ? 'pointer' : 'default',
+          fontFamily: "'Outfit', sans-serif",
+        }}
+      >
+        {saving ? 'Adding...' : `Add ${meta.label.toLowerCase()}`}
+      </button>
+    </div>
+  );
+}
+
+function PriceInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#aaa', fontSize: 13 }}>$</span>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0"
+        style={{
+          width: '100%',
+          padding: '10px 12px 10px 24px',
+          borderRadius: 8,
+          border: '1px solid rgba(0,0,0,0.1)',
+          background: '#fff',
+          color: '#1a3a4a',
+          fontSize: 13,
+          outline: 'none',
+          fontFamily: "'Outfit', sans-serif",
+          boxSizing: 'border-box',
+        }}
+      />
+    </div>
+  );
+}

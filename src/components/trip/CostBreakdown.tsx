@@ -1,56 +1,73 @@
-import type { Block } from '@/types';
+import type { TripWithDetails, TripCostSummary } from '@/types';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Badge } from '@/components/ui/Badge';
 
-// Map tag labels to icons
-const TAG_ICONS: Record<string, string> = {
-  'The House': '🏠',
-  Flights: '✈️',
-  'Rental Car': '🚗',
-  Activities: '🤿',
-  Meals: '🍽️',
-};
-
 export function CostBreakdown({
-  blocks,
-  confirmedCount,
+  trip,
+  cost,
   dateStr,
 }: {
-  blocks: Block[];
-  confirmedCount: number;
+  trip: TripWithDetails;
+  cost: TripCostSummary;
   dateStr: string;
 }) {
-  const count = confirmedCount || 1;
+  // Build breakdown line items from typed components
+  const items: { label: string; val: number; icon: string }[] = [];
 
-  // Calculate per-person costs
-  const breakdown: { label: string; val: number; icon: string }[] = [];
-  let sharedTotal = 0;
-  let individualTotal = 0;
-
-  for (const block of blocks) {
-    if (block.cost == null) continue;
-    const icon = TAG_ICONS[block.tag_label || ''] || block.tag_emoji || '📦';
-    const label = block.tag_label || block.name;
-
-    if (block.cost_type === 'shared') {
-      const pp = Math.round(block.cost / count);
-      sharedTotal += pp;
-      breakdown.push({ label, val: pp, icon });
-    } else {
-      individualTotal += block.cost;
-      breakdown.push({ label, val: block.cost, icon });
-    }
+  const selectedLodging = trip.lodging.find((l) => l.is_selected) || trip.lodging[0];
+  if (selectedLodging) {
+    const nights =
+      selectedLodging.num_nights ||
+      (trip.date_start && trip.date_end
+        ? Math.ceil(
+            (new Date(trip.date_end).getTime() - new Date(trip.date_start).getTime()) / 86400000
+          )
+        : 1);
+    const lodgingCost =
+      selectedLodging.total_cost || (selectedLodging.cost_per_night || 0) * nights;
+    const perPerson = Math.round(lodgingCost / (cost.confirmed_count || 1));
+    if (perPerson > 0) items.push({ label: 'Accommodation', val: perPerson, icon: '🏠' });
   }
 
-  const totalPP = sharedTotal + individualTotal;
+  const flightsTotal = trip.flights.reduce((s, f) => s + (f.estimated_price || 0), 0);
+  if (flightsTotal > 0) items.push({ label: 'Flights', val: flightsTotal, icon: '✈️' });
 
-  // Count nights from dateStr (rough)
-  const nightsMatch = dateStr.match(/(\d+)–(\d+)/);
+  const sharedTransport = trip.transport
+    .filter((t) => t.cost_type === 'shared')
+    .reduce((s, t) => s + (t.estimated_total || 0), 0);
+  const indTransport = trip.transport
+    .filter((t) => t.cost_type === 'individual')
+    .reduce((s, t) => s + (t.estimated_total || 0), 0);
+  const transportPerPerson =
+    Math.round(sharedTransport / (cost.confirmed_count || 1)) + indTransport;
+  if (transportPerPerson > 0) items.push({ label: 'Transport', val: transportPerPerson, icon: '🚗' });
+
+  const sharedMeals = trip.restaurants
+    .filter((r) => r.cost_type === 'shared')
+    .reduce((s, r) => s + (r.cost_per_person || 0), 0);
+  const indMeals = trip.restaurants
+    .filter((r) => r.cost_type === 'individual')
+    .reduce((s, r) => s + (r.cost_per_person || 0), 0);
+  const mealsPerPerson = sharedMeals + indMeals;
+  if (mealsPerPerson > 0) items.push({ label: 'Meals', val: Math.round(mealsPerPerson), icon: '🍽️' });
+
+  const sharedActs = trip.activities
+    .filter((a) => a.cost_type === 'shared')
+    .reduce((s, a) => s + (a.estimated_cost || 0), 0);
+  const indActs = trip.activities
+    .filter((a) => a.cost_type === 'individual')
+    .reduce((s, a) => s + (a.estimated_cost || 0), 0);
+  const activitiesPerPerson =
+    Math.round(sharedActs / (cost.confirmed_count || 1)) + indActs;
+  if (activitiesPerPerson > 0)
+    items.push({ label: 'Activities', val: activitiesPerPerson, icon: '🤿' });
+
+  const nightsMatch = dateStr.match(/(\d+)[–-](\d+)/);
   const nights = nightsMatch ? parseInt(nightsMatch[2]) - parseInt(nightsMatch[1]) : 3;
 
   return (
-    <GlassCard className="text-center" >
-      <div style={{ padding: '4px 0' }}>
+    <GlassCard>
+      <div style={{ padding: '4px 0', textAlign: 'center' }}>
         <div
           style={{
             fontSize: 10,
@@ -72,16 +89,18 @@ export function CostBreakdown({
             lineHeight: 1,
           }}
         >
-          ~${totalPP}
+          ~${cost.per_person_total}
         </div>
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 3, marginBottom: 16 }}>
-          {nights} nights • {count} people
+          {nights} nights • {cost.confirmed_count} {cost.confirmed_count === 1 ? 'person' : 'people'}
         </div>
 
-        {/* Line items */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, textAlign: 'left' }}>
-          {breakdown.map((b) => (
-            <div key={b.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {items.map((b) => (
+            <div
+              key={b.label}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ fontSize: 13 }}>{b.icon}</span>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{b.label}</span>
@@ -99,7 +118,7 @@ export function CostBreakdown({
                   <div
                     style={{
                       height: '100%',
-                      width: `${totalPP > 0 ? (b.val / totalPP) * 100 : 0}%`,
+                      width: `${cost.per_person_total > 0 ? (b.val / cost.per_person_total) * 100 : 0}%`,
                       background: 'var(--rally-accent)',
                       borderRadius: 2,
                       transition: 'width 1s ease',
@@ -123,11 +142,14 @@ export function CostBreakdown({
           ))}
         </div>
 
-        {/* Shared vs Individual badges */}
         <div style={{ display: 'flex', gap: 6, marginTop: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Badge text={`🏠 Shared: ~$${sharedTotal}/pp`} bg="rgba(45,107,90,.2)" color="#7ecdb8" />
           <Badge
-            text={`✈️ Book yours: ~$${individualTotal}`}
+            text={`🏠 Shared: ~$${cost.per_person_shared}/pp`}
+            bg="rgba(45,107,90,.2)"
+            color="#7ecdb8"
+          />
+          <Badge
+            text={`✈️ Book yours: ~$${cost.individual_total}`}
             bg="rgba(26,58,74,.2)"
             color="rgba(255,255,255,.7)"
           />
