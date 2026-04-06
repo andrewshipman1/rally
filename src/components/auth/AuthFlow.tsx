@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { ProfileSetup } from './ProfileSetup';
 
-type Step = 'input' | 'otp' | 'profile';
+type Step = 'input' | 'magic-link-sent' | 'otp' | 'profile';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,18 +19,26 @@ export function AuthFlow() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const sendOtp = async () => {
+  const sendCode = async () => {
     setError('');
     setLoading(true);
     try {
       if (method === 'email') {
-        const { error } = await supabase.auth.signInWithOtp({ email: identifier });
+        // Email sends a magic link — user clicks the link in their email
+        const { error } = await supabase.auth.signInWithOtp({
+          email: identifier,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
         if (error) throw error;
+        setStep('magic-link-sent');
       } else {
+        // Phone sends a 6-digit OTP via SMS
         const { error } = await supabase.auth.signInWithOtp({ phone: identifier });
         if (error) throw error;
+        setStep('otp');
       }
-      setStep('otp');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to send code');
     } finally {
@@ -42,15 +50,13 @@ export function AuthFlow() {
     setError('');
     setLoading(true);
     try {
-      const params =
-        method === 'email'
-          ? { email: identifier, token: otp, type: 'email' as const }
-          : { phone: identifier, token: otp, type: 'sms' as const };
-
-      const { data, error } = await supabase.auth.verifyOtp(params);
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: identifier,
+        token: otp,
+        type: 'sms',
+      });
       if (error) throw error;
 
-      // Check if user has a profile in our users table
       if (data.user) {
         const { data: existingUser } = await supabase
           .from('users')
@@ -59,10 +65,8 @@ export function AuthFlow() {
           .single();
 
         if (existingUser) {
-          // Existing user — go to dashboard
           window.location.href = '/';
         } else {
-          // New user — set up profile
           setStep('profile');
         }
       }
@@ -87,9 +91,9 @@ export function AuthFlow() {
         border: '1px solid rgba(255,255,255,0.1)',
       }}
     >
+      {/* ── Enter email or phone ── */}
       {step === 'input' && (
         <>
-          {/* Method toggle */}
           <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 3 }}>
             {(['email', 'phone'] as const).map((m) => (
               <button
@@ -121,7 +125,7 @@ export function AuthFlow() {
             type={method === 'email' ? 'email' : 'tel'}
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && identifier && sendOtp()}
+            onKeyDown={(e) => e.key === 'Enter' && identifier && sendCode()}
             placeholder={method === 'email' ? 'you@example.com' : '+1 (555) 123-4567'}
             style={{
               width: '100%',
@@ -137,7 +141,7 @@ export function AuthFlow() {
             }}
           />
           <button
-            onClick={sendOtp}
+            onClick={sendCode}
             disabled={!identifier || loading}
             style={{
               width: '100%',
@@ -154,18 +158,53 @@ export function AuthFlow() {
               transition: 'all .2s',
             }}
           >
-            {loading ? 'Sending...' : 'Send verification code'}
+            {loading ? 'Sending...' : method === 'email' ? 'Send sign-in link' : 'Send verification code'}
           </button>
         </>
       )}
 
+      {/* ── Magic link sent (email) ── */}
+      {step === 'magic-link-sent' && (
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 42, marginBottom: 12 }}>✉️</div>
+          <div style={{ fontSize: 16, color: '#fff', fontWeight: 700, fontFamily: "'Fraunces', serif" }}>
+            Check your email
+          </div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 6, lineHeight: 1.5 }}>
+            We sent a sign-in link to<br />
+            <span style={{ color: '#fff', fontWeight: 600 }}>{identifier}</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 12, lineHeight: 1.5 }}>
+            Click the link in the email to sign in.<br />
+            Check your spam folder if you don&apos;t see it.
+          </div>
+          <button
+            onClick={() => { setStep('input'); setError(''); }}
+            style={{
+              marginTop: 20,
+              padding: '10px 20px',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 10,
+              background: 'none',
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: 12,
+              cursor: 'pointer',
+              fontFamily: "'Outfit', sans-serif",
+            }}
+          >
+            ← Use a different email
+          </button>
+        </div>
+      )}
+
+      {/* ── OTP code (phone) ── */}
       {step === 'otp' && (
         <>
           <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>📬</div>
-            <div style={{ fontSize: 14, color: '#fff', fontWeight: 600 }}>Check your {method}</div>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>📱</div>
+            <div style={{ fontSize: 14, color: '#fff', fontWeight: 600 }}>Enter your code</div>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
-              We sent a code to {identifier}
+              We sent a 6-digit code to {identifier}
             </div>
           </div>
           <input
@@ -225,7 +264,7 @@ export function AuthFlow() {
               fontFamily: "'Outfit', sans-serif",
             }}
           >
-            ← Use a different {method}
+            ← Use a different number
           </button>
         </>
       )}

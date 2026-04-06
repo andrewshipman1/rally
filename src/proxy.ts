@@ -53,7 +53,7 @@ export async function proxy(request: NextRequest) {
 
   // Redirect authenticated users away from auth page to dashboard
   const isPublicOnly = publicOnlyRoutes.some((r) => pathname.startsWith(r));
-  if (isPublicOnly && user && !pathname.startsWith('/auth/callback')) {
+  if (isPublicOnly && user && !pathname.startsWith('/auth/callback') && !pathname.startsWith('/auth/setup')) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 

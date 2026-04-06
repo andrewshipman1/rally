@@ -46,7 +46,7 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
         .select('id')
         .single();
 
-      if (tripError) throw tripError;
+      if (tripError) throw new Error(`Trip insert failed: ${tripError.message} (code: ${tripError.code}, details: ${tripError.details})`);
 
       // Add organizer as trip member
       await supabase.from('trip_members').insert({
