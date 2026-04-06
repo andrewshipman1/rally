@@ -125,12 +125,19 @@ export async function POST(request: NextRequest) {
 
     // Send invite email (best-effort — don't fail the request if email fails)
     let emailResult: { ok: boolean; error?: string } = { ok: false, error: 'no email' };
+    console.log('[invite] email check:', {
+      hasEmail: !!email,
+      hasResendKey: !!process.env.RESEND_API_KEY,
+      resendKeyPrefix: process.env.RESEND_API_KEY?.slice(0, 4),
+      appUrl: process.env.NEXT_PUBLIC_APP_URL,
+    });
     if (email) {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       const dateStr =
         trip.date_start && trip.date_end
           ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
           : null;
+      console.log('[invite] sending to:', email);
       emailResult = await sendInviteEmail({
         to: email,
         recipientName: name || null,
@@ -142,6 +149,7 @@ export async function POST(request: NextRequest) {
         coverImageUrl: trip.cover_image_url,
         shareUrl: `${appUrl}/trip/${trip.share_slug}`,
       });
+      console.log('[invite] email result:', emailResult);
       if (!emailResult.ok) {
         console.error('Invite email failed:', emailResult.error);
       }
