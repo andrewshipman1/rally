@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Lodging, Flight, Transport, Restaurant, Activity, TransportSubtype } from '@/types';
+import { AirportInput } from './AirportInput';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -599,23 +600,19 @@ function AddForm({
         <>
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>From *</label>
-              <input
+              <AirportInput
+                label="From *"
                 value={depAirport}
-                onChange={(e) => setDepAirport(e.target.value.toUpperCase())}
+                onChange={setDepAirport}
                 placeholder="JFK"
-                maxLength={4}
-                style={{ ...inputStyle, textAlign: 'center', fontSize: 15, fontWeight: 700 }}
               />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>To *</label>
-              <input
+              <AirportInput
+                label="To *"
                 value={arrAirport}
-                onChange={(e) => setArrAirport(e.target.value.toUpperCase())}
+                onChange={setArrAirport}
                 placeholder="CUN"
-                maxLength={4}
-                style={{ ...inputStyle, textAlign: 'center', fontSize: 15, fontWeight: 700 }}
               />
             </div>
           </div>

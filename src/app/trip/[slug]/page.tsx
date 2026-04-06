@@ -19,7 +19,7 @@ import { ActivityCard } from '@/components/trip/ActivityCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
 import { GuestList } from '@/components/trip/GuestList';
-import { GroupChat } from '@/components/trip/GroupChat';
+import { ActivityFeed } from '@/components/trip/ActivityFeed';
 import { StickyRsvpBar } from '@/components/trip/StickyRsvpBar';
 import { Footer } from '@/components/trip/Footer';
 import { Reveal } from '@/components/ui/Reveal';
@@ -292,10 +292,10 @@ export default async function TripPage({ params }: Props) {
               </div>
             </Reveal>
 
-            {/* Group Chat */}
+            {/* Activity Feed (RSVPs + comments) */}
             <Reveal delay={0.05}>
               <div id="group-chat" style={{ marginTop: 14 }}>
-                <GroupChat comments={comments} tripId={trip.id} />
+                <ActivityFeed comments={comments} tripId={trip.id} />
               </div>
             </Reveal>
 
