@@ -1,6 +1,7 @@
 import type { Restaurant } from '@/types';
 import { SolidCard } from '@/components/ui/SolidCard';
 import { Badge } from '@/components/ui/Badge';
+import { MapsLink } from './MapsLink';
 import { format } from 'date-fns';
 
 export function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
@@ -60,7 +61,15 @@ export function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
           </div>
         )}
         {restaurant.address && (
-          <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>📍 {restaurant.address}</div>
+          <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, display: 'flex', alignItems: 'center' }}>
+            <span>📍 {restaurant.address}</span>
+            <MapsLink
+              address={restaurant.address}
+              latitude={restaurant.latitude}
+              longitude={restaurant.longitude}
+              size={10}
+            />
+          </div>
         )}
         {restaurant.cost_per_person != null && (
           <div style={{ fontSize: 11, color: '#2d6b5a', fontWeight: 700, marginTop: 4 }}>

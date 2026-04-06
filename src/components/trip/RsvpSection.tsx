@@ -3,10 +3,19 @@
 import { useState } from 'react';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Confetti } from '@/components/ui/Confetti';
+import type { RsvpEmojis } from '@/types';
 
 type RsvpState = 'in' | 'maybe' | 'out' | null;
 
-export function RsvpSection({ tripId }: { tripId: string }) {
+const DEFAULT_EMOJIS: RsvpEmojis = { going: '🙌', maybe: '🤔', cant: '😢' };
+
+export function RsvpSection({
+  tripId,
+  emojis = DEFAULT_EMOJIS,
+}: {
+  tripId: string;
+  emojis?: RsvpEmojis;
+}) {
   const [rsvp, setRsvp] = useState<RsvpState>(null);
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -22,21 +31,21 @@ export function RsvpSection({ tripId }: { tripId: string }) {
   if (rsvp) {
     const config = {
       in: {
-        emoji: '🎉',
+        emoji: emojis.going,
         title: "You're in!",
         subtitle: "We'll text you updates ✈️",
         bg: 'rgba(45,107,90,.2)',
         animEmoji: true,
       },
       maybe: {
-        emoji: '🤔',
+        emoji: emojis.maybe,
         title: "We'll hold your spot",
         subtitle: "We'll nudge you before the deadline",
         bg: 'rgba(255,255,255,0.08)',
         animEmoji: false,
       },
       out: {
-        emoji: '😢',
+        emoji: emojis.cant,
         title: 'Maybe next time',
         subtitle: "We'll miss you!",
         bg: 'rgba(255,255,255,0.08)',
@@ -135,7 +144,7 @@ export function RsvpSection({ tripId }: { tripId: string }) {
               transition: 'all .15s',
             }}
           >
-            I&apos;m so in 🙌
+            I&apos;m so in {emojis.going}
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
@@ -153,7 +162,7 @@ export function RsvpSection({ tripId }: { tripId: string }) {
                 fontFamily: 'var(--rally-font-body)',
               }}
             >
-              Maybe... 🤔
+              Maybe... {emojis.maybe}
             </button>
             <button
               onClick={() => doRsvp('out')}
@@ -170,7 +179,7 @@ export function RsvpSection({ tripId }: { tripId: string }) {
                 fontFamily: 'var(--rally-font-body)',
               }}
             >
-              Can&apos;t make it 😢
+              Can&apos;t make it {emojis.cant}
             </button>
           </div>
         </div>

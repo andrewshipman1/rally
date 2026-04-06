@@ -1,6 +1,6 @@
 'use client';
 
-import type { Theme } from '@/types';
+import type { Theme, RsvpEmojis } from '@/types';
 import type { TripPhase } from '@/types';
 
 type Tab = 'theme' | 'effect' | 'settings';
@@ -23,6 +23,8 @@ export function EditorToolbar({
   deadline,
   onDeadlineChange,
   shareSlug,
+  rsvpEmojis,
+  onRsvpEmojisChange,
 }: {
   activeTab: Tab | null;
   onTabChange: (tab: Tab | null) => void;
@@ -34,6 +36,8 @@ export function EditorToolbar({
   deadline: string;
   onDeadlineChange: (date: string) => void;
   shareSlug: string;
+  rsvpEmojis: RsvpEmojis;
+  onRsvpEmojisChange: (e: RsvpEmojis) => void;
 }) {
   const toggleTab = (tab: Tab) => {
     onTabChange(activeTab === tab ? null : tab);
@@ -77,6 +81,8 @@ export function EditorToolbar({
                 deadline={deadline}
                 onDeadlineChange={onDeadlineChange}
                 onCopyLink={copyShareLink}
+                rsvpEmojis={rsvpEmojis}
+                onRsvpEmojisChange={onRsvpEmojisChange}
               />
             )}
           </div>
@@ -246,18 +252,30 @@ function EffectPanel() {
 
 // ─── Settings panel ───
 
+const EMOJI_PRESETS: { label: string; emojis: RsvpEmojis }[] = [
+  { label: 'Default', emojis: { going: '🙌', maybe: '🤔', cant: '😢' } },
+  { label: 'Party',   emojis: { going: '🎉', maybe: '😬', cant: '👋' } },
+  { label: 'Beach',   emojis: { going: '🌊', maybe: '🏖️', cant: '😭' } },
+  { label: 'Hype',    emojis: { going: '🔥', maybe: '👀', cant: '💔' } },
+  { label: 'Chill',   emojis: { going: '✨', maybe: '🌙', cant: '🥲' } },
+];
+
 function SettingsPanel({
   phase,
   onPhaseChange,
   deadline,
   onDeadlineChange,
   onCopyLink,
+  rsvpEmojis,
+  onRsvpEmojisChange,
 }: {
   phase: TripPhase;
   onPhaseChange: (p: TripPhase) => void;
   deadline: string;
   onDeadlineChange: (d: string) => void;
   onCopyLink: () => void;
+  rsvpEmojis: RsvpEmojis;
+  onRsvpEmojisChange: (e: RsvpEmojis) => void;
 }) {
   return (
     <>
@@ -302,6 +320,44 @@ function SettingsPanel({
           marginBottom: 16,
         }}
       />
+
+      <PanelLabel text="RSVP emojis" />
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 4 }}>
+        {EMOJI_PRESETS.map((preset) => {
+          const isActive =
+            preset.emojis.going === rsvpEmojis.going &&
+            preset.emojis.maybe === rsvpEmojis.maybe &&
+            preset.emojis.cant === rsvpEmojis.cant;
+          return (
+            <button
+              key={preset.label}
+              onClick={() => onRsvpEmojisChange(preset.emojis)}
+              style={{
+                flexShrink: 0,
+                padding: '10px 14px',
+                borderRadius: 12,
+                border: isActive ? '1px solid #fff' : '1px solid rgba(255,255,255,0.15)',
+                background: isActive ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
+                color: '#fff',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 4,
+                minWidth: 70,
+              }}
+            >
+              <div style={{ fontSize: 16 }}>
+                {preset.emojis.going} {preset.emojis.maybe} {preset.emojis.cant}
+              </div>
+              <div>{preset.label}</div>
+            </button>
+          );
+        })}
+      </div>
 
       <PanelLabel text="Share link" />
       <button

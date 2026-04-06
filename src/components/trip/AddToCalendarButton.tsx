@@ -1,0 +1,36 @@
+'use client';
+
+import type { Trip } from '@/types';
+import { tripToICS, downloadICS } from '@/lib/calendar';
+
+export function AddToCalendarButton({ trip }: { trip: Trip }) {
+  if (!trip.date_start || !trip.date_end) return null;
+
+  const handleClick = () => {
+    const ics = tripToICS(trip);
+    if (ics) downloadICS(ics, `rally-${trip.share_slug}`);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 12px',
+        borderRadius: 14,
+        border: '1px solid rgba(255,255,255,0.15)',
+        background: 'rgba(255,255,255,0.06)',
+        color: 'rgba(255,255,255,0.85)',
+        fontSize: 11,
+        fontWeight: 600,
+        cursor: 'pointer',
+        fontFamily: 'var(--rally-font-body)',
+        marginTop: 10,
+      }}
+    >
+      📅 Add to Calendar
+    </button>
+  );
+}

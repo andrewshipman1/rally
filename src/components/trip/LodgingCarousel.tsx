@@ -5,6 +5,7 @@ import type { Lodging, LodgingVote, User } from '@/types';
 import { SolidCard } from '@/components/ui/SolidCard';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
+import { MapsLink } from './MapsLink';
 import { createBrowserClient } from '@supabase/ssr';
 
 const supabase = createBrowserClient(
@@ -175,7 +176,10 @@ export function LodgingCarousel({
           {current.name}
         </h3>
         {current.address && (
-          <p style={{ fontSize: 11, color: '#888', margin: '0 0 8px' }}>📍 {current.address}</p>
+          <p style={{ fontSize: 11, color: '#888', margin: '0 0 8px', display: 'flex', alignItems: 'center' }}>
+            <span>📍 {current.address}</span>
+            <MapsLink address={current.address} latitude={current.latitude} longitude={current.longitude} />
+          </p>
         )}
         {current.highlights && current.highlights.length > 0 && (
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>

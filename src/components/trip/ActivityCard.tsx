@@ -1,6 +1,7 @@
 import type { Activity } from '@/types';
 import { SolidCard } from '@/components/ui/SolidCard';
 import { Badge } from '@/components/ui/Badge';
+import { MapsLink } from './MapsLink';
 import { format } from 'date-fns';
 
 export function ActivityCard({ activity }: { activity: Activity }) {
@@ -49,7 +50,15 @@ export function ActivityCard({ activity }: { activity: Activity }) {
               </div>
             )}
             {activity.location && (
-              <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>📍 {activity.location}</div>
+              <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, display: 'flex', alignItems: 'center' }}>
+                <span>📍 {activity.location}</span>
+                <MapsLink
+                  address={activity.location}
+                  latitude={activity.latitude}
+                  longitude={activity.longitude}
+                  size={10}
+                />
+              </div>
             )}
             {activity.notes && (
               <div style={{ fontSize: 10, color: '#d4a574', marginTop: 3, fontStyle: 'italic' }}>

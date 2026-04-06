@@ -6,6 +6,7 @@ import type { TripWithDetails } from '@/types';
 import { format } from 'date-fns';
 
 import { CollageHeader } from '@/components/trip/CollageHeader';
+import { AddToCalendarButton } from '@/components/trip/AddToCalendarButton';
 import { OrganizerCard } from '@/components/trip/OrganizerCard';
 import { Description } from '@/components/trip/Description';
 import { ExtrasSections } from '@/components/trip/ExtrasSections';
@@ -19,7 +20,7 @@ import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
 import { GuestList } from '@/components/trip/GuestList';
 import { GroupChat } from '@/components/trip/GroupChat';
-import { RsvpSection } from '@/components/trip/RsvpSection';
+import { StickyRsvpBar } from '@/components/trip/StickyRsvpBar';
 import { Footer } from '@/components/trip/Footer';
 import { Reveal } from '@/components/ui/Reveal';
 
@@ -152,6 +153,7 @@ export default async function TripPage({ params }: Props) {
           background: bgStyle,
           fontFamily: `'${fontBody}', sans-serif`,
           position: 'relative',
+          paddingBottom: 100,
           ...(cssVars as React.CSSProperties),
         }}
       >
@@ -192,6 +194,11 @@ export default async function TripPage({ params }: Props) {
           />
 
           <div style={{ padding: '0 20px' }}>
+            {/* Add to calendar */}
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <AddToCalendarButton trip={trip} />
+            </div>
+
             {/* Organizer Card */}
             <Reveal delay={0.15}>
               <div style={{ marginTop: 16, marginBottom: 4 }}>
@@ -287,7 +294,7 @@ export default async function TripPage({ params }: Props) {
 
             {/* Group Chat */}
             <Reveal delay={0.05}>
-              <div style={{ marginTop: 14 }}>
+              <div id="group-chat" style={{ marginTop: 14 }}>
                 <GroupChat comments={comments} tripId={trip.id} />
               </div>
             </Reveal>
@@ -300,16 +307,12 @@ export default async function TripPage({ params }: Props) {
               photoAlbumUrl={trip.photo_album_url}
             />
 
-            {/* RSVP */}
-            <Reveal delay={0.1}>
-              <div style={{ marginTop: 14 }}>
-                <RsvpSection tripId={trip.id} />
-              </div>
-            </Reveal>
-
             <Footer />
           </div>
         </div>
+
+        {/* Sticky bottom RSVP bar */}
+        <StickyRsvpBar tripId={trip.id} emojis={trip.rsvp_emojis} />
       </div>
     </>
   );

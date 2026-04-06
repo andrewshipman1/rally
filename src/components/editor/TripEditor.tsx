@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import type { Theme, Lodging, Flight, Transport, Restaurant, Activity, PackingItem } from '@/types';
+import type { Theme, Lodging, Flight, Transport, Restaurant, Activity, PackingItem, RsvpEmojis } from '@/types';
 import { themeToCSS } from '@/types';
 import type { EditableTrip } from '@/app/edit/[id]/page';
 import { ComponentList } from './ComponentList';
@@ -52,6 +52,9 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
   const [playlistUrl, setPlaylistUrl] = useState<string | null>(trip.playlist_url);
   const [houseRules, setHouseRules] = useState<string | null>(trip.house_rules);
   const [photoAlbumUrl, setPhotoAlbumUrl] = useState<string | null>(trip.photo_album_url);
+  const [rsvpEmojis, setRsvpEmojis] = useState<RsvpEmojis>(
+    trip.rsvp_emojis || { going: '🙌', maybe: '🤔', cant: '😢' }
+  );
 
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -86,6 +89,7 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
         commit_deadline: deadline ? new Date(deadline).toISOString() : null,
         theme_id: selectedThemeId,
         phase,
+        rsvp_emojis: rsvpEmojis,
       })
       .eq('id', trip.id);
     setSaving(false);
@@ -356,6 +360,8 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
           deadline={deadline}
           onDeadlineChange={setDeadline}
           shareSlug={trip.share_slug}
+          rsvpEmojis={rsvpEmojis}
+          onRsvpEmojisChange={setRsvpEmojis}
         />
       </div>
     </>
