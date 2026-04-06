@@ -38,13 +38,26 @@ export function CollageHeader({
   const accent = theme?.color_accent || '#e8c9a0';
   const collageItems =
     trip.header_images && trip.header_images.length > 0
-      ? trip.header_images.map((img, i) => ({
-          color: theme?.color_primary || DEFAULT_COLLAGE[i % DEFAULT_COLLAGE.length].color,
-          label: img.label,
-          col: img.position || DEFAULT_COLLAGE[i % DEFAULT_COLLAGE.length].col,
-          row: DEFAULT_COLLAGE[i % DEFAULT_COLLAGE.length].row,
-          url: img.url,
-        }))
+      ? trip.header_images.slice(0, 5).map((img, i) => {
+          // Parse "col / row" format from HeaderBuilder, fall back to default for that index
+          const fallback = DEFAULT_COLLAGE[i % DEFAULT_COLLAGE.length];
+          let col = fallback.col;
+          let row = fallback.row;
+          if (img.position && img.position.includes(' / ')) {
+            const parts = img.position.split(' / ');
+            if (parts.length === 2) {
+              col = parts[0];
+              row = parts[1];
+            }
+          }
+          return {
+            color: theme?.color_primary || fallback.color,
+            label: img.label || '',
+            col,
+            row,
+            url: img.url,
+          };
+        })
       : DEFAULT_COLLAGE;
 
   return (

@@ -3,13 +3,14 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import type { Theme, Lodging, Flight, Transport, Restaurant, Activity, PackingItem, RsvpEmojis } from '@/types';
+import type { Theme, Lodging, Flight, Transport, Restaurant, Activity, PackingItem, RsvpEmojis, HeaderImage } from '@/types';
 import { themeToCSS } from '@/types';
 import type { EditableTrip } from '@/app/edit/[id]/page';
 import { ComponentList } from './ComponentList';
 import { EditorToolbar } from './EditorToolbar';
 import { TripExtras } from './TripExtras';
 import { InviteSection } from './InviteSection';
+import { HeaderBuilder } from './HeaderBuilder';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -55,6 +56,7 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
   const [rsvpEmojis, setRsvpEmojis] = useState<RsvpEmojis>(
     trip.rsvp_emojis || { going: '🙌', maybe: '🤔', cant: '😢' }
   );
+  const [headerImages, setHeaderImages] = useState<HeaderImage[]>(trip.header_images || []);
 
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -313,6 +315,13 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
               }}
             />
           </GlassSection>
+
+          {/* ─── Header builder ─── */}
+          <HeaderBuilder
+            tripId={trip.id}
+            headerImages={headerImages}
+            onChange={setHeaderImages}
+          />
 
           {/* ─── Invite section ─── */}
           <InviteSection tripId={trip.id} members={trip.members || []} />

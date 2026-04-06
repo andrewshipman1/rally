@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Lodging, Flight, Transport, Restaurant, Activity, TransportSubtype } from '@/types';
 import { AirportInput } from './AirportInput';
+import { PlacesInput } from './PlacesInput';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -368,6 +369,11 @@ function AddForm({
   const [link, setLink] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Address (lodging, restaurant, activity)
+  const [address, setAddress] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+
   // Lodging
   const [costPerNight, setCostPerNight] = useState('');
   const [ogImage, setOgImage] = useState<string | null>(null);
@@ -419,6 +425,9 @@ function AddForm({
             link: link.trim() || null,
             cost_per_night: costPerNight ? parseFloat(costPerNight) : null,
             og_image_url: ogImage,
+            address: address.trim() || null,
+            latitude,
+            longitude,
             notes: notes.trim() || null,
           })
           .select()
@@ -463,6 +472,9 @@ function AddForm({
             name: name.trim(),
             link: link.trim() || null,
             og_image_url: ogImage,
+            address: address.trim() || null,
+            latitude,
+            longitude,
             notes: notes.trim() || null,
           })
           .select()
@@ -479,6 +491,9 @@ function AddForm({
             cost_type: activityCostType,
             link: link.trim() || null,
             og_image_url: ogImage,
+            location: address.trim() || null,
+            latitude,
+            longitude,
             notes: notes.trim() || null,
           })
           .select()
@@ -592,6 +607,18 @@ function AddForm({
             <label style={labelStyle}>Cost per night</label>
             <PriceInput value={costPerNight} onChange={setCostPerNight} />
           </div>
+          <PlacesInput
+            label="Address (optional)"
+            value={address}
+            onChange={setAddress}
+            onPlaceSelected={(p) => {
+              setAddress(p.description);
+              setLatitude(p.latitude ?? null);
+              setLongitude(p.longitude ?? null);
+            }}
+            placeholder="Tulum Beach Road, Quintana Roo"
+            types={['address']}
+          />
         </>
       )}
 
@@ -713,6 +740,18 @@ function AddForm({
               style={inputStyle}
             />
           </div>
+          <PlacesInput
+            label="Address (optional)"
+            value={address}
+            onChange={setAddress}
+            onPlaceSelected={(p) => {
+              setAddress(p.description);
+              setLatitude(p.latitude ?? null);
+              setLongitude(p.longitude ?? null);
+            }}
+            placeholder="Restaurant address"
+            types={['restaurant']}
+          />
         </>
       )}
 
@@ -767,6 +806,18 @@ function AddForm({
               ))}
             </div>
           </div>
+          <PlacesInput
+            label="Location (optional)"
+            value={address}
+            onChange={setAddress}
+            onPlaceSelected={(p) => {
+              setAddress(p.description);
+              setLatitude(p.latitude ?? null);
+              setLongitude(p.longitude ?? null);
+            }}
+            placeholder="Where is it?"
+            types={['establishment']}
+          />
         </>
       )}
 
