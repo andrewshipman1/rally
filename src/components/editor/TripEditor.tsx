@@ -3,11 +3,13 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import type { Theme, Lodging, Flight, Transport, Restaurant, Activity } from '@/types';
+import type { Theme, Lodging, Flight, Transport, Restaurant, Activity, PackingItem } from '@/types';
 import { themeToCSS } from '@/types';
 import type { EditableTrip } from '@/app/edit/[id]/page';
 import { ComponentList } from './ComponentList';
 import { EditorToolbar } from './EditorToolbar';
+import { TripExtras } from './TripExtras';
+import { InviteSection } from './InviteSection';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,6 +46,12 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
   const [transport, setTransport] = useState<Transport[]>(trip.transport || []);
   const [restaurants, setRestaurants] = useState<Restaurant[]>(trip.restaurants || []);
   const [activities, setActivities] = useState<Activity[]>(trip.activities || []);
+
+  // Extras state
+  const [packingList, setPackingList] = useState<PackingItem[]>(trip.packing_list || []);
+  const [playlistUrl, setPlaylistUrl] = useState<string | null>(trip.playlist_url);
+  const [houseRules, setHouseRules] = useState<string | null>(trip.house_rules);
+  const [photoAlbumUrl, setPhotoAlbumUrl] = useState<string | null>(trip.photo_album_url);
 
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -301,6 +309,22 @@ export function TripEditor({ trip, themes }: { trip: EditableTrip; themes: Theme
               }}
             />
           </GlassSection>
+
+          {/* ─── Invite section ─── */}
+          <InviteSection tripId={trip.id} members={trip.members || []} />
+
+          {/* ─── Optional Extras ─── */}
+          <TripExtras
+            tripId={trip.id}
+            packingList={packingList}
+            playlistUrl={playlistUrl}
+            houseRules={houseRules}
+            photoAlbumUrl={photoAlbumUrl}
+            onPackingChange={setPackingList}
+            onPlaylistChange={setPlaylistUrl}
+            onRulesChange={setHouseRules}
+            onAlbumChange={setPhotoAlbumUrl}
+          />
 
           {/* ─── Components (lodging, flights, etc) ─── */}
           <div style={{ marginTop: 14 }}>

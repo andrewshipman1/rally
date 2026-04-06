@@ -7,6 +7,8 @@ import { format } from 'date-fns';
 
 import { CollageHeader } from '@/components/trip/CollageHeader';
 import { OrganizerCard } from '@/components/trip/OrganizerCard';
+import { Description } from '@/components/trip/Description';
+import { ExtrasSections } from '@/components/trip/ExtrasSections';
 import { Countdown } from '@/components/trip/Countdown';
 import { LodgingCarousel } from '@/components/trip/LodgingCarousel';
 import { FlightCard } from '@/components/trip/FlightCard';
@@ -197,6 +199,15 @@ export default async function TripPage({ params }: Props) {
               </div>
             </Reveal>
 
+            {/* Description */}
+            {trip.description && (
+              <Reveal delay={0.18}>
+                <div style={{ marginTop: 14 }}>
+                  <Description text={trip.description} />
+                </div>
+              </Reveal>
+            )}
+
             {/* Countdown */}
             {trip.commit_deadline && (
               <Reveal delay={0.2}>
@@ -280,6 +291,14 @@ export default async function TripPage({ params }: Props) {
                 <GroupChat comments={comments} tripId={trip.id} />
               </div>
             </Reveal>
+
+            {/* Optional Extras */}
+            <ExtrasSections
+              packingList={trip.packing_list || []}
+              playlistUrl={trip.playlist_url}
+              houseRules={trip.house_rules}
+              photoAlbumUrl={trip.photo_album_url}
+            />
 
             {/* RSVP */}
             <Reveal delay={0.1}>

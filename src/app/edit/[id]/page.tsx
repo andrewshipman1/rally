@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { TripEditor } from '@/components/editor/TripEditor';
-import type { Trip, Theme, Lodging, Flight, Transport, Restaurant, Activity } from '@/types';
+import type { Trip, Theme, Lodging, Flight, Transport, Restaurant, Activity, TripMember, User } from '@/types';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -21,6 +21,7 @@ export type EditableTrip = Trip & {
   transport: Transport[];
   restaurants: Restaurant[];
   activities: Activity[];
+  members: (TripMember & { user: User })[];
 };
 
 export default async function EditPage({ params }: Props) {
@@ -35,7 +36,7 @@ export default async function EditPage({ params }: Props) {
   const { data: trip } = await supabase
     .from('trips')
     .select(
-      '*, theme:themes(*), lodging(*), flights(*), transport(*), restaurants(*), activities(*)'
+      '*, theme:themes(*), lodging(*), flights(*), transport(*), restaurants(*), activities(*), members:trip_members(*, user:users(*))'
     )
     .eq('id', id)
     .eq('organizer_id', user.id)
