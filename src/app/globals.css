@@ -1340,3 +1340,162 @@ button:active {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* ───── crew subsurface (§5.25) ─────
+   Read-only expanded guest list grouped by RSVP state. Lives at
+   /trip/<slug>/crew. Scoped under .chassis so theme vars cascade. */
+
+/* Trip-page → crew entry link (replaces the v0 GuestList card). */
+.chassis .crew-link {
+  display: inline-block;
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 22px;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 6px 14px;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  background: var(--sticker-bg);
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform 0.15s ease;
+}
+.chassis .crew-link:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+/* Subsurface container */
+.chassis .crew-surface {
+  padding: 18px 18px 40px;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.chassis .crew-back {
+  display: inline-block;
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 18px;
+  color: var(--ink);
+  text-decoration: none;
+  margin-bottom: 18px;
+  opacity: 0.85;
+}
+.chassis .crew-back:hover { opacity: 1; }
+
+.chassis .crew-title {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 38px;
+  color: var(--ink);
+  margin: 0 0 4px;
+  line-height: 1;
+}
+.chassis .crew-subtitle {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 20px;
+  color: var(--ink);
+  opacity: 0.8;
+  margin: 0 0 18px;
+}
+
+.chassis .crew-summary {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.chassis .crew-tally {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 6px 12px;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--on-surface);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.chassis .crew-tally strong {
+  font-weight: 800;
+  margin-right: 3px;
+}
+
+.chassis .crew-section {
+  margin-bottom: 26px;
+}
+.chassis .crew-section-title {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 24px;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1;
+}
+.chassis .crew-section-caption {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 17px;
+  color: var(--ink);
+  opacity: 0.7;
+  margin: 2px 0 12px;
+}
+.chassis .crew-empty {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--ink);
+  opacity: 0.6;
+  padding: 10px 0;
+  margin: 0;
+}
+
+.chassis .crew-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chassis .crew-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  background: var(--bg);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+/* Crew subsurface avatars: reuse the 38px chassis .av primitive but
+   reset the negative margin (they're in a flex row with gap, not a
+   cascading overlap). */
+.chassis .crew-row-av {
+  margin-right: 0;
+  flex-shrink: 0;
+  animation: none;
+}
+.chassis .crew-row-body {
+  flex: 1;
+  min-width: 0;
+}
+.chassis .crew-row-name {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.chassis .crew-row-host {
+  font-size: 15px;
+}
+.chassis .crew-row-you {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 16px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+.chassis .crew-row-sub {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.6;
+  margin-top: 2px;
+}

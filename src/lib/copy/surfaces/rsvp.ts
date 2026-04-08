@@ -53,7 +53,9 @@ export const rsvp: Record<string, Templated> = {
   'crew.section.in':      'in',
   'crew.section.holding': 'holding',
   'crew.section.out':     'out',
+  'crew.section.pending': 'pending',
   'crew.caption.in':      'locked and loaded',
   'crew.caption.holding': 'thinking about it',
   'crew.caption.out':     'catch the next one',
+  'crew.caption.pending': "hasn't weighed in yet",
 };

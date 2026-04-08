@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { getGuestUserId, refreshGuestCookie } from '@/lib/guest-auth';
 import { calculateTripCost } from '@/types';
-import type { TripWithDetails } from '@/types';
 import { format } from 'date-fns';
 import { track } from '@/lib/analytics';
+import { getTrip } from './_data';
 
 import { dbRsvpToRally } from '@/lib/rally-types';
 import { chassisThemeIdFromTemplate } from '@/lib/themes/from-db';
@@ -36,43 +37,8 @@ import { ActivityCard } from '@/components/trip/ActivityCard';
 import { GroceriesCard } from '@/components/trip/GroceriesCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
-import { GuestList } from '@/components/trip/GuestList';
 import { ActivityFeed } from '@/components/trip/ActivityFeed';
 import { AddToCalendarButton } from '@/components/trip/AddToCalendarButton';
-
-async function getTrip(slug: string): Promise<TripWithDetails | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('trips')
-    .select(
-      `
-      *,
-      theme:themes(*),
-      lodging(*, votes:lodging_votes(*, user:users(*))),
-      flights(*),
-      transport(*),
-      restaurants(*),
-      activities(*),
-      groceries(*),
-      members:trip_members(*, user:users(*)),
-      organizer:users!trips_organizer_id_fkey(*),
-      comments(*, user:users(*)),
-      polls(*, votes:poll_votes(*, user:users(*)))
-    `
-    )
-    .eq('share_slug', slug)
-    .order('sort_order', { referencedTable: 'lodging', ascending: true })
-    .order('sort_order', { referencedTable: 'flights', ascending: true })
-    .order('sort_order', { referencedTable: 'transport', ascending: true })
-    .order('sort_order', { referencedTable: 'restaurants', ascending: true })
-    .order('sort_order', { referencedTable: 'activities', ascending: true })
-    .order('sort_order', { referencedTable: 'groceries', ascending: true })
-    .order('created_at', { referencedTable: 'comments', ascending: true })
-    .single();
-
-  if (error || !data) return null;
-  return data as unknown as TripWithDetails;
-}
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -354,9 +320,11 @@ export default async function TripPage({ params }: Props) {
           </div>
         )}
 
-        {/* Guest list — v0 component, will be replaced by /trip/[slug]/crew in Session 2 */}
-        <div style={{ marginTop: 14 }}>
-          <GuestList members={members} organizerId={organizer.id} />
+        {/* Crew link — dedicated subsurface at /trip/[slug]/crew (Phase 9) */}
+        <div style={{ marginTop: 18, textAlign: 'center' }}>
+          <Link href={`/trip/${slug}/crew`} className="crew-link">
+            {getCopy(themeId, 'crew.viewLink')}
+          </Link>
         </div>
 
         {/* Activity feed — v0 component, will become the buzz feed in Session 2 */}

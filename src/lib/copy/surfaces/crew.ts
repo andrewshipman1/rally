@@ -11,6 +11,7 @@ export const crew: Record<string, Templated> = {
   'pageTitle':            'the crew',
   'pageSubtitle':         ({ n, trip_name }: ThemeVars) => `${n ?? '?'} rallied · ${trip_name ?? 'this trip'}`,
   'backLink':             'back to trip',
+  'viewLink':             'the crew →',
 
   // ─── Summary blocks (top of page tally) ─────────────────────────
   'summaryIn':            'in',
@@ -31,4 +32,5 @@ export const crew: Record<string, Templated> = {
   'emptyStateIn':         "nobody's rallied yet",
   'emptyStateHolding':    "everyone's decided",
   'emptyStateOut':        "nobody's out — knock on wood 🤞",
+  'emptyStatePending':    "nobody's sitting on it",
 };
