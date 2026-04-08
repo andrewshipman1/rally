@@ -29,3 +29,14 @@ export function chassisThemeIdFromTemplate(templateName: string | null | undefin
   if (!templateName) return 'just-because';
   return MAP[templateName] ?? 'just-because';
 }
+
+// Reverse of MAP — chassis id → DB template_name. Used by the theme
+// picker's commit path to look up the matching row in public.themes.
+const REVERSE: Record<ThemeId, string> = Object.fromEntries(
+  Object.entries(MAP).map(([tmpl, id]) => [id, tmpl])
+) as Record<ThemeId, string>;
+
+/** Chassis id → DB template_name. Total over ThemeId. */
+export function templateNameFromChassisId(id: ThemeId): string {
+  return REVERSE[id];
+}

@@ -1,8 +1,12 @@
 'use client';
 
-// Client-side orchestrator for the sketch-state trip page. Lives
-// inside a <div className="chassis"> that the server page owns, so
-// the data-theme attribute and postcard cover are outside this tree.
+// Client-side orchestrator for the sketch-state trip page. Owns the
+// `<div className="chassis">` wrapper and the `data-theme` attribute
+// so the Phase 6 theme picker can drive live preview via React state
+// (no imperative DOM mutation). The wrapper used to live in
+// src/app/trip/[slug]/page.tsx but moved here in Phase 6 so the
+// picker's preview → commit → revert state machine can stay inside
+// React's render cycle.
 //
 // Responsibilities:
 //   - Hold the five inline-editable field values in local state.
@@ -13,13 +17,21 @@
 //     invites require the invitee to click through and RSVP.
 //   - Render the PostcardHero with sketch overrides, the empty
 //     countdown, the crew field, and the builder sticky bar.
+//   - Own committedThemeId + previewThemeId; render `.chassis` with
+//     `data-theme={previewThemeId ?? committedThemeId}`; mount the
+//     ThemePickerSheet at the bottom of the tree.
+//   - Auto-open the picker once when landing with ?first=1 (used by
+//     the create flow to drop the organizer into the vibe picker).
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
+import { themePicker } from '@/lib/copy/surfaces/theme-picker';
 import type { ThemeId } from '@/lib/themes/types';
 
 import { PostcardHero } from '@/components/trip/PostcardHero';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
+import { ThemePickerSheet } from '@/components/trip/theme-picker/ThemePickerSheet';
 import { SketchHeader } from './SketchHeader';
 import { SketchCountdownEmpty } from './SketchCountdownEmpty';
 import { SketchCrewField } from './SketchCrewField';
@@ -70,19 +82,41 @@ export function SketchTripShell({
   const [destination, setDestination] = useState<string | null>(initial.destination);
   const [dateStart, setDateStart] = useState<string | null>(initial.date_start);
 
+  // Phase 6 — theme state. Committed reflects server truth; preview is
+  // transient while the picker sheet is open. activeThemeId drives the
+  // `data-theme` attribute so React always owns the DOM state.
+  const [committedThemeId, setCommittedThemeId] = useState<ThemeId>(themeId);
+  const [previewThemeId, setPreviewThemeId] = useState<ThemeId | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const activeThemeId = previewThemeId ?? committedThemeId;
+
+  // Auto-open on ?first=1 (create-flow handoff). Guarded by ref so
+  // Strict Mode's double-invoke doesn't re-open after replace().
+  const sp = useSearchParams();
+  const router = useRouter();
+  const didAutoOpenRef = useRef(false);
+  useEffect(() => {
+    if (didAutoOpenRef.current) return;
+    if (sp?.get('first') === '1') {
+      didAutoOpenRef.current = true;
+      setPickerOpen(true);
+      router.replace(`/trip/${slug}`);
+    }
+  }, [sp, router, slug]);
+
   const { queue, flush } = useDebouncedAutosave(tripId, slug);
 
   const ready = hasReadyName(name) && hasReadyDate(dateStart, initial.date_end) && crewReady;
 
   // Scaffolding marquee is ` · `-delimited in the lexicon so each
   // segment lands in its own <span> the same way the live marquee does.
-  const marqueeCopy = getCopy(themeId, 'builderState.marqueeScaffolding');
+  const marqueeCopy = getCopy(activeThemeId, 'builderState.marqueeScaffolding');
   const marqueeItems = marqueeCopy.split(' · ');
 
   return (
-    <>
+    <div className="chassis" data-theme={activeThemeId}>
       <PostcardHero
-        themeId={themeId}
+        themeId={activeThemeId}
         tripName={name}
         destination={destination}
         tagline={tagline}
@@ -92,12 +126,12 @@ export function SketchTripShell({
         isLive={false}
         sketchOverrides={{
           marqueeItems,
-          stickerText: getCopy(themeId, 'builderState.sticker'),
-          liveRowText: getCopy(themeId, 'builderState.liveRow'),
-          eyebrowText: getCopy(themeId, 'builderState.eyebrow'),
+          stickerText: getCopy(activeThemeId, 'builderState.sticker'),
+          liveRowText: getCopy(activeThemeId, 'builderState.liveRow'),
+          eyebrowText: getCopy(activeThemeId, 'builderState.eyebrow'),
           renderBody: (
             <SketchHeader
-              themeId={themeId}
+              themeId={activeThemeId}
               name={name}
               tagline={tagline}
               destination={destination}
@@ -123,21 +157,45 @@ export function SketchTripShell({
         }}
       />
 
-      <SketchCountdownEmpty themeId={themeId} />
+      <SketchCountdownEmpty themeId={activeThemeId} />
 
       <SketchCrewField
-        themeId={themeId}
+        themeId={activeThemeId}
         slug={slug}
         members={members}
         organizerId={organizerId}
       />
 
-      <PoeticFooter themeId={themeId} />
+      {/* Phase 6 — entry point to the theme picker. Reuses the page
+          header key from the picker lexicon to stay inside the
+          single-source-of-truth for picker copy. */}
+      <div style={{ padding: '14px 18px 0', textAlign: 'center' }}>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--ink)',
+            fontSize: 12,
+            fontWeight: 700,
+            textDecoration: 'underline',
+            textUnderlineOffset: 3,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            opacity: 0.75,
+          }}
+        >
+          {themePicker.pageHeader as string}
+        </button>
+      </div>
+
+      <PoeticFooter themeId={activeThemeId} />
 
       <div style={{ height: 90 }} />
 
       <BuilderStickyBar
-        themeId={themeId}
+        themeId={activeThemeId}
         ready={ready}
         onManualSave={() => void flush()}
         onSendIt={() => {
@@ -147,6 +205,24 @@ export function SketchTripShell({
           void flush();
         }}
       />
-    </>
+
+      <ThemePickerSheet
+        open={pickerOpen}
+        onClose={() => {
+          setPreviewThemeId(null);
+          setPickerOpen(false);
+        }}
+        committedThemeId={committedThemeId}
+        previewThemeId={previewThemeId}
+        setPreviewThemeId={setPreviewThemeId}
+        tripId={tripId}
+        tripName={name}
+        slug={slug}
+        onCommitted={(next) => {
+          setCommittedThemeId(next);
+          setPreviewThemeId(null);
+        }}
+      />
+    </div>
   );
 }

@@ -205,26 +205,28 @@ export default async function TripPage({ params }: Props) {
   }
 
   if (trip.phase === 'sketch') {
+    // Phase 6: SketchTripShell owns its own `.chassis` wrapper so the
+    // theme picker can drive live preview via React state. Do NOT
+    // re-wrap here or the data-theme attribute will double-up and the
+    // picker's preview swap will be shadowed.
     return (
-      <div className="chassis" data-theme={themeId}>
-        <SketchTripShell
-          themeId={themeId}
-          tripId={trip.id}
-          slug={slug}
-          organizerId={organizer.id}
-          organizerName={organizer.display_name}
-          coverImageUrl={trip.cover_image_url}
-          members={members}
-          crewReady={hasNonOrganizerMember(members, organizer.id)}
-          initial={{
-            name: trip.name,
-            tagline: trip.tagline,
-            destination: trip.destination,
-            date_start: trip.date_start,
-            date_end: trip.date_end,
-          }}
-        />
-      </div>
+      <SketchTripShell
+        themeId={themeId}
+        tripId={trip.id}
+        slug={slug}
+        organizerId={organizer.id}
+        organizerName={organizer.display_name}
+        coverImageUrl={trip.cover_image_url}
+        members={members}
+        crewReady={hasNonOrganizerMember(members, organizer.id)}
+        initial={{
+          name: trip.name,
+          tagline: trip.tagline,
+          destination: trip.destination,
+          date_start: trip.date_start,
+          date_end: trip.date_end,
+        }}
+      />
     );
   }
 

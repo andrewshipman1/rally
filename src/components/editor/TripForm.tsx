@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import type { Theme } from '@/types';
-import { ThemePicker } from './ThemePicker';
 import { track } from '@/lib/analytics';
 
 const supabase = createBrowserClient(
@@ -12,7 +10,7 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }) {
+export function TripForm({ userId }: { userId: string }) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [destination, setDestination] = useState('');
@@ -20,7 +18,6 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [deadline, setDeadline] = useState('');
-  const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -30,7 +27,9 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
     setError('');
 
     try {
-      // Create the trip
+      // Phase 6: create with theme_id: null. The organizer lands on
+      // the sketch page with ?first=1 which auto-opens the new theme
+      // picker sheet — theme selection moved out of the create form.
       const { data: trip, error: tripError } = await supabase
         .from('trips')
         .insert({
@@ -42,7 +41,7 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
           date_end: dateEnd || null,
           commit_deadline: deadline ? new Date(deadline).toISOString() : null,
           phase: 'sketch',
-          theme_id: selectedTheme,
+          theme_id: null,
         })
         .select('id, share_slug')
         .single();
@@ -60,12 +59,13 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
       track('trip_created', {
         tripId: trip.id,
         userId,
-        metadata: { destination: destination.trim() || null, theme: selectedTheme },
+        metadata: { destination: destination.trim() || null, theme: null },
       });
 
-      // Phase 4: new trips land on the chassis-rendered builder at
-      // /trip/[slug], not the legacy /edit/[id] admin form.
-      router.push(`/trip/${trip.share_slug}`);
+      // Phase 6: ?first=1 tells SketchTripShell to auto-open the
+      // theme picker sheet on first view. The param is stripped on
+      // open so a refresh doesn't re-trigger.
+      router.push(`/trip/${trip.share_slug}?first=1`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create trip');
     } finally {
@@ -94,9 +94,6 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
     marginBottom: 6,
     marginTop: 16,
   };
-
-  // Preview gradient for selected theme
-  const previewTheme = themes.find((t) => t.id === selectedTheme);
 
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', padding: '24px 20px' }}>
@@ -128,19 +125,6 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
           Create a trip
         </h1>
       </div>
-
-      {/* Theme preview bar */}
-      {previewTheme && (
-        <div
-          style={{
-            height: 6,
-            borderRadius: 3,
-            background: previewTheme.background_value,
-            marginBottom: 16,
-            transition: 'background 0.5s',
-          }}
-        />
-      )}
 
       {/* Form */}
       <div
@@ -189,9 +173,6 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
 
         <label style={labelStyle}>Commit deadline</label>
         <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={inputStyle} />
-
-        <label style={labelStyle}>Theme</label>
-        <ThemePicker themes={themes} selected={selectedTheme} onSelect={setSelectedTheme} />
       </div>
 
       <button
