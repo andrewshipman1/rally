@@ -24,6 +24,8 @@ export const inviteeState: Record<string, Templated> = {
   'primaryCta':           'see the plan →',
   'secondaryCta':         "can't make it",
   'cantMakeItConfirm':    ({ inviter_first }: ThemeVars) => `no worries. tell ${inviter_first ?? 'them'} yourself?`,
+  'cantMakeItConfirmYes': "okay 👋",
+  'cantMakeItConfirmNo':  'never mind',
 
   // ─── Share link ─────────────────────────────────────────────────
   'shareLinkCopyAction':  'copy the invite link ↗',

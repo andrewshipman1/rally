@@ -772,6 +772,188 @@ button:active {
   font-weight: 700;
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+ * PHASE 5 — Invitee pre-login state. Locked plan section (blur + overlay)
+ * and the two-CTA sticky bar used by <InviteeStickyBar>.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+.chassis .locked-section {
+  position: relative;
+  margin: 4px 18px 18px;
+  animation: slide-up-bounce 0.7s 0.65s both;
+}
+.chassis .locked-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px 8px;
+}
+.chassis .locked-header .locked-title {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 22px;
+  color: var(--ink);
+}
+.chassis .locked-header .locked-pill {
+  background: var(--accent);
+  color: #fff;
+  border: 2px solid var(--stroke);
+  border-radius: 100px;
+  padding: 3px 12px;
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 14px;
+  box-shadow: 2px 2px 0 var(--stroke);
+}
+.chassis .locked-body {
+  position: relative;
+  background: var(--bg);
+  border: 3px solid var(--stroke);
+  border-radius: 22px;
+  box-shadow: 6px 6px 0 var(--stroke);
+  padding: 14px 16px;
+  filter: blur(4px);
+  opacity: 0.85;
+  user-select: none;
+  pointer-events: none;
+}
+.chassis .locked-body .locked-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 15px;
+  color: var(--ink);
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--stroke);
+}
+.chassis .locked-body .locked-row:last-child {
+  border-bottom: none;
+  padding-top: 10px;
+  font-weight: 800;
+}
+.chassis .locked-body .locked-row .locked-label {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 18px;
+}
+.chassis .locked-overlay {
+  position: absolute;
+  inset: 38px 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.chassis .locked-overlay .locked-overlay-pill {
+  background: var(--bg);
+  color: var(--accent);
+  border: 3px solid var(--ink);
+  border-radius: 100px;
+  padding: 10px 20px;
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 22px;
+  box-shadow: 3px 3px 0 var(--ink);
+  transform: rotate(-2deg);
+}
+
+/* Invitee sticky bar — two CTAs: outline "can't make it" + primary "see the plan". */
+.chassis .sticky .cant-make-it {
+  flex: 0 0 auto;
+  background: transparent;
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  height: 52px;
+  padding: 0 18px;
+  border-radius: 100px;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: none;
+  cursor: pointer;
+}
+.chassis .sticky .see-plan {
+  flex: 1;
+  background: var(--accent);
+  color: #fff;
+  border: 3px solid var(--stroke);
+  height: 52px;
+  border-radius: 100px;
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--stroke);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse-cta 2s ease-in-out infinite;
+}
+.chassis .sticky .see-plan:hover {
+  animation: hover-wobble 0.4s ease-in-out;
+}
+@keyframes pulse-cta {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.02); }
+}
+
+/* Dashed empty avatar — the "you?" slot in the invitee going row. */
+.chassis .avatars .av.av-empty {
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.45;
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+/* Invitee soft-decline confirm modal — minimal overlay. */
+.chassis .invitee-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+.chassis .invitee-confirm {
+  background: var(--bg);
+  border: 3px solid var(--stroke);
+  border-radius: 22px;
+  box-shadow: 6px 6px 0 var(--stroke);
+  padding: 22px 22px 18px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+}
+.chassis .invitee-confirm .invitee-confirm-msg {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 22px;
+  color: var(--ink);
+  margin-bottom: 16px;
+}
+.chassis .invitee-confirm .invitee-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.chassis .invitee-confirm .invitee-confirm-actions button {
+  flex: 1;
+  height: 44px;
+  border-radius: 100px;
+  border: 3px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.chassis .invitee-confirm .invitee-confirm-actions button.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--stroke);
+}
+
 /* Poetic footer — only on the live trip page */
 .chassis .poetic-footer {
   margin: 36px 18px 28px;

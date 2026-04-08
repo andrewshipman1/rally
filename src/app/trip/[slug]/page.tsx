@@ -19,6 +19,7 @@ import { LodgingGallery } from '@/components/trip/LodgingGallery';
 import { StickyRsvpBarChassis } from '@/components/trip/StickyRsvpBarChassis';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
 import { SketchTripShell } from '@/components/trip/builder/SketchTripShell';
+import { InviteeShell } from '@/components/trip/InviteeShell';
 import { hasNonOrganizerMember } from '@/lib/builder/ungate';
 
 // Carry-over typed component cards from v0. These get rebuilt against the
@@ -180,6 +181,29 @@ export default async function TripPage({ params }: Props) {
   // Render the inline-edit sketch shell instead of the live trip
   // subtree. The rest of this function's logic (going counts,
   // cards, sticky RSVP) applies only to sell/lock/go.
+  // ─── Invitee pre-login short-circuit ──────────────────────────────────
+  // Phase 5: an unauthenticated viewer (no Supabase session AND no guest
+  // cookie) on a non-sketch trip sees the locked/blurred invitee shell
+  // instead of the full plan. Login gate, not RSVP gate — the header,
+  // countdown, and going row stay visible; only the plan is blurred
+  // behind a "sign in to see the plan ↑" overlay. Sketch trips are
+  // handled by the block below (the organizer is always authenticated
+  // in sketch phase, so this check never fires for them).
+  if (currentUserId === null && trip.phase !== 'sketch') {
+    return (
+      <div className="chassis" data-theme={themeId}>
+        <InviteeShell
+          themeId={themeId}
+          slug={slug}
+          trip={trip}
+          goingMembers={goingMembers}
+          inCount={inCount}
+          cost={cost}
+        />
+      </div>
+    );
+  }
+
   if (trip.phase === 'sketch') {
     return (
       <div className="chassis" data-theme={themeId}>
