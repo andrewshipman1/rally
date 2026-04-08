@@ -1,0 +1,104 @@
+'use client';
+
+// Three-state sticky RSVP bar against the phase 2 chassis.
+//
+// Renders three pills (in / holding / out) using the GLOBAL chip icons
+// from copy/surfaces/rsvp.ts. The button label below the active row uses
+// the THEMED text from theme.strings.rsvp.{state}.buttonLabel via
+// getCopy(). Per lexicon §5.10:
+//   - chip icons are LOCKED GLOBAL (🙌 / 🧗 / —) — never themed
+//   - button CTA TEXT is themeable
+//
+// Boundary mapping: the DB stores the legacy 'in' | 'maybe' | 'out' enum,
+// the chassis uses 'in' | 'holding' | 'out'. We translate at this
+// component edge via rally-types.ts mappers.
+
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { getCopy } from '@/lib/copy/get-copy';
+import { RSVP_CHIP_ICONS } from '@/lib/copy/surfaces/rsvp';
+import type { ThemeId } from '@/lib/themes/types';
+import type { RallyRsvp } from '@/lib/rally-types';
+import { rallyRsvpToDb } from '@/lib/rally-types';
+
+type Props = {
+  themeId: ThemeId;
+  tripId: string;
+  /** Current viewer's RSVP, or null if not yet RSVP'd. */
+  current: RallyRsvp | null;
+  /** Display name + email for new RSVPs (post-auth, this is set). */
+  viewerName: string | null;
+  viewerEmail: string | null;
+};
+
+const STATES: { id: Exclude<RallyRsvp, 'pending'>; copyKey: string }[] = [
+  { id: 'in',      copyKey: 'rsvp.in.button' },
+  { id: 'holding', copyKey: 'rsvp.holding.button' },
+  { id: 'out',     copyKey: 'rsvp.out.button' },
+];
+
+export function StickyRsvpBarChassis({
+  themeId,
+  tripId,
+  current,
+  viewerName,
+  viewerEmail,
+}: Props) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [optimistic, setOptimistic] = useState<RallyRsvp | null>(current);
+
+  const submit = async (state: Exclude<RallyRsvp, 'pending'>) => {
+    setError(null);
+    setOptimistic(state);
+    try {
+      const res = await fetch('/api/rsvp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tripId,
+          name: viewerName ?? '',
+          email: viewerEmail ?? undefined,
+          // Map chassis 'holding' → DB 'maybe' at the boundary.
+          status: rallyRsvpToDb(state),
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body?.error ?? getCopy(themeId, 'errors.saveFailed'));
+        setOptimistic(current);
+        return;
+      }
+      // Re-render the server component so n_in / n_hold / per-person cost
+      // refresh without a full reload.
+      startTransition(() => router.refresh());
+    } catch {
+      setError(getCopy(themeId, 'errors.networkDown'));
+      setOptimistic(current);
+    }
+  };
+
+  return (
+    <div className="sticky">
+      {STATES.map(({ id, copyKey }) => {
+        const isActive = optimistic === id;
+        const label = getCopy(themeId, copyKey);
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => void submit(id)}
+            disabled={pending}
+            aria-pressed={isActive}
+            className={`sticky-chip${isActive ? ' active' : ''}`}
+          >
+            <span aria-hidden="true">{RSVP_CHIP_ICONS[id]}</span>
+            <span>{label}</span>
+          </button>
+        );
+      })}
+      {error && <div className="sticky-error">{error}</div>}
+    </div>
+  );
+}

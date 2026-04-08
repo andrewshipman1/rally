@@ -1,0 +1,175 @@
+/* Phase 11 auth surface styles. Light-mode only by spec — does NOT
+ * consume chassis vars (those flex per theme; the door must read
+ * consistently regardless). Source: rally-phase-11-auth.html lines 67–161.
+ */
+
+.auth-chassis {
+  min-height: 100dvh;
+  background: #fdf8ec;
+  color: #1a1a1a;
+  font-family: var(--font-body), 'DM Sans', system-ui, sans-serif;
+  padding: 80px 28px 32px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.auth-wordmark {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 68px;
+  line-height: 0.95;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.auth-bang {
+  color: #ff2e7e;
+}
+
+.auth-subhead {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 22px;
+  line-height: 1.25;
+  color: #5a5148;
+  margin: 10px 0 0;
+  transform: rotate(-1.5deg);
+  max-width: 260px;
+}
+
+.auth-form {
+  margin-top: 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 2px solid #1a1a1a;
+  background: #fff;
+  font: inherit;
+  font-size: 16px;
+  color: #1a1a1a;
+}
+.auth-input::placeholder {
+  color: #a39789;
+}
+
+.auth-btn-primary {
+  width: 100%;
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 2px solid #1a1a1a;
+  background: #1a1a1a;
+  color: #fdf8ec;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+}
+.auth-btn-primary.loading,
+.auth-btn-primary:disabled {
+  background: #5a5148;
+  border-color: #5a5148;
+  cursor: not-allowed;
+}
+
+.auth-link {
+  color: #1a1a1a;
+  font-weight: 700;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.auth-link:disabled {
+  color: #a39789;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255, 46, 126, 0.12);
+  color: #b8133e;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* sent state */
+.auth-sent-icon {
+  font-size: 64px;
+  text-align: center;
+  margin: 40px 0 20px;
+  animation: auth-float 2.6s ease-in-out infinite;
+}
+@keyframes auth-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.auth-sent-h1 {
+  font-family: var(--font-serif), 'Instrument Serif', serif;
+  font-size: 36px;
+  line-height: 1.05;
+  text-align: center;
+  margin: 0 0 12px;
+}
+.auth-sent-sub {
+  font-size: 14px;
+  color: #5a5148;
+  text-align: center;
+  line-height: 1.5;
+  max-width: 280px;
+  margin: 0 auto;
+}
+.auth-sent-sub strong {
+  color: #1a1a1a;
+  font-weight: 700;
+}
+.auth-resend-row {
+  margin-top: 36px;
+  text-align: center;
+  font-size: 13px;
+  color: #5a5148;
+}
+
+/* error states */
+.auth-err-sticker {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #ff2e7e;
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  transform: rotate(-2deg);
+  align-self: flex-start;
+  margin-top: 36px;
+}
+.auth-err-h1 {
+  font-family: var(--font-serif), 'Instrument Serif', serif;
+  font-size: 36px;
+  line-height: 1.05;
+  margin: 16px 0 10px;
+}
+.auth-err-sub {
+  font-size: 14px;
+  color: #5a5148;
+  line-height: 1.55;
+  margin: 0 0 40px;
+  max-width: 290px;
+}
+
+.auth-footer {
+  margin-top: auto;
+  text-align: center;
+  font-size: 11px;
+  color: #a39789;
+  padding-top: 20px;
+}

@@ -44,7 +44,7 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
           phase: 'sketch',
           theme_id: selectedTheme,
         })
-        .select('id')
+        .select('id, share_slug')
         .single();
 
       if (tripError) throw new Error(`Trip insert failed: ${tripError.message} (code: ${tripError.code}, details: ${tripError.details})`);
@@ -63,7 +63,9 @@ export function TripForm({ themes, userId }: { themes: Theme[]; userId: string }
         metadata: { destination: destination.trim() || null, theme: selectedTheme },
       });
 
-      router.push(`/edit/${trip.id}`);
+      // Phase 4: new trips land on the chassis-rendered builder at
+      // /trip/[slug], not the legacy /edit/[id] admin form.
+      router.push(`/trip/${trip.share_slug}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create trip');
     } finally {

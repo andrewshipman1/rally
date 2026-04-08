@@ -10,7 +10,9 @@ function getSecret(): string {
 }
 
 const COOKIE_NAME = 'rally_guest';
-const MAX_AGE = 60 * 60 * 24 * 90; // 90 days in seconds
+// 30-day rolling session per phase 11 spec. Refreshed via refreshGuestCookie()
+// on every authenticated request so an active user never sees a re-auth prompt.
+const MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
 
 function base64url(input: Buffer | string): string {
   return Buffer.from(input)
@@ -71,4 +73,16 @@ export async function getGuestUserId(): Promise<string | null> {
 export async function clearGuestCookie(): Promise<void> {
   const store = await cookies();
   store.delete(COOKIE_NAME);
+}
+
+/**
+ * Re-issue the cookie with a fresh expiration if a valid session exists.
+ * Implements the "30-day rolling" half of phase 11: each authenticated
+ * request slides the expiry forward, so an active user is never logged
+ * out, but an inactive one drops after 30 days of silence. Idempotent —
+ * safe to call from middleware, route handlers, or server components.
+ */
+export async function refreshGuestCookie(): Promise<void> {
+  const userId = await getGuestUserId();
+  if (userId) await setGuestCookie(userId);
 }
