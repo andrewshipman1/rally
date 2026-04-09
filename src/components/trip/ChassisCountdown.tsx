@@ -36,8 +36,10 @@ export function ChassisCountdown({ target, label, flag }: Props) {
     return () => clearInterval(id);
   }, [target]);
 
+  const isFinalDay = n !== null && n <= 1;
+
   return (
-    <div className="countdown">
+    <div className={`countdown${isFinalDay ? ' countdown--final' : ''}`}>
       {flag && <div className="cd-flag">{flag}</div>}
       <div className="cd-num">{n ?? '--'}</div>
       <div className="cd-label">{label}</div>

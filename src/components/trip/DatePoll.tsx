@@ -23,6 +23,7 @@ export function DatePoll({
     : null;
   const [selected, setSelected] = useState<string[]>(myVote?.selected_options || []);
   const [saving, setSaving] = useState(false);
+  const [animating, setAnimating] = useState<string | null>(null);
 
   const persist = async (next: string[]) => {
     if (!currentUserId) return;
@@ -44,6 +45,8 @@ export function DatePoll({
       ? selected.filter((x) => x !== optionId)
       : [...selected, optionId];
     setSelected(next);
+    setAnimating(optionId);
+    setTimeout(() => setAnimating(null), 200);
     persist(next);
   };
 
@@ -88,6 +91,7 @@ export function DatePoll({
                   ? '2px solid rgba(232,201,160,.45)'
                   : '1px solid rgba(255,255,255,0.1)',
                 transform: sel ? 'scale(1.015)' : 'none',
+                animation: animating === option.id ? 'poll-select 0.2s ease-out' : undefined,
               }}
             >
               <span style={{ fontSize: 13, fontWeight: 600, color: '#fff', fontFamily: 'var(--rally-font-body)' }}>

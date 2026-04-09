@@ -38,6 +38,7 @@ import { GroceriesCard } from '@/components/trip/GroceriesCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
 import { AddToCalendarButton } from '@/components/trip/AddToCalendarButton';
+import { Reveal } from '@/components/ui/Reveal';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -289,102 +290,122 @@ export default async function TripPage({ params }: Props) {
 
       <div style={{ padding: '0 18px' }}>
         {/* Add-to-calendar — secondary action under going row */}
-        <div style={{ textAlign: 'center', marginTop: 12 }}>
-          <AddToCalendarButton trip={trip} themeId={themeId} />
-        </div>
+        <Reveal delay={0}>
+          <div style={{ textAlign: 'center', marginTop: 12 }}>
+            <AddToCalendarButton trip={trip} themeId={themeId} />
+          </div>
+        </Reveal>
 
         {/* Organizer card */}
-        <div style={{ marginTop: 16 }}>
-          <OrganizerCard organizer={organizer} tripName={trip.name} />
-        </div>
+        <Reveal delay={0.05}>
+          <div style={{ marginTop: 16 }}>
+            <OrganizerCard organizer={organizer} tripName={trip.name} />
+          </div>
+        </Reveal>
 
         {trip.description && (
-          <div style={{ marginTop: 10 }}>
-            <Description text={trip.description} />
-          </div>
+          <Reveal delay={0.1}>
+            <div style={{ marginTop: 10 }}>
+              <Description text={trip.description} />
+            </div>
+          </Reveal>
         )}
       </div>
 
       {/* Lodging gallery — chassis .house cards, voting wired in 3C */}
-      <LodgingGallery
-        themeId={themeId}
-        lodging={lodging}
-        currentUserId={currentUserId}
-        isOrganizer={currentUserId === trip.organizer_id}
-        slug={slug}
-        tripId={trip.id}
-        votingLocked={lodging.some((l) => l.is_selected)}
-      />
+      <Reveal delay={0}>
+        <LodgingGallery
+          themeId={themeId}
+          lodging={lodging}
+          currentUserId={currentUserId}
+          isOrganizer={currentUserId === trip.organizer_id}
+          slug={slug}
+          tripId={trip.id}
+          votingLocked={lodging.some((l) => l.is_selected)}
+        />
+      </Reveal>
 
       <div style={{ padding: '0 18px' }}>
         {/* Flights / Transport / Activities / Groceries / Restaurants — kept
             as v0 typed components, rebuilt against chassis in Session 2/3.
             They live inside .chassis so the surrounding context still works,
             but their internals use legacy styles for now. */}
-        {flights.map((flight) => (
-          <div key={flight.id} style={{ marginTop: 12 }}>
-            <FlightCard flight={flight} themeId={themeId} />
-          </div>
-        ))}
-        {transport.map((t) => (
-          <div key={t.id} style={{ marginTop: 12 }}>
-            <TransportCard transport={t} memberCount={cost.confirmed_count} themeId={themeId} />
-          </div>
-        ))}
-        {activities.map((a) => (
-          <div key={a.id} style={{ marginTop: 12 }}>
-            <ActivityCard activity={a} themeId={themeId} />
-          </div>
-        ))}
-        {groceries.map((g) => (
-          <div key={g.id} style={{ marginTop: 12 }}>
-            <GroceriesCard grocery={g} />
-          </div>
-        ))}
-        {restaurants.map((r) => (
-          <div key={r.id} style={{ marginTop: 12 }}>
-            <RestaurantCard restaurant={r} />
-          </div>
-        ))}
+        <Reveal delay={0.1}>
+          {flights.map((flight) => (
+            <div key={flight.id} style={{ marginTop: 12 }}>
+              <FlightCard flight={flight} themeId={themeId} />
+            </div>
+          ))}
+          {transport.map((t) => (
+            <div key={t.id} style={{ marginTop: 12 }}>
+              <TransportCard transport={t} memberCount={cost.confirmed_count} themeId={themeId} />
+            </div>
+          ))}
+          {activities.map((a) => (
+            <div key={a.id} style={{ marginTop: 12 }}>
+              <ActivityCard activity={a} themeId={themeId} />
+            </div>
+          ))}
+          {groceries.map((g) => (
+            <div key={g.id} style={{ marginTop: 12 }}>
+              <GroceriesCard grocery={g} />
+            </div>
+          ))}
+          {restaurants.map((r) => (
+            <div key={r.id} style={{ marginTop: 12 }}>
+              <RestaurantCard restaurant={r} />
+            </div>
+          ))}
+        </Reveal>
 
         {/* Cost breakdown — split-shared mode only for v0 */}
-        <div style={{ marginTop: 14 }}>
-          <CostBreakdown trip={trip} cost={cost} themeId={themeId} dateStr={trip.date_start && trip.date_end
-            ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
-            : ''} />
-        </div>
+        <Reveal delay={0.15}>
+          <div style={{ marginTop: 14 }}>
+            <CostBreakdown trip={trip} cost={cost} themeId={themeId} dateStr={trip.date_start && trip.date_end
+              ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
+              : ''} />
+          </div>
+        </Reveal>
 
         {polls.length > 0 && (
-          <div style={{ marginTop: 14 }}>
-            <DatePoll poll={polls[0]} currentUserId={currentUserId} />
-          </div>
+          <Reveal delay={0.2}>
+            <div style={{ marginTop: 14 }}>
+              <DatePoll poll={polls[0]} currentUserId={currentUserId} />
+            </div>
+          </Reveal>
         )}
 
         {/* Crew link — dedicated subsurface at /trip/[slug]/crew (Phase 9) */}
-        <div style={{ marginTop: 18, textAlign: 'center' }}>
-          <Link href={`/trip/${slug}/crew`} className="crew-link">
-            {getCopy(themeId, 'crew.viewLink')}
-          </Link>
-        </div>
+        <Reveal delay={0.25}>
+          <div style={{ marginTop: 18, textAlign: 'center' }}>
+            <Link href={`/trip/${slug}/crew`} className="crew-link">
+              {getCopy(themeId, 'crew.viewLink')}
+            </Link>
+          </div>
+        </Reveal>
 
         {/* Buzz link — dedicated subsurface at /trip/[slug]/buzz (Phase 10) */}
-        <div style={{ marginTop: 18, textAlign: 'center' }}>
-          <Link href={`/trip/${slug}/buzz`} className="buzz-link">
-            {getCopy(themeId, 'buzz.viewLink')}
-          </Link>
-        </div>
+        <Reveal delay={0.3}>
+          <div style={{ marginTop: 18, textAlign: 'center' }}>
+            <Link href={`/trip/${slug}/buzz`} className="buzz-link">
+              {getCopy(themeId, 'buzz.viewLink')}
+            </Link>
+          </div>
+        </Reveal>
 
         {/* Extras drawer — write-side wired in Session 3C */}
-        <ExtrasSections
-          packingList={trip.packing_list || []}
-          playlistUrl={trip.playlist_url}
-          houseRules={trip.house_rules}
-          photoAlbumUrl={trip.photo_album_url}
-          isOrganizer={currentUserId === trip.organizer_id}
-          tripId={trip.id}
-          slug={slug}
-          themeId={themeId}
-        />
+        <Reveal delay={0.35}>
+          <ExtrasSections
+            packingList={trip.packing_list || []}
+            playlistUrl={trip.playlist_url}
+            houseRules={trip.house_rules}
+            photoAlbumUrl={trip.photo_album_url}
+            isOrganizer={currentUserId === trip.organizer_id}
+            tripId={trip.id}
+            slug={slug}
+            themeId={themeId}
+          />
+        </Reveal>
       </div>
 
       <PoeticFooter themeId={themeId} />

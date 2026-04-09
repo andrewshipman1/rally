@@ -18,6 +18,7 @@ import { chassisThemeIdFromTemplate } from '@/lib/themes/from-db';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { TripMember, User } from '@/types';
 import { getTrip } from '../_data';
+import { Reveal } from '@/components/ui/Reveal';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -97,43 +98,47 @@ export default async function CrewPage({ params }: Props) {
           {getCopy(themeId, 'crew.pageSubtitle', { n: inCount, trip_name: trip.name })}
         </p>
 
-        <div className="crew-summary">
-          <span className="crew-tally">
-            <strong>{inCount}</strong> {getCopy(themeId, 'crew.summaryIn')}
-          </span>
-          <span className="crew-tally">
-            <strong>{holdingCount}</strong> {getCopy(themeId, 'crew.summaryHolding')}
-          </span>
-          <span className="crew-tally">
-            <strong>{outCount}</strong> {getCopy(themeId, 'crew.summaryOut')}
-          </span>
-        </div>
+        <Reveal delay={0}>
+          <div className="crew-summary">
+            <span className="crew-tally">
+              <strong>{inCount}</strong> {getCopy(themeId, 'crew.summaryIn')}
+            </span>
+            <span className="crew-tally">
+              <strong>{holdingCount}</strong> {getCopy(themeId, 'crew.summaryHolding')}
+            </span>
+            <span className="crew-tally">
+              <strong>{outCount}</strong> {getCopy(themeId, 'crew.summaryOut')}
+            </span>
+          </div>
+        </Reveal>
 
-        {STATE_ORDER.map((state) => (
-          <section key={state} className="crew-section">
-            <h2 className="crew-section-title">
-              {getCopy(themeId, `rsvp.crew.section.${state}`)}
-            </h2>
-            <p className="crew-section-caption">
-              {getCopy(themeId, `rsvp.crew.caption.${state}`)}
-            </p>
-            {buckets[state].length === 0 ? (
-              <p className="crew-empty">{getCopy(themeId, EMPTY_KEY[state])}</p>
-            ) : (
-              <ul className="crew-rows">
-                {buckets[state].map((m) => (
-                  <CrewRow
-                    key={m.id}
-                    member={m}
-                    state={state}
-                    isOrganizer={m.user_id === organizerId}
-                    isViewer={m.user_id === currentUserId}
-                    themeId={themeId}
-                  />
-                ))}
-              </ul>
-            )}
-          </section>
+        {STATE_ORDER.map((state, i) => (
+          <Reveal key={state} delay={0.05 + i * 0.05} direction="left">
+            <section className="crew-section">
+              <h2 className="crew-section-title">
+                {getCopy(themeId, `rsvp.crew.section.${state}`)}
+              </h2>
+              <p className="crew-section-caption">
+                {getCopy(themeId, `rsvp.crew.caption.${state}`)}
+              </p>
+              {buckets[state].length === 0 ? (
+                <p className="crew-empty">{getCopy(themeId, EMPTY_KEY[state])}</p>
+              ) : (
+                <ul className="crew-rows">
+                  {buckets[state].map((m) => (
+                    <CrewRow
+                      key={m.id}
+                      member={m}
+                      state={state}
+                      isOrganizer={m.user_id === organizerId}
+                      isViewer={m.user_id === currentUserId}
+                      themeId={themeId}
+                    />
+                  ))}
+                </ul>
+              )}
+            </section>
+          </Reveal>
         ))}
       </div>
     </div>

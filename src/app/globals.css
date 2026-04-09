@@ -539,6 +539,9 @@ button:active {
   margin-top: 4px;
   opacity: 0.8;
 }
+.chassis .countdown--final .cd-num {
+  animation: countdown-pulse 2s ease-in-out infinite;
+}
 
 /* Going row — avatar cascade with handwritten label. */
 /* ─── Deadline + Lock banners (3C) ──────────────────────────────── */
@@ -1058,6 +1061,15 @@ button:active {
   25%      { transform: rotate(-2deg); }
   75%      { transform: rotate(2deg);  }
 }
+@keyframes countdown-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
+@keyframes poll-select {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
 
 /* Reduced-motion: kill the always-on idle animations. Entrance + hover
    stay short enough to be tolerable; the constant wiggle/blink/pulse
@@ -1068,8 +1080,18 @@ button:active {
   .chassis .countdown,
   .chassis .cd-flag,
   .chassis .live-row .dot,
-  .chassis .marquee-track {
+  .chassis .marquee-track,
+  .chassis .avatars .av,
+  .chassis .sticky-chip,
+  .chassis .countdown--final .cd-num {
     animation: none !important;
+  }
+  .chassis .going,
+  .chassis .title,
+  .chassis .tagline {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 

@@ -16,6 +16,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
 import { RSVP_CHIP_ICONS } from '@/lib/copy/surfaces/rsvp';
+import { Confetti } from '@/components/ui/Confetti';
 import type { ThemeId } from '@/lib/themes/types';
 import type { RallyRsvp } from '@/lib/rally-types';
 
@@ -46,6 +47,7 @@ export function StickyRsvpBarChassis({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<RallyRsvp | null>(current);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const submit = async (state: Exclude<RallyRsvp, 'pending'>) => {
     setError(null);
@@ -70,6 +72,8 @@ export function StickyRsvpBarChassis({
       // Re-render the server component so n_in / n_hold / per-person cost
       // refresh without a full reload.
       startTransition(() => router.refresh());
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 4000);
     } catch {
       setError(getCopy(themeId, 'errors.networkDown'));
       setOptimistic(current);
@@ -96,6 +100,7 @@ export function StickyRsvpBarChassis({
         );
       })}
       {error && <div className="sticky-error">{error}</div>}
+      {showConfetti && <Confetti />}
     </div>
   );
 }
