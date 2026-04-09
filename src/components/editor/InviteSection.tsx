@@ -15,7 +15,7 @@ const COLORS = ['#2d6b5a', '#c4956a', '#3a8a7a', '#d4a574', '#1a3d4a', '#8b6f5c'
 
 const RSVP_LABELS: Record<RsvpStatus, { text: string; color: string }> = {
   in: { text: "Going ✈️", color: '#7ecdb8' },
-  maybe: { text: 'Maybe 🤔', color: '#e8c9a0' },
+  holding: { text: 'Holding 🧗', color: '#e8c9a0' },
   out: { text: "Can't make it", color: 'rgba(255,255,255,0.4)' },
   pending: { text: 'Invited', color: 'rgba(255,255,255,0.6)' },
 };

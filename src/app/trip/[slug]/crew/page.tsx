@@ -13,7 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 
 import { createClient } from '@/lib/supabase/server';
 import { getGuestUserId, refreshGuestCookie } from '@/lib/guest-auth';
-import { dbRsvpToRally, type RallyRsvp } from '@/lib/rally-types';
+import type { RallyRsvp } from '@/lib/rally-types';
 import { chassisThemeIdFromTemplate } from '@/lib/themes/from-db';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { TripMember, User } from '@/types';
@@ -63,8 +63,7 @@ export default async function CrewPage({ params }: Props) {
   const members = (trip.members || []) as MemberRow[];
   const organizerId = trip.organizer.id;
 
-  // Group by chassis RSVP state ('maybe' → 'holding' via the boundary
-  // mapper). Within each bucket, organizer first, then alpha by name.
+  // Group by RSVP state. Within each bucket, organizer first, then alpha.
   const buckets: Record<RallyRsvp, MemberRow[]> = {
     in: [],
     holding: [],
@@ -72,7 +71,7 @@ export default async function CrewPage({ params }: Props) {
     pending: [],
   };
   for (const m of members) {
-    buckets[dbRsvpToRally(m.rsvp)].push(m);
+    buckets[m.rsvp].push(m);
   }
   for (const state of STATE_ORDER) {
     buckets[state].sort((a, b) => {
@@ -157,15 +156,30 @@ function CrewRow({
   const name = member.user?.display_name ?? '?';
   const initial = name.slice(0, 1).toUpperCase();
 
-  // v0 subtext fallback: we only have `updated_at` for rsvp'd-when and
-  // no invite-open tracking, no decline reason, no plus-one name.
-  // Pending rows render no subtext. Everyone else gets "rsvp'd Nd ago".
+  // Subtext logic per lexicon §5.25:
+  //   pending + no invite_opened_at → "hasn't opened the invite"
+  //   pending + invite_opened_at    → "opened · hasn't rsvp'd"
+  //   out + decline_reason          → "{reason}"
+  //   in / holding / out (no reason) → "rsvp'd {when}"
   let subtext: string | null = null;
-  if (state !== 'pending') {
+  if (state === 'pending') {
+    subtext = member.invite_opened_at
+      ? getCopy(themeId, 'crew.rowSubOpened')
+      : getCopy(themeId, 'crew.rowSubUnopened');
+  } else if (state === 'out' && member.decline_reason) {
+    subtext = getCopy(themeId, 'crew.rowSubOutReason', { reason: member.decline_reason });
+  } else {
     const when = formatDistanceToNow(new Date(member.updated_at), { addSuffix: true });
     subtext = getCopy(themeId, 'crew.rowSubRsvpd', { when });
   }
-  const plusOneSubtext = member.plus_one ? getCopy(themeId, 'crew.plusOneSubtextAnon') : null;
+
+  // +1 subtext: named if plus_one_name exists, anonymous otherwise.
+  let plusOneSubtext: string | null = null;
+  if (member.plus_one) {
+    plusOneSubtext = member.plus_one_name
+      ? getCopy(themeId, 'crew.plusOneSubtext', { name: member.plus_one_name })
+      : getCopy(themeId, 'crew.plusOneSubtextAnon');
+  }
 
   return (
     <li className="crew-row">

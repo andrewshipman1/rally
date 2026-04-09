@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Confetti } from '@/components/ui/Confetti';
 import type { RsvpEmojis, RsvpStatus, TripMember, User } from '@/types';
 
-type RsvpState = 'in' | 'maybe' | 'out' | null;
+type RsvpState = 'in' | 'holding' | 'out' | null;
 
 export function StickyRsvpBar({
   tripId,
@@ -117,7 +117,7 @@ export function StickyRsvpBar({
   const statusConfig = rsvp
     ? {
         in: { emoji: emojis.going, label: 'Going', color: '#7ecdb8' },
-        maybe: { emoji: emojis.maybe, label: 'Maybe', color: '#e8c9a0' },
+        holding: { emoji: emojis.maybe, label: 'Holding', color: '#e8c9a0' },
         out: { emoji: emojis.cant, label: "Can't make it", color: 'rgba(255,255,255,0.5)' },
       }[rsvp]
     : null;
@@ -236,8 +236,8 @@ export function StickyRsvpBar({
               >
                 {pendingStatus === 'in'
                   ? `Lock it in ${emojis.going}`
-                  : pendingStatus === 'maybe'
-                  ? `Maybe ${emojis.maybe}`
+                  : pendingStatus === 'holding'
+                  ? `Holding ${emojis.maybe}`
                   : `Confirm ${emojis.cant}`}
               </button>
               {error && (
@@ -282,7 +282,7 @@ export function StickyRsvpBar({
                   <button onClick={() => startRsvp('in')} style={primaryRsvpButton}>
                     {emojis.going} Going
                   </button>
-                  <button onClick={() => startRsvp('maybe')} style={secondaryRsvpButton}>
+                  <button onClick={() => startRsvp('holding')} style={secondaryRsvpButton}>
                     {emojis.maybe}
                   </button>
                   <button onClick={() => startRsvp('out')} style={secondaryRsvpButton}>

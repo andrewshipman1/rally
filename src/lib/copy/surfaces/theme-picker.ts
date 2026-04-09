@@ -2,9 +2,8 @@
 // 17 theme tile taglines, behavior notes). Source of truth for
 // rally-phase-6-theme-picker.html.
 //
-// Note: tileName and tileTagline are resolved at runtime from theme.name
-// and theme.tagline in the theme content system — they are NOT keyed in
-// this lexicon.
+// Tagline keys are kebab-case, matching chassis ThemeId exactly.
+// Decision D3 (locked 2026-04-08): chassis-id kebab-case everywhere.
 import type { Templated, ThemeVars } from '@/lib/themes/types';
 
 export const themePicker: Record<string, Templated> = {
@@ -23,24 +22,24 @@ export const themePicker: Record<string, Templated> = {
   // ─── Tile badge ─────────────────────────────────────────────────
   'selectedTileBadge':    'picked ✓',
 
-  // ─── Theme tile taglines (locked for v0, keyed by theme id) ─────
-  'tagline.bachelorette':    'her last weekend ✨',
-  'tagline.beachTrip':       'vamos a la playa 🌴',
-  'tagline.skiChalet':       'send it ⛷️',
-  'tagline.euroSummer':      'ciao bella 🍋',
-  'tagline.cityWeekend':     "let's gooo 🌃",
-  'tagline.wineCountry':     'salud 🍷',
-  'tagline.lakeWeekend':     'dock days 🚤',
-  'tagline.birthdayTrip':    'cake on the road 🎂',
-  'tagline.couplesTrip':     'ride or dies 🥂',
-  'tagline.wellnessRetreat': 'namaste lit 🧘',
-  'tagline.justBecause':     'lfg 🔥',
-  'tagline.bachWeekendGuys': 'send-off 🥃',
-  'tagline.reunion':         "the band's back 🎤",
-  'tagline.girlsTrip':       'the girls 💅',
-  'tagline.boysTrip':        'the boys 🍻',
-  'tagline.festival':        'main stage 🎟️',
-  'tagline.tropical':        'island time 🏝️',
+  // ─── Theme tile taglines (keyed by chassis ThemeId) ─────────────
+  'tagline.bachelorette':     'her last weekend ✨',
+  'tagline.boys-trip':        'the boys 🍻',
+  'tagline.birthday-trip':    'cake on the road 🎂',
+  'tagline.couples-trip':     'ride or dies 🥂',
+  'tagline.wellness-retreat': 'namaste lit 🧘',
+  'tagline.reunion-weekend':  "the band's back 🎤",
+  'tagline.festival-run':     'main stage 🎟️',
+  'tagline.beach-trip':       'vamos a la playa 🌴',
+  'tagline.ski-chalet':       'send it ⛷️',
+  'tagline.euro-summer':      'ciao bella 🍋',
+  'tagline.city-weekend':     "let's gooo 🌃",
+  'tagline.wine-country':     'salud 🍷',
+  'tagline.lake-weekend':     'dock days 🚤',
+  'tagline.desert-trip':      'heat check 🏜️',
+  'tagline.camping-trip':     'off the grid 🏕️',
+  'tagline.tropical':         'island time 🏝️',
+  'tagline.just-because':     'lfg 🔥',
 
   // ─── Preview ────────────────────────────────────────────────────
   'previewHeader':        "how it'll look",

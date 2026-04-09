@@ -2,50 +2,61 @@
 //   - 30-second cooldown between sends per email
 //   - 5 sends per email per hour (then a 1-hour lockout)
 //
-// Storage: in-memory Map. This is fine for single-instance dev/preview
-// deploys. Production deployments behind multiple Node instances will need
-// a shared store (Redis, Upstash, or a `magic_link_attempts` Supabase
-// table). Flagged at the Session 1 checkpoint as "rate-limit storage TBD".
-//
-// The map is keyed by lowercased email and trimmed lazily on read so it
-// can't grow unbounded between hits.
+// Storage: Supabase `auth_rate_limits` table (migration 011).
+// Each row stores a JSONB array of send timestamps within the
+// current hourly window, enabling both cooldown and hourly limit
+// checks from a single row.
+
+import { createClient } from '@supabase/supabase-js';
 
 const COOLDOWN_MS = 30_000;        // 30s between sends
 const HOURLY_LIMIT = 5;            // 5 sends per email per hour
 const HOURLY_WINDOW_MS = 60 * 60 * 1000;
 
-type Attempt = { timestamps: number[] };
-
-const attempts = new Map<string, Attempt>();
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export type RateCheckResult =
   | { ok: true }
   | { ok: false; reason: 'cooldown'; retryInMs: number }
   | { ok: false; reason: 'hourly_limit'; retryInMs: number };
 
-/** Pure check — call before sending. Does not record the attempt. */
-export function checkMagicLinkRate(emailRaw: string, now = Date.now()): RateCheckResult {
+/** Check rate limit. Call before sending a magic link. */
+export async function checkMagicLinkRate(
+  emailRaw: string,
+  now = Date.now()
+): Promise<RateCheckResult> {
   const email = emailRaw.toLowerCase().trim();
-  const rec = attempts.get(email);
-  if (!rec) return { ok: true };
+  const admin = getAdminClient();
 
-  // Trim outside the hourly window so the limiter is always current.
-  rec.timestamps = rec.timestamps.filter((t) => now - t < HOURLY_WINDOW_MS);
-  if (rec.timestamps.length === 0) {
-    attempts.delete(email);
-    return { ok: true };
-  }
+  const { data } = await admin
+    .from('auth_rate_limits')
+    .select('send_timestamps')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (!data) return { ok: true };
+
+  // Filter to timestamps within the hourly window.
+  const raw = (data.send_timestamps as number[]) ?? [];
+  const timestamps = raw.filter((t) => now - t < HOURLY_WINDOW_MS);
+
+  if (timestamps.length === 0) return { ok: true };
 
   // Cooldown check — most recent timestamp.
-  const last = rec.timestamps[rec.timestamps.length - 1];
+  const last = timestamps[timestamps.length - 1];
   const sinceLast = now - last;
   if (sinceLast < COOLDOWN_MS) {
     return { ok: false, reason: 'cooldown', retryInMs: COOLDOWN_MS - sinceLast };
   }
 
   // Hourly limit check.
-  if (rec.timestamps.length >= HOURLY_LIMIT) {
-    const oldest = rec.timestamps[0];
+  if (timestamps.length >= HOURLY_LIMIT) {
+    const oldest = timestamps[0];
     return {
       ok: false,
       reason: 'hourly_limit',
@@ -56,15 +67,29 @@ export function checkMagicLinkRate(emailRaw: string, now = Date.now()): RateChec
   return { ok: true };
 }
 
-/** Record a successful send. Call after the provider returns ok:true. */
-export function recordMagicLinkSend(emailRaw: string, now = Date.now()): void {
+/** Record a successful send. Call after the provider returns ok. */
+export async function recordMagicLinkSend(
+  emailRaw: string,
+  now = Date.now()
+): Promise<void> {
   const email = emailRaw.toLowerCase().trim();
-  const rec = attempts.get(email) ?? { timestamps: [] };
-  rec.timestamps.push(now);
-  attempts.set(email, rec);
-}
+  const admin = getAdminClient();
 
-/** Test helper. Not exported through index. */
-export function _resetRateLimitForTests(): void {
-  attempts.clear();
+  // Fetch existing timestamps, prune stale, append new.
+  const { data } = await admin
+    .from('auth_rate_limits')
+    .select('send_timestamps')
+    .eq('email', email)
+    .maybeSingle();
+
+  const raw = (data?.send_timestamps as number[]) ?? [];
+  const pruned = raw.filter((t) => now - t < HOURLY_WINDOW_MS);
+  pruned.push(now);
+
+  await admin
+    .from('auth_rate_limits')
+    .upsert(
+      { email, send_timestamps: pruned, updated_at: new Date(now).toISOString() },
+      { onConflict: 'email' }
+    );
 }

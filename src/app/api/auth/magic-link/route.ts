@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
   // Rate limit BEFORE hitting the provider so we don't accidentally
   // burn through Supabase's own ceiling.
-  const rate = checkMagicLinkRate(email);
+  const rate = await checkMagicLinkRate(email);
   if (!rate.ok) {
     return NextResponse.json(
       { error: rate.reason, retryInMs: rate.retryInMs },
@@ -49,6 +49,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: result.reason }, { status });
   }
 
-  recordMagicLinkSend(email);
+  await recordMagicLinkSend(email);
   return NextResponse.json({ ok: true });
 }

@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { track } from '@/lib/analytics';
 import { getTrip } from './_data';
 
-import { dbRsvpToRally } from '@/lib/rally-types';
+import type { RallyRsvp } from '@/lib/rally-types';
 import { chassisThemeIdFromTemplate } from '@/lib/themes/from-db';
 import { getTheme } from '@/lib/themes';
 import { getCopy } from '@/lib/copy/get-copy';
@@ -121,13 +121,10 @@ export default async function TripPage({ params }: Props) {
 
   const cost = calculateTripCost(trip);
 
-  // Resolve the viewer's RSVP via the boundary mapper so the chassis sees
-  // 'holding' instead of legacy 'maybe'. Server-side render is the right
-  // place for this — the sticky bar gets a chassis-shaped value as input.
   const viewerMember = currentUserId
     ? members.find((m) => m.user_id === currentUserId)
     : null;
-  const viewerRsvp = viewerMember ? dbRsvpToRally(viewerMember.rsvp) : null;
+  const viewerRsvp: RallyRsvp | null = viewerMember?.rsvp ?? null;
   const viewerName = viewerMember?.user?.display_name ?? null;
   const viewerEmail = viewerMember?.user?.email ?? null;
 

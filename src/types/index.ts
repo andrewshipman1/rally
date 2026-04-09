@@ -3,7 +3,7 @@
 
 export type TripPhase = 'sketch' | 'sell' | 'lock' | 'go';
 export type ComponentStatus = 'estimated' | 'confirmed';
-export type RsvpStatus = 'in' | 'out' | 'maybe' | 'pending';
+export type RsvpStatus = 'in' | 'holding' | 'out' | 'pending';
 export type PaymentStatus = 'unpaid' | 'paid';
 export type MemberRole = 'organizer' | 'guest';
 export type PollType = 'date_range' | 'option_vote';
@@ -67,6 +67,7 @@ export interface Trip {
   playlist_url: string | null;
   house_rules: string | null;
   rsvp_emojis: RsvpEmojis;
+  chassis_theme_id: string | null;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -256,6 +257,9 @@ export interface TripMember {
   payment_requested_at: string | null;
   cost_share: number | null;
   plus_one: boolean;
+  plus_one_name: string | null;
+  invite_opened_at: string | null;
+  decline_reason: string | null;
   arrival_flight: string | null;
   arrival_time: string | null;
   created_at: string;
@@ -357,8 +361,8 @@ export interface TripCostSummary {
 }
 
 export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
-  // Count members who are 'in' or 'maybe' (not 'out' or 'pending')
-  const confirmed = trip.members.filter(m => m.rsvp === 'in' || m.rsvp === 'maybe').length;
+  // Count members who are 'in' or 'holding' (not 'out' or 'pending')
+  const confirmed = trip.members.filter(m => m.rsvp === 'in' || m.rsvp === 'holding').length;
 
   // If fewer than 2 actual confirmed, fall back to group_size as an estimate
   let divisor_used: number;

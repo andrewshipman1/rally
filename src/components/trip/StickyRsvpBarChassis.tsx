@@ -9,9 +9,8 @@
 //   - chip icons are LOCKED GLOBAL (🙌 / 🧗 / —) — never themed
 //   - button CTA TEXT is themeable
 //
-// Boundary mapping: the DB stores the legacy 'in' | 'maybe' | 'out' enum,
-// the chassis uses 'in' | 'holding' | 'out'. We translate at this
-// component edge via rally-types.ts mappers.
+// The DB now stores 'in' | 'holding' | 'out' | 'pending' directly
+// (migration 008). No boundary mapping needed.
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -19,7 +18,6 @@ import { getCopy } from '@/lib/copy/get-copy';
 import { RSVP_CHIP_ICONS } from '@/lib/copy/surfaces/rsvp';
 import type { ThemeId } from '@/lib/themes/types';
 import type { RallyRsvp } from '@/lib/rally-types';
-import { rallyRsvpToDb } from '@/lib/rally-types';
 
 type Props = {
   themeId: ThemeId;
@@ -60,8 +58,7 @@ export function StickyRsvpBarChassis({
           tripId,
           name: viewerName ?? '',
           email: viewerEmail ?? undefined,
-          // Map chassis 'holding' → DB 'maybe' at the boundary.
-          status: rallyRsvpToDb(state),
+          status: state,
         }),
       });
       if (!res.ok) {

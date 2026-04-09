@@ -5,7 +5,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { Confetti } from '@/components/ui/Confetti';
 import type { RsvpEmojis } from '@/types';
 
-type RsvpState = 'in' | 'maybe' | 'out' | null;
+type RsvpState = 'in' | 'holding' | 'out' | null;
 
 const DEFAULT_EMOJIS: RsvpEmojis = { going: '🙌', maybe: '🤔', cant: '😢' };
 
@@ -37,7 +37,7 @@ export function RsvpSection({
         bg: 'rgba(45,107,90,.2)',
         animEmoji: true,
       },
-      maybe: {
+      holding: {
         emoji: emojis.maybe,
         title: "We'll hold your spot",
         subtitle: "We'll nudge you before the deadline",
@@ -148,7 +148,7 @@ export function RsvpSection({
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={() => doRsvp('maybe')}
+              onClick={() => doRsvp('holding')}
               style={{
                 flex: 1,
                 padding: 11,
@@ -162,7 +162,7 @@ export function RsvpSection({
                 fontFamily: 'var(--rally-font-body)',
               }}
             >
-              Maybe... {emojis.maybe}
+              Holding... {emojis.maybe}
             </button>
             <button
               onClick={() => doRsvp('out')}

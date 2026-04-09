@@ -20,6 +20,15 @@ import { getCopy } from '@/lib/copy/get-copy';
 import { getTheme } from '@/lib/themes';
 import type { ThemeId } from '@/lib/themes/types';
 
+type InviteeOverrides = {
+  /** Text for the inviter row above the wordmark: "{inviter_first} called you up". */
+  inviterRowText: string;
+  /** Initial for the mini avatar in the inviter row. */
+  inviterInitial: string;
+  /** Replaces the phase-derived eyebrow (leading ★ is added by the hero). */
+  eyebrowText: string;
+};
+
 type SketchOverrides = {
   /** Replaces `theme.strings.marquee` for the top scrolling strip. */
   marqueeItems: string[];
@@ -46,6 +55,8 @@ type Props = {
   isLive?: boolean;
   /** When set, swaps the hero into sketch-builder mode (see Phase 4). */
   sketchOverrides?: SketchOverrides;
+  /** When set, renders the inviter row + eyebrow (Phase 5 invitee state). */
+  inviteeOverrides?: InviteeOverrides;
 };
 
 export function PostcardHero({
@@ -58,6 +69,7 @@ export function PostcardHero({
   phase,
   isLive,
   sketchOverrides,
+  inviteeOverrides,
 }: Props) {
   const theme = getTheme(themeId);
   const isSketch = !!sketchOverrides;
@@ -75,14 +87,16 @@ export function PostcardHero({
         : (theme.strings.sticker[stickerKey] as (vars: Record<string, unknown>) => string)({});
   }
 
-  // Eyebrow: sketch override wins; otherwise phase-derived default.
+  // Eyebrow: sketch override → invitee override → phase-derived default.
   const eyebrow = isSketch
     ? sketchOverrides.eyebrowText
-    : phase === 'sell'
-      ? getCopy(themeId, 'tripPageSell.eyebrow', { organizer: organizerName })
-      : phase === 'sketch'
-        ? getCopy(themeId, 'tripPageSketch.eyebrow')
-        : getCopy(themeId, 'tripPageLock.eyebrow');
+    : inviteeOverrides
+      ? inviteeOverrides.eyebrowText
+      : phase === 'sell'
+        ? getCopy(themeId, 'tripPageSell.eyebrow', { organizer: organizerName })
+        : phase === 'sketch'
+          ? getCopy(themeId, 'tripPageSketch.eyebrow')
+          : getCopy(themeId, 'tripPageLock.eyebrow');
 
   // Marquee: sketch override wins; otherwise theme-provided array.
   const marqueeItems: string[] = isSketch
@@ -125,6 +139,12 @@ export function PostcardHero({
         {showLiveRow && (
           <div className="live-row">
             {!isSketch && <span className="dot" />} {liveRowText}
+          </div>
+        )}
+        {inviteeOverrides && (
+          <div className="inviter">
+            <div className="av-mini">{inviteeOverrides.inviterInitial}</div>
+            <span className="label">{inviteeOverrides.inviterRowText}</span>
           </div>
         )}
         <div className="wordmark">{getCopy(themeId, 'common.wordmark')}</div>

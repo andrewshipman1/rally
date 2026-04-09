@@ -15,7 +15,7 @@ function getAdminClient() {
 
 const RSVP_LABELS = {
   in: 'Going',
-  maybe: 'Maybe',
+  holding: 'Holding',
   out: "Can't make it",
 } as const;
 
@@ -25,7 +25,7 @@ const rsvpSchema = z
     name: z.string().min(1).max(80),
     email: z.string().email().optional(),
     phone: z.string().min(5).max(20).optional(),
-    status: z.enum(['in', 'out', 'maybe']),
+    status: z.enum(['in', 'out', 'holding']),
   })
   .refine((d) => !!d.email || !!d.phone, { message: 'email or phone required' });
 
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
         maybe: '🤔',
         cant: '😢',
       };
-      const emoji = status === 'in' ? emojis.going : status === 'maybe' ? emojis.maybe : emojis.cant;
+      const emoji = status === 'in' ? emojis.going : status === 'holding' ? emojis.maybe : emojis.cant;
       const text = `rsvped ${RSVP_LABELS[status]} ${emoji}`;
 
       await adminClient.from('comments').insert({

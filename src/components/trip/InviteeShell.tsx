@@ -67,6 +67,11 @@ export function InviteeShell({
         organizerName={organizer?.display_name ?? ''}
         phase={trip.phase}
         isLive={false}
+        inviteeOverrides={{
+          inviterRowText: getCopy(themeId, 'inviteeState.inviterRow', { inviter_first: inviterFirst }),
+          inviterInitial: (inviterFirst ?? '?').slice(0, 1).toUpperCase(),
+          eyebrowText: getCopy(themeId, 'inviteeState.eyebrow', { trip_name: trip.name }),
+        }}
       />
 
       {trip.date_start && (

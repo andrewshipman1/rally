@@ -11,7 +11,7 @@ const COLORS = ['#2d6b5a', '#c4956a', '#3a8a7a', '#d4a574', '#1a3d4a', '#8b6f5c'
 
 const RSVP_LABELS = {
   in: { text: "Going", bg: 'rgba(45,107,90,.3)', color: '#7ecdb8' },
-  maybe: { text: 'Maybe', bg: 'rgba(212,165,116,.3)', color: '#e8c9a0' },
+  holding: { text: 'Holding', bg: 'rgba(212,165,116,.3)', color: '#e8c9a0' },
   out: { text: "Can't make it", bg: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.4)' },
   pending: { text: 'Invited', bg: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.5)' },
 };

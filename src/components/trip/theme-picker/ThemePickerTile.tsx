@@ -5,34 +5,15 @@
 // in Shrikhand 26px and the tagline in Caveat 18px rendered directly
 // on top. Brutalist 2.5px ink border + hard-drop shadow per mockup.
 //
-// Tagline source: lexicon themePicker['tagline.<key>'] with fallback
-// to theme.vibe from the registry when no lexicon entry exists. See
-// TAGLINE_KEY below — lexicon keys are not a clean kebab→camel map.
+// Tagline source: lexicon themePicker['tagline.<themeId>'] with fallback
+// to theme.vibe from the registry when no lexicon entry exists. Tagline
+// keys are kebab-case, matching ThemeId directly (decision D3).
 
 import { themePicker } from '@/lib/copy/surfaces/theme-picker';
 import { themesById } from '@/lib/themes';
 import type { ThemeId } from '@/lib/themes/types';
 
-// Chassis id → lexicon tagline key fragment. Gaps fall back to
-// theme.vibe from the registry so the tile always has a sticker label.
-const TAGLINE_KEY: Partial<Record<ThemeId, string>> = {
-  'bachelorette':     'bachelorette',
-  'boys-trip':        'boysTrip',
-  'birthday-trip':    'birthdayTrip',
-  'couples-trip':     'couplesTrip',
-  'wellness-retreat': 'wellnessRetreat',
-  'reunion-weekend':  'reunion',
-  'festival-run':     'festival',
-  'beach-trip':       'beachTrip',
-  'ski-chalet':       'skiChalet',
-  'euro-summer':      'euroSummer',
-  'city-weekend':     'cityWeekend',
-  'wine-country':     'wineCountry',
-  'lake-weekend':     'lakeWeekend',
-  'tropical':         'tropical',
-  'just-because':     'justBecause',
-  // desert-trip, camping-trip have no lexicon entry — registry fallback.
-};
+// No mapping needed — tagline keys are `tagline.{ThemeId}` directly.
 
 type Props = {
   themeId: ThemeId;
@@ -42,8 +23,7 @@ type Props = {
 
 export function ThemePickerTile({ themeId, selected, onClick }: Props) {
   const theme = themesById[themeId];
-  const key = TAGLINE_KEY[themeId];
-  const lexTagline = key ? themePicker[`tagline.${key}`] : undefined;
+  const lexTagline = themePicker[`tagline.${themeId}`];
   const tagline = typeof lexTagline === 'string' ? lexTagline : theme.vibe;
 
   // Gradient stops mirror the mockup: accent top-left → bg bottom-right.
