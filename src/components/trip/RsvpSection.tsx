@@ -4,17 +4,22 @@ import { useState } from 'react';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Confetti } from '@/components/ui/Confetti';
 import type { RsvpEmojis } from '@/types';
+import type { ThemeId } from '@/lib/themes/types';
+import { getCopy } from '@/lib/copy/get-copy';
 
 type RsvpState = 'in' | 'holding' | 'out' | null;
 
 const DEFAULT_EMOJIS: RsvpEmojis = { going: '🙌', maybe: '🤔', cant: '😢' };
 
 export function RsvpSection({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   tripId,
   emojis = DEFAULT_EMOJIS,
+  themeId,
 }: {
   tripId: string;
   emojis?: RsvpEmojis;
+  themeId: ThemeId;
 }) {
   const [rsvp, setRsvp] = useState<RsvpState>(null);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -101,7 +106,7 @@ export function RsvpSection({
                   fontFamily: 'var(--rally-font-body)',
                 }}
               >
-                Share to Story 📸
+                {getCopy(themeId, 'rsvp.share.story')}
               </button>
             )}
           </div>
@@ -122,10 +127,10 @@ export function RsvpSection({
             marginBottom: 2,
           }}
         >
-          You coming or what?
+          {getCopy(themeId, 'rsvp.prompt.h2')}
         </div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 16 }}>
-          Lock it in before the countdown hits zero
+          {getCopy(themeId, 'rsvp.prompt.sub')}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <button
@@ -144,7 +149,7 @@ export function RsvpSection({
               transition: 'all .15s',
             }}
           >
-            I&apos;m so in {emojis.going}
+            {getCopy(themeId, 'rsvp.prompt.in.button')} {emojis.going}
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
@@ -162,7 +167,7 @@ export function RsvpSection({
                 fontFamily: 'var(--rally-font-body)',
               }}
             >
-              Holding... {emojis.maybe}
+              {getCopy(themeId, 'rsvp.prompt.holding.button')} {emojis.maybe}
             </button>
             <button
               onClick={() => doRsvp('out')}
@@ -179,7 +184,7 @@ export function RsvpSection({
                 fontFamily: 'var(--rally-font-body)',
               }}
             >
-              Can&apos;t make it {emojis.cant}
+              {getCopy(themeId, 'rsvp.prompt.out.button')} {emojis.cant}
             </button>
           </div>
         </div>

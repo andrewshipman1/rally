@@ -146,7 +146,7 @@ function CollapsibleHeader({
             transition: 'transform .2s',
           }}
         >
-          ⌄
+          {'\u2304'}
         </span>
       </div>
     </button>
@@ -230,7 +230,7 @@ function PackingSection({
                     padding: '0 4px',
                   }}
                 >
-                  ✕
+                  {'\u2715'}
                 </button>
               )}
             </div>
@@ -272,7 +272,7 @@ function PackingSection({
                   opacity: pending || !newText.trim() ? 0.5 : 1,
                 }}
               >
-                +
+                {'+'}
               </button>
             </div>
           )}
@@ -562,7 +562,7 @@ function AlbumSection({
               flex: 1,
             }}
           >
-            <span style={{ fontSize: 24 }}>📸</span>
+            <span style={{ fontSize: 24 }}>{'\ud83d\udcf8'}</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 700 }}>
                 {getCopy(themeId, 'extras.album.label')}

@@ -51,4 +51,10 @@ export const extras: Record<string, Templated> = {
   'album.label':           'shared photo album',
   'album.openCta.short':   'open in browser',
   'playlist.openCta.short': 'open playlist',
+
+  // ExtrasSections decorative icons
+  'collapse.icon':       '\u2304',
+  'remove.icon':         '\u2715',
+  'add.icon':            '+',
+  'album.icon':          '\ud83d\udcf8',
 };

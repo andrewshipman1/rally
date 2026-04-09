@@ -1,16 +1,20 @@
 'use client';
 
 import type { User } from '@/types';
+import type { ThemeId } from '@/lib/themes/types';
 import { Avatar } from '@/components/ui/Avatar';
+import { getCopy } from '@/lib/copy/get-copy';
 
 export function ProfileModal({
   user,
   isOrganizer,
   onClose,
+  themeId,
 }: {
   user: User;
   isOrganizer: boolean;
   onClose: () => void;
+  themeId: ThemeId;
 }) {
   return (
     <div
@@ -74,7 +78,7 @@ export function ProfileModal({
                 borderRadius: 10,
               }}
             >
-              📸 {user.instagram_handle}
+              {'\ud83d\udcf8 '}{user.instagram_handle}
             </span>
           </div>
         )}
@@ -93,7 +97,7 @@ export function ProfileModal({
                 borderRadius: 10,
               }}
             >
-              Message organizer 💬
+              {getCopy(themeId, 'crew.profile.messageCta')}
             </a>
           </div>
         )}
@@ -109,7 +113,7 @@ export function ProfileModal({
             fontFamily: 'var(--rally-font-body)',
           }}
         >
-          Close
+          {getCopy(themeId, 'crew.profile.closeCta')}
         </button>
       </div>
     </div>

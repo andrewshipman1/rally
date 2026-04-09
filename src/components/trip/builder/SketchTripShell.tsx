@@ -99,6 +99,7 @@ export function SketchTripShell({
     if (didAutoOpenRef.current) return;
     if (sp?.get('first') === '1') {
       didAutoOpenRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional one-time auto-open on ?first=1
       setPickerOpen(true);
       router.replace(`/trip/${slug}`);
     }

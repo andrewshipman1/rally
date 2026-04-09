@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import type { Trip, Theme, TripMember } from '@/types';
 import { SignOutButton } from './SignOutButton';
+import { getCopy } from '@/lib/copy/get-copy';
 
 type TripRow = Trip & {
   theme: Theme | null;
@@ -60,10 +61,10 @@ export function Dashboard({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 800, color: '#1a3a4a', margin: 0 }}>
-            Rally
+            {getCopy('just-because', 'dashboard.pageTitle')}
           </h1>
           <p style={{ fontSize: 14, color: '#888', margin: '2px 0 0' }}>
-            Hey {userName} 👋
+            {getCopy('just-because', 'dashboard.greeting', { name: userName })}
           </p>
         </div>
         <SignOutButton />
@@ -89,22 +90,22 @@ export function Dashboard({
           transition: 'all .15s',
         }}
       >
-        + Create a trip
+        {getCopy('just-because', 'dashboard.ctaCreate')}
       </Link>
 
       {/* Trip list */}
       {trips.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: '#aaa' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>✈️</div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: '#666' }}>No trips yet</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>Create your first trip to get started</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>{getCopy('just-because', 'dashboard.emptyEmoji')}</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#666' }}>{getCopy('just-because', 'dashboard.emptyTitle')}</div>
+          <div style={{ fontSize: 13, marginTop: 4 }}>{getCopy('just-because', 'dashboard.emptySubtitle')}</div>
         </div>
       ) : (
         <>
           {activeTrips.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#aaa', marginBottom: 4 }}>
-                Active Trips
+                {getCopy('just-because', 'dashboard.sectionCooking')}
               </div>
               {activeTrips.map((trip) => renderTripCard(trip, false, busy, setArchived))}
             </div>
@@ -112,7 +113,7 @@ export function Dashboard({
           {pastTrips.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#aaa', marginBottom: 4 }}>
-                Past Trips
+                {getCopy('just-because', 'dashboard.sectionArchive')}
               </div>
               {pastTrips.map((trip) => renderTripCard(trip, true, busy, setArchived))}
             </div>

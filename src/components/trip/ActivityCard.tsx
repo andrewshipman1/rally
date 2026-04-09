@@ -1,11 +1,13 @@
 import type { Activity } from '@/types';
+import type { ThemeId } from '@/lib/themes/types';
 import { SolidCard } from '@/components/ui/SolidCard';
 import { Badge } from '@/components/ui/Badge';
 import { MapsLink } from './MapsLink';
 import { format } from 'date-fns';
 import { formatMoney } from '@/lib/money';
+import { getCopy } from '@/lib/copy/get-copy';
 
-export function ActivityCard({ activity }: { activity: Activity }) {
+export function ActivityCard({ activity, themeId }: { activity: Activity; themeId: ThemeId }) {
   const dateStr = activity.date ? format(new Date(activity.date), 'EEE, MMM d') : null;
 
   return (
@@ -52,7 +54,7 @@ export function ActivityCard({ activity }: { activity: Activity }) {
             )}
             {activity.location && (
               <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, display: 'flex', alignItems: 'center' }}>
-                <span>📍 {activity.location}</span>
+                <span>{'📍 '}{activity.location}</span>
                 <MapsLink
                   address={activity.location}
                   latitude={activity.latitude}
@@ -77,7 +79,7 @@ export function ActivityCard({ activity }: { activity: Activity }) {
                   fontFamily: 'var(--rally-font-body)',
                 }}
               >
-                ~{formatMoney(activity.estimated_cost)}
+                {'~'}{formatMoney(activity.estimated_cost)}
               </div>
               <div style={{ fontSize: 9, color: '#999' }}>
                 {activity.cost_type === 'shared' ? 'total, split' : 'per person'}
@@ -104,7 +106,7 @@ export function ActivityCard({ activity }: { activity: Activity }) {
               background: '#2d6b5a08',
             }}
           >
-            Book →
+            {getCopy(themeId, 'tripPageShared.activity.bookCta')}
           </a>
         )}
       </div>

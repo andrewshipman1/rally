@@ -5,6 +5,7 @@ import type { Comment, User } from '@/types';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Avatar } from '@/components/ui/Avatar';
+import { getCopy } from '@/lib/copy/get-copy';
 
 const COLORS = ['#2d6b5a', '#c4956a', '#3a8a7a', '#d4a574', '#1a3d4a', '#8b6f5c'];
 
@@ -185,7 +186,7 @@ export function GroupChat({
               borderRadius: '0 10px 10px 0',
             }}
           >
-            Send
+            {getCopy('just-because', 'buzz.sendButton')}
           </button>
         </div>
       </div>

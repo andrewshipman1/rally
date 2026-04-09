@@ -25,6 +25,7 @@ export default async function CreatePage() {
         fontFamily: "'Outfit', sans-serif",
       }}
     >
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link
         href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;800&family=Outfit:wght@400;500;600;700&display=swap"
         rel="stylesheet"

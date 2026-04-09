@@ -39,7 +39,7 @@ export function GroceriesCard({ grocery }: { grocery: Grocery }) {
             )}
             {grocery.store_address && (
               <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, display: 'flex', alignItems: 'center' }}>
-                <span>📍 {grocery.store_address}</span>
+                <span>{'📍 '}{grocery.store_address}</span>
                 <MapsLink
                   address={grocery.store_address}
                   latitude={grocery.latitude}
@@ -64,7 +64,7 @@ export function GroceriesCard({ grocery }: { grocery: Grocery }) {
                   fontFamily: 'var(--rally-font-body)',
                 }}
               >
-                ~{formatMoney(grocery.estimated_total)}
+                {'~'}{formatMoney(grocery.estimated_total)}
               </div>
               <div style={{ fontSize: 9, color: '#999' }}>
                 {grocery.cost_type === 'shared' ? 'total, split' : 'per person'}

@@ -1,9 +1,11 @@
 'use client';
 
 import type { Trip } from '@/types';
+import type { ThemeId } from '@/lib/themes/types';
 import { tripToICS, downloadICS } from '@/lib/calendar';
+import { getCopy } from '@/lib/copy/get-copy';
 
-export function AddToCalendarButton({ trip }: { trip: Trip }) {
+export function AddToCalendarButton({ trip, themeId }: { trip: Trip; themeId: ThemeId }) {
   if (!trip.date_start || !trip.date_end) return null;
 
   const handleClick = () => {
@@ -30,7 +32,7 @@ export function AddToCalendarButton({ trip }: { trip: Trip }) {
         marginTop: 10,
       }}
     >
-      📅 Add to Calendar
+      {getCopy(themeId, 'tripPageShared.calendar.cta')}
     </button>
   );
 }

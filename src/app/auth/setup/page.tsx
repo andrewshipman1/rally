@@ -38,6 +38,7 @@ export default async function SetupPage() {
       <div style={{ maxWidth: 380, width: '100%' }}>
         <ProfileSetup />
       </div>
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link
         href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;800&family=Outfit:wght@400;500;600;700&display=swap"
         rel="stylesheet"

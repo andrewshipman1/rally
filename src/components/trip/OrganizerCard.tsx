@@ -53,7 +53,7 @@ export function OrganizerCard({ organizer, tripName }: { organizer: User; tripNa
               flexShrink: 0,
             }}
           >
-            💬
+            {'\ud83d\udcac'}
           </a>
         )}
       </div>

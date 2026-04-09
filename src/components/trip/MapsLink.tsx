@@ -42,7 +42,7 @@ export function MapsLink({
         flexShrink: 0,
       }}
     >
-      📍
+      {'\ud83d\udccd'}
     </a>
   );
 }

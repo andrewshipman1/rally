@@ -2,6 +2,7 @@
 
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
+import { getCopy } from '@/lib/copy/get-copy';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,7 +32,7 @@ export function SignOutButton() {
         fontFamily: "'Outfit', sans-serif",
       }}
     >
-      Sign out
+      {getCopy('just-because', 'auth.signOut.button')}
     </button>
   );
 }

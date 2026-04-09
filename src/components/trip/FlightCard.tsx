@@ -1,9 +1,11 @@
 import type { Flight } from '@/types';
+import type { ThemeId } from '@/lib/themes/types';
 import { SolidCard } from '@/components/ui/SolidCard';
 import { Badge } from '@/components/ui/Badge';
 import { formatMoney } from '@/lib/money';
+import { getCopy } from '@/lib/copy/get-copy';
 
-export function FlightCard({ flight }: { flight: Flight }) {
+export function FlightCard({ flight, themeId }: { flight: Flight; themeId: ThemeId }) {
   return (
     <SolidCard style={{ padding: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -56,9 +58,9 @@ export function FlightCard({ flight }: { flight: Flight }) {
                 fontFamily: 'var(--rally-font-body)',
               }}
             >
-              ~{formatMoney(flight.estimated_price)}
+              {'~'}{formatMoney(flight.estimated_price)}
             </div>
-            <div style={{ fontSize: 9, color: '#999' }}>per person</div>
+            <div style={{ fontSize: 9, color: '#999' }}>{getCopy(themeId, 'tripPageShared.flight.perPerson')}</div>
           </div>
         )}
       </div>
@@ -81,7 +83,7 @@ export function FlightCard({ flight }: { flight: Flight }) {
             background: '#1a3d4a08',
           }}
         >
-          Search flights →
+          {getCopy(themeId, 'tripPageShared.flight.searchCta')}
         </a>
       )}
     </SolidCard>

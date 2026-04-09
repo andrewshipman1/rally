@@ -77,7 +77,7 @@ export function LockedPlan({ themeId, lodging, flights, activities, cost }: Prop
           <span className="locked-label">
             {getCopy(themeId, 'tripPageShared.cost.h2')}
           </span>
-          <span>${Math.round(cost.per_person_total)}</span>
+          <span>{getCopy(themeId, 'tripPageShared.cost.currencySymbol')}{Math.round(cost.per_person_total)}</span>
         </div>
       </div>
 

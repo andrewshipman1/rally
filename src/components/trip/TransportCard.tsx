@@ -1,7 +1,9 @@
 import type { Transport } from '@/types';
+import type { ThemeId } from '@/lib/themes/types';
 import { SolidCard } from '@/components/ui/SolidCard';
 import { Badge } from '@/components/ui/Badge';
 import { formatMoney } from '@/lib/money';
+import { getCopy } from '@/lib/copy/get-copy';
 
 const SUBTYPE_LABELS: Record<string, { label: string; emoji: string }> = {
   car_rental: { label: 'Car Rental', emoji: '🚗' },
@@ -12,9 +14,11 @@ const SUBTYPE_LABELS: Record<string, { label: string; emoji: string }> = {
 export function TransportCard({
   transport,
   memberCount = 0,
+  themeId,
 }: {
   transport: Transport;
   memberCount?: number;
+  themeId: ThemeId;
 }) {
   const meta = SUBTYPE_LABELS[transport.subtype] || { label: 'Transport', emoji: '🚗' };
   const costType = transport.cost_type;
@@ -92,7 +96,7 @@ export function TransportCard({
 
           {transport.daily_rate && transport.num_days && (
             <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>
-              {formatMoney(transport.daily_rate, '/day')} × {transport.num_days} days
+              {formatMoney(transport.daily_rate, '/day')} {'\u00d7'} {transport.num_days} {getCopy(themeId, 'tripPageShared.transport.days')}
             </div>
           )}
 
@@ -134,7 +138,7 @@ export function TransportCard({
             </div>
             {costType === 'shared' && (
               <div style={{ fontSize: 9, color: '#999', marginTop: 2 }}>
-                {formatMoney(total)} total
+                {formatMoney(total)} {getCopy(themeId, 'tripPageShared.transport.total')}
               </div>
             )}
           </div>
@@ -160,7 +164,7 @@ export function TransportCard({
             background: '#6b4c3b08',
           }}
         >
-          Check rates →
+          {getCopy(themeId, 'tripPageShared.transport.checkCta')}
         </a>
       )}
     </SolidCard>

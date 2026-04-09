@@ -58,4 +58,12 @@ export const rsvp: Record<string, Templated> = {
   'crew.caption.holding': 'thinking about it',
   'crew.caption.out':     'catch the next one',
   'crew.caption.pending': "hasn't weighed in yet",
+
+  // RsvpSection — prompt + share + button labels (distinct from default buttons above)
+  'share.story':         'Share to Story \ud83d\udcf8',
+  'prompt.h2':           'You coming or what?',
+  'prompt.sub':          'Lock it in before the countdown hits zero',
+  'prompt.in.button':    "I'm so in",
+  'prompt.holding.button': 'Holding...',
+  'prompt.out.button':   "Can't make it",
 };

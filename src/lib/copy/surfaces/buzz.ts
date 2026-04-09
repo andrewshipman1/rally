@@ -56,6 +56,9 @@ export const buzz: Record<string, Templated> = {
   'themedReactionFestival': '🎟️',
   'themedReactionWine':     '🍷',
 
+  // ─── Send button (group chat) ────────────────────────────────────
+  'sendButton':             'Send',
+
   // ─── Empty state ────────────────────────────────────────────────
   'emptyState':             'nothing yet — say hi 👋',
 

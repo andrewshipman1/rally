@@ -122,7 +122,7 @@ export function DatePoll({
                     transition: 'all .2s',
                   }}
                 >
-                  {sel && <span style={{ color: '#1a3a4a', fontSize: 12, fontWeight: 700 }}>✓</span>}
+                  {sel && <span style={{ color: '#1a3a4a', fontSize: 12, fontWeight: 700 }}>{'\u2713'}</span>}
                 </div>
               </div>
             </button>

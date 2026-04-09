@@ -17,7 +17,7 @@ export function Description({ text }: { text: string }) {
           pointerEvents: 'none',
         }}
       >
-        “
+        {'\u201c'}
       </div>
       <div
         style={{

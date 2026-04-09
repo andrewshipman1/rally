@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { track } from '@/lib/analytics';
+import { getCopy } from '@/lib/copy/get-copy';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -111,7 +112,7 @@ export function TripForm({ userId }: { userId: string }) {
             color: '#888',
           }}
         >
-          ← Back
+          {getCopy('just-because', 'createTrip.backButton')}
         </button>
         <h1
           style={{
@@ -122,7 +123,7 @@ export function TripForm({ userId }: { userId: string }) {
             margin: 0,
           }}
         >
-          Create a trip
+          {getCopy('just-because', 'createTrip.h1')}
         </h1>
       </div>
 
@@ -136,7 +137,7 @@ export function TripForm({ userId }: { userId: string }) {
           border: '1px solid rgba(0,0,0,0.04)',
         }}
       >
-        <label style={{ ...labelStyle, marginTop: 0 }}>Trip name *</label>
+        <label style={{ ...labelStyle, marginTop: 0 }}>{getCopy('just-because', 'createTrip.nameLabel')}</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -144,7 +145,7 @@ export function TripForm({ userId }: { userId: string }) {
           style={inputStyle}
         />
 
-        <label style={labelStyle}>Destination</label>
+        <label style={labelStyle}>{getCopy('just-because', 'createTrip.destinationLabel')}</label>
         <input
           value={destination}
           onChange={(e) => setDestination(e.target.value)}
@@ -152,7 +153,7 @@ export function TripForm({ userId }: { userId: string }) {
           style={inputStyle}
         />
 
-        <label style={labelStyle}>Tagline</label>
+        <label style={labelStyle}>{getCopy('just-because', 'createTrip.taglineLabel')}</label>
         <input
           value={tagline}
           onChange={(e) => setTagline(e.target.value)}
@@ -162,16 +163,16 @@ export function TripForm({ userId }: { userId: string }) {
 
         <div style={{ display: 'flex', gap: 12, marginTop: 0 }}>
           <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Start date</label>
+            <label style={labelStyle}>{getCopy('just-because', 'createTrip.startDateLabel')}</label>
             <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} style={inputStyle} />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={labelStyle}>End date</label>
+            <label style={labelStyle}>{getCopy('just-because', 'createTrip.endDateLabel')}</label>
             <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} style={inputStyle} />
           </div>
         </div>
 
-        <label style={labelStyle}>Commit deadline</label>
+        <label style={labelStyle}>{getCopy('just-because', 'createTrip.deadlineLabel')}</label>
         <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={inputStyle} />
       </div>
 

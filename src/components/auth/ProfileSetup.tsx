@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import { getCopy } from '@/lib/copy/get-copy';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -75,16 +76,16 @@ export function ProfileSetup() {
       }}
     >
       <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <div style={{ fontSize: 28, marginBottom: 8 }}>👋</div>
+        <div style={{ fontSize: 28, marginBottom: 8 }}>{getCopy('just-because', 'auth.setup.emoji')}</div>
         <div style={{ fontSize: 16, color: '#fff', fontWeight: 700, fontFamily: "'Fraunces', serif" }}>
-          Welcome to Rally
+          {getCopy('just-because', 'auth.setup.h1')}
         </div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
-          Set up your profile so your friends know it&apos;s you
+          {getCopy('just-because', 'auth.setup.sub')}
         </div>
       </div>
 
-      <label style={labelStyle}>Name *</label>
+      <label style={labelStyle}>{getCopy('just-because', 'auth.setup.nameLabel')}</label>
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -92,7 +93,7 @@ export function ProfileSetup() {
         style={inputStyle}
       />
 
-      <label style={labelStyle}>Bio</label>
+      <label style={labelStyle}>{getCopy('just-because', 'auth.setup.bioLabel')}</label>
       <input
         value={bio}
         onChange={(e) => setBio(e.target.value)}
@@ -100,7 +101,7 @@ export function ProfileSetup() {
         style={inputStyle}
       />
 
-      <label style={labelStyle}>Instagram</label>
+      <label style={labelStyle}>{getCopy('just-because', 'auth.setup.igLabel')}</label>
       <input
         value={instagram}
         onChange={(e) => setInstagram(e.target.value)}

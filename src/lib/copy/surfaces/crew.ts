@@ -33,4 +33,9 @@ export const crew: Record<string, Templated> = {
   'emptyStateHolding':    "everyone's decided",
   'emptyStateOut':        "nobody's out — knock on wood 🤞",
   'emptyStatePending':    "nobody's sitting on it",
+
+  // ProfileModal
+  'profile.photoIcon':   '\ud83d\udcf8',
+  'profile.messageCta':  'Message organizer \ud83d\udcac',
+  'profile.closeCta':    'Close',
 };

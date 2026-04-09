@@ -59,7 +59,6 @@ export function getCopy(themeId: ThemeId, path: string, vars: ThemeVars = {}): s
 
   // 3. Last-ditch fallback so the UI never crashes on a missing key.
   if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
     console.warn(`[copy] missing key: ${path} for theme ${themeId}`);
   }
   return path;

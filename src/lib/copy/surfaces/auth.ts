@@ -43,4 +43,13 @@ export const auth: Record<string, Templated> = {
   // ─── Sign out ──────────────────────────────────────────────────
   'signOut.confirm':         'sign out of rally?',
   'signOut.toast':           'signed out.',
+  'signOut.button':          'sign out',
+
+  // ─── Profile setup ─────────────────────────────────────────────
+  'setup.emoji':             '\u{1F44B}',
+  'setup.h1':                'Welcome to Rally',
+  'setup.sub':               'Set up your profile so your friends know it\'s you',
+  'setup.nameLabel':         'Name *',
+  'setup.bioLabel':          'Bio',
+  'setup.igLabel':           'Instagram',
 };

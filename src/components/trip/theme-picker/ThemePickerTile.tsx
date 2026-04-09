@@ -102,7 +102,7 @@ export function ThemePickerTile({ themeId, selected, onClick }: Props) {
             fontSize: 14,
           }}
         >
-          ✓
+          {'\u2713'}
         </div>
       )}
     </button>

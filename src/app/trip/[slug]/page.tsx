@@ -235,6 +235,7 @@ export default async function TripPage({ params }: Props) {
       {(() => {
         if (trip.phase !== 'sell' || !cutoffIso) return null;
         const daysToDeadline = Math.ceil(
+          // eslint-disable-next-line react-hooks/purity -- server component renders once
           (new Date(cutoffIso).getTime() - Date.now()) / 86_400_000,
         );
         const holdingCount = members.filter((m) => m.rsvp === 'holding').length;
@@ -289,7 +290,7 @@ export default async function TripPage({ params }: Props) {
       <div style={{ padding: '0 18px' }}>
         {/* Add-to-calendar — secondary action under going row */}
         <div style={{ textAlign: 'center', marginTop: 12 }}>
-          <AddToCalendarButton trip={trip} />
+          <AddToCalendarButton trip={trip} themeId={themeId} />
         </div>
 
         {/* Organizer card */}
@@ -322,17 +323,17 @@ export default async function TripPage({ params }: Props) {
             but their internals use legacy styles for now. */}
         {flights.map((flight) => (
           <div key={flight.id} style={{ marginTop: 12 }}>
-            <FlightCard flight={flight} />
+            <FlightCard flight={flight} themeId={themeId} />
           </div>
         ))}
         {transport.map((t) => (
           <div key={t.id} style={{ marginTop: 12 }}>
-            <TransportCard transport={t} memberCount={cost.confirmed_count} />
+            <TransportCard transport={t} memberCount={cost.confirmed_count} themeId={themeId} />
           </div>
         ))}
         {activities.map((a) => (
           <div key={a.id} style={{ marginTop: 12 }}>
-            <ActivityCard activity={a} />
+            <ActivityCard activity={a} themeId={themeId} />
           </div>
         ))}
         {groceries.map((g) => (
@@ -348,7 +349,7 @@ export default async function TripPage({ params }: Props) {
 
         {/* Cost breakdown — split-shared mode only for v0 */}
         <div style={{ marginTop: 14 }}>
-          <CostBreakdown trip={trip} cost={cost} dateStr={trip.date_start && trip.date_end
+          <CostBreakdown trip={trip} cost={cost} themeId={themeId} dateStr={trip.date_start && trip.date_end
             ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
             : ''} />
         </div>

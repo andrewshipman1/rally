@@ -1,16 +1,20 @@
 import type { TripWithDetails, TripCostSummary } from '@/types';
+import type { ThemeId } from '@/lib/themes/types';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Badge } from '@/components/ui/Badge';
 import { formatMoney } from '@/lib/money';
+import { getCopy } from '@/lib/copy/get-copy';
 
 export function CostBreakdown({
   trip,
   cost,
   dateStr,
+  themeId,
 }: {
   trip: TripWithDetails;
   cost: TripCostSummary;
   dateStr: string;
+  themeId: ThemeId;
 }) {
   // Build breakdown line items from typed components
   const items: { label: string; val: number; icon: string }[] = [];
@@ -79,7 +83,7 @@ export function CostBreakdown({
             fontWeight: 600,
           }}
         >
-          Estimated per person
+          {getCopy(themeId, 'tripPageShared.cost.perPersonLabel')}
         </div>
         <div
           style={{
@@ -90,10 +94,10 @@ export function CostBreakdown({
             lineHeight: 1,
           }}
         >
-          ~{formatMoney(cost.per_person_total)}
+          {'~'}{formatMoney(cost.per_person_total)}
         </div>
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 3, marginBottom: 16 }}>
-          {nights} nights •{' '}
+          {nights} {getCopy(themeId, 'tripPageShared.cost.nightsSeparator')}{' '}
           {cost.divisor_is_estimate
             ? `estimated for ${cost.divisor_used} people`
             : `${cost.divisor_used} going`}

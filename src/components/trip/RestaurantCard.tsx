@@ -32,7 +32,7 @@ export function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
             fontSize: 32,
           }}
         >
-          🍽️
+          {'\ud83c\udf7d\ufe0f'}
         </div>
       )}
       <div style={{ flex: 1, padding: 14, minWidth: 0 }}>
@@ -63,7 +63,7 @@ export function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
         )}
         {restaurant.address && (
           <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, display: 'flex', alignItems: 'center' }}>
-            <span>📍 {restaurant.address}</span>
+            <span>{'📍 '}{restaurant.address}</span>
             <MapsLink
               address={restaurant.address}
               latitude={restaurant.latitude}
@@ -74,7 +74,7 @@ export function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
         )}
         {restaurant.cost_per_person != null && (
           <div style={{ fontSize: 11, color: '#2d6b5a', fontWeight: 700, marginTop: 4 }}>
-            ~{formatMoney(restaurant.cost_per_person, '/person')}
+            {'~'}{formatMoney(restaurant.cost_per_person, '/person')}
           </div>
         )}
       </div>

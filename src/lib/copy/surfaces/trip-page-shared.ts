@@ -39,4 +39,34 @@ export const tripPageShared: Record<string, Templated> = {
 
   // Share
   'share.copy':          'copy the invite link ↗',
+
+  // ActivityCard
+  'activity.bookCta':    'Book \u2192',
+
+  // AddToCalendarButton
+  'calendar.cta':        '\ud83d\udcc5 Add to Calendar',
+
+  // CostBreakdown
+  'cost.perPersonLabel': 'Estimated per person',
+  'cost.nightsSeparator': 'nights \u2022',
+
+  // FlightCard
+  'flight.perPerson':    'per person',
+  'flight.searchCta':    'Search flights \u2192',
+
+  // Footer
+  'footer.madeWith':     'Made with',
+  'footer.brand':        'Rally',
+  'footer.ctaCreate':    'Plan your own trip \u2192',
+
+  // OrganizerCard
+  'organizer.chatIcon':  '\ud83d\udcac',
+
+  // TransportCard
+  'transport.days':      'days',
+  'transport.total':     'total',
+  'transport.checkCta':  'Check rates \u2192',
+
+  // LockedPlan
+  'cost.currencySymbol': '$',
 };
