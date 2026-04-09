@@ -43,4 +43,12 @@ export const extras: Record<string, Templated> = {
   'menu.remove':           'remove',
 
   'toast.added':           ({ extra_type }: ThemeVars) => `added ${extra_type ?? 'extra'} to extras`,
+
+  // Section heading labels (used by ExtrasSections)
+  'packing.label':         'packing list',
+  'playlist.label':        'trip playlist',
+  'rules.label':           'house rules',
+  'album.label':           'shared photo album',
+  'album.openCta.short':   'open in browser',
+  'playlist.openCta.short': 'open playlist',
 };

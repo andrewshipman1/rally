@@ -50,4 +50,14 @@ export const builderState: Record<string, Templated> = {
 
   // ─── Footer ─────────────────────────────────────────────────────
   'footer':                'made with rally',
+
+  // ─── Editor panel labels ────────────────────────────────────────
+  'panel.theme':           'Pick a theme',
+  'panel.effects':         'Effects',
+  'panel.effectsPlaceholder': 'Animations & confetti effects coming soon',
+  'panel.phase':           'Phase',
+  'panel.deadline':        'Commit deadline',
+  'panel.rsvpEmojis':      'RSVP emojis',
+  'panel.shareLink':       'Share link',
+  'panel.copyShareLink':   'Copy share link',
 };

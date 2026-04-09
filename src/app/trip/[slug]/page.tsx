@@ -231,6 +231,42 @@ export default async function TripPage({ params }: Props) {
         />
       )}
 
+      {/* T-3 / T-0 deadline nudge banners (sell phase only) */}
+      {(() => {
+        if (trip.phase !== 'sell' || !cutoffIso) return null;
+        const daysToDeadline = Math.ceil(
+          (new Date(cutoffIso).getTime() - Date.now()) / 86_400_000,
+        );
+        const holdingCount = members.filter((m) => m.rsvp === 'holding').length;
+        if (daysToDeadline <= 0) {
+          return (
+            <div className="deadline-banner deadline-banner--urgent">
+              {getCopy(themeId, 'cutoff.banner.t0', { n_hold: holdingCount })}
+            </div>
+          );
+        }
+        if (daysToDeadline <= 3) {
+          return (
+            <div className="deadline-banner">
+              {getCopy(themeId, 'cutoff.banner.t3')}
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* Post-lock banner */}
+      {trip.phase === 'lock' && (
+        <div className="lock-banner">
+          <div className="lock-banner-text">
+            {getCopy(themeId, 'lockFlow.postLock.banner')}
+          </div>
+          <div className="lock-banner-sub">
+            {getCopy(themeId, 'lockFlow.postLock.subtitle')}
+          </div>
+        </div>
+      )}
+
       {/* Going row — going-label + avatar cascade */}
       <div className="going">
         <div className="going-label">
@@ -268,8 +304,16 @@ export default async function TripPage({ params }: Props) {
         )}
       </div>
 
-      {/* Lodging gallery — chassis .house cards */}
-      <LodgingGallery themeId={themeId} lodging={lodging} />
+      {/* Lodging gallery — chassis .house cards, voting wired in 3C */}
+      <LodgingGallery
+        themeId={themeId}
+        lodging={lodging}
+        currentUserId={currentUserId}
+        isOrganizer={currentUserId === trip.organizer_id}
+        slug={slug}
+        tripId={trip.id}
+        votingLocked={lodging.some((l) => l.is_selected)}
+      />
 
       <div style={{ padding: '0 18px' }}>
         {/* Flights / Transport / Activities / Groceries / Restaurants — kept
@@ -329,12 +373,16 @@ export default async function TripPage({ params }: Props) {
           </Link>
         </div>
 
-        {/* Optional extras — v0 component, will become the extras drawer in Session 3 */}
+        {/* Extras drawer — write-side wired in Session 3C */}
         <ExtrasSections
           packingList={trip.packing_list || []}
           playlistUrl={trip.playlist_url}
           houseRules={trip.house_rules}
           photoAlbumUrl={trip.photo_album_url}
+          isOrganizer={currentUserId === trip.organizer_id}
+          tripId={trip.id}
+          slug={slug}
+          themeId={themeId}
         />
       </div>
 

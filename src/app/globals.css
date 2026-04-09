@@ -541,6 +541,42 @@ button:active {
 }
 
 /* Going row — avatar cascade with handwritten label. */
+/* ─── Deadline + Lock banners (3C) ──────────────────────────────── */
+.chassis .deadline-banner {
+  margin: 8px 18px;
+  padding: 12px 16px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+.chassis .deadline-banner--urgent {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--accent);
+}
+.chassis .lock-banner {
+  margin: 8px 18px;
+  padding: 14px 18px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  text-align: center;
+}
+.chassis .lock-banner-text {
+  font-size: 15px;
+  font-weight: 700;
+}
+.chassis .lock-banner-sub {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
 .chassis .going {
   margin: 0 18px 16px;
   animation: slide-up-bounce 0.7s 0.55s both;
