@@ -315,6 +315,35 @@ export interface HeaderImage { url: string; position: string; label: string; }
 export interface PollOption { id: string; label: string; image_url?: string; }
 export interface Reaction { emoji: string; user_id: string; }
 
+// ─── Activity Log ───
+
+export type ActivityEventType =
+  | 'rsvp_in'
+  | 'rsvp_holding'
+  | 'rsvp_out'
+  | 'plus_one_added'
+  | 'vote_cast'
+  | 'lodging_locked'
+  | 'activity_added'
+  | 'extra_added'
+  | 'theme_changed'
+  | 'phase_lock'
+  | 'phase_go'
+  | 'trip_created'
+  | 'cutoff_passed';
+
+export interface ActivityLogEntry {
+  id: string;
+  trip_id: string;
+  actor_id: string | null;
+  event_type: ActivityEventType;
+  target_id: string | null;
+  target_type: string | null;
+  metadata: Record<string, unknown>;
+  is_read: boolean;
+  created_at: string;
+}
+
 // ─── Computed / Joined Types ───
 
 export interface TripWithDetails extends Trip {

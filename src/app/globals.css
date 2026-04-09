@@ -1499,3 +1499,807 @@ button:active {
   opacity: 0.6;
   margin-top: 2px;
 }
+
+/* ───── buzz subsurface (§5.26) ───── */
+
+.chassis .buzz-link {
+  display: inline-block;
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 22px;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 6px 14px;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  background: var(--sticker-bg);
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform 0.15s ease;
+}
+.chassis .buzz-link:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.chassis .buzz-surface {
+  padding: 18px 18px 80px;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.chassis .buzz-back {
+  display: inline-block;
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 18px;
+  color: var(--ink);
+  text-decoration: none;
+  margin-bottom: 18px;
+  opacity: 0.85;
+}
+.chassis .buzz-back:hover { opacity: 1; }
+
+.chassis .buzz-title {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 38px;
+  color: var(--ink);
+  margin: 0 0 4px;
+  line-height: 1;
+}
+.chassis .buzz-subtitle {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 20px;
+  color: var(--ink);
+  opacity: 0.8;
+  margin: 0 0 22px;
+}
+
+.chassis .buzz-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Day divider */
+.chassis .buzz-day-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 10px;
+}
+.chassis .buzz-day-divider::before,
+.chassis .buzz-day-divider::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: var(--ink);
+  opacity: 0.12;
+}
+.chassis .buzz-dd-label {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.5;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+
+/* Event row */
+.chassis .buzz-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+}
+.chassis .buzz-event-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--sticker-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  border: 2px solid var(--ink);
+}
+.chassis .buzz-event-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
+}
+.chassis .buzz-event-text {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.chassis .buzz-event-time {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.45;
+}
+
+/* Post row */
+.chassis .buzz-post {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+}
+.chassis .buzz-post.mine {
+  flex-direction: row-reverse;
+}
+.chassis .buzz-post-av {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.chassis .buzz-post-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chassis .buzz-post.mine .buzz-post-content {
+  align-items: flex-end;
+}
+.chassis .buzz-post-author {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.chassis .buzz-bubble {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  max-width: 85%;
+}
+.chassis .buzz-post.mine .buzz-bubble {
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 14px 14px 4px 14px;
+}
+.chassis .buzz-post-text {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.chassis .buzz-post.mine .buzz-post-text {
+  color: var(--bg);
+}
+.chassis .buzz-post-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.chassis .buzz-post-time {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.45;
+}
+
+/* Reactions (display-only) */
+.chassis .buzz-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  pointer-events: none;
+}
+.chassis .buzz-rx {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  opacity: 0.8;
+}
+.chassis .buzz-rx-count {
+  font-size: 10px;
+  color: var(--ink);
+  opacity: 0.6;
+}
+
+/* Compose bar (disabled placeholder) */
+.chassis .buzz-compose {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: var(--bg);
+  border-top: 2.5px solid var(--ink);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.chassis .buzz-compose-av {
+  flex-shrink: 0;
+}
+.chassis .buzz-compose-input {
+  flex: 1;
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 18px;
+  color: var(--ink);
+  opacity: 0.5;
+  padding: 8px 14px;
+  border: 2px dashed var(--ink);
+  border-radius: 14px;
+}
+.chassis .buzz-compose-send {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 22px;
+  color: var(--ink);
+  opacity: 0.4;
+}
+
+/* Empty state */
+.chassis .buzz-empty {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 20px;
+  color: var(--ink);
+  opacity: 0.6;
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* ───── dashboard (§5.2) ───── */
+
+.dash-surface {
+  min-height: 100dvh;
+  background: #fafaf6;
+  padding: 18px 18px 100px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.dash-wordmark {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 28px;
+  color: #1a1a1a;
+  line-height: 1;
+}
+.dash-greeting {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 20px;
+  color: #1a1a1a;
+  opacity: 0.7;
+  margin: 0 0 18px;
+}
+.dash-signout {
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 2px solid #1a1a1a;
+  background: transparent;
+  color: #1a1a1a;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.dash-signout:hover { opacity: 1; }
+
+.dash-h1 {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 32px;
+  color: #1a1a1a;
+  margin: 0 0 14px;
+  line-height: 1.1;
+}
+
+/* Scoreboard */
+.dash-scoreboard {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.dash-chip {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+  padding: 5px 10px;
+  border: 2px solid #1a1a1a;
+  border-radius: 999px;
+  background: transparent;
+}
+.dash-chip strong {
+  font-weight: 800;
+  margin-right: 3px;
+}
+.dash-chip.hot {
+  background: #ff5b3a;
+  color: #fff;
+  border-color: #ff5b3a;
+}
+
+/* Section headers */
+.dash-section {
+  margin-bottom: 22px;
+}
+.dash-section-title {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 22px;
+  color: #1a1a1a;
+  margin: 0 0 2px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash-section-count {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+  opacity: 0.5;
+  padding: 2px 8px;
+  border: 1.5px solid #1a1a1a;
+  border-radius: 999px;
+}
+
+/* Trip cards */
+.dash-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.chassis.dash-card {
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--bg);
+  box-shadow: 3px 3px 0 var(--ink);
+  position: relative;
+  text-decoration: none;
+  display: block;
+  color: var(--ink);
+  transition: transform 0.12s ease;
+  animation: slide-up-bounce 0.55s ease both;
+}
+.chassis.dash-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+/* Countdown stamp */
+.chassis.dash-card .dash-stamp {
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  background: var(--sticker-bg);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 2px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  box-shadow: 2px 2px 0 var(--ink);
+  animation: wiggle 4.5s ease-in-out 1.4s infinite;
+}
+.chassis.dash-card .dash-stamp-num {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 22px;
+}
+.chassis.dash-card .dash-stamp-sub {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: lowercase;
+  opacity: 0.7;
+}
+
+/* Card title */
+.chassis.dash-card .dash-card-name {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 20px;
+  color: var(--ink);
+  margin: 0 0 4px;
+  line-height: 1.1;
+}
+.chassis.dash-card .dash-card-meta {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  opacity: 0.65;
+  margin-bottom: 10px;
+}
+
+/* Rally meter */
+.chassis.dash-card .dash-meter {
+  margin-top: 8px;
+}
+.chassis.dash-card .dash-meter-bar {
+  height: 8px;
+  border-radius: 4px;
+  border: 1.5px solid var(--ink);
+  overflow: hidden;
+  background: var(--surface);
+}
+.chassis.dash-card .dash-meter-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 1.2s ease-out;
+}
+.chassis.dash-card .dash-meter-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.6;
+  margin-top: 3px;
+}
+
+/* Card bottom */
+.chassis.dash-card .dash-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+.chassis.dash-card .dash-avs {
+  display: flex;
+}
+.chassis.dash-card .dash-avs .av {
+  margin-left: -6px;
+  border: 2px solid var(--bg);
+}
+.chassis.dash-card .dash-avs .av:first-child {
+  margin-left: 0;
+}
+.chassis.dash-card .dash-card-action {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+/* Sticky CTA */
+.dash-sticky {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 14px 18px;
+  background: #fafaf6;
+  border-top: 2.5px solid #1a1a1a;
+  display: flex;
+  justify-content: center;
+}
+.dash-sticky a {
+  display: block;
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 18px;
+  color: #fafaf6;
+  background: #1a1a1a;
+  border: 2.5px solid #1a1a1a;
+  border-radius: 14px;
+  padding: 14px;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.15);
+  animation: pulse-shadow 2.4s ease-in-out infinite;
+}
+
+/* Empty state */
+.dash-empty {
+  text-align: center;
+  padding: 50px 20px;
+}
+.dash-empty-emoji {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+.dash-empty-title {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 22px;
+  color: #1a1a1a;
+  margin: 0 0 4px;
+}
+.dash-empty-sub {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 18px;
+  color: #1a1a1a;
+  opacity: 0.6;
+  margin: 0;
+}
+
+/* ───── passport (§5.15) ───── */
+
+.passport-surface {
+  min-height: 100dvh;
+  background: #fafaf6;
+  padding: 18px 18px 100px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.passport-wordmark {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 22px;
+  color: #1a1a1a;
+  margin-bottom: 22px;
+  animation: wiggle 5s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* Profile head */
+.passport-head {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.passport-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #ffd84d;
+  color: #1a1a1a;
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  border: 3px solid #1a1a1a;
+  box-shadow: 4px 4px 0 #ff5b3a;
+}
+.passport-name {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 30px;
+  color: #1a1a1a;
+  margin: 0 0 2px;
+  line-height: 1.1;
+}
+.passport-handle {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 18px;
+  color: #1a1a1a;
+  opacity: 0.55;
+  margin: 0 0 4px;
+}
+.passport-est {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #1a1a1a;
+  opacity: 0.5;
+  margin: 0;
+}
+
+/* Stat strip */
+.passport-stats {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 30px;
+  padding: 16px 0;
+}
+.passport-stat {
+  text-align: center;
+}
+.passport-stat-num {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 36px;
+  color: #1a1a1a;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.passport-stat-num.trips { text-shadow: 3px 3px 0 #ff5b3a; }
+.passport-stat-num.rod { text-shadow: 3px 3px 0 #3a8eff; }
+.passport-stat-num.countries { text-shadow: 3px 3px 0 #ffd84d; }
+.passport-stat-label {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1a1a;
+  opacity: 0.55;
+  text-transform: lowercase;
+}
+
+/* Section headers */
+.passport-section {
+  margin-bottom: 26px;
+}
+.passport-section-title {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 22px;
+  color: #1a1a1a;
+  margin: 0;
+  line-height: 1;
+}
+.passport-section-sub {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 17px;
+  color: #1a1a1a;
+  opacity: 0.55;
+  margin: 2px 0 14px;
+}
+
+/* Stamp grid */
+.passport-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.chassis.passport-stamp {
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  padding: 14px 12px 10px;
+  background: var(--bg);
+  box-shadow: 4px 4px 0 var(--ink);
+  position: relative;
+  transform: rotate(var(--rot, 0deg));
+  animation: pop-in 0.6s ease both, wiggle 5s ease-in-out 1.5s infinite;
+}
+.chassis.passport-stamp .stamp-emoji {
+  position: absolute;
+  top: -8px;
+  right: 8px;
+  font-size: 20px;
+}
+.chassis.passport-stamp .stamp-place {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 18px;
+  color: var(--ink);
+  margin: 0 0 2px;
+  line-height: 1.1;
+}
+.chassis.passport-stamp .stamp-trip {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 15px;
+  color: var(--ink);
+  opacity: 0.7;
+  margin: 0 0 6px;
+}
+.chassis.passport-stamp .stamp-meta {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.55;
+  margin: 0 0 8px;
+}
+.chassis.passport-stamp .stamp-avs {
+  display: flex;
+}
+.chassis.passport-stamp .stamp-avs .av {
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+  margin-left: -5px;
+  border: 2px solid var(--bg);
+}
+.chassis.passport-stamp .stamp-avs .av:first-child {
+  margin-left: 0;
+}
+
+/* Ride or dies leaderboard */
+.passport-rod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.passport-rod-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 2.5px solid #1a1a1a;
+  border-radius: 14px;
+  background: #fafaf6;
+  box-shadow: 3px 3px 0 #1a1a1a;
+  animation: slide-up-bounce 0.55s ease both;
+}
+.passport-rod-rank {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 20px;
+  color: #ff5b3a;
+  min-width: 28px;
+}
+.passport-rod-av {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ffd84d;
+  color: #1a1a1a;
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid #1a1a1a;
+}
+.passport-rod-name {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+  flex: 1;
+}
+.passport-rod-count {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #1a1a1a;
+  opacity: 0.55;
+}
+
+/* Empty states */
+.passport-empty {
+  text-align: center;
+  padding: 20px 0;
+}
+.passport-empty-title {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 18px;
+  color: #1a1a1a;
+  opacity: 0.6;
+  margin: 0 0 2px;
+}
+.passport-empty-sub {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #1a1a1a;
+  opacity: 0.4;
+  margin: 0;
+}
+
+/* Sticky CTA */
+.passport-sticky {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 14px 18px;
+  background: #fafaf6;
+  border-top: 2.5px solid #1a1a1a;
+  display: flex;
+  justify-content: center;
+}
+.passport-sticky a {
+  display: block;
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 18px;
+  color: #fafaf6;
+  background: #1a1a1a;
+  border: 2.5px solid #1a1a1a;
+  border-radius: 14px;
+  padding: 14px;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.15);
+}

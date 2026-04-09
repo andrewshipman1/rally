@@ -37,7 +37,6 @@ import { ActivityCard } from '@/components/trip/ActivityCard';
 import { GroceriesCard } from '@/components/trip/GroceriesCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
-import { ActivityFeed } from '@/components/trip/ActivityFeed';
 import { AddToCalendarButton } from '@/components/trip/AddToCalendarButton';
 
 type Props = { params: Promise<{ slug: string }> };
@@ -116,7 +115,6 @@ export default async function TripPage({ params }: Props) {
   const groceries = trip.groceries || [];
   const members = trip.members || [];
   const organizer = trip.organizer;
-  const comments = trip.comments || [];
   const polls = trip.polls || [];
 
   const cost = calculateTripCost(trip);
@@ -324,9 +322,11 @@ export default async function TripPage({ params }: Props) {
           </Link>
         </div>
 
-        {/* Activity feed — v0 component, will become the buzz feed in Session 2 */}
-        <div id="group-chat" style={{ marginTop: 14 }}>
-          <ActivityFeed comments={comments} tripId={trip.id} currentUserId={currentUserId} />
+        {/* Buzz link — dedicated subsurface at /trip/[slug]/buzz (Phase 10) */}
+        <div style={{ marginTop: 18, textAlign: 'center' }}>
+          <Link href={`/trip/${slug}/buzz`} className="buzz-link">
+            {getCopy(themeId, 'buzz.viewLink')}
+          </Link>
         </div>
 
         {/* Optional extras — v0 component, will become the extras drawer in Session 3 */}

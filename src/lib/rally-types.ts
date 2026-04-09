@@ -34,6 +34,26 @@ export function dbPhaseToRally(p: TripPhase): RallyPhase {
   }
 }
 
+// ─── Done-phase computation ───────────────────────────────────────────────
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * A trip is "done" when it's in 'go' phase and its end date is 30+ days
+ * in the past. Used by dashboard and passport for phase grouping.
+ */
+export function isTripDone(phase: string, dateEnd: string | null): boolean {
+  if (phase !== 'go') return false;
+  if (!dateEnd) return false;
+  return new Date(dateEnd).getTime() < Date.now() - THIRTY_DAYS_MS;
+}
+
+/** Compute the display phase for a trip, mapping go → done when appropriate. */
+export function computeRallyPhase(phase: string, dateEnd: string | null): RallyPhase {
+  if (isTripDone(phase, dateEnd)) return 'done';
+  return dbPhaseToRally(phase as TripPhase);
+}
+
 /**
  * 'done' has no DB equivalent yet. Map to 'go' so writes don't fail; the
  * 'done' state is read-only / computed-only until a future migration.

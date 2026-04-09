@@ -58,4 +58,7 @@ export const buzz: Record<string, Templated> = {
 
   // ─── Empty state ────────────────────────────────────────────────
   'emptyState':             'nothing yet — say hi 👋',
+
+  // ─── Trip page link ─────────────────────────────────────────────
+  'viewLink':               'the buzz →',
 };
