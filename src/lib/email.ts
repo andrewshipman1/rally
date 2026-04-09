@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 
-const FROM = 'Rally <onboarding@resend.dev>';
+const FROM = process.env.RESEND_FROM_EMAIL || 'Rally <onboarding@resend.dev>';
 
 function getResend(): Resend | null {
   const key = process.env.RESEND_API_KEY;
