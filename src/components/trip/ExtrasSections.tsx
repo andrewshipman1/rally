@@ -120,6 +120,8 @@ function CollapsibleHeader({
   return (
     <button
       onClick={onToggle}
+      aria-expanded={open}
+      aria-label={`${open ? 'Collapse' : 'Expand'} ${text}`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -139,6 +141,7 @@ function CollapsibleHeader({
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{meta}</span>
         )}
         <span
+          aria-hidden="true"
           style={{
             fontSize: 14,
             color: 'rgba(255,255,255,0.5)',
@@ -221,6 +224,7 @@ function PackingSection({
                 <button
                   onClick={() => handleRemove(item.id)}
                   disabled={pending}
+                  aria-label={`Remove ${item.text}`}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -230,7 +234,7 @@ function PackingSection({
                     padding: '0 4px',
                   }}
                 >
-                  {'\u2715'}
+                  <span aria-hidden="true">{'\u2715'}</span>
                 </button>
               )}
             </div>
@@ -259,6 +263,7 @@ function PackingSection({
               <button
                 onClick={handleAdd}
                 disabled={pending || !newText.trim()}
+                aria-label="Add packing item"
                 style={{
                   padding: '8px 14px',
                   borderRadius: 8,
@@ -272,7 +277,7 @@ function PackingSection({
                   opacity: pending || !newText.trim() ? 0.5 : 1,
                 }}
               >
-                {'+'}
+                <span aria-hidden="true">{'+'}</span>
               </button>
             </div>
           )}

@@ -19,7 +19,7 @@
 // Rendered via createPortal to document.body so the backdrop sits over
 // the chassis wrapper, not inside it.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { themePicker } from '@/lib/copy/surfaces/theme-picker';
 import { themeIds } from '@/lib/themes';
@@ -103,6 +103,30 @@ export function ThemePickerSheet({
   useEffect(() => {
     setError(null);
   }, [open, previewThemeId]);
+
+  const tileGridRef = useRef<HTMLDivElement>(null);
+
+  const handleTileKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      const grid = tileGridRef.current;
+      if (!grid) return;
+      const tiles = Array.from(
+        grid.querySelectorAll<HTMLButtonElement>('button.theme-picker-tile'),
+      );
+      if (tiles.length === 0) return;
+      const idx = tiles.indexOf(document.activeElement as HTMLButtonElement);
+      let next: number;
+      if (e.key === 'ArrowDown') {
+        next = idx < 0 ? 0 : Math.min(idx + 1, tiles.length - 1);
+      } else {
+        next = idx < 0 ? tiles.length - 1 : Math.max(idx - 1, 0);
+      }
+      tiles[next].focus();
+    },
+    [],
+  );
 
   const activePreview = previewThemeId ?? committedThemeId;
 
@@ -310,6 +334,10 @@ export function ThemePickerSheet({
             text-forward cards with the gradient as the full background,
             not miniature swatches in a multi-column grid. */}
         <div
+          ref={tileGridRef}
+          role="listbox"
+          aria-label="Theme options"
+          onKeyDown={handleTileKeyDown}
           style={{
             flex: 1,
             overflowY: 'auto',

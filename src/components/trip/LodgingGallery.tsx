@@ -190,7 +190,7 @@ function LodgingCard({
           {spot.og_image_url && (
             <Image
               src={spot.og_image_url}
-              alt={spot.name}
+              alt={`Photo of ${spot.name}`}
               fill
               sizes="(max-width: 420px) 100vw, 200px"
               style={{ objectFit: 'cover' }}
@@ -218,6 +218,7 @@ function LodgingCard({
           <button
             onClick={handleVote}
             disabled={pending}
+            aria-label={`Vote for ${spot.name}${userVotedHere ? ' (voted)' : ''}`}
             style={{
               flex: 1,
               padding: '8px 0',
@@ -248,6 +249,7 @@ function LodgingCard({
           <button
             onClick={handleLock}
             disabled={pending || totalVotes < 2}
+            aria-label={`Lock ${spot.name} as winner`}
             title={totalVotes < 2 ? getCopy(themeId, 'lodgingVoting.organizer.lockDisabledTooltip') : undefined}
             style={{
               padding: '8px 12px',

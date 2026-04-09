@@ -17,7 +17,7 @@ export const justBecause: Theme = {
   palette: {
     bg:        '#fafafa',
     ink:       '#1a1a1a',
-    accent:    '#ff5a1f',
+    accent:    '#fa581e',
     accent2:   '#1fa8ff',
     stickerBg: '#ffd84d',
     stroke:    '#1a1a1a',

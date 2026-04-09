@@ -77,6 +77,8 @@ export function DatePoll({
               key={option.id}
               onClick={() => toggle(option.id)}
               disabled={saving || !currentUserId}
+              aria-label={`${option.label}${sel ? ' (selected)' : ''}`}
+              aria-pressed={sel}
               style={{
                 display: 'flex',
                 alignItems: 'center',

@@ -32,8 +32,9 @@ export function ThemePickerTile({ themeId, selected, onClick }: Props) {
   return (
     <button
       type="button"
+      role="option"
       onClick={onClick}
-      aria-pressed={selected}
+      aria-selected={selected}
       aria-label={theme.name}
       className="theme-picker-tile"
       data-selected={selected ? 'true' : 'false'}

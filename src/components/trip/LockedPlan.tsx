@@ -28,7 +28,7 @@ export function LockedPlan({ themeId, lodging, flights, activities, cost }: Prop
   const activityRow = activities[0];
 
   return (
-    <div className="locked-section">
+    <div className="locked-section" role="region" aria-label="Trip plan preview">
       <div className="locked-header">
         <div className="locked-title">
           {getCopy(themeId, 'inviteeState.lockedSectionHeader')}
@@ -81,7 +81,7 @@ export function LockedPlan({ themeId, lodging, flights, activities, cost }: Prop
         </div>
       </div>
 
-      <div className="locked-overlay">
+      <div className="locked-overlay" role="alert" aria-live="polite">
         <div className="locked-overlay-pill">
           {getCopy(themeId, 'inviteeState.lockedOverlayMessage')}
         </div>

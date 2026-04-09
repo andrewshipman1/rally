@@ -29,7 +29,7 @@
   /* ─── 8 chassis vars (just-because defaults — source: theme content system §17) ─── */
   --bg:          #fafafa;
   --ink:         #1a1a1a;
-  --accent:      #ff5a1f;
+  --accent:      #fa581e;
   --accent2:     #1fa8ff;
   --sticker-bg:  #ffd84d;
   --stroke:      #1a1a1a;
@@ -113,7 +113,7 @@
 [data-theme="wellness-retreat"] {
   --bg:         #eaeee4;
   --ink:        #1a3329;
-  --accent:     #d98b2f;
+  --accent:     #b87628;
   --accent2:    #7aa86a;
   --sticker-bg: #f4e4a0;
   --stroke:     #1a3329;
@@ -149,7 +149,7 @@
 [data-theme="beach-trip"] {
   --bg:         #e6f6f4;
   --ink:        #0a2a3a;
-  --accent:     #ff6a3d;
+  --accent:     #e55f37;
   --accent2:    #ffd84d;
   --sticker-bg: #ffd84d;
   --stroke:     #0a2a3a;
@@ -245,7 +245,7 @@
 [data-theme="tropical"] {
   --bg:         #e4f4e8;
   --ink:        #0a2a1f;
-  --accent:     #ff5a3a;
+  --accent:     #ed5436;
   --accent2:    #3ab8d4;
   --sticker-bg: #ffd84d;
   --stroke:     #0a2a1f;
@@ -258,7 +258,7 @@
 [data-theme="just-because"] {
   --bg:         #fafafa;
   --ink:        #1a1a1a;
-  --accent:     #ff5a1f;
+  --accent:     #fa581e;
   --accent2:    #1fa8ff;
   --sticker-bg: #ffd84d;
   --stroke:     #1a1a1a;
@@ -362,6 +362,18 @@ button:active {
  * to live inside it, so legacy un-rebuilt surfaces don't pick these up
  * by accident.
  * ════════════════════════════════════════════════════════════════════════ */
+
+/* ─── A11y: focus-visible ring ─────────────────────────────────── */
+.chassis *:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.chassis button:focus-visible,
+.chassis a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 .chassis {
   color: var(--ink);

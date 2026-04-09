@@ -13,7 +13,7 @@ export const tropical: Theme = {
   palette: {
     bg:        '#e4f4e8',
     ink:       '#0a2a1f',
-    accent:    '#ff5a3a',
+    accent:    '#ed5436',
     accent2:   '#3ab8d4',
     stickerBg: '#ffd84d',
     stroke:    '#0a2a1f',

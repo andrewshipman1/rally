@@ -11,7 +11,7 @@ export const wellnessRetreat: Theme = {
   palette: {
     bg:        '#eaeee4',
     ink:       '#1a3329',
-    accent:    '#d98b2f',
+    accent:    '#b87628',
     accent2:   '#7aa86a',
     stickerBg: '#f4e4a0',
     stroke:    '#1a3329',

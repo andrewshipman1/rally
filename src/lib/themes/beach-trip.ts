@@ -12,7 +12,7 @@ export const beachTrip: Theme = {
   palette: {
     bg:        '#e6f6f4',
     ink:       '#0a2a3a',
-    accent:    '#ff6a3d',
+    accent:    '#e55f37',
     accent2:   '#ffd84d',
     stickerBg: '#ffd84d',
     stroke:    '#0a2a3a',

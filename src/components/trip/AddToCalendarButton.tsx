@@ -16,6 +16,7 @@ export function AddToCalendarButton({ trip, themeId }: { trip: Trip; themeId: Th
   return (
     <button
       onClick={handleClick}
+      aria-label="Add trip dates to calendar"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
