@@ -48,11 +48,9 @@ export const campingTrip: Theme = {
       noExtras:     'packing list: headlamp, rain layer, the bourbon',
     },
 
-    rsvp: {
-      in:      { buttonLabel: 'see you at camp 🏕️' },
-      holding: { buttonLabel: 'checking my gear 🎒' },
-      out:     { buttonLabel: "can't swing it 😔" },
-    },
+    in:      { button: 'see you at camp 🏕️' },
+    holding: { button: 'checking my gear 🎒' },
+    out:     { button: "can't swing it 😔" },
 
     nudge: {
       t14:    '2 weeks, book your site + your flights',
@@ -63,5 +61,7 @@ export const campingTrip: Theme = {
 
     cta:     { send: 'send it 🏕️' },
     caption: { invite: 'the fire is calling' },
+
+    countdownSignature: 'days until tents up',
   },
 };

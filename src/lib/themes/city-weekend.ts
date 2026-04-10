@@ -48,11 +48,9 @@ export const cityWeekend: Theme = {
       noExtras:     'playlist? walking shoes?',
     },
 
-    rsvp: {
-      in:      { buttonLabel: "i'm in 🌃" },
-      holding: { buttonLabel: 'checking the calendar 📅' },
-      out:     { buttonLabel: "can't make it 😔" },
-    },
+    in:      { button: "i'm in 🌃" },
+    holding: { button: 'checking the calendar 📅' },
+    out:     { button: "can't make it 😔" },
 
     nudge: {
       t14:    '2 weeks, reservations are dropping',
@@ -63,5 +61,7 @@ export const cityWeekend: Theme = {
 
     cta:     { send: 'send it 🌃' },
     caption: { invite: 'the city weekend is on' },
+
+    countdownSignature: 'days until the city is ours',
   },
 };

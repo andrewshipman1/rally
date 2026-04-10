@@ -48,11 +48,9 @@ export const skiChalet: Theme = {
       noExtras:     'packing list: long johns, hand warmers, the flask',
     },
 
-    rsvp: {
-      in:      { buttonLabel: 'send it 🎿' },
-      holding: { buttonLabel: 'checking the pass 🎫' },
-      out:     { buttonLabel: "can't swing it ❄️" },
-    },
+    in:      { button: 'send it 🎿' },
+    holding: { button: 'checking the pass 🎫' },
+    out:     { button: "can't swing it ❄️" },
 
     nudge: {
       t14:    '2 weeks til first chair',
@@ -63,5 +61,7 @@ export const skiChalet: Theme = {
 
     cta:     { send: 'send it 🎿' },
     caption: { invite: 'the mountain is calling' },
+
+    countdownSignature: 'days until first chair',
   },
 };

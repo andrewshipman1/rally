@@ -48,11 +48,9 @@ export const desertTrip: Theme = {
       noExtras:     'packing list: sunscreen, warm layer for nights, playlist for the drive',
     },
 
-    rsvp: {
-      in:      { buttonLabel: 'see you there 🌵' },
-      holding: { buttonLabel: 'maybe 🌄' },
-      out:     { buttonLabel: "can't make it 😔" },
-    },
+    in:      { button: 'see you there 🌵' },
+    holding: { button: 'maybe 🌄' },
+    out:     { button: "can't make it 😔" },
 
     nudge: {
       t14:    '2 weeks til the desert',
@@ -63,5 +61,7 @@ export const desertTrip: Theme = {
 
     cta:     { send: 'send it 🌵' },
     caption: { invite: 'the desert is calling' },
+
+    countdownSignature: 'days until big sky',
   },
 };

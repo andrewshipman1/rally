@@ -4,7 +4,7 @@
 //
 // Renders three pills (in / holding / out) using the GLOBAL chip icons
 // from copy/surfaces/rsvp.ts. The button label below the active row uses
-// the THEMED text from theme.strings.rsvp.{state}.buttonLabel via
+// the THEMED text from theme.strings.{state}.button via
 // getCopy(). Per lexicon §5.10:
 //   - chip icons are LOCKED GLOBAL (🙌 / 🧗 / —) — never themed
 //   - button CTA TEXT is themeable

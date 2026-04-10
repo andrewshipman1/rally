@@ -48,11 +48,9 @@ export const birthdayTrip: Theme = {
       noExtras:     'playlist for the birthday kid?',
     },
 
-    rsvp: {
-      in:      { buttonLabel: "i'll be there 🎉" },
-      holding: { buttonLabel: 'trying 🙏' },
-      out:     { buttonLabel: "can't make it 💔" },
-    },
+    in:      { button: "i'll be there 🎉" },
+    holding: { button: 'trying 🙏' },
+    out:     { button: "can't make it 💔" },
 
     nudge: {
       t14:    "2 weeks til the birthday — who's in?",
@@ -63,5 +61,7 @@ export const birthdayTrip: Theme = {
 
     cta:     { send: 'send the invite 🎉' },
     caption: { invite: ({ name, age }) => `${name ?? 'someone'} is turning ${age ?? '!'}` },
+
+    countdownSignature: 'days until the big one',
   },
 };

@@ -49,11 +49,9 @@ export const boysTrip: Theme = {
       noExtras:     'packing list so nobody forgets the putter',
     },
 
-    rsvp: {
-      in:      { buttonLabel: "i'm in 🤝" },
-      holding: { buttonLabel: 'tentative 🤔' },
-      out:     { buttonLabel: "can't do it 🫡" },
-    },
+    in:      { button: "i'm in 🤝" },
+    holding: { button: 'tentative 🤔' },
+    out:     { button: "can't do it 🫡" },
 
     nudge: {
       t14:    "2 weeks out, who's locked?",
@@ -64,5 +62,7 @@ export const boysTrip: Theme = {
 
     cta:     { send: 'send it 🚀' },
     caption: { invite: 'the boys are going' },
+
+    countdownSignature: 'days until the boys are back',
   },
 };

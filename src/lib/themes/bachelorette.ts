@@ -47,11 +47,9 @@ export const bachelorette: Theme = {
       noExtras:     'playlist? packing list? mandatory matching pjs?',
     },
 
-    rsvp: {
-      in:      { buttonLabel: "i'm in 💅" },
-      holding: { buttonLabel: 'hold my seat 💭' },
-      out:     { buttonLabel: "can't make it 😭" },
-    },
+    in:      { button: "i'm in 💅" },
+    holding: { button: 'hold my seat 💭' },
+    out:     { button: "can't make it 😭" },
 
     nudge: {
       t14:    "the bride wants to know who's in",

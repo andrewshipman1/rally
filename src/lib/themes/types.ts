@@ -126,11 +126,9 @@ export interface ThemeStrings {
     noExtras: Templated;
   };
 
-  rsvp: {
-    in: { buttonLabel: Templated };
-    holding: { buttonLabel: Templated };
-    out: { buttonLabel: Templated };
-  };
+  in: { button: Templated };
+  holding: { button: Templated };
+  out: { button: Templated };
 
   nudge: {
     t14: Templated;

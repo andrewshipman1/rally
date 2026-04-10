@@ -48,11 +48,9 @@ export const lakeWeekend: Theme = {
       noExtras:     'packing list: floatie, sunscreen, backup floatie',
     },
 
-    rsvp: {
-      in:      { buttonLabel: 'lake szn 🛶' },
-      holding: { buttonLabel: 'pontoon pending 🚤' },
-      out:     { buttonLabel: "can't make it 🥲" },
-    },
+    in:      { button: 'lake szn 🛶' },
+    holding: { button: 'pontoon pending 🚤' },
+    out:     { button: "can't make it 🥲" },
 
     nudge: {
       t14:    '2 weeks til launch',
@@ -63,5 +61,7 @@ export const lakeWeekend: Theme = {
 
     cta:     { send: 'send it 🛶' },
     caption: { invite: 'lake szn is calling' },
+
+    countdownSignature: 'days until floaties ready',
   },
 };

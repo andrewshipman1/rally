@@ -48,11 +48,9 @@ export const euroSummer: Theme = {
       noExtras:     'packing list: 6 linen shirts, 1 dress code for dinner',
     },
 
-    rsvp: {
-      in:      { buttonLabel: 'ciao 🍋' },
-      holding: { buttonLabel: 'checking flights ✈️' },
-      out:     { buttonLabel: "can't swing it 🥲" },
-    },
+    in:      { button: 'ciao 🍋' },
+    holding: { button: 'checking flights ✈️' },
+    out:     { button: "can't swing it 🥲" },
 
     nudge: {
       t14:    '2 weeks, book your flights',
@@ -63,5 +61,7 @@ export const euroSummer: Theme = {
 
     cta:     { send: 'send it 🍋' },
     caption: { invite: 'europe is calling' },
+
+    countdownSignature: 'days until too much olive oil',
   },
 };

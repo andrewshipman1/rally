@@ -48,11 +48,9 @@ export const festivalRun: Theme = {
       noExtras:     'packing list for the sun + the rain + the night',
     },
 
-    rsvp: {
-      in:      { buttonLabel: 'i got my ticket 🎟️' },
-      holding: { buttonLabel: 'working on tickets 🎫' },
-      out:     { buttonLabel: "can't swing it 😩" },
-    },
+    in:      { button: 'i got my ticket 🎟️' },
+    holding: { button: 'working on tickets 🎫' },
+    out:     { button: "can't swing it 😩" },
 
     nudge: {
       t14:    '2 weeks, do you have your wristband?',
@@ -63,5 +61,7 @@ export const festivalRun: Theme = {
 
     cta:     { send: 'send the invite 🎟️' },
     caption: { invite: 'the festival run is on' },
+
+    countdownSignature: 'days until wristbands on',
   },
 };

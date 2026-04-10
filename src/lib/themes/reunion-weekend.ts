@@ -48,11 +48,9 @@ export const reunionWeekend: Theme = {
       noExtras:     'packing list with one rule: the jersey',
     },
 
-    rsvp: {
-      in:      { buttonLabel: "i'm there 🙌" },
-      holding: { buttonLabel: 'trying to swing it 🤞' },
-      out:     { buttonLabel: "can't this year 😔" },
-    },
+    in:      { button: "i'm there 🙌" },
+    holding: { button: 'trying to swing it 🤞' },
+    out:     { button: "can't this year 😔" },
 
     nudge: {
       t14:    "2 weeks til the annual — don't break the streak",
@@ -63,5 +61,7 @@ export const reunionWeekend: Theme = {
 
     cta:     { send: 'send the invite 📓' },
     caption: { invite: 'the annual is back' },
+
+    countdownSignature: "days until we do it again",
   },
 };

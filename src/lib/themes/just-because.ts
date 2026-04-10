@@ -62,11 +62,9 @@ export const justBecause: Theme = {
       noExtras:     'packing list? playlist? whatever helps',
     },
 
-    rsvp: {
-      in:      { buttonLabel: "i'm in 🙌" },
-      holding: { buttonLabel: 'hold my seat 🧗' },
-      out:     { buttonLabel: "can't make it —" },
-    },
+    in:      { button: "i'm in 🙌" },
+    holding: { button: 'hold my seat 🧗' },
+    out:     { button: "can't make it —" },
 
     nudge: {
       t14:    '2 weeks out, who\'s locked in?',

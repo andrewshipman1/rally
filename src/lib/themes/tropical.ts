@@ -49,11 +49,9 @@ export const tropical: Theme = {
       noExtras:     'packing list: reef-safe sunscreen, 2 swimsuits, the good shirt',
     },
 
-    rsvp: {
-      in:      { buttonLabel: 'island time 🌴' },
-      holding: { buttonLabel: 'checking flights ✈️' },
-      out:     { buttonLabel: "can't this year 🥲" },
-    },
+    in:      { button: 'island time 🌴' },
+    holding: { button: 'checking flights ✈️' },
+    out:     { button: "can't this year 🥲" },
 
     nudge: {
       t14:    '2 weeks, is your passport ready?',
@@ -64,5 +62,7 @@ export const tropical: Theme = {
 
     cta:     { send: 'send it 🌴' },
     caption: { invite: 'we\'re leaving the country' },
+
+    countdownSignature: 'days until island time',
   },
 };

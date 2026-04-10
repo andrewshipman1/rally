@@ -48,11 +48,9 @@ export const wineCountry: Theme = {
       noExtras:     'packing list: the notebook, the good jacket',
     },
 
-    rsvp: {
-      in:      { buttonLabel: 'pour me in 🍷' },
-      holding: { buttonLabel: 'swirling on it 🍇' },
-      out:     { buttonLabel: "can't make it 😔" },
-    },
+    in:      { button: 'pour me in 🍷' },
+    holding: { button: 'swirling on it 🍇' },
+    out:     { button: "can't make it 😔" },
 
     nudge: {
       t14:    '2 weeks til the tasting',
@@ -63,5 +61,7 @@ export const wineCountry: Theme = {
 
     cta:     { send: 'send it 🍷' },
     caption: { invite: 'the wine weekend is on' },
+
+    countdownSignature: 'days until tasting at 11',
   },
 };

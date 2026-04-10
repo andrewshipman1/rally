@@ -49,11 +49,9 @@ export const couplesTrip: Theme = {
       noExtras:     'playlist? house rules for 4 couples sharing a kitchen?',
     },
 
-    rsvp: {
-      in:      { buttonLabel: "we're in 💕" },
-      holding: { buttonLabel: ({ partner }) => `checking with ${partner ?? 'my person'}` },
-      out:     { buttonLabel: "can't make it 😔" },
-    },
+    in:      { button: "we're in 💕" },
+    holding: { button: ({ partner }) => `checking with ${partner ?? 'my person'}` },
+    out:     { button: "can't make it 😔" },
 
     nudge: {
       t14:    '2 weeks — lock it in with your partner',
@@ -64,5 +62,7 @@ export const couplesTrip: Theme = {
 
     cta:     { send: 'send the invite 💕' },
     caption: { invite: 'the couples are gathering' },
+
+    countdownSignature: 'days until couples only',
   },
 };

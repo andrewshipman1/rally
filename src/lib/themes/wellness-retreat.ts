@@ -47,11 +47,9 @@ export const wellnessRetreat: Theme = {
       noExtras:     'playlist? packing list? group journaling exercise?',
     },
 
-    rsvp: {
-      in:      { buttonLabel: 'i need this 🧘' },
-      holding: { buttonLabel: 'manifesting 🌙' },
-      out:     { buttonLabel: "can't rn 🙏" },
-    },
+    in:      { button: 'i need this 🧘' },
+    holding: { button: 'manifesting 🌙' },
+    out:     { button: "can't rn 🙏" },
 
     nudge: {
       t14:    '2 weeks to reset mode',
@@ -62,5 +60,7 @@ export const wellnessRetreat: Theme = {
 
     cta:     { send: 'send the invite 🌿' },
     caption: { invite: 'everyone needs a reset' },
+
+    countdownSignature: 'days until reset mode',
   },
 };

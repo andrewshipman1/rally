@@ -105,7 +105,7 @@ export default async function TripPage({ params }: Props) {
   // Map the legacy DB theme row to a chassis ThemeId. The chassis CSS
   // [data-theme="..."] block sets the 8 chassis vars; per-theme strings
   // are resolved via getCopy(themeId, ...).
-  const themeId = chassisThemeIdFromTemplate(trip.theme?.template_name);
+  const themeId = (trip.chassis_theme_id as ThemeId) || chassisThemeIdFromTemplate(trip.theme?.template_name);
   const theme = getTheme(themeId);
 
   const lodging = trip.lodging || [];
@@ -202,9 +202,7 @@ export default async function TripPage({ params }: Props) {
       ? theme.strings.countdownSignature
       : theme.strings.countdownSignature?.({});
   const heroLabel =
-    trip.phase === 'sell'
-      ? getCopy(themeId, 'tripPageShared.countdown.label.toLock')
-      : themedSignature ?? getCopy(themeId, 'tripPageShared.countdown.label.signature');
+    themedSignature ?? getCopy(themeId, 'tripPageShared.countdown.label.signature');
 
   return (
     <div className="chassis" data-theme={themeId}>
@@ -272,9 +270,7 @@ export default async function TripPage({ params }: Props) {
       {/* Going row — going-label + avatar cascade */}
       <div className="going">
         <div className="going-label">
-          {inCount > 0
-            ? getCopy(themeId, 'tripPageShared.going.labelN', { n: inCount })
-            : getCopy(themeId, 'tripPageShared.going.empty')}
+          {getCopy(themeId, 'tripPageShared.going.label')}
         </div>
         <div className="avatars">
           {goingMembers.slice(0, 6).map((m) => {

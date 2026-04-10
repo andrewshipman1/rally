@@ -48,11 +48,9 @@ export const beachTrip: Theme = {
       noExtras:     'packing list: swimsuit, backup swimsuit',
     },
 
-    rsvp: {
-      in:      { buttonLabel: 'sand szn 🏖️' },
-      holding: { buttonLabel: 'checking the calendar 📅' },
-      out:     { buttonLabel: "can't make it 🥲" },
-    },
+    in:      { button: 'sand szn 🏖️' },
+    holding: { button: 'checking the calendar 📅' },
+    out:     { button: "can't make it 🥲" },
 
     nudge: {
       t14:    '2 weeks til toes in',
@@ -63,5 +61,7 @@ export const beachTrip: Theme = {
 
     cta:     { send: 'send the invite 🏖️' },
     caption: { invite: 'sand szn is on' },
+
+    countdownSignature: 'days until toes in',
   },
 };
