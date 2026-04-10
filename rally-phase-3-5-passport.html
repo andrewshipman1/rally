@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rally · Phase 3.5 — The Passport (profile)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=Caveat:wght@600;700&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #0a0a0c;
+    color: #d4d4d8;
+    font-family: "DM Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 1200px; margin: 0 auto; padding: 56px 32px 80px; }
+  .page-header { margin-bottom: 56px; max-width: 760px; }
+  .page-header .eyebrow {
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: #71717a; margin-bottom: 14px;
+  }
+  .page-header h1 {
+    font-family: "Shrikhand", serif;
+    font-size: 56px; line-height: 1; color: #f4f4f5; margin: 0 0 18px;
+  }
+  .page-header p {
+    font-size: 16px; line-height: 1.55; color: #a1a1aa; margin: 0 0 8px;
+  }
+
+  .callout {
+    background: #18181b; border: 1px solid #27272a; border-radius: 14px;
+    padding: 22px 26px; margin-bottom: 56px; max-width: 860px;
+  }
+  .callout strong { color: #fafafa; font-weight: 700; }
+  .callout p { margin: 0 0 8px; font-size: 13px; line-height: 1.6; color: #a1a1aa; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 56px;
+    justify-items: center;
+  }
+
+  .frame-wrap { display: flex; flex-direction: column; align-items: center; max-width: 420px; }
+  .frame-label { margin-bottom: 22px; max-width: 360px; text-align: center; }
+  .frame-label .tag {
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: #71717a; margin-bottom: 8px;
+  }
+  .frame-label h2 {
+    font-family: "Shrikhand", serif;
+    font-size: 26px; color: #f4f4f5; margin: 0 0 6px;
+  }
+  .frame-label p { font-size: 12px; color: #a1a1aa; line-height: 1.5; margin: 0; }
+
+  /* phone frame */
+  .phone {
+    width: 360px; height: 780px;
+    border-radius: 44px; overflow: hidden; position: relative;
+    box-shadow: 0 0 0 9px #1a1a1e, 0 0 0 11px #2c2c30, 0 30px 80px -20px rgba(0,0,0,0.6);
+  }
+  .phone::before {
+    content: ""; position: absolute;
+    top: 12px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px;
+    background: #0a0a0c; border-radius: 18px; z-index: 100;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    overflow-y: auto; overflow-x: hidden; position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+  .status-bar { height: 50px; }
+
+  /* ============================================================
+     ANIMATIONS
+     ============================================================ */
+  @keyframes wiggle-left {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(-1deg); }
+  }
+  @keyframes blink-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+  @keyframes pop-in {
+    0% { opacity: 0; transform: scale(0.5) rotate(-12deg); }
+    65% { opacity: 1; transform: scale(1.1) rotate(var(--rot, 0deg)); }
+    100% { opacity: 1; transform: scale(1) rotate(var(--rot, 0deg)); }
+  }
+  @keyframes slide-up-bounce {
+    0% { opacity: 0; transform: translateY(40px); }
+    70% { opacity: 1; transform: translateY(-6px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(var(--rot, 0deg)); }
+    50% { transform: rotate(calc(var(--rot, 0deg) + 1.5deg)); }
+  }
+  @keyframes pulse-shadow {
+    0%, 100% { box-shadow: 5px 5px 0 var(--accent); }
+    50% { box-shadow: 7px 7px 0 var(--accent); }
+  }
+  @keyframes hover-wobble {
+    0%, 100% { transform: rotate(0); }
+    25% { transform: rotate(-2deg); }
+    75% { transform: rotate(2deg); }
+  }
+  @keyframes marquee-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @keyframes count-up {
+    0% { opacity: 0; transform: translateY(20px) scale(0.8); }
+    70% { opacity: 1; transform: translateY(-4px) scale(1.06); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ============================================================
+     CHASSIS — same dual-mode pattern as Phase 2/3
+     ============================================================ */
+  .chassis {
+    --stroke: var(--ink);
+    --surface: var(--ink);
+    --on-surface: #fff;
+  }
+  .chassis.screen {
+    color: var(--ink);
+    background: var(--bg);
+    font-family: "DM Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* light mode */
+  .light {
+    --bg: #fafaf6;
+    --ink: #1a1a1a;
+    --accent: #ff5b3a;
+    --accent2: #3a8eff;
+    --sticker-bg: #ffd84d;
+  }
+  /* dark mode */
+  .dark {
+    --bg: #141416;
+    --ink: #f4ede0;
+    --accent: #ff5b3a;
+    --accent2: #5cdfd1;
+    --sticker-bg: #ffd84d;
+    --stroke: #0a0a0c;
+    --surface: #2a2a2e;
+    --on-surface: #f4ede0;
+  }
+
+  /* MARQUEE STRIP */
+  .chassis .marquee {
+    background: var(--surface);
+    color: var(--sticker-bg);
+    overflow: hidden; white-space: nowrap;
+    padding: 6px 0;
+    border-bottom: 2px solid var(--surface);
+  }
+  .chassis .marquee-track {
+    display: inline-flex;
+    animation: marquee-scroll 22s linear infinite;
+    font-weight: 700; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.18em;
+  }
+  .chassis .marquee-track span { padding: 0 14px; display: inline-flex; align-items: center; gap: 14px; }
+  .chassis .marquee-track span::after { content: "★"; color: var(--accent); }
+
+  /* HEADER */
+  .chassis .header { padding: 22px 22px 6px; position: relative; }
+  .chassis .live-row {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--ink); opacity: 0.9; margin-bottom: 6px;
+  }
+  .chassis .live-row .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    animation: blink-dot 1.4s ease-in-out infinite;
+  }
+  .chassis .wordmark {
+    font-family: "Shrikhand", serif;
+    font-size: 30px;
+    color: var(--accent);
+    transform: rotate(-3deg);
+    display: inline-block;
+    margin: 0 0 16px;
+    animation: wiggle-left 5s ease-in-out infinite;
+    transform-origin: center;
+  }
+
+  /* PROFILE ROW */
+  .chassis .profile-row {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 16px;
+    animation: slide-up-bounce 0.7s 0.1s both;
+  }
+  .chassis .profile-pic {
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 4px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--accent2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Shrikhand", serif;
+    font-size: 32px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .chassis .profile-info h1 {
+    font-family: "Shrikhand", serif;
+    font-size: 30px;
+    line-height: 0.95;
+    color: var(--ink);
+    margin: 0 0 4px;
+  }
+  .chassis .profile-info .handle {
+    font-family: "Caveat", cursive;
+    font-size: 17px;
+    color: var(--ink);
+    opacity: 0.8;
+    line-height: 1;
+  }
+  .chassis .profile-info .est {
+    font-family: "DM Sans", sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+    opacity: 0.65;
+    margin-top: 4px;
+  }
+
+  /* STAT STRIP — three big numbers */
+  .chassis .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin: 0 22px 18px;
+    animation: slide-up-bounce 0.7s 0.25s both;
+  }
+  .chassis .stat {
+    background: var(--bg);
+    border: 3px solid var(--ink);
+    border-radius: 16px;
+    padding: 12px 6px 10px;
+    text-align: center;
+    box-shadow: 3px 3px 0 var(--accent);
+    position: relative;
+  }
+  .chassis .stat:nth-child(2) { box-shadow: 3px 3px 0 var(--accent2); }
+  .chassis .stat:nth-child(3) { box-shadow: 3px 3px 0 var(--sticker-bg); }
+  .chassis .stat .stat-num {
+    font-family: "Shrikhand", serif;
+    font-size: 32px;
+    line-height: 0.9;
+    color: var(--ink);
+    display: block;
+    animation: count-up 0.8s 0.45s both;
+  }
+  .chassis .stat .stat-label {
+    font-family: "Caveat", cursive;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    opacity: 0.85;
+    line-height: 1;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* SECTION HEADER */
+  .chassis .section-h {
+    padding: 18px 22px 12px;
+    font-family: "Caveat", cursive;
+    font-size: 22px;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chassis .section-h .count {
+    font-family: "DM Sans", sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--sticker-bg);
+    color: var(--stroke);
+    border: 2px solid var(--stroke);
+    padding: 2px 9px;
+    border-radius: 100px;
+  }
+
+  /* ============================================================
+     PASSPORT GRID — the hero
+     2 columns, each cell is a chunky stamp
+     Each stamp has its own theme color (--s-bg, --s-ink, --s-accent)
+     so the passport feels like a collection of distinct trips
+     ============================================================ */
+  .chassis .passport {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 0 22px;
+  }
+  .chassis .stamp-card {
+    --s-bg: var(--sticker-bg);
+    --s-ink: #1a1a1a;
+    --s-accent: var(--accent);
+    background: var(--s-bg);
+    color: var(--s-ink);
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    padding: 14px 12px 12px;
+    position: relative;
+    box-shadow: 4px 4px 0 var(--ink);
+    --rot: 0deg;
+    transform: rotate(var(--rot));
+    animation: pop-in 0.6s both, wiggle 5s ease-in-out infinite 1.5s;
+    transform-origin: center;
+  }
+  .chassis .stamp-card:nth-child(1) { --rot: -2deg; animation-delay: 0.5s, 1.5s; }
+  .chassis .stamp-card:nth-child(2) { --rot: 2deg;  animation-delay: 0.58s, 1.5s; }
+  .chassis .stamp-card:nth-child(3) { --rot: 1.5deg; animation-delay: 0.66s, 1.5s; }
+  .chassis .stamp-card:nth-child(4) { --rot: -1.5deg; animation-delay: 0.74s, 1.5s; }
+  .chassis .stamp-card:nth-child(5) { --rot: -2.5deg; animation-delay: 0.82s, 1.5s; }
+  .chassis .stamp-card:nth-child(6) { --rot: 2.5deg; animation-delay: 0.9s, 1.5s; }
+
+  /* per-stamp theme colors */
+  .stamp-card.tulum    { --s-bg: #5cdfd1; --s-accent: #ff5b3a; }
+  .stamp-card.pc       { --s-bg: #e8a83a; --s-accent: #b8392f; }
+  .stamp-card.lisbon   { --s-bg: #f5e9d3; --s-accent: #e8551d; }
+  .stamp-card.nash     { --s-bg: #fff5e1; --s-accent: #ee2a4a; }
+  .stamp-card.cabo     { --s-bg: #fde9ed; --s-accent: #ff2e7e; }
+  .stamp-card.napa     { --s-bg: #e89eb4; --s-accent: #7a2e4a; }
+
+  .chassis .stamp-card .stamp-emoji {
+    position: absolute;
+    top: -10px; right: -8px;
+    background: var(--s-accent);
+    color: #fff;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 3px solid var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    box-shadow: 2px 2px 0 var(--ink);
+    transform: rotate(8deg);
+  }
+  .chassis .stamp-card .stamp-name {
+    font-family: "Shrikhand", serif;
+    font-size: 18px;
+    line-height: 1;
+    margin: 0 0 4px;
+    color: var(--s-ink);
+  }
+  .chassis .stamp-card .stamp-trip {
+    font-family: "Caveat", cursive;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--s-ink);
+    opacity: 0.8;
+    margin-bottom: 10px;
+    min-height: 14px;
+  }
+  .chassis .stamp-card .stamp-meta {
+    font-family: "DM Sans", sans-serif;
+    font-size: 9.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--s-ink);
+    opacity: 0.7;
+    margin-bottom: 8px;
+  }
+  .chassis .stamp-card .stamp-avs { display: flex; }
+  .chassis .stamp-card .stamp-avs .av {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--s-ink);
+    margin-right: -6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800;
+    color: #fff;
+  }
+
+  /* ============================================================
+     RIDE OR DIES — leaderboard
+     ============================================================ */
+  .chassis .rod-list {
+    padding: 0 22px;
+  }
+  .chassis .rod-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 2.5px solid var(--ink);
+    border-radius: 100px;
+    margin-bottom: 8px;
+    box-shadow: 3px 3px 0 var(--accent);
+    animation: slide-up-bounce 0.55s both;
+  }
+  .chassis .rod-row:nth-child(1) { animation-delay: 1.0s; }
+  .chassis .rod-row:nth-child(2) { animation-delay: 1.08s; }
+  .chassis .rod-row:nth-child(3) { animation-delay: 1.16s; }
+  .chassis .rod-row:nth-child(4) { animation-delay: 1.24s; }
+  .chassis .rod-row:nth-child(5) { animation-delay: 1.32s; }
+
+  .chassis .rod-rank {
+    font-family: "Shrikhand", serif;
+    font-size: 18px;
+    color: var(--accent);
+    width: 22px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .chassis .rod-av {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: 2.5px solid var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .chassis .rod-name {
+    font-family: "DM Sans", sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+    flex: 1;
+  }
+  .chassis .rod-count {
+    font-family: "Caveat", cursive;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    opacity: 0.8;
+  }
+
+  /* STICKY BOTTOM */
+  .chassis .sticky {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg);
+    border-top: 3px solid var(--ink);
+    padding: 14px 22px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .chassis .sticky button {
+    flex: 1;
+    background: var(--accent);
+    color: #fff;
+    border: 3px solid var(--ink);
+    height: 54px;
+    border-radius: 100px;
+    font-family: "Shrikhand", serif;
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--ink);
+    animation: pulse-shadow 3s ease-in-out infinite 1.2s;
+  }
+  .chassis .sticky button:hover { animation: hover-wobble 0.4s ease-in-out; }
+
+  /* swatches */
+  .swatches {
+    display: flex; gap: 5px; margin-top: 22px;
+    width: 100%; max-width: 360px;
+    justify-content: center;
+  }
+  .sw { width: 30px; height: 30px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+  .sw-label {
+    margin-top: 10px; width: 100%; max-width: 360px;
+    font-size: 11px; color: #71717a;
+    text-align: center; line-height: 1.5;
+  }
+  .sw-label strong { color: #d4d4d8; }
+
+  @media (max-width: 920px) {
+    .pair { grid-template-columns: 1fr; }
+    .page { padding: 32px 16px 60px; }
+    .page-header h1 { font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<main class="page">
+
+  <header class="page-header">
+    <div class="eyebrow">phase 3.5 · the passport · profile surface</div>
+    <h1>the passport.<br>your trip equity.</h1>
+    <p>The third surface in Rally. Not forward-leaning like the dashboard, not in-the-weeds like the trip page. The passport is identity — the receipt for the rally lifestyle. It's where the brief's "experiences are the new equity" thesis gets visually rendered as a portfolio.</p>
+    <p>Each stamp = a place + the people you went with. Below: a ride-or-dies leaderboard. Above: three stat blocks (trips, ride or dies, countries). Same chassis, same dual-mode kernel, third pressure test.</p>
+  </header>
+
+  <section class="callout">
+    <p><strong>Why this surface exists</strong></p>
+    <p>The brand brief says experiences are the new equity. The trip page is the present, the dashboard is the future, but neither shows the <em>past</em>. The passport does. It's the surface a user opens when they want to feel proud of what they've built — and the surface a friend taps when they want to know "is this person actually fun to travel with?"</p>
+    <p><strong>The social passport, not the solo one</strong></p>
+    <p>Airbnb's passport is solo — a list of places <em>you</em> went. Rally's is social — each stamp shows the place <em>and</em> the crew that was there. The avatar dots are mandatory. A stamp without a crew isn't a Rally trip.</p>
+    <p><strong>What's new on this surface</strong></p>
+    <p><strong>Stamp grid:</strong> 2-column, each tile has its own theme palette pulled from the trip it represents (Tulum is teal, Park City is rust, Lisbon is linen, etc.). Slight rotation per stamp, all wiggling at different phases. <strong>Stat blocks:</strong> three big Shrikhand numbers with count-up animation on load. <strong>Ride or dies leaderboard:</strong> pill rows ranking who you've traveled with most. <strong>Profile head:</strong> the avatar gets a thick border with a contrasting drop-shadow ring (color outline) — same hard-shadow vocabulary as the rest of the kernel.</p>
+  </section>
+
+  <div class="pair">
+
+    <!-- ============== LIGHT MODE PASSPORT ============== -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        <div class="tag">surface 03 · the passport · light</div>
+        <h2>your trip equity</h2>
+        <p>Default light mode. Cream page, mixed-palette stamps, kernel intact.</p>
+      </div>
+      <div class="phone">
+        <div class="screen chassis light">
+          <div class="status-bar"></div>
+
+          <div class="marquee"><div class="marquee-track">
+            <span>12 trips</span><span>28 ride or dies</span><span>4 countries</span><span>est. 2023</span><span>12 trips</span><span>28 ride or dies</span><span>4 countries</span><span>est. 2023</span>
+          </div></div>
+
+          <div class="header">
+            <div class="live-row"><span class="dot"></span> the passport</div>
+            <div class="wordmark">rally!</div>
+
+            <div class="profile-row">
+              <div class="profile-pic">A</div>
+              <div class="profile-info">
+                <h1>andrew s.</h1>
+                <div class="handle">"the closer of the group chat"</div>
+                <div class="est">est 2023 · 4 countries deep</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats">
+            <div class="stat">
+              <span class="stat-num">12</span>
+              <span class="stat-label">trips done</span>
+            </div>
+            <div class="stat">
+              <span class="stat-num">28</span>
+              <span class="stat-label">ride or dies</span>
+            </div>
+            <div class="stat">
+              <span class="stat-num">4</span>
+              <span class="stat-label">countries</span>
+            </div>
+          </div>
+
+          <div class="section-h">the passport <span class="count">12</span></div>
+
+          <div class="passport">
+            <div class="stamp-card tulum">
+              <div class="stamp-emoji">🌴</div>
+              <div class="stamp-name">tulum</div>
+              <div class="stamp-trip">"loose ham '25"</div>
+              <div class="stamp-meta">jul '25 · 5 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#ff5b3a">L</div>
+                <div class="av" style="background:#0a2a3a">C</div>
+                <div class="av" style="background:#5cdfd1;color:#0a0a0c">M</div>
+                <div class="av" style="background:#1a1a1a">+4</div>
+              </div>
+            </div>
+
+            <div class="stamp-card pc">
+              <div class="stamp-emoji">⛷️</div>
+              <div class="stamp-name">park city</div>
+              <div class="stamp-trip">"the boys '25"</div>
+              <div class="stamp-meta">feb '25 · 4 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#b8392f">T</div>
+                <div class="av" style="background:#5a4a3e">P</div>
+                <div class="av" style="background:#1a1f1a">J</div>
+                <div class="av" style="background:#e8a83a;color:#1a1a1a">+1</div>
+              </div>
+            </div>
+
+            <div class="stamp-card lisbon">
+              <div class="stamp-emoji">🍋</div>
+              <div class="stamp-name">lisbon</div>
+              <div class="stamp-trip">"euro pals '24"</div>
+              <div class="stamp-meta">aug '24 · 7 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#e8551d">F</div>
+                <div class="av" style="background:#9eaf85;color:#1a1a1a">M</div>
+                <div class="av" style="background:#7a5a3e">G</div>
+                <div class="av" style="background:#1a1a1a">+3</div>
+              </div>
+            </div>
+
+            <div class="stamp-card nash">
+              <div class="stamp-emoji">🎂</div>
+              <div class="stamp-name">nashville</div>
+              <div class="stamp-trip">"sam's 30 '24"</div>
+              <div class="stamp-meta">may '24 · 3 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#ee2a4a">S</div>
+                <div class="av" style="background:#3a8eee">L</div>
+                <div class="av" style="background:#3a0a0a">B</div>
+              </div>
+            </div>
+
+            <div class="stamp-card cabo">
+              <div class="stamp-emoji">💍</div>
+              <div class="stamp-name">cabo</div>
+              <div class="stamp-trip">"jules' bach '23"</div>
+              <div class="stamp-meta">oct '23 · 4 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#ff2e7e">J</div>
+                <div class="av" style="background:#c4ff7a;color:#1a1a1a">A</div>
+                <div class="av" style="background:#ffe45a;color:#1a1a1a">K</div>
+                <div class="av" style="background:#1a0a12">+5</div>
+              </div>
+            </div>
+
+            <div class="stamp-card napa">
+              <div class="stamp-emoji">🍷</div>
+              <div class="stamp-name">napa</div>
+              <div class="stamp-trip">"the og rally '23"</div>
+              <div class="stamp-meta">apr '23 · 3 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#7a2e4a">M</div>
+                <div class="av" style="background:#5e3a5c">J</div>
+                <div class="av" style="background:#9eaf85;color:#1a1a1a">L</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-h">ride or dies <span class="count">top 5</span></div>
+
+          <div class="rod-list">
+            <div class="rod-row">
+              <div class="rod-rank">1</div>
+              <div class="rod-av" style="background:#ff5b3a">L</div>
+              <div class="rod-name">leah w.</div>
+              <div class="rod-count">8 trips</div>
+            </div>
+            <div class="rod-row">
+              <div class="rod-rank">2</div>
+              <div class="rod-av" style="background:#3a8eff">C</div>
+              <div class="rod-name">connor m.</div>
+              <div class="rod-count">7 trips</div>
+            </div>
+            <div class="rod-row">
+              <div class="rod-rank">3</div>
+              <div class="rod-av" style="background:#7a2e4a">m</div>
+              <div class="rod-name">maya p.</div>
+              <div class="rod-count">6 trips</div>
+            </div>
+            <div class="rod-row">
+              <div class="rod-rank">4</div>
+              <div class="rod-av" style="background:#e8a83a;color:#1a1a1a">J</div>
+              <div class="rod-name">jules t.</div>
+              <div class="rod-count">5 trips</div>
+            </div>
+            <div class="rod-row">
+              <div class="rod-rank">5</div>
+              <div class="rod-av" style="background:#1a1a1a">P</div>
+              <div class="rod-name">pat l.</div>
+              <div class="rod-count">5 trips</div>
+            </div>
+          </div>
+
+          <div class="sticky"><button>start a new one 🔥</button></div>
+        </div>
+      </div>
+
+      <div class="swatches">
+        <div class="sw" style="background:#fafaf6"></div>
+        <div class="sw" style="background:#ff5b3a"></div>
+        <div class="sw" style="background:#3a8eff"></div>
+        <div class="sw" style="background:#ffd84d"></div>
+        <div class="sw" style="background:#1a1a1a"></div>
+      </div>
+      <div class="sw-label"><strong>passport light</strong> · cream · orange · blue · lemon · ink · mixed stamp palettes</div>
+    </div>
+
+    <!-- ============== DARK MODE PASSPORT ============== -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        <div class="tag">surface 03 · the passport · dark</div>
+        <h2>after dark</h2>
+        <p>Stamps keep their per-trip palettes; chassis goes charcoal. Third surface stress test of the dual-mode kernel.</p>
+      </div>
+      <div class="phone">
+        <div class="screen chassis dark">
+          <div class="status-bar"></div>
+
+          <div class="marquee"><div class="marquee-track">
+            <span>12 trips</span><span>28 ride or dies</span><span>4 countries</span><span>est. 2023</span><span>12 trips</span><span>28 ride or dies</span><span>4 countries</span><span>est. 2023</span>
+          </div></div>
+
+          <div class="header">
+            <div class="live-row"><span class="dot"></span> the passport</div>
+            <div class="wordmark">rally!</div>
+
+            <div class="profile-row">
+              <div class="profile-pic">A</div>
+              <div class="profile-info">
+                <h1>andrew s.</h1>
+                <div class="handle">"the closer of the group chat"</div>
+                <div class="est">est 2023 · 4 countries deep</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats">
+            <div class="stat">
+              <span class="stat-num">12</span>
+              <span class="stat-label">trips done</span>
+            </div>
+            <div class="stat">
+              <span class="stat-num">28</span>
+              <span class="stat-label">ride or dies</span>
+            </div>
+            <div class="stat">
+              <span class="stat-num">4</span>
+              <span class="stat-label">countries</span>
+            </div>
+          </div>
+
+          <div class="section-h">the passport <span class="count">12</span></div>
+
+          <div class="passport">
+            <div class="stamp-card tulum">
+              <div class="stamp-emoji">🌴</div>
+              <div class="stamp-name">tulum</div>
+              <div class="stamp-trip">"loose ham '25"</div>
+              <div class="stamp-meta">jul '25 · 5 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#ff5b3a">L</div>
+                <div class="av" style="background:#0a2a3a">C</div>
+                <div class="av" style="background:#5cdfd1;color:#0a0a0c">M</div>
+                <div class="av" style="background:#1a1a1a">+4</div>
+              </div>
+            </div>
+
+            <div class="stamp-card pc">
+              <div class="stamp-emoji">⛷️</div>
+              <div class="stamp-name">park city</div>
+              <div class="stamp-trip">"the boys '25"</div>
+              <div class="stamp-meta">feb '25 · 4 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#b8392f">T</div>
+                <div class="av" style="background:#5a4a3e">P</div>
+                <div class="av" style="background:#1a1f1a;color:#f4ede0">J</div>
+                <div class="av" style="background:#e8a83a;color:#1a1a1a">+1</div>
+              </div>
+            </div>
+
+            <div class="stamp-card lisbon">
+              <div class="stamp-emoji">🍋</div>
+              <div class="stamp-name">lisbon</div>
+              <div class="stamp-trip">"euro pals '24"</div>
+              <div class="stamp-meta">aug '24 · 7 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#e8551d">F</div>
+                <div class="av" style="background:#9eaf85;color:#1a1a1a">M</div>
+                <div class="av" style="background:#7a5a3e">G</div>
+                <div class="av" style="background:#1a1a1a">+3</div>
+              </div>
+            </div>
+
+            <div class="stamp-card nash">
+              <div class="stamp-emoji">🎂</div>
+              <div class="stamp-name">nashville</div>
+              <div class="stamp-trip">"sam's 30 '24"</div>
+              <div class="stamp-meta">may '24 · 3 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#ee2a4a">S</div>
+                <div class="av" style="background:#3a8eee">L</div>
+                <div class="av" style="background:#3a0a0a;color:#f4ede0">B</div>
+              </div>
+            </div>
+
+            <div class="stamp-card cabo">
+              <div class="stamp-emoji">💍</div>
+              <div class="stamp-name">cabo</div>
+              <div class="stamp-trip">"jules' bach '23"</div>
+              <div class="stamp-meta">oct '23 · 4 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#ff2e7e">J</div>
+                <div class="av" style="background:#c4ff7a;color:#1a1a1a">A</div>
+                <div class="av" style="background:#ffe45a;color:#1a1a1a">K</div>
+                <div class="av" style="background:#1a0a12;color:#f4ede0">+5</div>
+              </div>
+            </div>
+
+            <div class="stamp-card napa">
+              <div class="stamp-emoji">🍷</div>
+              <div class="stamp-name">napa</div>
+              <div class="stamp-trip">"the og rally '23"</div>
+              <div class="stamp-meta">apr '23 · 3 nights</div>
+              <div class="stamp-avs">
+                <div class="av" style="background:#7a2e4a">M</div>
+                <div class="av" style="background:#5e3a5c">J</div>
+                <div class="av" style="background:#9eaf85;color:#1a1a1a">L</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-h">ride or dies <span class="count">top 5</span></div>
+
+          <div class="rod-list">
+            <div class="rod-row">
+              <div class="rod-rank">1</div>
+              <div class="rod-av" style="background:#ff5b3a">L</div>
+              <div class="rod-name">leah w.</div>
+              <div class="rod-count">8 trips</div>
+            </div>
+            <div class="rod-row">
+              <div class="rod-rank">2</div>
+              <div class="rod-av" style="background:#3a8eff">C</div>
+              <div class="rod-name">connor m.</div>
+              <div class="rod-count">7 trips</div>
+            </div>
+            <div class="rod-row">
+              <div class="rod-rank">3</div>
+              <div class="rod-av" style="background:#7a2e4a">m</div>
+              <div class="rod-name">maya p.</div>
+              <div class="rod-count">6 trips</div>
+            </div>
+            <div class="rod-row">
+              <div class="rod-rank">4</div>
+              <div class="rod-av" style="background:#e8a83a;color:#1a1a1a">J</div>
+              <div class="rod-name">jules t.</div>
+              <div class="rod-count">5 trips</div>
+            </div>
+            <div class="rod-row">
+              <div class="rod-rank">5</div>
+              <div class="rod-av" style="background:#1a1a1a;color:#f4ede0">P</div>
+              <div class="rod-name">pat l.</div>
+              <div class="rod-count">5 trips</div>
+            </div>
+          </div>
+
+          <div class="sticky"><button>start a new one 🔥</button></div>
+        </div>
+      </div>
+
+      <div class="swatches">
+        <div class="sw" style="background:#141416"></div>
+        <div class="sw" style="background:#ff5b3a"></div>
+        <div class="sw" style="background:#5cdfd1"></div>
+        <div class="sw" style="background:#ffd84d"></div>
+        <div class="sw" style="background:#f4ede0"></div>
+      </div>
+      <div class="sw-label"><strong>passport dark</strong> · charcoal · orange · cyan · lemon · cream · stamps in own palettes</div>
+    </div>
+
+  </div>
+
+</main>
+
+</body>
+</html>

@@ -193,7 +193,10 @@ export function SketchTripShell({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phase: 'sell' }),
               });
-              if (res.ok) router.refresh();
+              if (res.ok) {
+                window.scrollTo(0, 0);
+                router.refresh();
+              }
             }}
             style={{
               background: '#333',

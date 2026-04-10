@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Phase 9: crew</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=DM+Sans:wght@400;500;700;900&family=Caveat:wght@500;700&family=Instrument+Serif&display=swap" rel="stylesheet" />
+<style>
+  :root { --page-bg:#0e0e10; --page-fg:#f4f4f5; --muted:#8a8a92; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin:0; padding:0;
+    background: var(--page-bg);
+    color: var(--page-fg);
+    font-family: "DM Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1400px; margin: 0 auto; padding: 56px 24px 120px; }
+  .page-header .kicker {
+    display: inline-block;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em;
+    color: #c4ff7a; margin-bottom: 12px;
+  }
+  .page-header h1 {
+    font-family: "Instrument Serif", serif;
+    font-size: 56px; line-height: 1; margin: 0 0 14px; letter-spacing: -0.02em;
+  }
+  .page-header p { color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 780px; margin: 0 0 16px; }
+
+  .callout { margin-top: 28px; padding: 20px 24px; background: #1a1a1e;
+    border-left: 3px solid #c4ff7a; border-radius: 8px; max-width: 820px; }
+  .callout h3 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.14em; color: #c4ff7a; font-weight: 700; }
+  .callout p { margin: 0 0 6px; font-size: 13px; color: #d4d4d8; line-height: 1.55; }
+  .callout p:last-child { margin: 0; }
+  .callout strong { color: #f4f4f5; }
+  .callout ul { margin: 6px 0 0; padding-left: 18px; }
+  .callout li { font-size: 13px; color: #d4d4d8; line-height: 1.6; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 56px 40px;
+    margin-top: 64px;
+  }
+  .theme { display: flex; flex-direction: column; align-items: center; }
+  .theme-label { width: 100%; max-width: 380px; text-align: center; margin-bottom: 22px; }
+  .theme-label .tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted); margin-bottom: 6px;
+  }
+  .theme-label h2 {
+    font-family: "Instrument Serif", serif; font-size: 26px;
+    line-height: 1.05; margin: 0 0 6px; letter-spacing: -0.01em;
+  }
+  .theme-label p { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0; }
+
+  /* phone frame */
+  .phone {
+    width: 380px; height: 760px; border-radius: 44px;
+    overflow: hidden; position: relative;
+    box-shadow: 0 0 0 9px #1a1a1e, 0 0 0 11px #2c2c30, 0 30px 80px -20px rgba(0,0,0,0.6);
+  }
+  .phone::before {
+    content: ""; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px; background: #0a0a0c; border-radius: 18px; z-index: 100;
+  }
+
+  /* animations */
+  @keyframes slide-up { 0%{opacity:0;transform:translateY(16px);} 100%{opacity:1;transform:translateY(0);} }
+  @keyframes wiggle-left { 0%,100%{transform:rotate(-3deg);} 50%{transform:rotate(-1deg);} }
+  @keyframes pop-in {
+    0%{opacity:0;transform:scale(0.6) rotate(-8deg);}
+    70%{opacity:1;transform:scale(1.08) rotate(1deg);}
+    100%{opacity:1;transform:scale(1) rotate(0);}
+  }
+
+  /* CHASSIS — same kernel */
+  .chassis { --stroke: var(--ink); --surface: var(--ink); --on-surface: #fff; }
+  .screen {
+    width: 100%; height: 100%;
+    overflow-y: auto; overflow-x: hidden; position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+  .chassis.screen {
+    color: var(--ink);
+    background: var(--bg);
+    font-family: "DM Sans", sans-serif;
+    padding-bottom: 40px;
+  }
+  .status-bar { height: 50px; }
+
+  /* theme palettes */
+  .dark-ski {
+    --bg: #141416; --ink: #f1ebd9;
+    --accent: #e8491f; --accent2: #5cdfd1;
+    --sticker-bg: #ffd84d;
+    --stroke: #0a0a0c; --surface: #2a2a2e; --on-surface: #f1ebd9;
+  }
+  .light-beach {
+    --bg: #fef9ef; --ink: #0a2a3a;
+    --accent: #ff6a3d; --accent2: #2d7a8a;
+    --sticker-bg: #ffd84d;
+  }
+
+  /* HEADER */
+  .chassis .header { padding: 14px 18px 6px; }
+  .chassis .back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 700;
+    color: var(--ink); opacity: 0.7;
+    text-transform: lowercase;
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
+  }
+  .chassis .back-link::before { content: "←"; font-size: 14px; }
+  .chassis .wordmark {
+    font-family: "Shrikhand", serif;
+    font-size: 22px; color: var(--accent);
+    transform: rotate(-3deg); display: inline-block;
+    animation: wiggle-left 5s ease-in-out infinite;
+    margin-bottom: 4px;
+  }
+  .chassis .page-title {
+    font-family: "Shrikhand", serif;
+    font-size: 34px; line-height: 0.95;
+    color: var(--ink); margin: 4px 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .chassis .page-sub {
+    font-family: "Caveat", cursive;
+    font-size: 17px; color: var(--ink); opacity: 0.75;
+    margin-bottom: 14px;
+  }
+
+  /* SUMMARY STRIP — one-line tally at the top */
+  .chassis .summary {
+    margin: 4px 18px 18px;
+    padding: 12px 16px;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    background: var(--bg);
+    box-shadow: 3px 3px 0 var(--ink);
+    display: flex; align-items: center; gap: 14px;
+    animation: slide-up 0.5s 0.1s both;
+  }
+  .chassis .summary .sum-block {
+    display: flex; flex-direction: column; align-items: center;
+    flex: 1; position: relative;
+  }
+  .chassis .summary .sum-block + .sum-block::before {
+    content: ""; position: absolute;
+    left: -7px; top: 6px; bottom: 6px;
+    width: 2px; background: var(--ink); opacity: 0.15;
+  }
+  .chassis .summary .sum-num {
+    font-family: "Shrikhand", serif;
+    font-size: 26px; line-height: 1;
+    color: var(--ink);
+  }
+  .chassis .summary .sum-label {
+    font-family: "Caveat", cursive;
+    font-size: 14px; color: var(--ink);
+    opacity: 0.75; margin-top: 2px;
+  }
+  .chassis .summary .sum-block.is-in .sum-num { color: var(--accent2); }
+  .chassis .summary .sum-block.is-holding .sum-num { color: var(--sticker-bg); }
+  .chassis .summary .sum-block.is-out .sum-num { opacity: 0.45; }
+
+  /* SECTION HEADER */
+  .chassis .sec-head {
+    padding: 8px 22px 8px;
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-top: 6px;
+  }
+  .chassis .sec-head h4 {
+    font-family: "Shrikhand", serif;
+    font-size: 20px; margin: 0; color: var(--ink);
+    letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chassis .sec-head h4 .count {
+    font-family: "DM Sans", sans-serif;
+    font-size: 11px; font-weight: 800;
+    background: var(--ink); color: var(--bg);
+    padding: 3px 9px; border-radius: 100px;
+    letter-spacing: 0.04em;
+  }
+  .chassis .sec-head .sec-caption {
+    font-family: "Caveat", cursive;
+    font-size: 14px; color: var(--ink); opacity: 0.65;
+  }
+
+  /* CREW LIST */
+  .chassis .crew-list {
+    margin: 2px 18px 6px;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    background: var(--bg);
+    box-shadow: 3px 3px 0 var(--ink);
+    overflow: hidden;
+    animation: slide-up 0.5s 0.2s both;
+  }
+  .chassis .crew-list.is-holding { animation-delay: 0.28s; }
+  .chassis .crew-list.is-out { animation-delay: 0.36s; }
+
+  .chassis .crew-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 2px dashed var(--ink);
+  }
+  .chassis .crew-row:last-child { border-bottom: none; }
+
+  .chassis .crew-row .av {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 2.5px solid var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "DM Sans", sans-serif;
+    font-weight: 800; font-size: 14px;
+    color: var(--ink);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .chassis .crew-row .av.host::after {
+    content: "👑";
+    position: absolute;
+    top: -8px; right: -6px;
+    font-size: 13px;
+    transform: rotate(12deg);
+  }
+  .chassis .crew-row .av.you {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  /* avatar tint variants (just for spec color) */
+  .av.c1 { background: #ffd1a6; }
+  .av.c2 { background: #c4f4d1; }
+  .av.c3 { background: #f4c4e0; }
+  .av.c4 { background: #c4d4f4; }
+  .av.c5 { background: #f4e4a0; }
+  .av.c6 { background: #e0d4f4; }
+  .av.c7 { background: #f4b8a0; }
+  .av.c8 { background: #a0e0d4; }
+
+  .chassis .crew-row .who {
+    flex: 1; min-width: 0;
+  }
+  .chassis .crew-row .name {
+    font-family: "DM Sans", sans-serif;
+    font-weight: 800; font-size: 15px;
+    color: var(--ink);
+    line-height: 1.2;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .chassis .crew-row .name .you-tag {
+    font-size: 9px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    background: var(--accent); color: #fff;
+    padding: 2px 7px; border-radius: 100px;
+  }
+  .chassis .crew-row .sub {
+    font-family: "Caveat", cursive;
+    font-size: 14px; color: var(--ink); opacity: 0.65;
+    margin-top: 1px; line-height: 1.15;
+  }
+
+  .chassis .crew-row .chip {
+    font-family: "DM Sans", sans-serif;
+    font-size: 10px; font-weight: 800;
+    text-transform: lowercase;
+    padding: 4px 9px;
+    border-radius: 100px;
+    border: 2px solid var(--ink);
+    background: var(--bg);
+    color: var(--ink);
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+  }
+  .chassis .crew-row .chip.in { background: var(--accent2); color: var(--bg); }
+  .chassis .crew-row .chip.holding { background: var(--sticker-bg); color: #1a1410; }
+  .chassis .crew-row .chip.out { background: transparent; opacity: 0.5; }
+
+  /* OUT STATE — dimmed but visible */
+  .chassis .crew-list.is-out .crew-row {
+    opacity: 0.55;
+  }
+  .chassis .crew-list.is-out .crew-row .name {
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+  }
+
+  /* HOLDING STATE — subtle pulse on chip */
+  @keyframes tick-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+  }
+  .chassis .crew-list.is-holding .crew-row .chip.holding {
+    animation: tick-pulse 2.4s ease-in-out infinite;
+  }
+
+  /* EMPTY-OUT STATE (phone 2) */
+  .chassis .crew-list.empty-state {
+    padding: 16px 16px;
+    font-family: "Caveat", cursive;
+    font-size: 15px;
+    color: var(--ink); opacity: 0.55;
+    text-align: center;
+  }
+
+  /* TAB BAR (mini at bottom) */
+  .chassis .tabbar {
+    position: sticky; bottom: 0;
+    margin-top: 8px;
+    padding: 10px 18px 14px;
+    background: var(--bg);
+    border-top: 2px dashed var(--ink);
+    display: flex; align-items: center; justify-content: space-around;
+    font-family: "DM Sans", sans-serif;
+    font-size: 10px; font-weight: 800;
+    text-transform: lowercase;
+    color: var(--ink);
+    letter-spacing: 0.04em;
+  }
+  .chassis .tabbar .tab {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    opacity: 0.5;
+  }
+  .chassis .tabbar .tab.active { opacity: 1; }
+  .chassis .tabbar .tab .ic { font-size: 18px; }
+  .chassis .tabbar .tab.active .ic { transform: scale(1.1); }
+
+  /* PHASE NOTES (callouts beside the phones) */
+  .lexicon {
+    margin: 80px auto 0;
+    max-width: 820px;
+    padding: 28px 32px;
+    background: #16161a;
+    border: 1px solid #2a2a2e;
+    border-radius: 14px;
+  }
+  .lexicon h3 {
+    font-family: "Instrument Serif", serif;
+    font-size: 24px; margin: 0 0 6px;
+    color: #f4f4f5;
+  }
+  .lexicon .lex-kicker {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: #c4ff7a; font-weight: 700; margin-bottom: 4px;
+  }
+  .lexicon p { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0 0 18px; }
+  .lexicon table {
+    width: 100%; border-collapse: collapse;
+    font-size: 12px; color: #d4d4d8;
+  }
+  .lexicon td {
+    padding: 9px 10px;
+    border-bottom: 1px solid #26262a;
+    vertical-align: top;
+  }
+  .lexicon td:first-child {
+    font-family: "DM Sans", sans-serif;
+    font-weight: 800;
+    color: #f4f4f5;
+    width: 150px;
+    white-space: nowrap;
+  }
+  .lexicon td:last-child {
+    font-family: "Caveat", cursive;
+    font-size: 15px;
+    color: #e8e8ec;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <div class="kicker">phase 9 · crew · g13</div>
+      <h1>the crew subsurface</h1>
+      <p>
+        Who's coming, who's thinking, who's out. A simple expanded view of the guest list, reachable from the trip page. Anyone on the trip can open it — it's just visibility, not control. For v0 this is read-only: no kicks, no nudges, no role management. Just a clean at-a-glance of where everyone stands.
+      </p>
+
+      <div class="callout">
+        <h3>what's here</h3>
+        <p><strong>Route:</strong> <code>/trip/{slug}/crew</code> — reachable from the RSVP row on the trip page</p>
+        <p><strong>Audience:</strong> anyone who can see the trip (host and invitees, regardless of their own RSVP state)</p>
+        <p><strong>V0 scope locked:</strong></p>
+        <ul>
+          <li>read-only guest list, grouped by in / holding / out</li>
+          <li>host gets a 👑 marker, "you" gets a tag</li>
+          <li>summary strip at top (3 counts, no trending)</li>
+          <li>"out" people stay visible but dimmed + strikethrough</li>
+          <li>+1s show as sub-text under the inviter's row (not separate rows)</li>
+        </ul>
+        <p><strong>Deferred:</strong> nudging, kicking, role changes, last-active timestamps, per-person notes, contact reveal, co-host promotion. Add later once the basics feel right.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+
+      <!-- ============================================================
+           PHONE 1 — DARK / SKI THEME, POPULATED CREW
+           ============================================================ -->
+      <div class="theme">
+        <div class="theme-label">
+          <div class="tag">state A · populated</div>
+          <h2>ski chalet · full crew</h2>
+          <p>Eight in, three holding, two out. Host marked, "you" tagged, +1s nested as sub-text.</p>
+        </div>
+        <div class="phone">
+          <div class="chassis screen dark-ski">
+            <div class="status-bar"></div>
+
+            <div class="header">
+              <div class="back-link">back to trip</div>
+              <div class="wordmark">rally</div>
+              <h1 class="page-title">the crew</h1>
+              <div class="page-sub">13 rallied · tahoe weekend</div>
+            </div>
+
+            <div class="summary">
+              <div class="sum-block is-in">
+                <div class="sum-num">8</div>
+                <div class="sum-label">in</div>
+              </div>
+              <div class="sum-block is-holding">
+                <div class="sum-num">3</div>
+                <div class="sum-label">holding</div>
+              </div>
+              <div class="sum-block is-out">
+                <div class="sum-num">2</div>
+                <div class="sum-label">out</div>
+              </div>
+            </div>
+
+            <div class="sec-head">
+              <h4>in <span class="count">8</span></h4>
+              <div class="sec-caption">locked and loaded</div>
+            </div>
+            <div class="crew-list">
+              <div class="crew-row">
+                <div class="av host c1">AS</div>
+                <div class="who">
+                  <div class="name">andrew s.</div>
+                  <div class="sub">host · rallied the whole thing</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+              <div class="crew-row">
+                <div class="av you">Y</div>
+                <div class="who">
+                  <div class="name">you <span class="you-tag">you</span></div>
+                  <div class="sub">rsvp'd tuesday</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c2">MJ</div>
+                <div class="who">
+                  <div class="name">maya j.</div>
+                  <div class="sub">+1 · bringing dan</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c3">PR</div>
+                <div class="who">
+                  <div class="name">priya r.</div>
+                  <div class="sub">driving up thursday night</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c4">TK</div>
+                <div class="who">
+                  <div class="name">tommy k.</div>
+                  <div class="sub">first one to rsvp</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c5">LC</div>
+                <div class="who">
+                  <div class="name">lena c.</div>
+                  <div class="sub">+1 · plus partner</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c6">JW</div>
+                <div class="who">
+                  <div class="name">jordan w.</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c7">SB</div>
+                <div class="who">
+                  <div class="name">sam b.</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+            </div>
+
+            <div class="sec-head">
+              <h4>holding <span class="count">3</span></h4>
+              <div class="sec-caption">thinking about it</div>
+            </div>
+            <div class="crew-list is-holding">
+              <div class="crew-row">
+                <div class="av c8">RA</div>
+                <div class="who">
+                  <div class="name">rachel a.</div>
+                  <div class="sub">"checking with work"</div>
+                </div>
+                <div class="chip holding">holding</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c1">BT</div>
+                <div class="who">
+                  <div class="name">ben t.</div>
+                  <div class="sub">hasn't opened the invite</div>
+                </div>
+                <div class="chip holding">holding</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c2">KN</div>
+                <div class="who">
+                  <div class="name">kira n.</div>
+                  <div class="sub">"maybe — depends on flights"</div>
+                </div>
+                <div class="chip holding">holding</div>
+              </div>
+            </div>
+
+            <div class="sec-head">
+              <h4>out <span class="count">2</span></h4>
+              <div class="sec-caption">catch the next one</div>
+            </div>
+            <div class="crew-list is-out">
+              <div class="crew-row">
+                <div class="av c3">DH</div>
+                <div class="who">
+                  <div class="name">devon h.</div>
+                  <div class="sub">"can't swing it this time"</div>
+                </div>
+                <div class="chip out">out</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c4">NM</div>
+                <div class="who">
+                  <div class="name">nora m.</div>
+                  <div class="sub">out — prior wedding</div>
+                </div>
+                <div class="chip out">out</div>
+              </div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab"><div class="ic">🏠</div>home</div>
+              <div class="tab"><div class="ic">🎿</div>trip</div>
+              <div class="tab active"><div class="ic">👥</div>crew</div>
+              <div class="tab"><div class="ic">💬</div>buzz</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           PHONE 2 — LIGHT / BEACH THEME, SMALLER TRIP
+           ============================================================ -->
+      <div class="theme">
+        <div class="theme-label">
+          <div class="tag">state B · smaller trip, no "out" yet</div>
+          <h2>beach trip · early days</h2>
+          <p>Light theme variant. Four in, two holding, empty "out" section still renders with a soft placeholder.</p>
+        </div>
+        <div class="phone">
+          <div class="chassis screen light-beach">
+            <div class="status-bar"></div>
+
+            <div class="header">
+              <div class="back-link">back to trip</div>
+              <div class="wordmark">rally</div>
+              <h1 class="page-title">the crew</h1>
+              <div class="page-sub">6 rallied · outer banks</div>
+            </div>
+
+            <div class="summary">
+              <div class="sum-block is-in">
+                <div class="sum-num">4</div>
+                <div class="sum-label">in</div>
+              </div>
+              <div class="sum-block is-holding">
+                <div class="sum-num">2</div>
+                <div class="sum-label">holding</div>
+              </div>
+              <div class="sum-block is-out">
+                <div class="sum-num">0</div>
+                <div class="sum-label">out</div>
+              </div>
+            </div>
+
+            <div class="sec-head">
+              <h4>in <span class="count">4</span></h4>
+              <div class="sec-caption">sand secured</div>
+            </div>
+            <div class="crew-list">
+              <div class="crew-row">
+                <div class="av host c5">EM</div>
+                <div class="who">
+                  <div class="name">ellie m.</div>
+                  <div class="sub">host · booked the house</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+              <div class="crew-row">
+                <div class="av you">Y</div>
+                <div class="who">
+                  <div class="name">you <span class="you-tag">you</span></div>
+                  <div class="sub">rsvp'd this morning</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c6">JP</div>
+                <div class="who">
+                  <div class="name">jules p.</div>
+                  <div class="sub">+1 · bringing alex</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c2">CT</div>
+                <div class="who">
+                  <div class="name">chris t.</div>
+                </div>
+                <div class="chip in">in</div>
+              </div>
+            </div>
+
+            <div class="sec-head">
+              <h4>holding <span class="count">2</span></h4>
+              <div class="sec-caption">still thinking</div>
+            </div>
+            <div class="crew-list is-holding">
+              <div class="crew-row">
+                <div class="av c3">MF</div>
+                <div class="who">
+                  <div class="name">mia f.</div>
+                  <div class="sub">opened · hasn't rsvp'd</div>
+                </div>
+                <div class="chip holding">holding</div>
+              </div>
+              <div class="crew-row">
+                <div class="av c7">RK</div>
+                <div class="who">
+                  <div class="name">ryan k.</div>
+                  <div class="sub">"trying to make it work"</div>
+                </div>
+                <div class="chip holding">holding</div>
+              </div>
+            </div>
+
+            <div class="sec-head">
+              <h4>out <span class="count">0</span></h4>
+              <div class="sec-caption">nobody's bailed yet</div>
+            </div>
+            <div class="crew-list is-out">
+              <div class="empty-state">nobody's out — knock on wood 🤞</div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab"><div class="ic">🏠</div>home</div>
+              <div class="tab"><div class="ic">🏖️</div>trip</div>
+              <div class="tab active"><div class="ic">👥</div>crew</div>
+              <div class="tab"><div class="ic">💬</div>buzz</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- LEXICON DELTA §5.22 — crew strings -->
+    <div class="lexicon">
+      <div class="lex-kicker">lexicon delta · §5.22 crew</div>
+      <h3>crew strings</h3>
+      <p>Section captions are themeable — the host theme influences the Caveat sub-text under each section header. Below are the defaults; per-theme overrides live in the theme content system.</p>
+      <table>
+        <tr><td>page.title</td><td>the crew</td></tr>
+        <tr><td>page.sub</td><td>{n} rallied · {trip_name}</td></tr>
+        <tr><td>summary.in</td><td>in</td></tr>
+        <tr><td>summary.holding</td><td>holding</td></tr>
+        <tr><td>summary.out</td><td>out</td></tr>
+        <tr><td>section.in.caption</td><td>locked and loaded</td></tr>
+        <tr><td>section.holding.caption</td><td>thinking about it</td></tr>
+        <tr><td>section.out.caption</td><td>catch the next one</td></tr>
+        <tr><td>empty.out</td><td>nobody's out — knock on wood 🤞</td></tr>
+        <tr><td>empty.holding</td><td>everyone's decided</td></tr>
+        <tr><td>empty.in</td><td>nobody's rallied yet</td></tr>
+        <tr><td>host.marker</td><td>👑 (visual only, no string)</td></tr>
+        <tr><td>you.tag</td><td>you</td></tr>
+        <tr><td>plus_one.sub</td><td>+1 · bringing {name}</td></tr>
+        <tr><td>plus_one.sub_anon</td><td>+1 · plus guest</td></tr>
+        <tr><td>row.sub.opened</td><td>opened · hasn't rsvp'd</td></tr>
+        <tr><td>row.sub.unopened</td><td>hasn't opened the invite</td></tr>
+        <tr><td>row.sub.rsvp_time</td><td>rsvp'd {when}</td></tr>
+      </table>
+    </div>
+
+  </div>
+</body>
+</html>

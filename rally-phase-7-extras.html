@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Phase 7: optional extras drawer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=DM+Sans:wght@400;500;700;900&family=Caveat:wght@500;700&family=Instrument+Serif&display=swap" rel="stylesheet" />
+<style>
+  :root { --page-bg:#0e0e10; --page-fg:#f4f4f5; --muted:#8a8a92; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin:0; padding:0;
+    background: var(--page-bg);
+    color: var(--page-fg);
+    font-family: "DM Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1400px; margin: 0 auto; padding: 56px 24px 120px; }
+  .page-header .kicker {
+    display: inline-block;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em;
+    color: #c4ff7a; margin-bottom: 12px;
+  }
+  .page-header h1 {
+    font-family: "Instrument Serif", serif;
+    font-size: 56px; line-height: 1; margin: 0 0 14px; letter-spacing: -0.02em;
+  }
+  .page-header p { color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 780px; margin: 0 0 16px; }
+
+  .callout { margin-top: 28px; padding: 20px 24px; background: #1a1a1e;
+    border-left: 3px solid #c4ff7a; border-radius: 8px; max-width: 1040px; }
+  .callout h3 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.14em; color: #c4ff7a; font-weight: 700; }
+  .callout p { margin: 0 0 6px; font-size: 13px; color: #d4d4d8; line-height: 1.55; }
+  .callout strong { color: #f4f4f5; }
+  .callout ul { margin: 6px 0 0; padding-left: 18px; }
+  .callout li { font-size: 13px; color: #d4d4d8; line-height: 1.6; }
+  .callout code { background: #2a2a2e; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 56px 40px;
+    margin-top: 64px;
+  }
+  .theme { display: flex; flex-direction: column; align-items: center; }
+  .theme-label { width: 100%; max-width: 380px; text-align: center; margin-bottom: 22px; }
+  .theme-label .tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted); margin-bottom: 6px;
+  }
+  .theme-label h2 {
+    font-family: "Instrument Serif", serif; font-size: 26px;
+    line-height: 1.05; margin: 0 0 6px; letter-spacing: -0.01em;
+  }
+  .theme-label p { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0; }
+
+  .phone {
+    width: 380px; height: 760px; border-radius: 44px;
+    overflow: hidden; position: relative;
+    box-shadow: 0 0 0 9px #1a1a1e, 0 0 0 11px #2c2c30, 0 30px 80px -20px rgba(0,0,0,0.6);
+  }
+  .phone::before {
+    content: ""; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px; background: #0a0a0c; border-radius: 18px; z-index: 100;
+  }
+
+  /* animations */
+  @keyframes slide-up { 0%{opacity:0;transform:translateY(16px);} 100%{opacity:1;transform:translateY(0);} }
+  @keyframes slide-up-bounce {
+    0%{opacity:0;transform:translateY(30px);}
+    70%{opacity:1;transform:translateY(-4px);}
+    100%{opacity:1;transform:translateY(0);}
+  }
+  @keyframes pop-in {
+    0%{opacity:0;transform:scale(0.6) rotate(-10deg);}
+    65%{opacity:1;transform:scale(1.1) rotate(2deg);}
+    100%{opacity:1;transform:scale(1) rotate(0);}
+  }
+  @keyframes wiggle-left { 0%,100%{transform:rotate(-3deg);} 50%{transform:rotate(-1deg);} }
+  @keyframes slide-up-sheet {
+    0% { transform: translateY(100%); }
+    100% { transform: translateY(0); }
+  }
+
+  /* CHASSIS kernel */
+  .chassis { --stroke: var(--ink); --surface: var(--ink); --on-surface: #fff; }
+  .screen {
+    width: 100%; height: 100%;
+    overflow-y: auto; overflow-x: hidden; position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+  .chassis.screen {
+    color: var(--ink);
+    background: var(--bg);
+    font-family: "DM Sans", sans-serif;
+    padding-bottom: 40px;
+  }
+  .status-bar { height: 50px; }
+
+  /* themes */
+  .light-beach {
+    --bg: #fff4e6; --ink: #1a1410;
+    --accent: #ff6a3d; --accent2: #3d9dff;
+    --sticker-bg: #ffd84d;
+  }
+  .dark-mountain {
+    --bg: #141416; --ink: #f4ede0;
+    --accent: #5cdfd1; --accent2: #ffb347;
+    --sticker-bg: #ffd84d;
+    --stroke: #0a0a0c; --surface: #2a2a2e; --on-surface: #f4ede0;
+  }
+
+  /* HEADER (minimal) */
+  .chassis .header { padding: 14px 18px 8px; }
+  .chassis .wordmark {
+    font-family: "Shrikhand", serif;
+    font-size: 22px; color: var(--accent);
+    transform: rotate(-3deg); display: inline-block;
+    animation: wiggle-left 5s ease-in-out infinite;
+    margin-bottom: 8px;
+  }
+  .chassis .trip-name {
+    font-family: "Shrikhand", serif;
+    font-size: 26px; line-height: 0.95;
+    color: var(--ink); margin: 0 0 4px;
+  }
+  .chassis .trip-sub {
+    font-family: "Caveat", cursive;
+    font-size: 16px; color: var(--ink); opacity: 0.75;
+    margin-bottom: 14px;
+  }
+
+  /* SECTION HEAD */
+  .chassis .sec-head {
+    padding: 6px 18px 10px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .chassis .sec-head h4 {
+    font-family: "Shrikhand", serif;
+    font-size: 22px; margin: 0; color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .chassis .sec-head .sec-caption {
+    font-family: "Caveat", cursive;
+    font-size: 15px; color: var(--ink); opacity: 0.7;
+  }
+
+  /* EXTRAS DRAWER — stack of cards */
+  .chassis .extras { padding: 0 18px 18px; }
+
+  .chassis .xcard {
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    background: var(--bg);
+    box-shadow: 3px 3px 0 var(--ink);
+    margin-bottom: 14px;
+    overflow: hidden;
+    animation: slide-up-bounce 0.7s both;
+  }
+  .chassis .xcard:nth-of-type(1) { animation-delay: 0.1s; }
+  .chassis .xcard:nth-of-type(2) { animation-delay: 0.2s; }
+  .chassis .xcard:nth-of-type(3) { animation-delay: 0.3s; }
+  .chassis .xcard:nth-of-type(4) { animation-delay: 0.4s; }
+
+  .chassis .xcard-head {
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 2px dashed var(--ink);
+  }
+  .chassis .xcard-icon {
+    width: 28px; height: 28px;
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    background: var(--sticker-bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .chassis .xcard-label {
+    font-family: "Caveat", cursive;
+    font-size: 18px; color: var(--ink);
+    flex: 1;
+  }
+  .chassis .xcard-meta {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink); opacity: 0.6;
+  }
+  .chassis .xcard-body {
+    padding: 12px 14px;
+  }
+
+  /* PACKING LIST */
+  .chassis .pack-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0;
+    font-size: 13px; color: var(--ink);
+  }
+  .chassis .pack-box {
+    width: 16px; height: 16px;
+    border: 2px solid var(--ink);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .chassis .pack-item.done .pack-box { background: var(--accent); color: #fff; }
+  .chassis .pack-item.done { opacity: 0.55; text-decoration: line-through; }
+  .chassis .pack-add {
+    margin-top: 6px;
+    font-family: "Caveat", cursive;
+    font-size: 15px; color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* PLAYLIST — smart-link pull */
+  .chassis .playlist {
+    display: flex; gap: 12px; align-items: center;
+    padding: 2px 0;
+  }
+  .chassis .playlist .art {
+    width: 72px; height: 72px;
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    background:
+      radial-gradient(circle at 30% 30%, #c4ff7a 0%, transparent 60%),
+      linear-gradient(135deg, #1db954 0%, #0a5a2d 100%);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .chassis .playlist .art::after {
+    content: "♫";
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff; font-size: 28px;
+    opacity: 0.7;
+  }
+  .chassis .playlist .pl-info { flex: 1; min-width: 0; }
+  .chassis .playlist .pl-title {
+    font-weight: 800; font-size: 14px;
+    color: var(--ink); margin-bottom: 2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .chassis .playlist .pl-src {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink); opacity: 0.6;
+    margin-bottom: 6px;
+  }
+  .chassis .playlist .pl-open {
+    display: inline-block;
+    font-family: "Caveat", cursive;
+    font-size: 14px; color: var(--accent);
+  }
+
+  /* HOUSE RULES */
+  .chassis .rules p {
+    margin: 0 0 6px;
+    font-size: 13px; color: var(--ink);
+    line-height: 1.55;
+  }
+  .chassis .rules p::before {
+    content: "· ";
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  /* SHARED ALBUM — link out */
+  .chassis .album {
+    display: flex; gap: 12px; align-items: center;
+  }
+  .chassis .album .icon-box {
+    width: 72px; height: 72px;
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    background: linear-gradient(135deg, #ff6a3d 0%, #ffd84d 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 30px;
+  }
+  .chassis .album .al-info { flex: 1; }
+  .chassis .album .al-title {
+    font-weight: 800; font-size: 14px;
+    color: var(--ink); margin-bottom: 2px;
+  }
+  .chassis .album .al-src {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink); opacity: 0.6;
+    margin-bottom: 6px;
+  }
+  .chassis .album .al-open {
+    display: inline-block;
+    font-family: "Caveat", cursive;
+    font-size: 14px; color: var(--accent);
+  }
+
+  /* EMPTY STATE (phone 1) */
+  .chassis .extras-empty {
+    margin: 4px 18px 14px;
+    border: 3px dashed var(--ink);
+    border-radius: 18px;
+    padding: 28px 20px;
+    text-align: center;
+    background: transparent;
+    animation: slide-up 0.6s 0.3s both;
+  }
+  .chassis .extras-empty .em-line {
+    font-family: "Caveat", cursive;
+    font-size: 19px;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .chassis .extras-empty .em-sub {
+    font-size: 12px; color: var(--ink); opacity: 0.65;
+  }
+
+  .chassis .add-extra-btn {
+    display: block;
+    margin: 0 18px 14px;
+    padding: 12px 16px;
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--ink);
+    font-weight: 800;
+    font-size: 13px;
+    text-align: center;
+    text-transform: lowercase;
+    cursor: pointer;
+  }
+
+  /* CHOOSER SHEET (bottom sheet, phone 1) */
+  .chassis .chooser {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: var(--bg);
+    border-top: 3px solid var(--ink);
+    border-top-left-radius: 22px;
+    border-top-right-radius: 22px;
+    padding: 18px 18px 28px;
+    box-shadow: 0 -6px 20px rgba(0,0,0,0.15);
+    animation: slide-up-sheet 0.5s 0.6s both;
+    z-index: 20;
+  }
+  .chassis .chooser-handle {
+    width: 42px; height: 4px;
+    background: var(--ink); opacity: 0.25;
+    border-radius: 100px;
+    margin: 0 auto 14px;
+  }
+  .chassis .chooser h5 {
+    font-family: "Shrikhand", serif;
+    font-size: 22px; margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .chassis .chooser .chooser-sub {
+    font-family: "Caveat", cursive;
+    font-size: 15px;
+    color: var(--ink); opacity: 0.7;
+    margin-bottom: 14px;
+  }
+  .chassis .chooser-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .chassis .ch-tile {
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 12px;
+    background: var(--bg);
+    display: flex; flex-direction: column; align-items: flex-start;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .chassis .ch-tile .ch-icon {
+    width: 32px; height: 32px;
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    background: var(--sticker-bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+  .chassis .ch-tile .ch-name {
+    font-weight: 800; font-size: 13px;
+    color: var(--ink);
+  }
+  .chassis .ch-tile .ch-desc {
+    font-family: "Caveat", cursive;
+    font-size: 13px;
+    color: var(--ink); opacity: 0.65;
+    line-height: 1.2;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <div class="kicker">phase 7 · optional extras drawer · g10</div>
+      <h1>what else is on the list?</h1>
+      <p>
+        Extras live between itinerary and cost on the trip page. Four types in v0: packing list, playlist,
+        house rules, shared album. None are required. Organizer (or any crew, TBD) taps "+ add something extra"
+        to open the chooser sheet. Left: empty state + chooser open. Right: all four cards populated.
+      </p>
+
+      <div class="callout">
+        <h3>principles</h3>
+        <ul>
+          <li><strong>All four are cheap.</strong> None of them host data Rally doesn't already have a way to handle. Shared album is a link field, playlist is a smart-link card, house rules is text, packing list is a checklist.</li>
+          <li><strong>Playlist and album are smart-linked.</strong> Paste a Spotify URL → we pull album art + title. Paste an Apple Photos link → we render the link-out card. If the fetch fails, graceful fallback (domain pill + Caveat label).</li>
+          <li><strong>Tappable targets:</strong> playlist art opens the Spotify link. Album icon opens the photo share URL. Packing list items toggle done state. House rules are read-only after the organizer edits.</li>
+          <li><strong>Only show the section if there's at least one extra.</strong> Empty state only appears if user has tapped "+ add" from a zero state, as a prompt. Otherwise the extras section is invisible — don't clutter trip pages that don't need it.</li>
+          <li><strong>Shared album is a link, never hosted media.</strong> One URL input, one tap-to-open card. Rally does not store images.</li>
+        </ul>
+      </div>
+    </header>
+
+    <div class="grid">
+
+      <!-- ============================================================
+           PHONE 1 — EMPTY STATE + CHOOSER SHEET OPEN
+           ============================================================ -->
+      <div class="theme">
+        <div class="theme-label">
+          <div class="tag">state A · empty + chooser</div>
+          <h2>add something extra</h2>
+          <p>chooser sheet slides up. 4 tiles, each opens a different add flow.</p>
+        </div>
+        <div class="phone">
+          <div class="chassis screen light-beach">
+            <div class="status-bar"></div>
+
+            <div class="header">
+              <div class="wordmark">rally</div>
+              <div class="trip-name">tulum '26</div>
+              <div class="trip-sub">mar 3–8 · 6 going</div>
+            </div>
+
+            <div class="sec-head">
+              <h4>extras</h4>
+              <div class="sec-caption">the nice-to-haves</div>
+            </div>
+
+            <div class="extras-empty">
+              <div class="em-line">nothing here yet ✨</div>
+              <div class="em-sub">add a packing list, playlist, rules, or album</div>
+            </div>
+
+            <button class="add-extra-btn">+ add something extra</button>
+
+            <!-- CHOOSER SHEET -->
+            <div class="chooser">
+              <div class="chooser-handle"></div>
+              <h5>what are we adding?</h5>
+              <div class="chooser-sub">tap one to get started</div>
+              <div class="chooser-grid">
+                <div class="ch-tile">
+                  <div class="ch-icon">🧳</div>
+                  <div class="ch-name">packing list</div>
+                  <div class="ch-desc">don't forget the swimsuit</div>
+                </div>
+                <div class="ch-tile">
+                  <div class="ch-icon">🎧</div>
+                  <div class="ch-name">playlist</div>
+                  <div class="ch-desc">set the vibe</div>
+                </div>
+                <div class="ch-tile">
+                  <div class="ch-icon">📜</div>
+                  <div class="ch-name">house rules</div>
+                  <div class="ch-desc">keep the peace</div>
+                </div>
+                <div class="ch-tile">
+                  <div class="ch-icon">📸</div>
+                  <div class="ch-name">shared album</div>
+                  <div class="ch-desc">paste the photos link</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           PHONE 2 — POPULATED
+           ============================================================ -->
+      <div class="theme">
+        <div class="theme-label">
+          <div class="tag">state B · populated</div>
+          <h2>all four cards live</h2>
+          <p>packing list, smart-linked playlist, rules, album link out.</p>
+        </div>
+        <div class="phone">
+          <div class="chassis screen dark-mountain">
+            <div class="status-bar"></div>
+
+            <div class="header">
+              <div class="wordmark">rally</div>
+              <div class="trip-name">park city '26</div>
+              <div class="trip-sub">feb 14–17 · 8 going</div>
+            </div>
+
+            <div class="sec-head">
+              <h4>extras</h4>
+              <div class="sec-caption">the nice-to-haves</div>
+            </div>
+
+            <div class="extras">
+
+              <!-- PACKING LIST -->
+              <div class="xcard">
+                <div class="xcard-head">
+                  <div class="xcard-icon">🧳</div>
+                  <div class="xcard-label">packing list</div>
+                  <div class="xcard-meta">3 / 7</div>
+                </div>
+                <div class="xcard-body">
+                  <div class="pack-item done"><div class="pack-box">✓</div>ski pass</div>
+                  <div class="pack-item done"><div class="pack-box">✓</div>goggles</div>
+                  <div class="pack-item done"><div class="pack-box">✓</div>long johns</div>
+                  <div class="pack-item"><div class="pack-box"></div>hand warmers</div>
+                  <div class="pack-item"><div class="pack-box"></div>aux cord for the car</div>
+                  <div class="pack-item"><div class="pack-box"></div>snacks for the drive</div>
+                  <div class="pack-item"><div class="pack-box"></div>extra gloves</div>
+                  <div class="pack-add">+ add an item</div>
+                </div>
+              </div>
+
+              <!-- PLAYLIST (smart-link) -->
+              <div class="xcard">
+                <div class="xcard-head">
+                  <div class="xcard-icon">🎧</div>
+                  <div class="xcard-label">playlist</div>
+                  <div class="xcard-meta">smart link</div>
+                </div>
+                <div class="xcard-body">
+                  <div class="playlist">
+                    <div class="art"></div>
+                    <div class="pl-info">
+                      <div class="pl-title">park city send it mix ❄️</div>
+                      <div class="pl-src">spotify · 47 tracks</div>
+                      <div class="pl-open">open in spotify →</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- HOUSE RULES -->
+              <div class="xcard">
+                <div class="xcard-head">
+                  <div class="xcard-icon">📜</div>
+                  <div class="xcard-label">house rules</div>
+                  <div class="xcard-meta">from the host</div>
+                </div>
+                <div class="xcard-body">
+                  <div class="rules">
+                    <p>no shoes past the mudroom</p>
+                    <p>hot tub shuts off at 11pm, neighbors are light sleepers</p>
+                    <p>bring in wood from the porch, don't go out back at night</p>
+                    <p>whoever wakes up first starts the coffee</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SHARED ALBUM (link out) -->
+              <div class="xcard">
+                <div class="xcard-head">
+                  <div class="xcard-icon">📸</div>
+                  <div class="xcard-label">shared album</div>
+                  <div class="xcard-meta">link out</div>
+                </div>
+                <div class="xcard-body">
+                  <div class="album">
+                    <div class="icon-box">📷</div>
+                    <div class="al-info">
+                      <div class="al-title">pc '26 crew album</div>
+                      <div class="al-src">apple photos · shared</div>
+                      <div class="al-open">open in photos →</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout">
+      <h3>claude code handoff notes</h3>
+      <p><strong>Data model:</strong> trip has an <code>extras</code> array. Each extra has <code>type</code> (packing/playlist/rules/album), <code>data</code> (type-specific), and <code>added_by</code>.</p>
+      <p><strong>Packing list:</strong> array of <code>{ label, done, added_by }</code>. Any crew can add items and toggle their own. Organizer can remove any. No assignments in v0 (not "Amelia brings the charcuterie" — that's v0.1).</p>
+      <p><strong>Playlist:</strong> single URL field. Smart-link pulls title, art, track count, platform (spotify / apple music / youtube). Fallback: paste shows a plain card with the URL + open-link CTA.</p>
+      <p><strong>House rules:</strong> single text blob, markdown-lite (just bullets). Organizer edits, everyone reads.</p>
+      <p><strong>Shared album:</strong> single URL field. Smart-link pulls title if available (Apple Photos shared albums often expose a title via OG tags). Opens externally on tap. Rally does NOT host images.</p>
+      <p><strong>Add flow:</strong> tap chooser tile → open type-specific add form (packing = first-item field, playlist/album = URL field, rules = textarea). One form per type, all stay on the trip page as bottom sheets.</p>
+      <p><strong>Who can add:</strong> organizer always. Crew who've RSVP'd "in" or "holding" can add packing list items. Playlist / rules / album = organizer only in v0 (prevents chaos, room to loosen later).</p>
+      <p><strong>Removal:</strong> organizer can remove any extra. No confirmation for packing items. Confirmation for whole-card removal ("delete the whole playlist card?").</p>
+      <p><strong>Empty state visibility:</strong> the dashed "nothing here yet" card and "+ add" button only render if the organizer has tapped into the extras section at least once. Otherwise the whole extras section is hidden on the trip page for trips that don't use extras.</p>
+    </div>
+
+    <div class="callout">
+      <h3>lexicon strings (new §5.21)</h3>
+      <ul>
+        <li><code>extras.section_head</code> → "extras"</li>
+        <li><code>extras.section_caption</code> → "the nice-to-haves"</li>
+        <li><code>extras.empty.line</code> → "nothing here yet ✨"</li>
+        <li><code>extras.empty.sub</code> → "add a packing list, playlist, rules, or album"</li>
+        <li><code>extras.add_cta</code> → "+ add something extra"</li>
+        <li><code>extras.chooser.title</code> → "what are we adding?"</li>
+        <li><code>extras.chooser.sub</code> → "tap one to get started"</li>
+        <li><code>extras.packing.label</code> → "packing list"</li>
+        <li><code>extras.packing.desc</code> → "don't forget the swimsuit"</li>
+        <li><code>extras.packing.count</code> → "{done} / {total}"</li>
+        <li><code>extras.packing.add_item</code> → "+ add an item"</li>
+        <li><code>extras.playlist.label</code> → "playlist"</li>
+        <li><code>extras.playlist.desc</code> → "set the vibe"</li>
+        <li><code>extras.playlist.meta</code> → "smart link"</li>
+        <li><code>extras.playlist.open</code> → "open in {platform} →"</li>
+        <li><code>extras.playlist.tracks</code> → "{platform} · {n} tracks"</li>
+        <li><code>extras.rules.label</code> → "house rules"</li>
+        <li><code>extras.rules.desc</code> → "keep the peace"</li>
+        <li><code>extras.rules.meta</code> → "from the host"</li>
+        <li><code>extras.album.label</code> → "shared album"</li>
+        <li><code>extras.album.desc</code> → "paste the photos link"</li>
+        <li><code>extras.album.meta</code> → "link out"</li>
+        <li><code>extras.album.open</code> → "open in {platform} →"</li>
+        <li><code>extras.album.src</code> → "{platform} · shared"</li>
+      </ul>
+    </div>
+
+  </div>
+</body>
+</html>

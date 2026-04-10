@@ -102,6 +102,26 @@ export function ExtrasSections({
   );
 }
 
+// ─── Shared input styles ─────────────────────────────────────────
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: 8,
+  border: '2px solid var(--stroke)',
+  background: 'var(--bg)',
+  color: 'var(--ink)',
+  fontSize: 13,
+  outline: 'none',
+  fontFamily: 'inherit',
+};
+
+const textareaStyle: React.CSSProperties = {
+  ...inputStyle,
+  resize: 'vertical',
+  lineHeight: 1.5,
+};
+
 // ─── Shared ───────────────────────────────────────────────────────
 
 function CollapsibleHeader({
@@ -138,13 +158,14 @@ function CollapsibleHeader({
       <SectionLabel icon={emoji} text={text} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         {meta && (
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{meta}</span>
+          <span style={{ fontSize: 11, color: 'var(--on-surface)', opacity: 0.6 }}>{meta}</span>
         )}
         <span
           aria-hidden="true"
           style={{
             fontSize: 14,
-            color: 'rgba(255,255,255,0.5)',
+            color: 'var(--on-surface)',
+            opacity: 0.5,
             transform: open ? 'rotate(180deg)' : 'rotate(0)',
             transition: 'transform .2s',
           }}
@@ -214,7 +235,7 @@ function PackingSection({
                 alignItems: 'center',
                 gap: 8,
                 padding: '6px 0',
-                color: 'rgba(255,255,255,0.85)',
+                color: 'var(--on-surface)',
                 fontSize: 13,
               }}
             >
@@ -228,7 +249,8 @@ function PackingSection({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: 'rgba(255,255,255,0.4)',
+                    color: 'var(--on-surface)',
+                    opacity: 0.4,
                     cursor: 'pointer',
                     fontSize: 14,
                     padding: '0 4px',
@@ -248,17 +270,7 @@ function PackingSection({
                 onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                 placeholder={getCopy(themeId, 'extras.packing.placeholder')}
                 disabled={pending}
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  background: 'rgba(255,255,255,0.05)',
-                  color: '#fff',
-                  fontSize: 13,
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                }}
+                style={{ ...inputStyle, flex: 1 }}
               />
               <button
                 onClick={handleAdd}
@@ -267,9 +279,9 @@ function PackingSection({
                 style={{
                   padding: '8px 14px',
                   borderRadius: 8,
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  background: 'rgba(255,255,255,0.1)',
-                  color: '#fff',
+                  border: '2px solid var(--stroke)',
+                  background: 'var(--accent)',
+                  color: 'var(--on-accent)',
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -282,7 +294,7 @@ function PackingSection({
             </div>
           )}
           {!canEdit && items.length === 0 && (
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
+            <div style={{ fontSize: 13, color: 'var(--on-surface)', opacity: 0.5 }}>
               {getCopy(themeId, 'extras.packing.empty')}
             </div>
           )}
@@ -348,12 +360,12 @@ function PlaylistSection({
                   flex: 1,
                   display: 'block',
                   padding: 12,
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'var(--bg)',
                   borderRadius: 10,
-                  color: '#fff',
+                  color: 'var(--ink)',
                   fontSize: 12,
                   textDecoration: 'none',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  border: '2px solid var(--stroke)',
                   wordBreak: 'break-all',
                 }}
               >
@@ -365,7 +377,8 @@ function PlaylistSection({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: 'rgba(255,255,255,0.5)',
+                    color: 'var(--on-surface)',
+                    opacity: 0.6,
                     cursor: 'pointer',
                     fontSize: 12,
                     fontFamily: 'inherit',
@@ -386,17 +399,7 @@ function PlaylistSection({
               placeholder={getCopy(themeId, 'extras.playlist.empty')}
               disabled={pending}
               autoFocus
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 8,
-                border: '1px solid rgba(255,255,255,0.15)',
-                background: 'rgba(255,255,255,0.05)',
-                color: '#fff',
-                fontSize: 13,
-                outline: 'none',
-                fontFamily: 'inherit',
-              }}
+              style={inputStyle}
             />
           )}
         </>
@@ -457,7 +460,7 @@ function RulesSection({
                 style={{
                   flex: 1,
                   fontSize: 13,
-                  color: 'rgba(255,255,255,0.85)',
+                  color: 'var(--on-surface)',
                   lineHeight: 1.5,
                   whiteSpace: 'pre-wrap',
                 }}
@@ -470,7 +473,8 @@ function RulesSection({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: 'rgba(255,255,255,0.5)',
+                    color: 'var(--on-surface)',
+                    opacity: 0.6,
                     cursor: 'pointer',
                     fontSize: 12,
                     fontFamily: 'inherit',
@@ -492,19 +496,7 @@ function RulesSection({
               autoFocus
               rows={4}
               maxLength={1000}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 8,
-                border: '1px solid rgba(255,255,255,0.15)',
-                background: 'rgba(255,255,255,0.05)',
-                color: '#fff',
-                fontSize: 13,
-                outline: 'none',
-                fontFamily: 'inherit',
-                resize: 'vertical',
-                lineHeight: 1.5,
-              }}
+              style={textareaStyle}
             />
           )}
         </>
@@ -562,7 +554,7 @@ function AlbumSection({
               display: 'flex',
               alignItems: 'center',
               gap: 12,
-              color: '#fff',
+              color: 'var(--on-surface)',
               textDecoration: 'none',
               flex: 1,
             }}
@@ -572,7 +564,7 @@ function AlbumSection({
               <div style={{ fontSize: 13, fontWeight: 700 }}>
                 {getCopy(themeId, 'extras.album.label')}
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+              <div style={{ fontSize: 11, color: 'var(--on-surface)', opacity: 0.6 }}>
                 {getCopy(themeId, 'extras.album.openCta.short')} →
               </div>
             </div>
@@ -583,7 +575,8 @@ function AlbumSection({
               style={{
                 background: 'none',
                 border: 'none',
-                color: 'rgba(255,255,255,0.5)',
+                color: 'var(--on-surface)',
+                opacity: 0.6,
                 cursor: 'pointer',
                 fontSize: 12,
                 fontFamily: 'inherit',
@@ -606,17 +599,7 @@ function AlbumSection({
             placeholder={getCopy(themeId, 'extras.album.empty')}
             disabled={pending}
             autoFocus
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: 8,
-              border: '1px solid rgba(255,255,255,0.15)',
-              background: 'rgba(255,255,255,0.05)',
-              color: '#fff',
-              fontSize: 13,
-              outline: 'none',
-              fontFamily: 'inherit',
-            }}
+            style={inputStyle}
           />
         </div>
       )}

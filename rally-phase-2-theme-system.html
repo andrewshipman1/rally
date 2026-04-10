@@ -1,0 +1,1103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Phase 2: full theme system + motion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=DM+Sans:wght@400;500;700;900&family=Caveat:wght@500;700&family=Instrument+Serif&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --page-bg: #0e0e10;
+    --page-fg: #f4f4f5;
+    --muted: #8a8a92;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--page-bg);
+    color: var(--page-fg);
+    font-family: "DM Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    max-width: 1640px;
+    margin: 0 auto;
+    padding: 56px 24px 120px;
+  }
+  .page-header h1 {
+    font-family: "Instrument Serif", serif;
+    font-size: 60px;
+    line-height: 1;
+    margin: 0 0 12px;
+    letter-spacing: -0.02em;
+  }
+  .page-header p {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 720px;
+    margin: 0 0 16px;
+  }
+  .callout {
+    margin-top: 28px;
+    padding: 20px 24px;
+    background: #1a1a1e;
+    border-left: 3px solid #c4ff7a;
+    border-radius: 8px;
+    max-width: 760px;
+  }
+  .callout h3 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #c4ff7a;
+    font-weight: 700;
+  }
+  .callout p { margin: 0 0 6px; font-size: 13px; color: #d4d4d8; line-height: 1.55; }
+  .callout p:last-child { margin: 0; }
+  .callout strong { color: #f4f4f5; }
+  .callout.warn { border-left-color: #ff5b3a; }
+  .callout.warn h3 { color: #ff5b3a; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 56px 40px;
+    margin-top: 64px;
+  }
+  .theme {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .theme-label {
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+    margin-bottom: 22px;
+  }
+  .theme-label .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .theme-label h2 {
+    font-family: "Instrument Serif", serif;
+    font-size: 26px;
+    line-height: 1.05;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .theme-label p {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* phone frame */
+  .phone {
+    width: 360px;
+    height: 720px;
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 0 9px #1a1a1e, 0 0 0 11px #2c2c30, 0 30px 80px -20px rgba(0,0,0,0.6);
+  }
+  .phone::before {
+    content: "";
+    position: absolute;
+    top: 12px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px;
+    background: #0a0a0c;
+    border-radius: 18px;
+    z-index: 100;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+  .status-bar { height: 50px; }
+
+  /* swatches */
+  .swatches {
+    display: flex;
+    gap: 5px;
+    margin-top: 16px;
+    width: 100%;
+    max-width: 360px;
+    justify-content: center;
+  }
+  .sw { width: 30px; height: 30px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+  .sw-label {
+    margin-top: 10px;
+    width: 100%;
+    max-width: 360px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.55;
+  }
+  .sw-label strong { color: #d4d4d8; }
+
+  /* ============================================================
+     ANIMATIONS — the brand kernel includes motion now.
+     ============================================================ */
+
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(8deg); }
+    50% { transform: rotate(11deg); }
+  }
+  @keyframes wiggle-left {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(-1deg); }
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0) rotate(6deg); }
+    50% { transform: translateY(-3px) rotate(7deg); }
+  }
+  @keyframes pulse-shadow {
+    0%, 100% { box-shadow: 6px 6px 0 var(--accent); }
+    50% { box-shadow: 8px 8px 0 var(--accent); }
+  }
+  @keyframes pop-in {
+    0% { opacity: 0; transform: scale(0.6) rotate(-12deg); }
+    65% { opacity: 1; transform: scale(1.08) rotate(2deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0); }
+  }
+  @keyframes pop-in-left {
+    0% { opacity: 0; transform: scale(0.6) rotate(-12deg) translateX(-20px); }
+    65% { opacity: 1; transform: scale(1.08) rotate(-2deg) translateX(0); }
+    100% { opacity: 1; transform: scale(1) rotate(-3deg); }
+  }
+  @keyframes slide-up-bounce {
+    0% { opacity: 0; transform: translateY(40px); }
+    70% { opacity: 1; transform: translateY(-6px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pop-avatar {
+    0% { opacity: 0; transform: scale(0); }
+    70% { opacity: 1; transform: scale(1.18); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes marquee-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @keyframes blink-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+  @keyframes hover-wobble {
+    0%, 100% { transform: rotate(0); }
+    25% { transform: rotate(-2deg); }
+    75% { transform: rotate(2deg); }
+  }
+
+  /* ============================================================
+     SHARED CHASSIS — kernel.
+     Uses CSS variables set by per-theme classes (.t1, .t2, …)
+
+     DUAL-MODE VARS — make the chassis work in both light and dark.
+       --stroke      = always-dark outline color (sits on saturated stickers)
+       --surface     = the "dark surface" used by countdown + marquee
+       --on-surface  = text color on top of --surface
+     Light themes inherit these defaults. Dark themes (.t5) override them.
+     ============================================================ */
+  .chassis {
+    --stroke: var(--ink);
+    --surface: var(--ink);
+    --on-surface: #fff;
+  }
+  .chassis .screen {
+    color: var(--ink);
+    background: var(--bg);
+    font-family: "DM Sans", sans-serif;
+    position: relative;
+  }
+
+  /* MARQUEE STRIP at top — the absurd touch */
+  .chassis .marquee {
+    background: var(--surface);
+    color: var(--sticker-bg);
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 6px 0;
+    border-bottom: 2px solid var(--surface);
+  }
+  .chassis .marquee-track {
+    display: inline-flex;
+    animation: marquee-scroll 18s linear infinite;
+    font-family: "DM Sans", sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
+  .chassis .marquee-track span {
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .chassis .marquee-track span::after {
+    content: "★";
+    color: var(--accent);
+  }
+
+  /* HEADER */
+  .chassis .header {
+    padding: 18px 18px 10px;
+    position: relative;
+  }
+  .chassis .live-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink);
+    opacity: 0.65;
+    margin-bottom: 6px;
+  }
+  .chassis .live-row .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink-dot 1.4s ease-in-out infinite;
+  }
+  .chassis .wordmark {
+    font-family: "Shrikhand", serif;
+    font-size: 28px;
+    color: var(--accent);
+    transform: rotate(-3deg);
+    display: inline-block;
+    margin: 0 0 18px;
+    animation: wiggle-left 5s ease-in-out infinite;
+    transform-origin: center;
+  }
+  .chassis .sticker {
+    position: absolute;
+    font-family: "Caveat", cursive;
+    font-weight: 700;
+    background: var(--sticker-bg);
+    color: var(--stroke);
+    padding: 5px 12px;
+    border-radius: 100px;
+    box-shadow: 0 4px 0 var(--stroke);
+    border: 2px solid var(--stroke);
+    font-size: 13px;
+    z-index: 5;
+    top: 28px; right: 14px;
+    animation: pop-in 0.6s 0.4s both, wiggle 4s ease-in-out infinite 1s;
+    transform-origin: center;
+  }
+  .chassis .eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--stroke);
+    background: var(--sticker-bg);
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 2px solid var(--stroke);
+    margin-bottom: 12px;
+    animation: pop-in 0.5s 0.1s both;
+  }
+  .chassis .title {
+    font-family: "Shrikhand", serif;
+    font-size: 42px;
+    line-height: 0.95;
+    color: var(--ink);
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+    animation: slide-up-bounce 0.7s 0.2s both;
+  }
+  .chassis .title .accent {
+    color: var(--accent);
+    display: block;
+    transform: rotate(-1.5deg);
+  }
+  .chassis .tagline {
+    font-family: "Caveat", cursive;
+    font-size: 20px;
+    color: var(--ink);
+    margin-bottom: 18px;
+    line-height: 1.1;
+    animation: slide-up-bounce 0.7s 0.3s both;
+  }
+
+  /* COUNTDOWN */
+  .chassis .countdown {
+    background: var(--surface);
+    color: var(--on-surface);
+    margin: 0 18px 18px;
+    padding: 18px 22px;
+    border-radius: 22px;
+    border: 3px solid var(--surface);
+    box-shadow: 6px 6px 0 var(--accent);
+    position: relative;
+    animation: slide-up-bounce 0.7s 0.4s both, pulse-shadow 3s ease-in-out infinite 1s;
+  }
+  .chassis .cd-flag {
+    position: absolute;
+    top: -14px; right: -10px;
+    background: var(--accent2);
+    color: var(--stroke);
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-family: "Caveat", cursive;
+    font-size: 16px;
+    font-weight: 700;
+    border: 2px solid var(--stroke);
+    animation: pop-in 0.5s 0.7s both, bounce 2.2s ease-in-out infinite 1.2s;
+    transform-origin: center;
+  }
+  .chassis .cd-num {
+    font-family: "Shrikhand", serif;
+    font-size: 50px;
+    line-height: 1;
+    color: var(--sticker-bg);
+  }
+  .chassis .cd-label {
+    font-family: "DM Sans", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--on-surface);
+    margin-top: 4px;
+    opacity: 0.8;
+  }
+
+  /* GOING ROW */
+  .chassis .going {
+    margin: 0 18px 16px;
+    animation: slide-up-bounce 0.7s 0.55s both;
+  }
+  .chassis .going-label {
+    font-family: "Caveat", cursive;
+    font-size: 19px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .chassis .avatars { display: flex; }
+  .chassis .avatars .av {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: 3px solid var(--ink);
+    margin-right: -10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "DM Sans", sans-serif;
+    font-weight: 800;
+    font-size: 12px;
+    color: var(--ink);
+    animation: pop-avatar 0.5s both;
+  }
+  .chassis .avatars .av:nth-child(1) { animation-delay: 0.7s; }
+  .chassis .avatars .av:nth-child(2) { animation-delay: 0.78s; }
+  .chassis .avatars .av:nth-child(3) { animation-delay: 0.86s; }
+  .chassis .avatars .av:nth-child(4) { animation-delay: 0.94s; }
+  .chassis .avatars .av:nth-child(5) { animation-delay: 1.02s; }
+  .chassis .avatars .av:nth-child(6) { animation-delay: 1.10s; }
+
+  /* STICKY BAR */
+  .chassis .sticky {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg);
+    border-top: 3px solid var(--ink);
+    padding: 12px 18px 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .chassis .sticky button {
+    flex: 1;
+    background: var(--accent);
+    color: #fff;
+    border: 3px solid var(--stroke);
+    height: 52px;
+    border-radius: 100px;
+    font-family: "Shrikhand", serif;
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--stroke);
+    transition: transform 0.15s ease;
+  }
+  .chassis .sticky button:hover {
+    animation: hover-wobble 0.4s ease-in-out;
+  }
+
+  /* ============================================================
+     11 THEMES — only colors and content change.
+     The chassis above does the rest.
+     ============================================================ */
+  .t1 { /* Loose Ham · Bachelorette */
+    --bg: #fde9ed; --ink: #1a0a12;
+    --accent: #ff2e7e; --accent2: #c4ff7a;
+    --sticker-bg: #ffe45a;
+  }
+  .t2 { /* Beach Trip · Tulum */
+    --bg: #e6f6f4; --ink: #0a2a3a;
+    --accent: #ff5b3a; --accent2: #ffd84d;
+    --sticker-bg: #5cdfd1;
+  }
+  .t3 { /* Ski Chalet · Park City */
+    --bg: #f1ebd9; --ink: #1a1f1a;
+    --accent: #b8392f; --accent2: #e8a83a;
+    --sticker-bg: #e8a83a;
+  }
+  .t4 { /* Euro Summer */
+    --bg: #f5e9d3; --ink: #2a1a0f;
+    --accent: #e8551d; --accent2: #9eaf85;
+    --sticker-bg: #e8c84a;
+  }
+  .t5 { /* City Weekend — DARK MODE entry. Pressure tests dual-mode kernel. */
+    --bg: #141416; --ink: #f4ede0;
+    --accent: #ff2e7e; --accent2: #1be5d3;
+    --sticker-bg: #ffd84d;
+    /* dual-mode overrides */
+    --stroke: #0a0a0c;     /* outlines stay dark on saturated stickers */
+    --surface: #2a2a2e;    /* countdown + marquee get a charcoal surface */
+    --on-surface: #f4ede0; /* cream text on the charcoal surface */
+  }
+  .t6 { /* Wine Country */
+    --bg: #f4ede0; --ink: #3e1f3a;
+    --accent: #7a2e4a; --accent2: #9eaf85;
+    --sticker-bg: #e89eb4;
+  }
+  .t7 { /* Lake Weekend */
+    --bg: #dfeef0; --ink: #0e2a3e;
+    --accent: #e8392f; --accent2: #ffd84d;
+    --sticker-bg: #7eb89e;
+  }
+  .t8 { /* Birthday Trip */
+    --bg: #fff5e1; --ink: #3a0a0a;
+    --accent: #ee2a4a; --accent2: #3a8eee;
+    --sticker-bg: #ffd84d;
+  }
+  .t9 { /* Couples Trip (group of couples) */
+    --bg: #fde6d4; --ink: #3a1f24;
+    --accent: #d4623a; --accent2: #5e8e8a;
+    --sticker-bg: #f4d2a8;
+  }
+  .t10 { /* Wellness Retreat (chaotic-wellness) */
+    --bg: #eaeee4; --ink: #1a3329;
+    --accent: #7a9e3e; --accent2: #e8b84a;
+    --sticker-bg: #d4623a;
+  }
+  .t11 { /* Just Because (universal default) */
+    --bg: #fafafa; --ink: #1a1a1a;
+    --accent: #ff5b3a; --accent2: #3a8eff;
+    --sticker-bg: #ffd84d;
+  }
+
+  /* City Weekend — minor dark-mode polish on top of the dual-mode vars */
+  .t5.chassis .sticky { border-top-color: var(--sticker-bg); }
+  .t5.chassis .live-row { opacity: 0.75; }
+
+  /* responsive */
+  @media (max-width: 1280px) {
+    .grid { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  }
+  @media (max-width: 760px) {
+    .page { padding: 32px 16px 80px; }
+    .page-header h1 { font-size: 40px; }
+    .grid { gap: 64px; }
+    .phone {
+      transform: scale(0.92);
+      transform-origin: top center;
+      margin-bottom: -50px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-header">
+    <h1>Rally — the full theme system, animated.</h1>
+    <p>11 themes from your PRD, each as a palette inside the same chassis. Same fonts. Same outlines. Same drop shadows. Same sticker treatment. Same motion language. Only the colors flex. Plus: the chassis is now alive — wiggling stickers, bouncing FOMO flags, marquee strips, entrance animations, pulsing shadows, blinking live-dots, hover wobbles. Refresh the page to see the entrance animations replay.</p>
+
+    <div class="callout">
+      <h3>What's animated (this is the new motion kernel)</h3>
+      <p><strong>Always-on:</strong> the marquee at the top scrolls forever · the wordmark wiggles · the corner sticker wiggles · the FOMO flag bounces · the live-dot blinks · the countdown drop shadow pulses.</p>
+      <p><strong>On load:</strong> sticker pops in with rotation · title slides up + bounces · countdown card slides in · avatars pop in one at a time in sequence.</p>
+      <p><strong>On hover:</strong> the "I'm in" button does a quick wobble. (More hover micro-interactions in Phase 2.5.)</p>
+    </div>
+
+    <div class="callout warn">
+      <h3>Theme audit (decisions for you)</h3>
+      <p><strong>Cut "Minimal."</strong> Directly contradicts the brand. It's on the <em>is not</em> list. Removing it.</p>
+      <p><strong>"Couples Trip" reframed.</strong> Your protagonist is the friend group, not the couple. Below it's designed as a <em>group of couples</em> doing a vineyard weekend, not a romantic getaway for two. If you actually wanted a 2-person experience, that's a different product and probably doesn't belong in Rally — let me know.</p>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- ============== T1 · BACHELORETTE ============== -->
+    <section class="theme chassis t1">
+      <div class="theme-label">
+        <div class="tag">Theme 01 · Occasion</div>
+        <h2>Bachelorette</h2>
+        <p>Hot pink, lemon, lime. The default for sail-her-off-into-the-sunset weekends.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>57 days</span><span>i do, i do</span><span>6 going</span><span>cabo bound</span><span>57 days</span><span>i do, i do</span><span>6 going</span><span>cabo bound</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">last sail!! ⚓</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ jen is calling</div>
+          <h1 class="title">sarah's<span class="accent">last sail</span></h1>
+          <div class="tagline">cabo, before she's a wife 💍</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">i do, i do</div>
+          <div class="cd-num">57</div>
+          <div class="cd-label">days until margs at sunset on the catamaran</div>
+        </div>
+        <div class="going">
+          <div class="going-label">the bridal squad 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#ffe45a">J</div>
+            <div class="av" style="background:#ff2e7e;color:#fff">S</div>
+            <div class="av" style="background:#c4ff7a">M</div>
+            <div class="av" style="background:#ff8fbe">L</div>
+            <div class="av" style="background:#ffb35a">K</div>
+            <div class="av" style="background:#b07cff;color:#fff">D</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>I'm in 💍</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#fde9ed"></div>
+        <div class="sw" style="background:#ff2e7e"></div>
+        <div class="sw" style="background:#ffe45a"></div>
+        <div class="sw" style="background:#c4ff7a"></div>
+        <div class="sw" style="background:#1a0a12"></div>
+      </div>
+      <div class="sw-label"><strong>Bachelorette</strong> · blush · hot pink · lemon · lime · ink</div>
+    </section>
+
+    <!-- ============== T2 · BEACH TRIP ============== -->
+    <section class="theme chassis t2">
+      <div class="theme-label">
+        <div class="tag">Theme 02 · Setting</div>
+        <h2>Beach Trip</h2>
+        <p>Sea foam, coral, sun yellow. For Tulum, Tahiti, the Outer Banks, anywhere salt meets sunset.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>123 days</span><span>vamos</span><span>10 going</span><span>tulum bound</span><span>123 days</span><span>vamos</span><span>10 going</span><span>tulum bound</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">123 days 🌴</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ sofia is calling</div>
+          <h1 class="title">tulum<span class="accent">my 27th</span></h1>
+          <div class="tagline">cenotes, mezcal, full disrespect 🐚</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">vamos</div>
+          <div class="cd-num">123</div>
+          <div class="cd-label">days until salt water and zero service</div>
+        </div>
+        <div class="going">
+          <div class="going-label">the birthday crew 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#5cdfd1">S</div>
+            <div class="av" style="background:#ff5b3a;color:#fff">L</div>
+            <div class="av" style="background:#ffd84d">N</div>
+            <div class="av" style="background:#ff9c5a">A</div>
+            <div class="av" style="background:#0a2a3a;color:#fff">C</div>
+            <div class="av" style="background:#a8e8e0">D</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>I'm in 🐚</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#e6f6f4"></div>
+        <div class="sw" style="background:#ff5b3a"></div>
+        <div class="sw" style="background:#ffd84d"></div>
+        <div class="sw" style="background:#5cdfd1"></div>
+        <div class="sw" style="background:#0a2a3a"></div>
+      </div>
+      <div class="sw-label"><strong>Beach Trip</strong> · sea foam · coral · sun · teal · deep ink</div>
+    </section>
+
+    <!-- ============== T3 · SKI CHALET ============== -->
+    <section class="theme chassis t3">
+      <div class="theme-label">
+        <div class="tag">Theme 03 · Setting</div>
+        <h2>Ski Chalet</h2>
+        <p>Bone, oxblood, ochre, forest. Park City to Niseko. Same chaos, in a Filson jacket.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>42 days</span><span>send it</span><span>8 going</span><span>park city</span><span>42 days</span><span>send it</span><span>8 going</span><span>park city</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">42 days 🏔️</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ marcus is calling</div>
+          <h1 class="title">park city<span class="accent">boys' weekend</span></h1>
+          <div class="tagline">ski hard, après harder ⛷️</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">send it</div>
+          <div class="cd-num">42</div>
+          <div class="cd-label">days until first chair and last call</div>
+        </div>
+        <div class="going">
+          <div class="going-label">the boys (so far) 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#e8a83a">M</div>
+            <div class="av" style="background:#b8392f;color:#fff">T</div>
+            <div class="av" style="background:#6b9e6e">B</div>
+            <div class="av" style="background:#d4824d">J</div>
+            <div class="av" style="background:#9eaf85">R</div>
+            <div class="av" style="background:#5a4a3e;color:#fff">P</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>I'm in 🤝</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#f1ebd9"></div>
+        <div class="sw" style="background:#b8392f"></div>
+        <div class="sw" style="background:#e8a83a"></div>
+        <div class="sw" style="background:#2d5641"></div>
+        <div class="sw" style="background:#1a1f1a"></div>
+      </div>
+      <div class="sw-label"><strong>Ski Chalet</strong> · bone · oxblood · ochre · forest · ink</div>
+    </section>
+
+    <!-- ============== T4 · EURO SUMMER ============== -->
+    <section class="theme chassis t4">
+      <div class="theme-label">
+        <div class="tag">Theme 04 · Setting</div>
+        <h2>Euro Summer</h2>
+        <p>Linen, burnt orange, olive, ochre. Mykonos, Mallorca, Puglia, anywhere with too much olive oil.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>89 days</span><span>ciao bella</span><span>7 going</span><span>mykonos bound</span><span>89 days</span><span>ciao bella</span><span>7 going</span><span>mykonos bound</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">89 days 🍷</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ chiara is calling</div>
+          <h1 class="title">mykonos<span class="accent">in august</span></h1>
+          <div class="tagline">olive oil, ouzo, questionable jet skis 🛥️</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">ciao bella</div>
+          <div class="cd-num">89</div>
+          <div class="cd-label">days until aperol on a balcony at noon</div>
+        </div>
+        <div class="going">
+          <div class="going-label">the riviera squad 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#e8c84a">C</div>
+            <div class="av" style="background:#e8551d;color:#fff">F</div>
+            <div class="av" style="background:#9eaf85">L</div>
+            <div class="av" style="background:#d4824d">A</div>
+            <div class="av" style="background:#c8a878">M</div>
+            <div class="av" style="background:#7a5a3e;color:#fff">G</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>I'm in 🍋</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#f5e9d3"></div>
+        <div class="sw" style="background:#e8551d"></div>
+        <div class="sw" style="background:#e8c84a"></div>
+        <div class="sw" style="background:#9eaf85"></div>
+        <div class="sw" style="background:#2a1a0f"></div>
+      </div>
+      <div class="sw-label"><strong>Euro Summer</strong> · linen · burnt orange · ochre · olive · espresso</div>
+    </section>
+
+    <!-- ============== T5 · CITY WEEKEND (DARK) ============== -->
+    <section class="theme chassis t5">
+      <div class="theme-label">
+        <div class="tag">Theme 05 · Setting</div>
+        <h2>City Weekend</h2>
+        <p>The dark mode entry. Charcoal, cream, hot magenta, electric cyan. NYC, Tokyo, Mexico City after dark.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>21 days</span><span>let's gooo</span><span>5 going</span><span>nyc bound</span><span>21 days</span><span>let's gooo</span><span>5 going</span><span>nyc bound</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">21 days 🌃</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ jordan is calling</div>
+          <h1 class="title">nyc<span class="accent">bday weekend</span></h1>
+          <div class="tagline">rooftops, late checkouts, regret 🌆</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">let's gooo</div>
+          <div class="cd-num">21</div>
+          <div class="cd-label">days until 4am bodega slices</div>
+        </div>
+        <div class="going">
+          <div class="going-label">the city crew 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#ff2e7e;color:#fff">J</div>
+            <div class="av" style="background:#1be5d3;color:#0a0a0c">R</div>
+            <div class="av" style="background:#ffd84d;color:#0a0a0c">M</div>
+            <div class="av" style="background:#c4ff7a;color:#0a0a0c">A</div>
+            <div class="av" style="background:#f4ede0;color:#0a0a0c">K</div>
+            <div class="av" style="background:#ff8fbe;color:#0a0a0c">L</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>I'm in 🌃</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#1a1a1a"></div>
+        <div class="sw" style="background:#ff2e7e"></div>
+        <div class="sw" style="background:#1be5d3"></div>
+        <div class="sw" style="background:#ffd84d"></div>
+        <div class="sw" style="background:#f4ede0"></div>
+      </div>
+      <div class="sw-label"><strong>City Weekend</strong> · charcoal · magenta · cyan · sun · cream · (dark mode)</div>
+    </section>
+
+    <!-- ============== T6 · WINE COUNTRY ============== -->
+    <section class="theme chassis t6">
+      <div class="theme-label">
+        <div class="tag">Theme 06 · Setting</div>
+        <h2>Wine Country</h2>
+        <p>Bone, plum, rose, sage. Sonoma, Willamette, Tuscany. For people who pretend to know wine.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>34 days</span><span>salud</span><span>8 going</span><span>sonoma bound</span><span>34 days</span><span>salud</span><span>8 going</span><span>sonoma bound</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">34 days 🍇</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ priya is calling</div>
+          <h1 class="title">sonoma<span class="accent">funday</span></h1>
+          <div class="tagline">vineyards, hot tubs, fake sommeliers 🍷</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">salud</div>
+          <div class="cd-num">34</div>
+          <div class="cd-label">days until 11am pours and zero shame</div>
+        </div>
+        <div class="going">
+          <div class="going-label">the wine moms 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#e89eb4">P</div>
+            <div class="av" style="background:#7a2e4a;color:#fff">M</div>
+            <div class="av" style="background:#9eaf85">A</div>
+            <div class="av" style="background:#d4a4b8">L</div>
+            <div class="av" style="background:#c8b89c">S</div>
+            <div class="av" style="background:#5e3a5c;color:#fff">J</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>I'm in 🍷</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#f4ede0"></div>
+        <div class="sw" style="background:#7a2e4a"></div>
+        <div class="sw" style="background:#e89eb4"></div>
+        <div class="sw" style="background:#9eaf85"></div>
+        <div class="sw" style="background:#3e1f3a"></div>
+      </div>
+      <div class="sw-label"><strong>Wine Country</strong> · bone · plum · rose · sage · aubergine</div>
+    </section>
+
+    <!-- ============== T7 · LAKE WEEKEND ============== -->
+    <section class="theme chassis t7">
+      <div class="theme-label">
+        <div class="tag">Theme 07 · Setting</div>
+        <h2>Lake Weekend</h2>
+        <p>Pale water, navy, cherry red, sun. Lake James, Tahoe, Coeur d'Alene. Floaties and beer pong.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>67 days</span><span>send it</span><span>9 going</span><span>lake bound</span><span>67 days</span><span>send it</span><span>9 going</span><span>lake bound</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">67 days 🛟</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ tyler is calling</div>
+          <h1 class="title">lake james<span class="accent">4-day</span></h1>
+          <div class="tagline">tubing, beer pong, sunburn 🌞</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">send it</div>
+          <div class="cd-num">67</div>
+          <div class="cd-label">days until the boat at 11am</div>
+        </div>
+        <div class="going">
+          <div class="going-label">the lake crew 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#ffd84d">T</div>
+            <div class="av" style="background:#e8392f;color:#fff">B</div>
+            <div class="av" style="background:#7eb89e">M</div>
+            <div class="av" style="background:#dfeef0">J</div>
+            <div class="av" style="background:#a8c4d4">K</div>
+            <div class="av" style="background:#0e2a3e;color:#fff">D</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>I'm in 🛟</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#dfeef0"></div>
+        <div class="sw" style="background:#e8392f"></div>
+        <div class="sw" style="background:#ffd84d"></div>
+        <div class="sw" style="background:#7eb89e"></div>
+        <div class="sw" style="background:#0e2a3e"></div>
+      </div>
+      <div class="sw-label"><strong>Lake Weekend</strong> · pale water · cherry · sun · lake green · navy</div>
+    </section>
+
+    <!-- ============== T8 · BIRTHDAY TRIP ============== -->
+    <section class="theme chassis t8">
+      <div class="theme-label">
+        <div class="tag">Theme 08 · Occasion</div>
+        <h2>Birthday Trip</h2>
+        <p>Cream, confetti red, balloon blue, party yellow. The friend's-30th playbook.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>48 days</span><span>happy bday</span><span>12 going</span><span>chicago bound</span><span>48 days</span><span>happy bday</span><span>12 going</span><span>chicago bound</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">48 days 🎂</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ alex is turning 30</div>
+          <h1 class="title">alex's<span class="accent">30th in chi</span></h1>
+          <div class="tagline">deep dish, drag show, dramatics 💃</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">happy bday</div>
+          <div class="cd-num">48</div>
+          <div class="cd-label">days until "30, flirty, and thriving"</div>
+        </div>
+        <div class="going">
+          <div class="going-label">team alex 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#ffd84d">A</div>
+            <div class="av" style="background:#ee2a4a;color:#fff">M</div>
+            <div class="av" style="background:#3a8eee;color:#fff">L</div>
+            <div class="av" style="background:#ff8fbe">S</div>
+            <div class="av" style="background:#c4ff7a">K</div>
+            <div class="av" style="background:#3a0a0a;color:#fff">B</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>I'm in 🎉</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#fff5e1"></div>
+        <div class="sw" style="background:#ee2a4a"></div>
+        <div class="sw" style="background:#3a8eee"></div>
+        <div class="sw" style="background:#ffd84d"></div>
+        <div class="sw" style="background:#3a0a0a"></div>
+      </div>
+      <div class="sw-label"><strong>Birthday Trip</strong> · cream · confetti red · balloon blue · party yellow · plum</div>
+    </section>
+
+    <!-- ============== T9 · COUPLES TRIP ============== -->
+    <section class="theme chassis t9">
+      <div class="theme-label">
+        <div class="tag">Theme 09 · Occasion</div>
+        <h2>Couples Trip</h2>
+        <p>Peach, terracotta, dusty teal, cream. <em>Group</em> of couples doing a cabin weekend — not a romantic getaway for two.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>71 days</span><span>ride or dies</span><span>4 couples</span><span>cabin bound</span><span>71 days</span><span>ride or dies</span><span>4 couples</span><span>cabin bound</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">71 days 🥂</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ priya & dev are calling</div>
+          <h1 class="title">the cabin<span class="accent">w/ the couples</span></h1>
+          <div class="tagline">wine, board games, suspiciously early bedtimes 🥱</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">ride or dies</div>
+          <div class="cd-num">71</div>
+          <div class="cd-label">days until catan and a fire pit</div>
+        </div>
+        <div class="going">
+          <div class="going-label">4 couples (so far) 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#f4d2a8">P</div>
+            <div class="av" style="background:#d4623a;color:#fff">D</div>
+            <div class="av" style="background:#5e8e8a;color:#fff">M</div>
+            <div class="av" style="background:#e8a878">A</div>
+            <div class="av" style="background:#b07c5a;color:#fff">L</div>
+            <div class="av" style="background:#3a1f24;color:#fff">J</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>we're in 🥂</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#fde6d4"></div>
+        <div class="sw" style="background:#d4623a"></div>
+        <div class="sw" style="background:#5e8e8a"></div>
+        <div class="sw" style="background:#f4d2a8"></div>
+        <div class="sw" style="background:#3a1f24"></div>
+      </div>
+      <div class="sw-label"><strong>Couples Trip</strong> · peach · terracotta · dusty teal · cream · brown plum</div>
+    </section>
+
+    <!-- ============== T10 · WELLNESS RETREAT ============== -->
+    <section class="theme chassis t10">
+      <div class="theme-label">
+        <div class="tag">Theme 10 · Occasion</div>
+        <h2>Wellness Retreat</h2>
+        <p>Sage cream, matcha, turmeric, terracotta. The Rally take on wellness: yoga at sunrise, natural wine at sunset, unhinged at midnight.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>52 days</span><span>namaste lit</span><span>8 going</span><span>ojai bound</span><span>52 days</span><span>namaste lit</span><span>8 going</span><span>ojai bound</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">52 days 🧘</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ maya is calling</div>
+          <h1 class="title">ojai<span class="accent">sound bath weekend</span></h1>
+          <div class="tagline">vinyasa at 7am, natural wine at 7pm 🌿</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">namaste lit</div>
+          <div class="cd-num">52</div>
+          <div class="cd-label">days until ice baths and orange wine</div>
+        </div>
+        <div class="going">
+          <div class="going-label">the wellness gang 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#d4623a;color:#fff">M</div>
+            <div class="av" style="background:#7a9e3e">L</div>
+            <div class="av" style="background:#e8b84a">P</div>
+            <div class="av" style="background:#a8c8a8">A</div>
+            <div class="av" style="background:#c8d4b8">J</div>
+            <div class="av" style="background:#1a3329;color:#fff">K</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>I'm in 🧘</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#eaeee4"></div>
+        <div class="sw" style="background:#7a9e3e"></div>
+        <div class="sw" style="background:#e8b84a"></div>
+        <div class="sw" style="background:#d4623a"></div>
+        <div class="sw" style="background:#1a3329"></div>
+      </div>
+      <div class="sw-label"><strong>Wellness Retreat</strong> · sage cream · matcha · turmeric · terracotta · forest</div>
+    </section>
+
+    <!-- ============== T11 · JUST BECAUSE ============== -->
+    <section class="theme chassis t11">
+      <div class="theme-label">
+        <div class="tag">Theme 11 · Neutral default</div>
+        <h2>Just Because</h2>
+        <p>White, hot orange, electric blue, sun yellow. Universal default. The "we don't need a reason" theme.</p>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"></div>
+        <div class="marquee"><div class="marquee-track">
+          <span>14 days</span><span>lfg</span><span>5 going</span><span>destination tbd</span><span>14 days</span><span>lfg</span><span>5 going</span><span>destination tbd</span>
+        </div></div>
+        <div class="header">
+          <div class="sticker">14 days ✨</div>
+          <div class="live-row"><span class="dot"></span> trip is live</div>
+          <div class="wordmark">rally!</div>
+          <div class="eyebrow">★ andrew is calling</div>
+          <h1 class="title">no reason<span class="accent">just go.</span></h1>
+          <div class="tagline">we don't need an occasion, we need a flight ✈️</div>
+        </div>
+        <div class="countdown">
+          <div class="cd-flag">lfg</div>
+          <div class="cd-num">14</div>
+          <div class="cd-label">days until literally anywhere</div>
+        </div>
+        <div class="going">
+          <div class="going-label">whoever's down 👇</div>
+          <div class="avatars">
+            <div class="av" style="background:#ffd84d">A</div>
+            <div class="av" style="background:#ff5b3a;color:#fff">M</div>
+            <div class="av" style="background:#3a8eff;color:#fff">S</div>
+            <div class="av" style="background:#c4ff7a">J</div>
+            <div class="av" style="background:#ff8fbe">K</div>
+            <div class="av" style="background:#1a1a1a;color:#fff">D</div>
+          </div>
+        </div>
+        <div style="height:60px"></div>
+        <div class="sticky"><button>I'm in ✈️</button></div>
+      </div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#fafafa"></div>
+        <div class="sw" style="background:#ff5b3a"></div>
+        <div class="sw" style="background:#3a8eff"></div>
+        <div class="sw" style="background:#ffd84d"></div>
+        <div class="sw" style="background:#1a1a1a"></div>
+      </div>
+      <div class="sw-label"><strong>Just Because</strong> · white · hot orange · electric blue · sun · ink</div>
+    </section>
+
+  </div>
+
+  <footer style="margin-top:96px;padding-top:32px;border-top:1px solid #1f1f1f;color:#666;font-size:13px;line-height:1.6;max-width:760px;">
+    <p style="margin:0 0 8px;color:#a8a8b0;font-weight:600;">What to look for:</p>
+    <p style="margin:0 0 12px;">All 11 themes share <strong>identical</strong> chassis behavior — same fonts, same outline weight, same sticker placement, same animation timing. The only thing that changes between any two themes is a 5-color CSS variable set. That's the entire flex. A future you (or a designer) can ship a new theme in ten minutes.</p>
+    <p style="margin:0 0 12px;">If any individual theme feels <em>off</em>, the fix is almost always one color choice — push the accent harder, dial the background warmer, swap the sticker fill. Don't change the chassis.</p>
+    <p style="margin:0;color:#666;">Made for Andrew · Phase 2 · v0 · 11 themes (Minimal cut)</p>
+  </footer>
+</div>
+</body>
+</html>

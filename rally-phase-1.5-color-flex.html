@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Phase 1.5: color flex (Direction B chassis, three palettes)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=DM+Sans:wght@400;500;700;900&family=Caveat:wght@500;700&family=Instrument+Serif&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --page-bg: #0e0e10;
+    --page-fg: #f4f4f5;
+    --muted: #8a8a92;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--page-bg);
+    color: var(--page-fg);
+    font-family: "DM Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 56px 24px 120px;
+  }
+  .page-header h1 {
+    font-family: "Instrument Serif", serif;
+    font-size: 56px;
+    line-height: 1;
+    margin: 0 0 12px;
+    letter-spacing: -0.02em;
+  }
+  .page-header p {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.55;
+    max-width: 680px;
+    margin: 0;
+  }
+  .kernel-callout {
+    margin-top: 32px;
+    padding: 20px 24px;
+    background: #1a1a1e;
+    border-left: 3px solid #c4ff7a;
+    border-radius: 8px;
+    max-width: 720px;
+  }
+  .kernel-callout h3 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #c4ff7a;
+    font-weight: 700;
+  }
+  .kernel-callout p { margin: 0 0 8px; font-size: 13px; color: #d4d4d8; line-height: 1.55; }
+  .kernel-callout p:last-child { margin: 0; }
+  .kernel-callout strong { color: #f4f4f5; }
+
+  .variants {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(390px, 1fr));
+    gap: 48px;
+    margin-top: 64px;
+  }
+  .variant { display: flex; flex-direction: column; align-items: center; }
+  .var-label {
+    text-align: center;
+    margin-bottom: 24px;
+    width: 100%;
+    max-width: 390px;
+  }
+  .var-label .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .var-label h2 {
+    font-family: "Instrument Serif", serif;
+    font-size: 28px;
+    line-height: 1.05;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .var-label p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* phone frame */
+  .phone {
+    width: 390px;
+    height: 720px;
+    border-radius: 48px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 0 10px #1a1a1e, 0 0 0 12px #2c2c30, 0 30px 80px -20px rgba(0,0,0,0.6);
+  }
+  .phone::before {
+    content: "";
+    position: absolute;
+    top: 14px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 32px;
+    background: #0a0a0c;
+    border-radius: 20px;
+    z-index: 100;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+  .status-bar { height: 54px; }
+
+  /* swatches under phone */
+  .swatches {
+    display: flex;
+    gap: 6px;
+    margin-top: 18px;
+    width: 100%;
+    max-width: 390px;
+    justify-content: center;
+  }
+  .sw { width: 36px; height: 36px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+  .sw-label {
+    margin-top: 12px;
+    width: 100%;
+    max-width: 390px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.6;
+  }
+  .sw-label strong { color: #d4d4d8; }
+
+  /* ============================================================
+     SHARED CHASSIS — these are the brand kernel rules.
+     Color is the ONLY thing that changes between variants.
+     Variant-specific colors are set via CSS variables on the .v* class.
+     ============================================================ */
+  .chassis .screen {
+    color: var(--ink);
+    background: var(--bg);
+    font-family: "DM Sans", sans-serif;
+    position: relative;
+  }
+  .chassis .header {
+    padding: 0 20px 12px;
+    position: relative;
+  }
+  .chassis .wordmark {
+    font-family: "Shrikhand", serif;
+    font-size: 30px;
+    color: var(--accent);
+    transform: rotate(-3deg);
+    display: inline-block;
+    margin: 8px 0 24px;
+  }
+  .chassis .sticker {
+    position: absolute;
+    font-family: "Caveat", cursive;
+    font-weight: 700;
+    background: var(--sticker-bg);
+    color: var(--ink);
+    padding: 6px 14px;
+    border-radius: 100px;
+    transform: rotate(8deg);
+    box-shadow: 0 4px 0 var(--ink);
+    border: 2px solid var(--ink);
+    font-size: 14px;
+    z-index: 5;
+    top: 22px; right: 18px;
+  }
+  .chassis .eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    background: var(--sticker-bg);
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 2px solid var(--ink);
+    margin-bottom: 14px;
+  }
+  .chassis .title {
+    font-family: "Shrikhand", serif;
+    font-size: 48px;
+    line-height: 0.95;
+    color: var(--ink);
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+  .chassis .title .accent { color: var(--accent); display: block; transform: rotate(-1.5deg); }
+  .chassis .tagline {
+    font-family: "Caveat", cursive;
+    font-size: 22px;
+    color: var(--ink);
+    margin-bottom: 22px;
+    line-height: 1.1;
+  }
+  .chassis .countdown {
+    background: var(--ink);
+    color: #fff;
+    margin: 0 20px 24px;
+    padding: 22px 24px;
+    border-radius: 22px;
+    border: 3px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--accent);
+    position: relative;
+  }
+  .chassis .cd-flag {
+    position: absolute;
+    top: -14px; right: -10px;
+    background: var(--accent2);
+    color: var(--ink);
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-family: "Caveat", cursive;
+    font-size: 16px;
+    font-weight: 700;
+    border: 2px solid var(--ink);
+    transform: rotate(6deg);
+  }
+  .chassis .cd-num {
+    font-family: "Shrikhand", serif;
+    font-size: 56px;
+    line-height: 1;
+    color: var(--sticker-bg);
+  }
+  .chassis .cd-label {
+    font-family: "DM Sans", sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    margin-top: 6px;
+  }
+  .chassis .house {
+    margin: 0 20px 24px;
+    background: #fff;
+    border: 3px solid var(--ink);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 6px 6px 0 var(--ink);
+    position: relative;
+  }
+  .chassis .house-flag {
+    position: absolute;
+    top: 12px; left: 12px;
+    background: #fff;
+    border: 2px solid var(--ink);
+    border-radius: 100px;
+    padding: 4px 10px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    z-index: 2;
+    color: var(--ink);
+  }
+  .chassis .house-img {
+    height: 130px;
+    background: var(--house-grad);
+    border-bottom: 3px solid var(--ink);
+  }
+  .chassis .house-body { padding: 12px 16px 16px; }
+  .chassis .house-title {
+    font-family: "Shrikhand", serif;
+    font-size: 18px;
+    line-height: 1.05;
+    margin-bottom: 4px;
+    color: var(--ink);
+  }
+  .chassis .house-meta {
+    font-family: "Caveat", cursive;
+    font-size: 17px;
+    color: var(--accent);
+  }
+  .chassis .going {
+    margin: 0 20px 18px;
+  }
+  .chassis .going-label {
+    font-family: "Caveat", cursive;
+    font-size: 22px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .chassis .avatars { display: flex; }
+  .chassis .avatars .av {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: 3px solid var(--ink);
+    margin-right: -10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "DM Sans", sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .chassis .sticky {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg);
+    border-top: 3px solid var(--ink);
+    backdrop-filter: blur(20px);
+    padding: 12px 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .chassis .sticky button {
+    flex: 1;
+    background: var(--accent);
+    color: #fff;
+    border: 3px solid var(--ink);
+    height: 56px;
+    border-radius: 100px;
+    font-family: "Shrikhand", serif;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+
+  /* ============================================================
+     VARIANT 1 — LOOSE HAM (femme · cream · hot pink · lime)
+     ============================================================ */
+  .v1 {
+    --bg: #fff5e1;
+    --ink: #1a1a1a;
+    --accent: #ff3b6e;
+    --accent2: #c4ff7a;
+    --sticker-bg: #ffe45a;
+    --house-grad: linear-gradient(135deg, #c4ff7a 0%, #7afca8 50%, #4dd6c2 100%);
+  }
+
+  /* ============================================================
+     VARIANT 2 — PARK CITY BOYS (masc · forest · oxblood · cream)
+     ============================================================ */
+  .v2 {
+    --bg: #f1ebd9;
+    --ink: #1a1f1a;
+    --accent: #b8392f;
+    --accent2: #e8a83a;
+    --sticker-bg: #e8a83a;
+    --house-grad: linear-gradient(135deg, #2d5641 0%, #4a7855 50%, #6b9e6e 100%);
+  }
+
+  /* ============================================================
+     VARIANT 3 — TULUM BIRTHDAY (gen-z · turquoise · coral · sun)
+     ============================================================ */
+  .v3 {
+    --bg: #e6f6f4;
+    --ink: #0a2a3a;
+    --accent: #ff5b3a;
+    --accent2: #ffd84d;
+    --sticker-bg: #5cdfd1;
+    --house-grad: linear-gradient(135deg, #ffd84d 0%, #ff9c5a 50%, #ff5b3a 100%);
+  }
+
+  /* ============================================================
+     responsive
+     ============================================================ */
+  @media (max-width: 1280px) {
+    .variants { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+  }
+  @media (max-width: 760px) {
+    .page { padding: 32px 16px 80px; }
+    .page-header h1 { font-size: 36px; }
+    .variants { gap: 64px; }
+    .phone {
+      transform: scale(0.92);
+      transform-origin: top center;
+      margin-bottom: -50px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-header">
+    <h1>Rally — Phase 1.5: same chassis, three palettes.</h1>
+    <p>Direction B (the winner) shown in three color modes across three different fake trips. The point: the chassis is the brand. Color is the variable. Same fonts, same outlines, same drop shadows, same sticker treatment, same voice — only the palette rotates.</p>
+
+    <div class="kernel-callout">
+      <h3>The kernel (this never changes)</h3>
+      <p><strong>Type stack:</strong> Shrikhand display + Caveat handwritten + DM Sans body. <strong>Outlines:</strong> 2–3px hard black on everything that matters. <strong>Drop shadows:</strong> 4–6px solid offset (no blur). <strong>Stickers:</strong> rotated, outlined, "made by a friend" energy. <strong>Voice:</strong> friend-of-a-friend in the group chat, microcopy too unserious not too clean.</p>
+      <p><strong>The variable:</strong> color palette. Three swatches per theme — a background, an accent, a sticker fill — plus an ink color. That's the entire flex. 12 themes = 12 palettes inside one chassis.</p>
+    </div>
+  </header>
+
+  <div class="variants">
+
+    <!-- ============== VARIANT 1: LOOSE HAM ============== -->
+    <section class="variant chassis v1">
+      <div class="var-label">
+        <div class="tag">Variant 1 · Femme</div>
+        <h2>"Loose Ham" palette</h2>
+        <p>Cream + hot pink + lemon + lime. Default for bach trips, birthday weekends, summer escapes.</p>
+      </div>
+
+      <div class="phone">
+        <div class="screen">
+          <div class="status-bar"></div>
+          <div class="header">
+            <div class="sticker">87 days!! 🦞</div>
+            <div class="wordmark">rally!</div>
+            <div class="eyebrow">★ andrew is calling</div>
+            <h1 class="title">cape cod<span class="accent">4th of july</span></h1>
+            <div class="tagline">reunion of the loose ham 🍖</div>
+          </div>
+          <div class="countdown">
+            <div class="cd-flag">lfg</div>
+            <div class="cd-num">87</div>
+            <div class="cd-label">days until oysters & vino on the deck</div>
+          </div>
+          <div class="house">
+            <div class="house-flag">🌊 hot tub confirmed</div>
+            <div class="house-img"></div>
+            <div class="house-body">
+              <div class="house-title">the one w/ the hot tub</div>
+              <div class="house-meta">~$800/nt · split 6 ways = chill</div>
+            </div>
+          </div>
+          <div class="going">
+            <div class="going-label">the loose ham (so far) 👇</div>
+            <div class="avatars">
+              <div class="av" style="background:#ffe45a">A</div>
+              <div class="av" style="background:#ff3b6e;color:#fff">M</div>
+              <div class="av" style="background:#c4ff7a">S</div>
+              <div class="av" style="background:#7afca8">J</div>
+              <div class="av" style="background:#ffb35a">K</div>
+              <div class="av" style="background:#b07cff;color:#fff">D</div>
+            </div>
+          </div>
+          <div class="sticky">
+            <button>I'm in 🙌</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatches">
+        <div class="sw" style="background:#fff5e1"></div>
+        <div class="sw" style="background:#ff3b6e"></div>
+        <div class="sw" style="background:#ffe45a"></div>
+        <div class="sw" style="background:#c4ff7a"></div>
+        <div class="sw" style="background:#1a1a1a"></div>
+      </div>
+      <div class="sw-label"><strong>Loose Ham</strong> · cream · hot pink · lemon · lime · ink</div>
+    </section>
+
+    <!-- ============== VARIANT 2: PARK CITY BOYS ============== -->
+    <section class="variant chassis v2">
+      <div class="var-label">
+        <div class="tag">Variant 2 · Masc</div>
+        <h2>"Park City Boys" palette</h2>
+        <p>Bone + oxblood + ochre + forest. For ski trips, golf weekends, cabin weekends. Same chaos, different hat.</p>
+      </div>
+
+      <div class="phone">
+        <div class="screen">
+          <div class="status-bar"></div>
+          <div class="header">
+            <div class="sticker">42 days. 🏔️</div>
+            <div class="wordmark">rally!</div>
+            <div class="eyebrow">★ marcus is calling</div>
+            <h1 class="title">park city<span class="accent">boys' weekend</span></h1>
+            <div class="tagline">ski hard, après harder ⛷️</div>
+          </div>
+          <div class="countdown">
+            <div class="cd-flag">send it</div>
+            <div class="cd-num">42</div>
+            <div class="cd-label">days until first chair & last call</div>
+          </div>
+          <div class="house">
+            <div class="house-flag">🔥 hot tub + fire pit</div>
+            <div class="house-img"></div>
+            <div class="house-body">
+              <div class="house-title">the cabin w/ the view</div>
+              <div class="house-meta">~$1,200/nt · split 8 ways = doable</div>
+            </div>
+          </div>
+          <div class="going">
+            <div class="going-label">the boys (so far) 👇</div>
+            <div class="avatars">
+              <div class="av" style="background:#e8a83a">M</div>
+              <div class="av" style="background:#b8392f;color:#fff">T</div>
+              <div class="av" style="background:#6b9e6e">B</div>
+              <div class="av" style="background:#d4824d">J</div>
+              <div class="av" style="background:#9eaf85">R</div>
+              <div class="av" style="background:#5a4a3e;color:#fff">P</div>
+            </div>
+          </div>
+          <div class="sticky">
+            <button>I'm in 🤝</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatches">
+        <div class="sw" style="background:#f1ebd9"></div>
+        <div class="sw" style="background:#b8392f"></div>
+        <div class="sw" style="background:#e8a83a"></div>
+        <div class="sw" style="background:#2d5641"></div>
+        <div class="sw" style="background:#1a1f1a"></div>
+      </div>
+      <div class="sw-label"><strong>Park City Boys</strong> · bone · oxblood · ochre · forest · ink</div>
+    </section>
+
+    <!-- ============== VARIANT 3: TULUM BIRTHDAY ============== -->
+    <section class="variant chassis v3">
+      <div class="var-label">
+        <div class="tag">Variant 3 · Gen-Z</div>
+        <h2>"Tulum Birthday" palette</h2>
+        <p>Sea foam + coral + sun yellow + deep teal. For beach trips, birthdays in places that pop on a feed, shoulder-season getaways.</p>
+      </div>
+
+      <div class="phone">
+        <div class="screen">
+          <div class="status-bar"></div>
+          <div class="header">
+            <div class="sticker">123 days 🌴</div>
+            <div class="wordmark">rally!</div>
+            <div class="eyebrow">★ sofia is calling</div>
+            <h1 class="title">tulum<span class="accent">my 27th</span></h1>
+            <div class="tagline">cenotes, mezcal, full disrespect 🐚</div>
+          </div>
+          <div class="countdown">
+            <div class="cd-flag">vamos</div>
+            <div class="cd-num">123</div>
+            <div class="cd-label">days until salt water & no service</div>
+          </div>
+          <div class="house">
+            <div class="house-flag">🦩 beach + plunge pool</div>
+            <div class="house-img"></div>
+            <div class="house-body">
+              <div class="house-title">the casita w/ the cenote</div>
+              <div class="house-meta">~$650/nt · split 10 ways = a steal</div>
+            </div>
+          </div>
+          <div class="going">
+            <div class="going-label">the birthday crew 👇</div>
+            <div class="avatars">
+              <div class="av" style="background:#5cdfd1">S</div>
+              <div class="av" style="background:#ff5b3a;color:#fff">L</div>
+              <div class="av" style="background:#ffd84d">N</div>
+              <div class="av" style="background:#ff9c5a">A</div>
+              <div class="av" style="background:#0a2a3a;color:#fff">C</div>
+              <div class="av" style="background:#a8e8e0">D</div>
+            </div>
+          </div>
+          <div class="sticky">
+            <button>I'm in 🐚</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatches">
+        <div class="sw" style="background:#e6f6f4"></div>
+        <div class="sw" style="background:#ff5b3a"></div>
+        <div class="sw" style="background:#ffd84d"></div>
+        <div class="sw" style="background:#5cdfd1"></div>
+        <div class="sw" style="background:#0a2a3a"></div>
+      </div>
+      <div class="sw-label"><strong>Tulum Birthday</strong> · sea foam · coral · sun · teal · deep ink</div>
+    </section>
+
+  </div>
+
+  <footer style="margin-top:96px;padding-top:32px;border-top:1px solid #1f1f1f;color:#666;font-size:13px;line-height:1.6;max-width:680px;">
+    <p style="margin:0 0 8px;color:#a8a8b0;font-weight:600;">What you should be looking for:</p>
+    <p style="margin:0 0 12px;">Squint at all three side by side. They should feel <strong>obviously the same family</strong> (same chassis, same energy, same sticker language) and <strong>obviously different moods</strong>. If a stranger saw any one of them, they should know it's Rally. If you saw two of them, you should know they're for different trips.</p>
+    <p style="margin:0;color:#666;">Made for Andrew · Phase 1.5 · v0</p>
+  </footer>
+</div>
+</body>
+</html>

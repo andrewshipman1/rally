@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Phase 1 visual directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Archivo+Black&family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=Shrikhand&family=DM+Sans:wght@400;500;700;900&family=Caveat:wght@500;700&family=Instrument+Serif&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --page-bg: #0e0e10;
+    --page-fg: #f4f4f5;
+    --muted: #8a8a92;
+    --frame: #1a1a1e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--page-bg); color: var(--page-fg); font-family: "Inter", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .page {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 56px 24px 120px;
+  }
+  .page-header { margin-bottom: 48px; }
+  .page-header h1 {
+    font-family: "Instrument Serif", serif;
+    font-size: 56px;
+    line-height: 1;
+    margin: 0 0 12px;
+    letter-spacing: -0.02em;
+  }
+  .page-header p {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.5;
+    max-width: 640px;
+    margin: 0;
+  }
+  .directions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(390px, 1fr));
+    gap: 48px;
+    margin-top: 56px;
+  }
+  .direction { display: flex; flex-direction: column; align-items: center; }
+  .dir-label {
+    text-align: center;
+    margin-bottom: 24px;
+    width: 100%;
+    max-width: 390px;
+  }
+  .dir-label .tag {
+    display: inline-block;
+    font-family: "Inter", sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .dir-label h2 {
+    font-family: "Instrument Serif", serif;
+    font-size: 32px;
+    line-height: 1.05;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .dir-label p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* phone frame */
+  .phone {
+    width: 390px;
+    height: 844px;
+    border-radius: 48px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 0 10px #1a1a1e, 0 0 0 12px #2c2c30, 0 30px 80px -20px rgba(0,0,0,0.6);
+    background: #fff;
+  }
+  .phone::before {
+    content: "";
+    position: absolute;
+    top: 14px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 32px;
+    background: #0a0a0c;
+    border-radius: 20px;
+    z-index: 100;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+
+  /* shared status bar spacer */
+  .status-bar { height: 54px; }
+
+  /* shared sticky bottom RSVP bar baseline */
+  .sticky-bar {
+    position: sticky;
+    bottom: 0;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 14px 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* swatches */
+  .swatches {
+    display: flex;
+    gap: 6px;
+    margin-top: 16px;
+    width: 100%;
+    max-width: 390px;
+    justify-content: center;
+  }
+  .sw { width: 36px; height: 36px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+  .meta {
+    margin-top: 16px;
+    width: 100%;
+    max-width: 390px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.6;
+  }
+  .meta strong { color: #d4d4d8; font-weight: 600; }
+
+  /* ============================================================
+     DIRECTION A — TYPE-LED / BRUTALIST  (Cash App energy)
+     ============================================================ */
+  .dir-a .screen { background: #0a0a0a; color: #fff; font-family: "Inter", sans-serif; }
+  .dir-a .a-header {
+    padding: 0 20px 24px;
+  }
+  .dir-a .a-wordmark {
+    font-family: "Archivo Black", sans-serif;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    color: #c4ff00;
+    text-transform: lowercase;
+    margin-bottom: 40px;
+  }
+  .dir-a .a-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: #c4ff00;
+    margin-bottom: 12px;
+  }
+  .dir-a .a-title {
+    font-family: "Archivo Black", sans-serif;
+    font-size: 64px;
+    line-height: 0.88;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    margin: 0 0 16px;
+  }
+  .dir-a .a-tagline {
+    font-size: 15px;
+    color: #888;
+    font-style: italic;
+    margin-bottom: 28px;
+  }
+  .dir-a .a-countdown {
+    border-top: 1px solid #1f1f1f;
+    border-bottom: 1px solid #1f1f1f;
+    padding: 24px 0;
+    margin: 0 20px 28px;
+    text-align: left;
+  }
+  .dir-a .a-cd-num {
+    font-family: "Archivo Black", sans-serif;
+    font-size: 96px;
+    line-height: 0.85;
+    letter-spacing: -0.05em;
+    color: #c4ff00;
+  }
+  .dir-a .a-cd-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: #888;
+    margin-top: 6px;
+  }
+  .dir-a .a-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 16px 20px;
+    border-bottom: 1px solid #1f1f1f;
+  }
+  .dir-a .a-row-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #888;
+  }
+  .dir-a .a-row-val {
+    font-family: "Archivo Black", sans-serif;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+  }
+  .dir-a .a-row-val .accent { color: #c4ff00; }
+  .dir-a .a-house {
+    margin: 28px 20px;
+    background: #1a1a1a;
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .dir-a .a-house-img {
+    height: 180px;
+    background: linear-gradient(135deg, #2a3d4a 0%, #1a2530 100%);
+    position: relative;
+  }
+  .dir-a .a-house-img::after {
+    content: "🏖️";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+    opacity: 0.4;
+  }
+  .dir-a .a-house-body {
+    padding: 16px 18px 20px;
+  }
+  .dir-a .a-house-title {
+    font-family: "Archivo Black", sans-serif;
+    font-size: 18px;
+    margin-bottom: 6px;
+    line-height: 1.1;
+  }
+  .dir-a .a-house-meta {
+    font-size: 12px;
+    color: #888;
+  }
+  .dir-a .a-going {
+    padding: 0 20px 24px;
+  }
+  .dir-a .a-going-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #888;
+    margin-bottom: 12px;
+  }
+  .dir-a .a-avatars {
+    display: flex;
+    gap: 0;
+  }
+  .dir-a .a-avatars .av {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 3px solid #0a0a0a;
+    margin-right: -10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Archivo Black", sans-serif;
+    font-size: 14px;
+    color: #0a0a0a;
+  }
+  .dir-a .a-sticky {
+    background: rgba(10,10,10,0.85);
+    border-top: 1px solid #1f1f1f;
+  }
+  .dir-a .a-sticky button {
+    flex: 1;
+    background: #c4ff00;
+    color: #0a0a0a;
+    border: none;
+    height: 56px;
+    border-radius: 14px;
+    font-family: "Archivo Black", sans-serif;
+    font-size: 18px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+
+  /* ============================================================
+     DIRECTION B — STICKER-LED / CHAOTIC  (group chat energy)
+     ============================================================ */
+  .dir-b .screen {
+    background: #fff5e1;
+    color: #1a1a1a;
+    font-family: "DM Sans", sans-serif;
+    position: relative;
+  }
+  .dir-b .b-noise {
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(255,107,154,0.18) 0, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(122,255,178,0.15) 0, transparent 40%);
+    pointer-events: none;
+  }
+  .dir-b .b-header { padding: 0 20px 12px; position: relative; }
+  .dir-b .b-wordmark {
+    font-family: "Shrikhand", serif;
+    font-size: 30px;
+    color: #ff3b6e;
+    transform: rotate(-3deg);
+    display: inline-block;
+    margin: 8px 0 24px;
+  }
+  .dir-b .b-sticker {
+    position: absolute;
+    font-family: "Caveat", cursive;
+    font-weight: 700;
+    background: #ffe45a;
+    color: #1a1a1a;
+    padding: 6px 14px;
+    border-radius: 100px;
+    transform: rotate(8deg);
+    box-shadow: 0 4px 0 rgba(0,0,0,0.85);
+    border: 2px solid #1a1a1a;
+    font-size: 14px;
+    z-index: 5;
+  }
+  .dir-b .b-sticker.s1 { top: 20px; right: 18px; transform: rotate(8deg); }
+  .dir-b .b-eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #1a1a1a;
+    background: #ffe45a;
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 2px solid #1a1a1a;
+    margin-bottom: 14px;
+  }
+  .dir-b .b-title {
+    font-family: "Shrikhand", serif;
+    font-size: 52px;
+    line-height: 0.95;
+    color: #1a1a1a;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+  .dir-b .b-title .pink { color: #ff3b6e; display: block; transform: rotate(-1.5deg); }
+  .dir-b .b-tagline {
+    font-family: "Caveat", cursive;
+    font-size: 24px;
+    color: #1a1a1a;
+    margin-bottom: 24px;
+    line-height: 1.1;
+  }
+  .dir-b .b-countdown {
+    background: #1a1a1a;
+    color: #fff;
+    margin: 0 20px 24px;
+    padding: 22px 24px;
+    border-radius: 22px;
+    border: 3px solid #1a1a1a;
+    box-shadow: 6px 6px 0 #ff3b6e;
+    position: relative;
+  }
+  .dir-b .b-cd-flag {
+    position: absolute;
+    top: -14px; right: -10px;
+    background: #c4ff7a;
+    color: #1a1a1a;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-family: "Caveat", cursive;
+    font-size: 16px;
+    font-weight: 700;
+    border: 2px solid #1a1a1a;
+    transform: rotate(6deg);
+  }
+  .dir-b .b-cd-num {
+    font-family: "Shrikhand", serif;
+    font-size: 56px;
+    line-height: 1;
+    color: #ffe45a;
+  }
+  .dir-b .b-cd-label {
+    font-family: "DM Sans", sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    margin-top: 6px;
+  }
+  .dir-b .b-house {
+    margin: 0 20px 28px;
+    background: #fff;
+    border: 3px solid #1a1a1a;
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    position: relative;
+  }
+  .dir-b .b-house::before {
+    content: "🌊 hot tub confirmed";
+    position: absolute;
+    top: 12px; left: 12px;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 100px;
+    padding: 4px 10px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    z-index: 2;
+  }
+  .dir-b .b-house-img {
+    height: 160px;
+    background: linear-gradient(135deg, #c4ff7a 0%, #7afca8 50%, #4dd6c2 100%);
+    border-bottom: 3px solid #1a1a1a;
+  }
+  .dir-b .b-house-body { padding: 14px 16px 18px; }
+  .dir-b .b-house-title {
+    font-family: "Shrikhand", serif;
+    font-size: 20px;
+    line-height: 1.05;
+    margin-bottom: 4px;
+  }
+  .dir-b .b-house-meta {
+    font-family: "Caveat", cursive;
+    font-size: 18px;
+    color: #ff3b6e;
+  }
+  .dir-b .b-going {
+    margin: 0 20px 28px;
+    padding: 0;
+  }
+  .dir-b .b-going-label {
+    font-family: "Caveat", cursive;
+    font-size: 22px;
+    color: #1a1a1a;
+    margin-bottom: 10px;
+  }
+  .dir-b .b-avatars { display: flex; }
+  .dir-b .b-avatars .av {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    border: 3px solid #1a1a1a;
+    margin-right: -10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "DM Sans", sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    color: #1a1a1a;
+  }
+  .dir-b .b-sticky {
+    background: rgba(255,245,225,0.92);
+    border-top: 3px solid #1a1a1a;
+  }
+  .dir-b .b-sticky button {
+    flex: 1;
+    background: #ff3b6e;
+    color: #fff;
+    border: 3px solid #1a1a1a;
+    height: 58px;
+    border-radius: 100px;
+    font-family: "Shrikhand", serif;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 #1a1a1a;
+  }
+
+  /* ============================================================
+     DIRECTION C — PHOTO-LED / IMMERSIVE  (postcard energy)
+     ============================================================ */
+  .dir-c .screen {
+    background: #f6f1e8;
+    color: #1a1410;
+    font-family: "Inter", sans-serif;
+  }
+  .dir-c .c-hero {
+    height: 540px;
+    position: relative;
+    background-image:
+      linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(20,8,4,0.2) 60%, rgba(20,8,4,0.85) 100%),
+      url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80");
+    background-size: cover;
+    background-position: center;
+    color: #fff;
+    padding: 0 24px 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .dir-c .c-wordmark {
+    position: absolute;
+    top: 64px; left: 24px;
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-style: italic;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+  .dir-c .c-eyebrow {
+    font-family: "Inter", sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 16px;
+    opacity: 0.92;
+  }
+  .dir-c .c-title {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: 56px;
+    line-height: 0.95;
+    letter-spacing: -0.025em;
+    margin: 0 0 12px;
+    font-variation-settings: "SOFT" 30;
+  }
+  .dir-c .c-tagline {
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 19px;
+    line-height: 1.3;
+    opacity: 0.92;
+    max-width: 280px;
+    margin: 0 0 20px;
+  }
+  .dir-c .c-meta-row {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .dir-c .c-meta-row .dot { opacity: 0.5; }
+  .dir-c .c-countdown {
+    background: #1a1410;
+    color: #f6f1e8;
+    padding: 32px 24px 28px;
+    text-align: center;
+    position: relative;
+  }
+  .dir-c .c-countdown::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%) translateY(-50%);
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: #f6f1e8;
+    box-shadow: 0 0 0 6px #1a1410;
+  }
+  .dir-c .c-countdown::after {
+    content: "⏳";
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%) translateY(-50%);
+    width: 56px; height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    z-index: 2;
+  }
+  .dir-c .c-cd-num {
+    font-family: "Fraunces", serif;
+    font-weight: 400;
+    font-size: 80px;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    margin-top: 8px;
+    font-variation-settings: "SOFT" 60;
+  }
+  .dir-c .c-cd-label {
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 17px;
+    margin-top: 4px;
+    opacity: 0.78;
+  }
+  .dir-c .c-section {
+    padding: 32px 24px 8px;
+  }
+  .dir-c .c-section-eyebrow {
+    font-family: "Inter", sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: #8a7e72;
+    margin-bottom: 14px;
+  }
+  .dir-c .c-house {
+    margin: 0 24px 28px;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 18px 40px -20px rgba(40,20,10,0.3);
+    background: #fff;
+  }
+  .dir-c .c-house-img {
+    height: 200px;
+    background-image:
+      linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,0.4) 100%),
+      url("https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=900&q=80");
+    background-size: cover;
+    background-position: center;
+    position: relative;
+  }
+  .dir-c .c-house-img::after {
+    content: "the one with the hot tub";
+    position: absolute;
+    bottom: 14px; left: 16px;
+    color: #fff;
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 18px;
+  }
+  .dir-c .c-house-body {
+    padding: 16px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .dir-c .c-house-price {
+    font-family: "Fraunces", serif;
+    font-size: 22px;
+    font-weight: 500;
+  }
+  .dir-c .c-house-meta {
+    font-size: 12px;
+    color: #8a7e72;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+  }
+  .dir-c .c-going { padding: 0 24px 32px; }
+  .dir-c .c-going-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .dir-c .c-avatars { display: flex; }
+  .dir-c .c-avatars .av {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: 3px solid #f6f1e8;
+    margin-right: -10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-size: 15px;
+    color: #1a1410;
+  }
+  .dir-c .c-going-text {
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 18px;
+    color: #1a1410;
+  }
+  .dir-c .c-sticky {
+    background: rgba(246,241,232,0.92);
+    border-top: 1px solid rgba(26,20,16,0.08);
+  }
+  .dir-c .c-sticky button {
+    flex: 1;
+    background: #1a1410;
+    color: #f6f1e8;
+    border: none;
+    height: 56px;
+    border-radius: 100px;
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 20px;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+  }
+
+  /* ============================================================
+     responsive
+     ============================================================ */
+  @media (max-width: 1280px) {
+    .directions { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+  }
+  @media (max-width: 760px) {
+    .page { padding: 32px 16px 80px; }
+    .page-header h1 { font-size: 36px; }
+    .directions { gap: 64px; }
+    .phone {
+      transform: scale(0.92);
+      transform-origin: top center;
+      margin-bottom: -60px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-header">
+    <h1>Rally — Phase 1, three visual directions.</h1>
+    <p>Same fake Cape Cod trip, three opinionated takes on the brand brief. Each one optimizes for the brief's directives (loud, FOMO-driven, link-as-pitch, mobile-first) through a different primary lever. Pick the one that feels most like Rally — or tell me what's missing and we'll do a second round.</p>
+  </header>
+
+  <div class="directions">
+
+    <!-- =========================== DIRECTION A =========================== -->
+    <section class="direction dir-a">
+      <div class="dir-label">
+        <div class="tag">Direction A</div>
+        <h2>Brutalist / Type-led</h2>
+        <p>Cash App energy. Type does all the work. Black background, one acid accent, zero decoration. The page <em>says</em> the trip — it doesn't dress it up.</p>
+      </div>
+
+      <div class="phone">
+        <div class="screen">
+          <div class="status-bar"></div>
+
+          <div class="a-header">
+            <div class="a-wordmark">rally.</div>
+            <div class="a-eyebrow">→ andrew's calling</div>
+            <h1 class="a-title">CAPE COD<br/>4TH OF<br/>JULY</h1>
+            <div class="a-tagline">reunion of the loose ham.</div>
+          </div>
+
+          <div class="a-countdown">
+            <div class="a-cd-num">87</div>
+            <div class="a-cd-label">days until oysters</div>
+          </div>
+
+          <div class="a-row">
+            <span class="a-row-label">when</span>
+            <span class="a-row-val">JUL 3–7</span>
+          </div>
+          <div class="a-row">
+            <span class="a-row-label">cost</span>
+            <span class="a-row-val">$<span class="accent">675</span><span style="font-size:14px;color:#888;">/pp</span></span>
+          </div>
+          <div class="a-row">
+            <span class="a-row-label">going</span>
+            <span class="a-row-val">6 of 8</span>
+          </div>
+
+          <div class="a-house">
+            <div class="a-house-img"></div>
+            <div class="a-house-body">
+              <div class="a-house-title">THE ONE WITH<br/>THE HOT TUB</div>
+              <div class="a-house-meta">eastham · 3br · ★4.7 · $800/nt</div>
+            </div>
+          </div>
+
+          <div class="a-going">
+            <div class="a-going-label">the loose ham</div>
+            <div class="a-avatars">
+              <div class="av" style="background:#c4ff00">A</div>
+              <div class="av" style="background:#ff5b3a">M</div>
+              <div class="av" style="background:#ffd84d">S</div>
+              <div class="av" style="background:#7eb6ff">J</div>
+              <div class="av" style="background:#ff8fbe">K</div>
+              <div class="av" style="background:#a4ff8a">D</div>
+            </div>
+          </div>
+
+          <div style="height:120px"></div>
+
+          <div class="sticky-bar a-sticky">
+            <button>I'M IN →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatches">
+        <div class="sw" style="background:#0a0a0a"></div>
+        <div class="sw" style="background:#1a1a1a"></div>
+        <div class="sw" style="background:#c4ff00"></div>
+        <div class="sw" style="background:#ff5b3a"></div>
+        <div class="sw" style="background:#f4f4f5"></div>
+      </div>
+      <div class="meta">
+        <strong>Type</strong> Archivo Black + Inter<br/>
+        <strong>Mood</strong> brutalist · type-too-big · acid · zero filler<br/>
+        <strong>Risks</strong> can read as a finance app if voice fails
+      </div>
+    </section>
+
+    <!-- =========================== DIRECTION B =========================== -->
+    <section class="direction dir-b">
+      <div class="dir-label">
+        <div class="tag">Direction B</div>
+        <h2>Sticker / Chaotic</h2>
+        <p>Group chat energy. Type plus a layer of stickers, tape, and handwriting. Loud color, hard outlines, drop shadows. The page feels like a flyer your funniest friend designed at 1am.</p>
+      </div>
+
+      <div class="phone">
+        <div class="screen">
+          <div class="b-noise"></div>
+          <div class="status-bar"></div>
+
+          <div class="b-header">
+            <div class="b-sticker s1">87 days!! 🦞</div>
+            <div class="b-wordmark">rally!</div>
+            <div class="b-eyebrow">★ andrew is calling</div>
+            <h1 class="b-title">cape cod<span class="pink">4th of july</span></h1>
+            <div class="b-tagline">reunion of the loose ham 🍖</div>
+          </div>
+
+          <div class="b-countdown">
+            <div class="b-cd-flag">lfg</div>
+            <div class="b-cd-num">87</div>
+            <div class="b-cd-label">days until oysters & vino on the deck</div>
+          </div>
+
+          <div class="b-house">
+            <div class="b-house-img"></div>
+            <div class="b-house-body">
+              <div class="b-house-title">the one w/ the hot tub</div>
+              <div class="b-house-meta">~$800/nt · split 6 ways = chill</div>
+            </div>
+          </div>
+
+          <div class="b-going">
+            <div class="b-going-label">the loose ham (so far) 👇</div>
+            <div class="b-avatars">
+              <div class="av" style="background:#ffe45a">A</div>
+              <div class="av" style="background:#ff3b6e;color:#fff">M</div>
+              <div class="av" style="background:#c4ff7a">S</div>
+              <div class="av" style="background:#7afca8">J</div>
+              <div class="av" style="background:#ffb35a">K</div>
+              <div class="av" style="background:#b07cff;color:#fff">D</div>
+            </div>
+          </div>
+
+          <div style="height:140px"></div>
+
+          <div class="sticky-bar b-sticky">
+            <button>I'm in 🙌</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatches">
+        <div class="sw" style="background:#fff5e1"></div>
+        <div class="sw" style="background:#ff3b6e"></div>
+        <div class="sw" style="background:#ffe45a"></div>
+        <div class="sw" style="background:#c4ff7a"></div>
+        <div class="sw" style="background:#1a1a1a"></div>
+      </div>
+      <div class="meta">
+        <strong>Type</strong> Shrikhand + DM Sans + Caveat (3-font stack)<br/>
+        <strong>Mood</strong> sticker · hand-drawn · loud · maximalist<br/>
+        <strong>Risks</strong> can age fast · skews young · production-heavy
+      </div>
+    </section>
+
+    <!-- =========================== DIRECTION C =========================== -->
+    <section class="direction dir-c">
+      <div class="dir-label">
+        <div class="tag">Direction C</div>
+        <h2>Postcard / Photo-led</h2>
+        <p>Daydream surface. Full-bleed image dominates, type sits on top in italic Fraunces, warm color palette. The page is the fantasy first, the data second. The closest to your current build, executed properly.</p>
+      </div>
+
+      <div class="phone">
+        <div class="screen">
+          <div class="status-bar"></div>
+
+          <div class="c-hero">
+            <div class="c-wordmark">rally</div>
+            <div class="c-eyebrow">Andrew is calling you home</div>
+            <h1 class="c-title">Cape Cod,<br/>4th of July</h1>
+            <p class="c-tagline">a reunion of the loose ham, with oysters, vino, and very questionable decisions</p>
+            <div class="c-meta-row">
+              <span>Jul 3–7</span>
+              <span class="dot">·</span>
+              <span>6 going</span>
+              <span class="dot">·</span>
+              <span>~$675/pp</span>
+            </div>
+          </div>
+
+          <div class="c-countdown">
+            <div class="c-cd-num">87</div>
+            <div class="c-cd-label">days until oysters</div>
+          </div>
+
+          <div class="c-section">
+            <div class="c-section-eyebrow">The house</div>
+          </div>
+          <div class="c-house">
+            <div class="c-house-img"></div>
+            <div class="c-house-body">
+              <span class="c-house-price">~$800/night</span>
+              <span class="c-house-meta">3br · split 6 ways</span>
+            </div>
+          </div>
+
+          <div class="c-going">
+            <div class="c-section-eyebrow" style="padding:0;">The loose ham</div>
+            <div class="c-going-row" style="margin-top:14px;">
+              <div class="c-avatars">
+                <div class="av" style="background:#e8c894">A</div>
+                <div class="av" style="background:#d49278">M</div>
+                <div class="av" style="background:#a8b89c">S</div>
+                <div class="av" style="background:#c89878">J</div>
+                <div class="av" style="background:#b8a094">K</div>
+                <div class="av" style="background:#94a8b8">D</div>
+              </div>
+              <div class="c-going-text">are already in.</div>
+            </div>
+          </div>
+
+          <div style="height:100px"></div>
+
+          <div class="sticky-bar c-sticky">
+            <button>say I'm in</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatches">
+        <div class="sw" style="background:#f6f1e8"></div>
+        <div class="sw" style="background:#1a1410"></div>
+        <div class="sw" style="background:#d49278"></div>
+        <div class="sw" style="background:#8a7e72"></div>
+        <div class="sw" style="background:#c89878"></div>
+      </div>
+      <div class="meta">
+        <strong>Type</strong> Fraunces (variable) + Inter<br/>
+        <strong>Mood</strong> editorial · cinematic · warm · postcard<br/>
+        <strong>Risks</strong> closest to current build · easiest to drift toward "tasteful"
+      </div>
+    </section>
+
+  </div>
+
+  <footer style="margin-top:96px;padding-top:32px;border-top:1px solid #1f1f1f;color:#666;font-size:13px;line-height:1.6;max-width:640px;">
+    <p style="margin:0 0 8px;color:#a8a8b0;font-weight:600;">How to react to this:</p>
+    <p style="margin:0 0 12px;">Don't pick the one you think is "right." Pick the one that makes your stomach do a little thing. Then tell me which elements from the other two you wish were in the winner. Brand work is mostly stealing parts from your second-favorite direction and bolting them onto your favorite.</p>
+    <p style="margin:0;color:#666;">Made for Andrew · Phase 1 of the Rally redesign · v0</p>
+  </footer>
+</div>
+</body>
+</html>

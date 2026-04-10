@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Phase 8: lodging voting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=DM+Sans:wght@400;500;700;900&family=Caveat:wght@500;700&family=Instrument+Serif&display=swap" rel="stylesheet" />
+<style>
+  :root { --page-bg:#0e0e10; --page-fg:#f4f4f5; --muted:#8a8a92; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin:0; padding:0;
+    background: var(--page-bg);
+    color: var(--page-fg);
+    font-family: "DM Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1400px; margin: 0 auto; padding: 56px 24px 120px; }
+  .page-header .kicker {
+    display: inline-block;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em;
+    color: #c4ff7a; margin-bottom: 12px;
+  }
+  .page-header h1 {
+    font-family: "Instrument Serif", serif;
+    font-size: 56px; line-height: 1; margin: 0 0 14px; letter-spacing: -0.02em;
+  }
+  .page-header p { color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 780px; margin: 0 0 16px; }
+
+  .callout { margin-top: 28px; padding: 20px 24px; background: #1a1a1e;
+    border-left: 3px solid #c4ff7a; border-radius: 8px; max-width: 820px; }
+  .callout h3 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.14em; color: #c4ff7a; font-weight: 700; }
+  .callout p { margin: 0 0 6px; font-size: 13px; color: #d4d4d8; line-height: 1.55; }
+  .callout p:last-child { margin: 0; }
+  .callout strong { color: #f4f4f5; }
+  .callout ul { margin: 6px 0 0; padding-left: 18px; }
+  .callout li { font-size: 13px; color: #d4d4d8; line-height: 1.6; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 56px 40px;
+    margin-top: 64px;
+  }
+  .theme { display: flex; flex-direction: column; align-items: center; }
+  .theme-label { width: 100%; max-width: 380px; text-align: center; margin-bottom: 22px; }
+  .theme-label .tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted); margin-bottom: 6px;
+  }
+  .theme-label h2 {
+    font-family: "Instrument Serif", serif; font-size: 26px;
+    line-height: 1.05; margin: 0 0 6px; letter-spacing: -0.01em;
+  }
+  .theme-label p { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0; }
+
+  /* phone frame */
+  .phone {
+    width: 380px; height: 760px; border-radius: 44px;
+    overflow: hidden; position: relative;
+    box-shadow: 0 0 0 9px #1a1a1e, 0 0 0 11px #2c2c30, 0 30px 80px -20px rgba(0,0,0,0.6);
+  }
+  .phone::before {
+    content: ""; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px; background: #0a0a0c; border-radius: 18px; z-index: 100;
+  }
+
+  /* animations */
+  @keyframes slide-up { 0%{opacity:0;transform:translateY(16px);} 100%{opacity:1;transform:translateY(0);} }
+  @keyframes slide-up-bounce {
+    0%{opacity:0;transform:translateY(30px);}
+    70%{opacity:1;transform:translateY(-4px);}
+    100%{opacity:1;transform:translateY(0);}
+  }
+  @keyframes pop-in {
+    0%{opacity:0;transform:scale(0.6) rotate(-10deg);}
+    65%{opacity:1;transform:scale(1.1) rotate(2deg);}
+    100%{opacity:1;transform:scale(1) rotate(0);}
+  }
+  @keyframes wiggle-left { 0%,100%{transform:rotate(-3deg);} 50%{transform:rotate(-1deg);} }
+  @keyframes pulse-shadow {
+    0%,100% { box-shadow: 4px 4px 0 var(--ink); }
+    50% { box-shadow: 6px 6px 0 var(--ink); }
+  }
+  @keyframes tally-grow {
+    0% { width: 0%; }
+    100% { width: var(--pct); }
+  }
+
+  /* CHASSIS — same kernel */
+  .chassis { --stroke: var(--ink); --surface: var(--ink); --on-surface: #fff; }
+  .screen {
+    width: 100%; height: 100%;
+    overflow-y: auto; overflow-x: hidden; position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+  .chassis.screen {
+    color: var(--ink);
+    background: var(--bg);
+    font-family: "DM Sans", sans-serif;
+    padding-bottom: 40px;
+  }
+  .status-bar { height: 50px; }
+
+  /* theme palettes */
+  .dark-voting {
+    --bg: #141416; --ink: #f4ede0;
+    --accent: #ff5b3a; --accent2: #5cdfd1;
+    --sticker-bg: #ffd84d;
+    --stroke: #0a0a0c; --surface: #2a2a2e; --on-surface: #f4ede0;
+  }
+  .light-locked {
+    --bg: #f5efe4; --ink: #1a1410;
+    --accent: #e8491f; --accent2: #2d7a5f;
+    --sticker-bg: #ffd84d;
+  }
+
+  /* HEADER (minimal — we're focused on the lodging card) */
+  .chassis .header { padding: 14px 18px 8px; }
+  .chassis .wordmark {
+    font-family: "Shrikhand", serif;
+    font-size: 22px; color: var(--accent);
+    transform: rotate(-3deg); display: inline-block;
+    animation: wiggle-left 5s ease-in-out infinite;
+    margin-bottom: 8px;
+  }
+  .chassis .trip-name {
+    font-family: "Shrikhand", serif;
+    font-size: 26px; line-height: 0.95;
+    color: var(--ink); margin: 0 0 4px;
+  }
+  .chassis .trip-sub {
+    font-family: "Caveat", cursive;
+    font-size: 16px; color: var(--ink); opacity: 0.75;
+    margin-bottom: 14px;
+  }
+
+  /* SECTION HEADER — leads into the lodging card */
+  .chassis .sec-head {
+    padding: 6px 18px 10px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .chassis .sec-head h4 {
+    font-family: "Shrikhand", serif;
+    font-size: 22px; margin: 0; color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .chassis .sec-head .sec-caption {
+    font-family: "Caveat", cursive;
+    font-size: 15px; color: var(--ink); opacity: 0.7;
+  }
+
+  /* LODGING CARD — the voting container */
+  .chassis .lodging {
+    margin: 4px 18px 18px;
+    border: 3px solid var(--ink);
+    border-radius: 20px;
+    background: var(--bg);
+    box-shadow: 4px 4px 0 var(--ink);
+    overflow: hidden;
+    animation: slide-up-bounce 0.7s 0.2s both;
+  }
+  .chassis .lodging.pending {
+    animation: slide-up-bounce 0.7s 0.2s both, pulse-shadow 3s ease-in-out infinite 1.2s;
+  }
+  .chassis .lodging-head {
+    padding: 12px 16px;
+    border-bottom: 2px dashed var(--ink);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+  }
+  .chassis .lodging-head .lh-title {
+    font-family: "Caveat", cursive;
+    font-size: 19px; color: var(--ink);
+  }
+  .chassis .lodging-head .lh-status {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink); background: var(--sticker-bg);
+    padding: 4px 10px; border-radius: 100px;
+    border: 2px solid var(--ink);
+  }
+  .chassis .lodging-head .lh-status.locked {
+    background: var(--accent2);
+  }
+
+  /* OPTION — each lodging choice */
+  .chassis .option {
+    padding: 0 0 14px;
+    border-bottom: 2px dashed var(--ink);
+    position: relative;
+  }
+  .chassis .option:last-child { border-bottom: none; }
+
+  /* SMART-LINK IMAGE — pulled from the Airbnb/vrbo URL */
+  .chassis .opt-img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: var(--surface);
+    border-bottom: 2px solid var(--ink);
+    position: relative;
+    overflow: hidden;
+  }
+  .chassis .opt-img::after {
+    /* placeholder gradient stand-in for the real smart-link image */
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.25) 100%),
+      radial-gradient(circle at 30% 40%, var(--accent2) 0%, transparent 55%),
+      linear-gradient(160deg, var(--accent) 0%, var(--surface) 70%);
+  }
+  .chassis .opt-img .src-pill {
+    position: absolute;
+    bottom: 8px; left: 8px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 3px 8px;
+    border-radius: 100px;
+    z-index: 2;
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .chassis .opt-img .src-pill::after {
+    content: "↗";
+    font-size: 11px;
+    opacity: 0.9;
+  }
+  .chassis .opt-img .tap-hint {
+    position: absolute;
+    bottom: 8px; right: 8px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    font-family: "Caveat", cursive;
+    font-size: 14px;
+    padding: 2px 10px;
+    border-radius: 100px;
+    z-index: 2;
+    backdrop-filter: blur(4px);
+  }
+  .chassis .opt-img .img-label {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: "Caveat", cursive;
+    font-size: 18px;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    z-index: 2;
+    opacity: 0.85;
+  }
+  .chassis .opt-body {
+    padding: 12px 16px 0;
+  }
+  .chassis .opt-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: 8px;
+  }
+  .chassis .opt-name {
+    font-family: "DM Sans", sans-serif;
+    font-weight: 800; font-size: 15px;
+    color: var(--ink); flex: 1;
+  }
+  .chassis .opt-meta {
+    font-size: 11px; color: var(--ink); opacity: 0.65;
+    margin-top: 2px; font-weight: 500;
+  }
+  .chassis .opt-price {
+    font-family: "DM Sans", sans-serif;
+    font-weight: 700; font-size: 13px;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  /* TALLY BAR — lowercase, soft, not a chart */
+  .chassis .tally {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 6px;
+  }
+  .chassis .tally-bar {
+    flex: 1; height: 8px;
+    background: var(--ink); opacity: 0.12;
+    border-radius: 100px;
+    position: relative;
+    overflow: hidden;
+  }
+  .chassis .tally-bar::after {
+    content: "";
+    position: absolute; inset: 0;
+    width: var(--pct); height: 100%;
+    background: var(--accent);
+    border-radius: 100px;
+    opacity: 1;
+    animation: tally-grow 1.2s ease-out 0.6s both;
+  }
+  .chassis .tally-count {
+    font-family: "Caveat", cursive;
+    font-size: 16px; color: var(--ink);
+    white-space: nowrap; opacity: 0.85;
+  }
+
+  /* VOTERS — tiny avatars under the tally */
+  .chassis .voters {
+    display: flex; align-items: center; margin-top: 8px;
+  }
+  .chassis .voters .av {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid var(--ink);
+    margin-right: -6px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 9px; color: var(--ink);
+  }
+  .chassis .voters .you-vote {
+    font-family: "Caveat", cursive;
+    font-size: 15px; color: var(--accent);
+    margin-left: 10px;
+  }
+
+  /* VOTE CTA — per option */
+  .chassis .vote-btn {
+    margin-top: 10px;
+    width: 100%;
+    padding: 9px 14px;
+    background: var(--bg);
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    font-family: "DM Sans", sans-serif;
+    font-weight: 800; font-size: 12px;
+    color: var(--ink);
+    text-transform: lowercase;
+    text-align: left;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer;
+  }
+  .chassis .vote-btn.voted {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--ink);
+  }
+
+  /* LOCKED STATE — winner + losers */
+  .chassis .option.winner { background: transparent; }
+  .chassis .option.winner .opt-name::before {
+    content: "🗝️ ";
+  }
+  .chassis .option.winner .lock-stamp {
+    position: absolute;
+    top: 10px; right: 14px;
+    font-family: "Caveat", cursive;
+    font-weight: 700;
+    font-size: 14px; color: var(--accent2);
+    transform: rotate(-6deg);
+    background: var(--bg);
+    border: 2px solid var(--accent2);
+    border-radius: 100px;
+    padding: 2px 10px;
+    animation: pop-in 0.5s 0.9s both;
+  }
+  .chassis .option.loser {
+    opacity: 0.42;
+  }
+  .chassis .option.loser .opt-name,
+  .chassis .option.loser .opt-price,
+  .chassis .option.loser .opt-meta {
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+  }
+  .chassis .option.loser .tally-bar::after {
+    background: var(--ink);
+    opacity: 0.35;
+  }
+  .chassis .option.loser .vote-btn { display: none; }
+  .chassis .option.loser .opt-img {
+    filter: grayscale(0.85) brightness(0.7);
+  }
+  .chassis .option.loser .opt-img::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.25);
+    z-index: 1;
+  }
+
+  /* POST-LOCK INFO ROW */
+  .chassis .lock-meta {
+    padding: 10px 16px;
+    background: var(--surface);
+    color: var(--on-surface);
+    font-family: "Caveat", cursive;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+  }
+  .chassis .lock-meta .by {
+    font-size: 14px;
+    opacity: 0.85;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <div class="kicker">phase 8 · lodging voting · g11</div>
+      <h1>which one are we doing?</h1>
+      <p>
+        The biggest product gap in the live app → our designs. Lodging is the one line item where voting matters,
+        because lodging is the thing the crew actually argues about. Left: the voting-open state (pre-lock). Right:
+        the winner-locked state (post-lock). Losers stay visible, crossed out, so everyone can see what was on the
+        table. Everything else in the trip page is unchanged — this spec only defines the lodging card.
+      </p>
+
+      <div class="callout">
+        <h3>Smart-link images (critical)</h3>
+        <p>Each option pulls its hero image via the existing smart-link system. The image is the single biggest UX
+        lever on the voting card — people vote with their eyes. The placeholder gradient in these specs stands in
+        for the real Airbnb / Vrbo / Booking image pulled at link-paste time.</p>
+        <p><strong>Rules:</strong></p>
+        <ul>
+          <li>16:9 aspect ratio, full-bleed top of the option card, hard 2px border below (chassis stroke).</li>
+          <li>Source-domain pill bottom-left of the image (e.g. "airbnb.com", "vrbo.com"). Tiny trust signal.</li>
+          <li>If the smart-link fetch fails, fall back to a generic colored chassis panel with a Caveat label of the domain. Never show a broken-image icon.</li>
+          <li>Loser state: grayscale + 0.7 brightness + a 0.25 black overlay. The image is still readable — just clearly past-tense.</li>
+          <li>Winner state: image stays full-color, full brightness. The 🗝️ lock-stamp overlay sits in the body, not on the image.</li>
+          <li><strong>The image IS the link.</strong> Tap anywhere on the image → opens the original listing URL in the system browser (new tab). Visible affordances on the image: source-domain pill with ↗ arrow (bottom-left), "see it →" Caveat pill (bottom-right). Both are decorative — the entire image is the hit target. No in-app browser for v0.</li>
+          <li>The option title is also tappable and routes to the same URL. Price and meta are not.</li>
+        </ul>
+      </div>
+
+      <div class="callout">
+        <h3>Mechanic</h3>
+        <p><strong>Who can add options:</strong> organizer only (v0). Future: allow any crew to suggest.</p>
+        <p><strong>Who can vote:</strong> any crew member who has RSVP'd "i'm in" or "hold my seat". Out = no vote.</p>
+        <p><strong>One vote per person.</strong> Changing vote moves it; no multi-select.</p>
+        <p><strong>Resolution:</strong> organizer taps "lock it in" on any option. Winner gets 🗝️ + lock stamp, losers cross out but stay visible.</p>
+        <p><strong>After lock:</strong> card becomes read-only. Losing options are archived-in-place, not deleted, so the story of the decision is visible.</p>
+        <p><strong>Min options to enter voting mode:</strong> 2. A single lodging item is just a regular line item, no vote UI.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+
+      <!-- ============================================================
+           PHONE 1 — VOTING OPEN
+           ============================================================ -->
+      <div class="theme">
+        <div class="theme-label">
+          <div class="tag">state A · voting open</div>
+          <h2>pre-lock · dark mode</h2>
+          <p>3 lodging options, votes in progress, "you" hasn't voted yet.</p>
+        </div>
+        <div class="phone">
+          <div class="chassis screen dark-voting">
+            <div class="status-bar"></div>
+
+            <div class="header">
+              <div class="wordmark">rally</div>
+              <div class="trip-name">park city '26</div>
+              <div class="trip-sub">feb 14–17 · 8 going</div>
+            </div>
+
+            <div class="sec-head">
+              <h4>where we sleep</h4>
+              <div class="sec-caption">the crew decides</div>
+            </div>
+
+            <div class="lodging pending">
+              <div class="lodging-head">
+                <div class="lh-title">pick the spot</div>
+                <div class="lh-status">voting · closes tue</div>
+              </div>
+
+              <!-- OPTION 1 — leading -->
+              <div class="option">
+                <div class="opt-img">
+                  <span class="img-label">[smart link · airbnb image]</span>
+                  <span class="src-pill">airbnb.com</span>
+                  <span class="tap-hint">see it →</span>
+                </div>
+                <div class="opt-body">
+                  <div class="opt-row">
+                    <div>
+                      <div class="opt-name">the A-frame on Empire</div>
+                      <div class="opt-meta">4 br · hot tub · ski-in</div>
+                    </div>
+                    <div class="opt-price">$284/night</div>
+                  </div>
+                  <div class="tally" style="--pct: 62%;">
+                    <div class="tally-bar" style="--pct: 62%;"></div>
+                    <div class="tally-count">5 votes</div>
+                  </div>
+                  <div class="voters">
+                    <div class="av" style="background:#ff5b3a;">AM</div>
+                    <div class="av" style="background:#5cdfd1;">JL</div>
+                    <div class="av" style="background:#ffd84d;">RK</div>
+                    <div class="av" style="background:#c4a3ff;">DS</div>
+                    <div class="av" style="background:#9effa1;">TN</div>
+                  </div>
+                  <button class="vote-btn">i want this one 🗳️</button>
+                </div>
+              </div>
+
+              <!-- OPTION 2 -->
+              <div class="option">
+                <div class="opt-img">
+                  <span class="img-label">[smart link · airbnb image]</span>
+                  <span class="src-pill">airbnb.com</span>
+                  <span class="tap-hint">see it →</span>
+                </div>
+                <div class="opt-body">
+                  <div class="opt-row">
+                    <div>
+                      <div class="opt-name">Prospector loft</div>
+                      <div class="opt-meta">3 br · walk to main · sauna</div>
+                    </div>
+                    <div class="opt-price">$212/night</div>
+                  </div>
+                  <div class="tally" style="--pct: 25%;">
+                    <div class="tally-bar" style="--pct: 25%;"></div>
+                    <div class="tally-count">2 votes</div>
+                  </div>
+                  <div class="voters">
+                    <div class="av" style="background:#ff9bcb;">MR</div>
+                    <div class="av" style="background:#ffd84d;">EL</div>
+                  </div>
+                  <button class="vote-btn">i want this one 🗳️</button>
+                </div>
+              </div>
+
+              <!-- OPTION 3 -->
+              <div class="option">
+                <div class="opt-img">
+                  <span class="img-label">[smart link · vrbo image]</span>
+                  <span class="src-pill">vrbo.com</span>
+                  <span class="tap-hint">see it →</span>
+                </div>
+                <div class="opt-body">
+                  <div class="opt-row">
+                    <div>
+                      <div class="opt-name">Deer Valley chalet</div>
+                      <div class="opt-meta">5 br · splurge · fireplace</div>
+                    </div>
+                    <div class="opt-price">$410/night</div>
+                  </div>
+                  <div class="tally" style="--pct: 13%;">
+                    <div class="tally-bar" style="--pct: 13%;"></div>
+                    <div class="tally-count">1 vote</div>
+                  </div>
+                  <div class="voters">
+                    <div class="av" style="background:#5cdfd1;">BK</div>
+                  </div>
+                  <button class="vote-btn">i want this one 🗳️</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           PHONE 2 — LOCKED
+           ============================================================ -->
+      <div class="theme">
+        <div class="theme-label">
+          <div class="tag">state B · winner locked</div>
+          <h2>post-lock · light mode</h2>
+          <p>organizer locked the A-frame. losers stay visible, crossed out.</p>
+        </div>
+        <div class="phone">
+          <div class="chassis screen light-locked">
+            <div class="status-bar"></div>
+
+            <div class="header">
+              <div class="wordmark">rally</div>
+              <div class="trip-name">park city '26</div>
+              <div class="trip-sub">feb 14–17 · 8 going</div>
+            </div>
+
+            <div class="sec-head">
+              <h4>where we sleep</h4>
+              <div class="sec-caption">locked it in</div>
+            </div>
+
+            <div class="lodging">
+              <div class="lodging-head">
+                <div class="lh-title">it's the A-frame</div>
+                <div class="lh-status locked">locked 🗝️</div>
+              </div>
+
+              <!-- WINNER -->
+              <div class="option winner">
+                <div class="opt-img">
+                  <span class="img-label">[smart link · airbnb image]</span>
+                  <span class="src-pill">airbnb.com</span>
+                  <span class="tap-hint">see it →</span>
+                </div>
+                <div class="opt-body">
+                  <div class="lock-stamp">the one ✦</div>
+                  <div class="opt-row">
+                    <div>
+                      <div class="opt-name">the A-frame on Empire</div>
+                      <div class="opt-meta">4 br · hot tub · ski-in</div>
+                    </div>
+                    <div class="opt-price">$284/night</div>
+                  </div>
+                  <div class="tally" style="--pct: 62%;">
+                    <div class="tally-bar" style="--pct: 62%;"></div>
+                    <div class="tally-count">5 votes · winner</div>
+                  </div>
+                  <div class="voters">
+                    <div class="av" style="background:#e8491f;color:#fff;">AM</div>
+                    <div class="av" style="background:#2d7a5f;color:#fff;">JL</div>
+                    <div class="av" style="background:#ffd84d;">RK</div>
+                    <div class="av" style="background:#c4a3ff;">DS</div>
+                    <div class="av" style="background:#9effa1;">TN</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- LOSER 1 -->
+              <div class="option loser">
+                <div class="opt-img">
+                  <span class="img-label">[smart link · airbnb image]</span>
+                  <span class="src-pill">airbnb.com</span>
+                  <span class="tap-hint">see it →</span>
+                </div>
+                <div class="opt-body">
+                  <div class="opt-row">
+                    <div>
+                      <div class="opt-name">Prospector loft</div>
+                      <div class="opt-meta">3 br · walk to main · sauna</div>
+                    </div>
+                    <div class="opt-price">$212/night</div>
+                  </div>
+                  <div class="tally" style="--pct: 25%;">
+                    <div class="tally-bar" style="--pct: 25%;"></div>
+                    <div class="tally-count">2 votes</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- LOSER 2 -->
+              <div class="option loser">
+                <div class="opt-img">
+                  <span class="img-label">[smart link · vrbo image]</span>
+                  <span class="src-pill">vrbo.com</span>
+                  <span class="tap-hint">see it →</span>
+                </div>
+                <div class="opt-body">
+                  <div class="opt-row">
+                    <div>
+                      <div class="opt-name">Deer Valley chalet</div>
+                      <div class="opt-meta">5 br · splurge · fireplace</div>
+                    </div>
+                    <div class="opt-price">$410/night</div>
+                  </div>
+                  <div class="tally" style="--pct: 13%;">
+                    <div class="tally-bar" style="--pct: 13%;"></div>
+                    <div class="tally-count">1 vote</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="lock-meta">
+                <span>amelia called it 🗝️</span>
+                <span class="by">2h ago</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout" style="max-width: 1040px;">
+      <h3>claude code handoff notes</h3>
+      <p><strong>Data model:</strong> lodging line item has an <code>options</code> array (0, 1, or 2+). If 0–1, render as a normal line item. If 2+, render as voting card.</p>
+      <p><strong>Vote state:</strong> <code>{ option_id: voter_ids[] }</code>. One vote per user across the whole card (not per option).</p>
+      <p><strong>Lock state:</strong> <code>locked_option_id</code> + <code>locked_by</code> + <code>locked_at</code>. Presence of <code>locked_option_id</code> switches the card to read-only.</p>
+      <p><strong>Tally bar percent:</strong> option's votes ÷ total votes cast (not ÷ total crew). A close race shows 50/50, not 50/25 when half the crew hasn't voted.</p>
+      <p><strong>Who can lock:</strong> organizer only. Button lives inline on each option, only visible to organizer, surfaces on tap of the option.</p>
+      <p><strong>Edge case — no votes:</strong> organizer can still lock any option. Tally bars render as 0%.</p>
+      <p><strong>Edge case — tie:</strong> no auto-resolution. Organizer picks. Ties don't need a special UI.</p>
+      <p><strong>Nudge hook:</strong> if voting has been open for &gt;72h and &lt;50% of crew has voted, nudge fires: "3 people still haven't weighed in on where we sleep".</p>
+    </div>
+
+    <div class="callout" style="max-width: 1040px;">
+      <h3>lexicon strings (new §5.20)</h3>
+      <ul>
+        <li><code>lodging.vote.section_head</code> → "where we sleep"</li>
+        <li><code>lodging.vote.caption.open</code> → "the crew decides"</li>
+        <li><code>lodging.vote.caption.locked</code> → "locked it in"</li>
+        <li><code>lodging.vote.title.open</code> → "pick the spot"</li>
+        <li><code>lodging.vote.title.locked</code> → "it's the {winner_name}"</li>
+        <li><code>lodging.vote.status.open</code> → "voting · closes {day}"</li>
+        <li><code>lodging.vote.status.locked</code> → "locked 🗝️"</li>
+        <li><code>lodging.vote.cta.unvoted</code> → "i want this one 🗳️"</li>
+        <li><code>lodging.vote.cta.voted</code> → "your pick ✓"</li>
+        <li><code>lodging.vote.count</code> → "{n} votes" / "1 vote"</li>
+        <li><code>lodging.vote.winner_caption</code> → "{n} votes · winner"</li>
+        <li><code>lodging.vote.winner_stamp</code> → "the one ✦"</li>
+        <li><code>lodging.vote.lock_meta</code> → "{organizer} called it 🗝️"</li>
+        <li><code>lodging.vote.organizer_lock_cta</code> → "lock it in 🗝️"</li>
+        <li><code>lodging.vote.nudge</code> → "{n} people still haven't weighed in on where we sleep"</li>
+      </ul>
+    </div>
+
+  </div>
+</body>
+</html>

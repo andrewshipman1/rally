@@ -3,11 +3,11 @@ export function SectionLabel({ icon, text }: { icon: string; text: string }) {
     <div
       style={{
         fontSize: 11,
-        color: 'var(--rally-accent)',
+        color: 'var(--ink)',
         fontWeight: 700,
         textTransform: 'uppercase',
         letterSpacing: 1.8,
-        fontFamily: 'var(--rally-font-body)',
+        fontFamily: 'var(--font-body, DM Sans, sans-serif)',
         marginBottom: 14,
         display: 'flex',
         alignItems: 'center',
