@@ -167,27 +167,15 @@ export function SketchTripShell({
         organizerId={organizerId}
       />
 
-      {/* Phase 6 — entry point to the theme picker. Reuses the page
-          header key from the picker lexicon to stay inside the
-          single-source-of-truth for picker copy. */}
-      <div style={{ padding: '14px 18px 0', textAlign: 'center' }}>
+      {/* Phase 6 — entry point to the theme picker. Solid accent CTA
+          so the organizer can't miss it on the sketch page. */}
+      <div style={{ padding: '20px 18px 0', textAlign: 'center' }}>
         <button
           type="button"
           onClick={() => setPickerOpen(true)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--ink)',
-            fontSize: 12,
-            fontWeight: 700,
-            textDecoration: 'underline',
-            textUnderlineOffset: 3,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            opacity: 0.75,
-          }}
+          className="pick-vibe-btn"
         >
-          {themePicker.pageHeader as string}
+          🎨 {themePicker.pageHeader as string}
         </button>
       </div>
 

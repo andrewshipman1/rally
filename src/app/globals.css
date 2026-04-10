@@ -1429,6 +1429,33 @@ button:active {
   cursor: not-allowed;
 }
 
+/* ───── Pick the vibe CTA ───── */
+.chassis .pick-vibe-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 3px solid var(--stroke);
+  border-radius: 100px;
+  padding: 14px 28px;
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--ink);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.chassis .pick-vibe-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+.chassis .pick-vibe-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
 /* ───── crew subsurface (§5.25) ─────
    Read-only expanded guest list grouped by RSVP state. Lives at
    /trip/<slug>/crew. Scoped under .chassis so theme vars cascade. */
