@@ -16,7 +16,8 @@ export const auth: Record<string, Templated> = {
   // ─── Sent state ────────────────────────────────────────────────
   'sent.h1':                 'check your inbox',
   'sent.sub':                'we just sent the door.',
-  'sent.resend':             "didn't get it? send another",
+  'sent.resendLabel':         "didn't get it?",
+  'sent.resendButton':        'send another',
   'sent.cooldown':           ({ n }: ThemeVars) => `hang on — ${n ?? 30}s`,
   'sent.toast':              'sent again.',
 

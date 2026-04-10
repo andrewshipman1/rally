@@ -397,7 +397,6 @@ button:active {
   font-family: var(--font-body), 'DM Sans', sans-serif;
   font-weight: 700;
   font-size: 11px;
-  text-transform: uppercase;
   letter-spacing: 0.18em;
 }
 .chassis .marquee-track span {

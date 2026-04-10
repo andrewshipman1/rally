@@ -20,7 +20,7 @@ export const metadata = {
 };
 
 const SCOREBOARD_PHASES: { key: string; phases: RallyPhase[]; hot?: boolean }[] = [
-  { key: 'cooking', phases: ['sketch', 'sell'], hot: true },
+  { key: 'cooking', phases: ['sketch', 'sell'] },
   { key: 'lock',    phases: ['lock'] },
   { key: 'go',      phases: ['go'] },
 ];
@@ -168,7 +168,7 @@ function TripCard({ card, index }: { card: DashboardCard; index: number }) {
             {getCopy(defaultTheme, 'dashboard.cardCountdown', { n: daysUntil })}
           </span>
           <span className="dash-stamp-sub">
-            {getCopy(defaultTheme, 'dashboard.cardCountdownLabel', { n: daysUntil })}
+            {getCopy(defaultTheme, phase === 'sell' ? 'dashboard.cardCountdownLabelSell' : 'dashboard.cardCountdownLabel', { n: daysUntil })}
           </span>
         </div>
       ) : phase === 'lock' ? (
@@ -182,28 +182,31 @@ function TripCard({ card, index }: { card: DashboardCard; index: number }) {
 
       <div className="dash-card-name">{trip.name || destination || getCopy(defaultTheme, 'dashboard.cardDestTbd')}</div>
       <div className="dash-card-meta">
-        {destination || getCopy(defaultTheme, 'dashboard.cardDestTbd')}
-        {' · '}
+        {trip.name ? (destination || getCopy(defaultTheme, 'dashboard.cardDestTbd')) : null}
+        {trip.name ? ' · ' : null}
         {dateLabel || getCopy(defaultTheme, 'dashboard.cardDateTbd')}
         {' · '}
         {getCopy(defaultTheme, 'dashboard.cardMembers', { n: memberCount })}
       </div>
 
       {/* Rally meter for sell-state cards */}
-      {phase === 'sell' && trip.group_size > 0 && (
-        <div className="dash-meter">
-          <div className="dash-meter-bar">
-            <div
-              className="dash-meter-fill"
-              style={{ width: `${Math.min(100, (inCount / trip.group_size) * 100)}%` }}
-            />
+      {phase === 'sell' && (trip.group_size > 0 || memberCount > 0) && (() => {
+        const target = trip.group_size > 0 ? trip.group_size : memberCount;
+        return (
+          <div className="dash-meter">
+            <div className="dash-meter-bar">
+              <div
+                className="dash-meter-fill"
+                style={{ width: `${Math.min(100, (inCount / target) * 100)}%` }}
+              />
+            </div>
+            <div className="dash-meter-label">
+              <span>{getCopy(defaultTheme, 'dashboard.rallyMeterLabel')}</span>
+              <span>{getCopy(defaultTheme, 'dashboard.rallyMeterCount', { n: inCount, target })}</span>
+            </div>
           </div>
-          <div className="dash-meter-label">
-            <span>{getCopy(defaultTheme, 'dashboard.rallyMeterLabel')}</span>
-            <span>{getCopy(defaultTheme, 'dashboard.rallyMeterCount', { n: inCount, target: trip.group_size })}</span>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Bottom: avatars + action */}
       <div className="dash-card-bottom">

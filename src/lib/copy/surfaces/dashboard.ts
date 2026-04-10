@@ -26,7 +26,8 @@ export const dashboard: Record<string, Templated> = {
   'cardDestTbd':          'destination tbd',
   'cardMembers':          ({ n }: ThemeVars) => `${n ?? '?'} ${Number(n) === 1 ? 'person' : 'people'}`,
   'cardCountdown':        ({ n }: ThemeVars) => `${n ?? '?'}`,
-  'cardCountdownLabel':   ({ n }: ThemeVars) => `day${Number(n) === 1 ? '' : 's'} out`,
+  'cardCountdownLabel':   ({ n }: ThemeVars) => `day${Number(n) === 1 ? '' : 's'}`,
+  'cardCountdownLabelSell': 'to lock',
   'cardCountdownLocked':  'locked',
 
   // ─── Card actions ───────────────────────────────────────────────

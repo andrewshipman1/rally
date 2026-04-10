@@ -124,14 +124,14 @@ export function AuthSurface({ state: initialState, tripSlug }: Props) {
               <span>{getCopy(T, 'auth.sent.cooldown', { n: cooldown })}</span>
             ) : (
               <>
-                <span>{getCopy(T, 'auth.sent.resend')} </span>
+                <span>{getCopy(T, 'auth.sent.resendLabel')} </span>
                 <button
                   type="button"
                   className="auth-link"
                   disabled={loading}
                   onClick={() => void send(email)}
                 >
-                  {getCopy(T, 'auth.sent.resend')}
+                  {getCopy(T, 'auth.sent.resendButton')}
                 </button>
               </>
             )}
