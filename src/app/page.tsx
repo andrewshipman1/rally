@@ -53,7 +53,7 @@ export default async function HomePage() {
       {/* Header */}
       <div className="dash-header">
         <div className="dash-wordmark">
-          rally<span className="bang">!</span>
+          {'rally'}<span className="bang">{'!'}</span>
         </div>
         <SignOutButton />
       </div>
@@ -159,8 +159,8 @@ function TripCard({ card, index }: { card: DashboardCard; index: number }) {
       {/* Countdown stamp */}
       {phase === 'sketch' ? (
         <div className="dash-stamp dash-stamp--sketch">
-          <span className="dash-stamp-num">?</span>
-          <span className="dash-stamp-sub">soon</span>
+          <span className="dash-stamp-num">{'?'}</span>
+          <span className="dash-stamp-sub">{'soon'}</span>
         </div>
       ) : daysUntil !== null && daysUntil >= 0 ? (
         <div className="dash-stamp">

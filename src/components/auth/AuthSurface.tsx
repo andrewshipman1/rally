@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from 'react';
 import { getCopy } from '@/lib/copy/get-copy';
-import { globalCopy } from '@/lib/copy.global';
+
 import './auth-surface.css';
 
 type State = 'landing' | 'sent' | 'expired' | 'invalid';
@@ -174,7 +174,7 @@ export function AuthSurface({ state: initialState, tripSlug }: Props) {
         </>
       )}
 
-      <div className="auth-footer">made with rally<span className="auth-bang">!</span></div>
+      <div className="auth-footer">{'made with rally'}<span className="auth-bang">{'!'}</span></div>
     </div>
   );
 }
