@@ -19,7 +19,11 @@ export const metadata = {
   title: 'rally — where to next?',
 };
 
-const ACTIVE_PHASES: RallyPhase[] = ['sketch', 'sell', 'lock', 'go'];
+const SCOREBOARD_PHASES: { key: string; phases: RallyPhase[]; hot?: boolean }[] = [
+  { key: 'cooking', phases: ['sketch', 'sell'], hot: true },
+  { key: 'lock',    phases: ['lock'] },
+  { key: 'go',      phases: ['go'] },
+];
 const PHASE_ACTION: Record<RallyPhase, string> = {
   sketch: 'dashboard.actionKeepBuilding',
   sell: 'dashboard.actionTapIn',
@@ -62,18 +66,20 @@ export default async function HomePage() {
 
       {/* Scoreboard */}
       <div className="dash-scoreboard">
-        {ACTIVE_PHASES.map((phase) =>
-          phaseCounts[phase] > 0 ? (
-            <span key={phase} className={`dash-chip${phase === 'sell' ? ' hot' : ''}`}>
-              <strong>{phaseCounts[phase]}</strong>
-              {getCopy(defaultTheme, `dashboard.score${phase.charAt(0).toUpperCase() + phase.slice(1)}`)}
+        {SCOREBOARD_PHASES.map(({ key, phases, hot }) => {
+          const count = phases.reduce((sum, p) => sum + (phaseCounts[p] ?? 0), 0);
+          if (count === 0) return null;
+          return (
+            <span key={key} className={`dash-chip${hot ? ' hot' : ''}`}>
+              {getCopy(defaultTheme, `dashboard.score${key.charAt(0).toUpperCase() + key.slice(1)}`)}
+              {' '}<strong>{count}</strong>
             </span>
-          ) : null,
-        )}
+          );
+        })}
         {phaseCounts.done > 0 && (
           <span className="dash-chip">
-            <strong>{phaseCounts.done}</strong>
             {getCopy(defaultTheme, 'dashboard.scoreDone')}
+            {' '}<strong>{phaseCounts.done}</strong>
           </span>
         )}
       </div>
@@ -151,7 +157,12 @@ function TripCard({ card, index }: { card: DashboardCard; index: number }) {
       style={{ animationDelay: `${0.08 * index}s` }}
     >
       {/* Countdown stamp */}
-      {daysUntil !== null && daysUntil >= 0 && (
+      {phase === 'sketch' ? (
+        <div className="dash-stamp dash-stamp--sketch">
+          <span className="dash-stamp-num">?</span>
+          <span className="dash-stamp-sub">soon</span>
+        </div>
+      ) : daysUntil !== null && daysUntil >= 0 ? (
         <div className="dash-stamp">
           <span className="dash-stamp-num">
             {getCopy(defaultTheme, 'dashboard.cardCountdown', { n: daysUntil })}
@@ -160,17 +171,16 @@ function TripCard({ card, index }: { card: DashboardCard; index: number }) {
             {getCopy(defaultTheme, 'dashboard.cardCountdownLabel', { n: daysUntil })}
           </span>
         </div>
-      )}
-      {phase === 'lock' && (
+      ) : phase === 'lock' ? (
         <div className="dash-stamp">
           <span className="dash-stamp-num">{'🔒'}</span>
           <span className="dash-stamp-sub">
             {getCopy(defaultTheme, 'dashboard.cardCountdownLocked')}
           </span>
         </div>
-      )}
+      ) : null}
 
-      <div className="dash-card-name">{trip.name}</div>
+      <div className="dash-card-name">{trip.name || destination || getCopy(defaultTheme, 'dashboard.cardDestTbd')}</div>
       <div className="dash-card-meta">
         {destination || getCopy(defaultTheme, 'dashboard.cardDestTbd')}
         {' · '}

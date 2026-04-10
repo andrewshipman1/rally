@@ -12,8 +12,7 @@ export const dashboard: Record<string, Templated> = {
   'liveRowClear':         'all caught up ✨',
 
   // ─── Scoreboard ─────────────────────────────────────────────────
-  'scoreSketch':          'drafts',
-  'scoreSell':            'cooking',
+  'scoreCooking':         'cooking',
   'scoreLock':            'locked',
   'scoreGo':              'live',
   'scoreDone':            'done',
@@ -25,7 +24,7 @@ export const dashboard: Record<string, Templated> = {
   // ─── Card content ───────────────────────────────────────────────
   'cardDateTbd':          'dates tbd',
   'cardDestTbd':          'destination tbd',
-  'cardMembers':          ({ n }: ThemeVars) => `${n ?? '?'} people`,
+  'cardMembers':          ({ n }: ThemeVars) => `${n ?? '?'} ${Number(n) === 1 ? 'person' : 'people'}`,
   'cardCountdown':        ({ n }: ThemeVars) => `${n ?? '?'}`,
   'cardCountdownLabel':   ({ n }: ThemeVars) => `day${Number(n) === 1 ? '' : 's'} out`,
   'cardCountdownLocked':  'locked',
