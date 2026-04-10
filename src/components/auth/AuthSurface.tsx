@@ -174,7 +174,7 @@ export function AuthSurface({ state: initialState, tripSlug }: Props) {
         </>
       )}
 
-      <div className="auth-footer">{globalCopy.footer.madeWith}</div>
+      <div className="auth-footer">made with rally<span className="auth-bang">!</span></div>
     </div>
   );
 }

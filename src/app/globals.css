@@ -1854,6 +1854,9 @@ button:active {
   color: #1a1a1a;
   line-height: 1;
 }
+.bang {
+  color: var(--bang-light, #ff2e7e);
+}
 .dash-greeting {
   font-family: var(--font-hand), 'Caveat', cursive;
   font-size: 20px;

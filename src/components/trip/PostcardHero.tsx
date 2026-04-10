@@ -147,7 +147,7 @@ export function PostcardHero({
             <span className="label">{inviteeOverrides.inviterRowText}</span>
           </div>
         )}
-        <div className="wordmark">{getCopy(themeId, 'common.wordmark')}</div>
+        <div className="wordmark">rally<span className="bang">!</span></div>
         <div className="eyebrow">{`★ ${eyebrow}`}</div>
         {isSketch ? (
           sketchOverrides.renderBody

@@ -52,7 +52,7 @@ export default async function PassportPage() {
   return (
     <div className="chassis passport-surface">
       <div className="passport-wordmark">
-        {getCopy(defaultTheme, 'dashboard.pageTitle')}
+        rally<span className="bang">!</span>
       </div>
 
       {/* Profile head */}

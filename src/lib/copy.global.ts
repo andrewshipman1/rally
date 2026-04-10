@@ -12,7 +12,7 @@
 
 export const globalCopy = {
   footer: {
-    madeWith: 'made with rally',
+    madeWith: 'made with rally!',
   },
   shareLink: {
     copy: 'copy the invite link ↗',

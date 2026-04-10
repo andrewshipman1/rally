@@ -49,7 +49,7 @@ export default async function HomePage() {
       {/* Header */}
       <div className="dash-header">
         <div className="dash-wordmark">
-          {getCopy(defaultTheme, 'dashboard.pageTitle')}
+          rally<span className="bang">!</span>
         </div>
         <SignOutButton />
       </div>

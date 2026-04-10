@@ -8,7 +8,7 @@ export const common: Record<string, Templated> = {
 
   // Footer — global default. Trip pages use the poetic variant from
   // tripPageShared.footer.poetic instead.
-  'footer.madeWith':'made with rally',
+  'footer.madeWith':'made with rally!',
 
   // Live indicator
   'live':           'trip is live',

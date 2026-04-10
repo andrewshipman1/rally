@@ -31,5 +31,5 @@ export const inviteeState: Record<string, Templated> = {
   'shareLinkCopyAction':  'copy the invite link ↗',
 
   // ─── Footer ─────────────────────────────────────────────────────
-  'footer':               'made with rally',
+  'footer':               'made with rally!',
 };

@@ -3,7 +3,7 @@ import type { Templated, ThemeVars } from '@/lib/themes/types';
 
 export const dashboard: Record<string, Templated> = {
   // ─── Page chrome ────────────────────────────────────────────────
-  'pageTitle':            'rally',
+  'pageTitle':            'rally!',
   'greeting':             ({ name }: ThemeVars) => `hey ${name ?? 'there'} 👋`,
   'pageH1':               'where to next? ✈️',
 

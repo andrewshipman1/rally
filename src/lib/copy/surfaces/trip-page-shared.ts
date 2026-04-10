@@ -56,7 +56,7 @@ export const tripPageShared: Record<string, Templated> = {
 
   // Footer
   'footer.madeWith':     'Made with',
-  'footer.brand':        'Rally',
+  'footer.brand':        'Rally!',
   'footer.ctaCreate':    'Plan your own trip \u2192',
 
   // OrganizerCard
