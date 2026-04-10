@@ -3,7 +3,7 @@
 /* ════════════════════════════════════════════════════════════════════════
  * RALLY CHASSIS KERNEL
  * ────────────────────────────────────────────────────────────────────────
- * The 8 chassis vars below are the entire theme contract. Every theme
+ * The 9 chassis vars below are the entire theme contract. Every theme
  * (17 of them, one per [data-theme="<id>"] block in the THEME OVERRIDES
  * section) overrides this set. The defaults here are the just-because
  * theme — the picker fallback when no theme is chosen.
@@ -35,6 +35,7 @@
   --stroke:      #1a1a1a;
   --surface:     #1a1a1a;
   --on-surface:  #fafafa;
+  --on-accent:   #fff;
 
   /* ─── Global (non-theme) tokens ─── */
   /* Wordmark "bang" color — locked per brand brief */
@@ -71,6 +72,7 @@
   --stroke:     #1a0a12;
   --surface:    #2a1018;
   --on-surface: #fde9ed;
+  --on-accent:  #fff;
 }
 
 /* 02 · Boys Trip — DARK */
@@ -83,6 +85,7 @@
   --stroke:     #f0e8d8;
   --surface:    #1a1a1e;
   --on-surface: #f0e8d8;
+  --on-accent:  #fff;
 }
 
 /* 03 · Birthday Trip */
@@ -95,6 +98,7 @@
   --stroke:     #2a1a0f;
   --surface:    #3a1f24;
   --on-surface: #fff5e1;
+  --on-accent:  #fff;
 }
 
 /* 04 · Couples Trip */
@@ -107,6 +111,7 @@
   --stroke:     #3a1f24;
   --surface:    #2a1418;
   --on-surface: #fde6d4;
+  --on-accent:  #fff;
 }
 
 /* 05 · Wellness Retreat */
@@ -119,6 +124,7 @@
   --stroke:     #1a3329;
   --surface:    #1a2a22;
   --on-surface: #eaeee4;
+  --on-accent:  #fff;
 }
 
 /* 06 · Reunion Weekend */
@@ -131,6 +137,7 @@
   --stroke:     #2a1f18;
   --surface:    #1a1410;
   --on-surface: #f4ede0;
+  --on-accent:  #fff;
 }
 
 /* 07 · Festival Run — DARK */
@@ -143,6 +150,7 @@
   --stroke:     #f4e6ff;
   --surface:    #2a1540;
   --on-surface: #f4e6ff;
+  --on-accent:  #fff;
 }
 
 /* 08 · Beach Trip */
@@ -155,6 +163,7 @@
   --stroke:     #0a2a3a;
   --surface:    #0a3a4a;
   --on-surface: #e6f6f4;
+  --on-accent:  #fff;
 }
 
 /* 09 · Ski Chalet */
@@ -167,6 +176,7 @@
   --stroke:     #1a1f1a;
   --surface:    #1a2018;
   --on-surface: #f1ebd9;
+  --on-accent:  #fff;
 }
 
 /* 10 · Euro Summer */
@@ -179,6 +189,7 @@
   --stroke:     #2a1a0f;
   --surface:    #1a140a;
   --on-surface: #f5e9d3;
+  --on-accent:  #fff;
 }
 
 /* 11 · City Weekend — DARK */
@@ -191,6 +202,7 @@
   --stroke:     #f4ede0;
   --surface:    #2a2a2e;
   --on-surface: #f4ede0;
+  --on-accent:  #fff;
 }
 
 /* 12 · Wine Country */
@@ -203,6 +215,7 @@
   --stroke:     #3e1f3a;
   --surface:    #2a1420;
   --on-surface: #f4ede0;
+  --on-accent:  #fff;
 }
 
 /* 13 · Lake Weekend */
@@ -215,6 +228,7 @@
   --stroke:     #0e2a3e;
   --surface:    #0a1a24;
   --on-surface: #dfeef0;
+  --on-accent:  #fff;
 }
 
 /* 14 · Desert Trip */
@@ -227,6 +241,7 @@
   --stroke:     #3a1f10;
   --surface:    #2a1508;
   --on-surface: #f4e4cf;
+  --on-accent:  #fff;
 }
 
 /* 15 · Camping Trip */
@@ -239,6 +254,7 @@
   --stroke:     #1a2418;
   --surface:    #1a1a10;
   --on-surface: #e8e4d4;
+  --on-accent:  #fff;
 }
 
 /* 16 · Tropical */
@@ -251,6 +267,7 @@
   --stroke:     #0a2a1f;
   --surface:    #0a2418;
   --on-surface: #e4f4e8;
+  --on-accent:  #fff;
 }
 
 /* 17 · Just Because — already in :root, but exposing the data-theme block
@@ -264,6 +281,7 @@
   --stroke:     #1a1a1a;
   --surface:    #1a1a1a;
   --on-surface: #fafafa;
+  --on-accent:  #fff;
 }
 
 /* Just-because optional dark variant — only theme that ships paletteDark in
@@ -642,7 +660,7 @@ button:active {
 .chassis .sticky button {
   flex: 1;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: 3px solid var(--stroke);
   height: 52px;
   border-radius: 100px;
@@ -805,7 +823,7 @@ button:active {
 }
 .chassis .sticky-chip.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--stroke);
 }
 .chassis .sticky-chip:hover:not(:disabled) {
@@ -846,7 +864,7 @@ button:active {
 }
 .chassis .locked-header .locked-pill {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: 2px solid var(--stroke);
   border-radius: 100px;
   padding: 3px 12px;
@@ -923,7 +941,7 @@ button:active {
 .chassis .sticky .see-plan {
   flex: 1;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: 3px solid var(--stroke);
   height: 52px;
   border-radius: 100px;
@@ -1001,7 +1019,7 @@ button:active {
 }
 .chassis .invitee-confirm .invitee-confirm-actions button.primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--stroke);
 }
 
@@ -1389,7 +1407,7 @@ button:active {
 .chassis .sticky .send {
   flex: 1;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: 3px solid var(--stroke, var(--ink));
   height: 52px;
   border-radius: 100px;
