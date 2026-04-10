@@ -8,14 +8,14 @@ import type { Templated, ThemeVars } from '@/lib/themes/types';
 export const auth: Record<string, Templated> = {
   // ─── Landing state ─────────────────────────────────────────────
   'landing.h1':              'rally!',
-  'landing.sub':             'the group trip planner for people who actually go',
+  'landing.sub':             'how friend groups get to "let\'s go"',
   'landing.emailPlaceholder':'your email',
-  'landing.sendButton':      'send me a link',
+  'landing.sendButton':      'let me in',
   'landing.loading':         'sending…',
 
   // ─── Sent state ────────────────────────────────────────────────
-  'sent.h1':                 'check your email',
-  'sent.sub':                ({ email }: ThemeVars) => `we sent a link to ${email ?? 'you'}. tap it to let yourself in.`,
+  'sent.h1':                 'check your inbox',
+  'sent.sub':                'we just sent the door.',
   'sent.resend':             "didn't get it? send another",
   'sent.cooldown':           ({ n }: ThemeVars) => `hang on — ${n ?? 30}s`,
   'sent.toast':              'sent again.',
