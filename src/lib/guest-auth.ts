@@ -83,6 +83,12 @@ export async function clearGuestCookie(): Promise<void> {
  * safe to call from middleware, route handlers, or server components.
  */
 export async function refreshGuestCookie(): Promise<void> {
-  const userId = await getGuestUserId();
-  if (userId) await setGuestCookie(userId);
+  try {
+    const userId = await getGuestUserId();
+    if (userId) await setGuestCookie(userId);
+  } catch {
+    // Called from a Server Component — cookie writes are only allowed in
+    // Server Actions and Route Handlers. Safe to ignore; the cookie will
+    // be refreshed on the next eligible request.
+  }
 }
