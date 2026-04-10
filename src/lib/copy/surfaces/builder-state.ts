@@ -48,6 +48,21 @@ export const builderState: Record<string, Templated> = {
   'shareLinkCopyAction':   'copy the invite link ↗',
   'shareLinkCopiedToast':  'link copied. drop it in the chat.',
 
+  // ─── Invite modal ──────────────────────────────────────────────
+  'inviteModalTitle':      'add to the crew',
+  'inviteTabShare':        'share link',
+  'inviteTabEmail':        'send invite',
+  'inviteCopyButton':      'copy',
+  'inviteCopiedToast':     'copied!',
+  'inviteShareButton':     'share ↗',
+  'inviteEmailPlaceholder':'their email',
+  'inviteNamePlaceholder': 'their name (optional)',
+  'inviteSendButton':      'send invite 📩',
+  'inviteSending':         'sending…',
+  'inviteSentToast':       'invite sent!',
+  'inviteAlreadyInvited':  'already on the crew',
+  'inviteError':           'something went wrong. try again?',
+
   // ─── Footer ─────────────────────────────────────────────────────
   'footer':                'made with rally',
 

@@ -162,6 +162,7 @@ export function SketchTripShell({
 
       <SketchCrewField
         themeId={activeThemeId}
+        tripId={tripId}
         slug={slug}
         members={members}
         organizerId={organizerId}
@@ -180,6 +181,36 @@ export function SketchTripShell({
       </div>
 
       <PoeticFooter themeId={activeThemeId} />
+
+      {/* Dev bypass: skip sketch→sell gate for QA */}
+      {process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEV_BYPASS === '1' ? (
+        <div style={{ padding: '12px 18px', textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={async () => {
+              const res = await fetch(`/api/trips/${tripId}/phase`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phase: 'sell' }),
+              });
+              if (res.ok) router.refresh();
+            }}
+            style={{
+              background: '#333',
+              color: '#ff0',
+              border: '2px dashed #ff0',
+              borderRadius: 8,
+              padding: '8px 16px',
+              fontSize: 11,
+              fontFamily: 'monospace',
+              cursor: 'pointer',
+              opacity: 0.7,
+            }}
+          >
+            🔧 DEV: skip to sell phase
+          </button>
+        </div>
+      ) : null}
 
       <div style={{ height: 90 }} />
 
