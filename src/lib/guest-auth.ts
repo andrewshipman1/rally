@@ -52,14 +52,19 @@ export function verifyGuestToken(token: string): { userId: string } | null {
 }
 
 export async function setGuestCookie(userId: string): Promise<void> {
-  const store = await cookies();
-  store.set(COOKIE_NAME, signGuestToken(userId), {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: MAX_AGE,
-  });
+  try {
+    const store = await cookies();
+    store.set(COOKIE_NAME, signGuestToken(userId), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: MAX_AGE,
+    });
+  } catch {
+    // Called from a Server Component — cookie writes are only allowed in
+    // Server Actions / Route Handlers. Safe to ignore here.
+  }
 }
 
 export async function getGuestUserId(): Promise<string | null> {
@@ -71,8 +76,12 @@ export async function getGuestUserId(): Promise<string | null> {
 }
 
 export async function clearGuestCookie(): Promise<void> {
-  const store = await cookies();
-  store.delete(COOKIE_NAME);
+  try {
+    const store = await cookies();
+    store.delete(COOKIE_NAME);
+  } catch {
+    // Called from a Server Component — safe to ignore.
+  }
 }
 
 /**
