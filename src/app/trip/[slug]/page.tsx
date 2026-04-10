@@ -11,6 +11,7 @@ import { getTrip } from './_data';
 import type { RallyRsvp } from '@/lib/rally-types';
 import { chassisThemeIdFromTemplate } from '@/lib/themes/from-db';
 import { getTheme } from '@/lib/themes';
+import type { ThemeId } from '@/lib/themes/types';
 import { getCopy } from '@/lib/copy/get-copy';
 
 // New chassis components
