@@ -84,7 +84,9 @@ export default async function BuzzPage({ params }: Props) {
         {/* Compose bar — disabled placeholder for 3B, wired in 3C */}
         <div className="buzz-compose">
           <div className="av buzz-compose-av" style={{ background: 'var(--sticker-bg)' }}>
-            {currentUser?.user_metadata?.display_name?.[0]?.toUpperCase() ?? '?'}
+            {(trip.members || []).find((m) => m.user_id === currentUserId)?.user?.display_name?.[0]?.toUpperCase()
+              ?? currentUser?.user_metadata?.display_name?.[0]?.toUpperCase()
+              ?? '?'}
           </div>
           <div className="buzz-compose-input">
             {getCopy(themeId, 'buzz.composePlaceholder.default')}

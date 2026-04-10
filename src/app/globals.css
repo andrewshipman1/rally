@@ -1478,12 +1478,11 @@ button:active {
   font-family: var(--font-body), 'DM Sans', sans-serif;
   font-size: 13px;
   font-weight: 600;
-  color: var(--ink);
   padding: 6px 12px;
   border: 2.5px solid var(--ink);
   border-radius: 999px;
-  background: var(--surface);
-  color: var(--on-surface);
+  background: var(--ink);
+  color: var(--bg);
   box-shadow: 3px 3px 0 var(--ink);
 }
 .chassis .crew-tally strong {
