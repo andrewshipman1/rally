@@ -305,3 +305,86 @@ f8c63c6 Fix 008 migration: drop column default before enum type swap
 **Modified (8):** `src/lib/copy/surfaces/lock-flow.ts`, `src/lib/copy/surfaces/extras.ts`, `src/lib/copy/surfaces/builder-state.ts`, `src/components/trip/ExtrasSections.tsx`, `src/components/trip/LodgingGallery.tsx`, `src/components/editor/EditorToolbar.tsx`, `src/app/trip/[slug]/page.tsx`, `src/app/globals.css`
 
 **Build status:** `tsc --noEmit` clean, `eslint` 0 errors (6 emoji-literal warnings, pre-existing pattern).
+
+---
+
+### 3D — Sweep + Motion + A11y + Deploy · `e2dfdf3`..`ae57438`
+
+Final polish pass. Shipped v0 to production.
+
+#### Section 1 — Dead-code sweep (2 commits, 17 files, 5,235 LOC removed)
+
+Deleted in one batched commit + one follow-up:
+- 7 pre-chassis trip components replaced by Session 1 equivalents: `GuestList`, `Countdown`, `StickyRsvpBar`, `CoverHeader`, `CollageAvatars`, `LodgingCarousel`, `ActivityFeed`.
+- Legacy `/edit/[id]` route and its entire dependency chain: `TripEditor`, `EditorToolbar`, `ComponentList`, `TripExtras`, `InviteSection`, `CoverPhotoUploader`, `PlacesInput`, `AirportInput`.
+- Dead `AuthFlow.tsx` (replaced by `AuthSurface` in Session 1).
+- `TripForm.tsx` kept alive (used by `/create`).
+- `ExtrasSections.tsx` kept alive (3C wired server actions into it, did NOT replace it).
+
+#### Section 2 — Lint cleanup (35 files, 176 → 0)
+
+- Extracted 66 `react/jsx-no-literals` strings into copy surface files via `getCopy()`.
+- Threaded `themeId` prop to 12 trip components that needed it for copy resolution.
+- Fixed `Confetti.tsx`: hoisted `Math.random()` to module-level pre-computed array (7 purity errors).
+- Removed unused `tripId` var in `RsvpSection`, unused eslint-disable in `get-copy.ts`.
+- Suppressed `@next/next/no-page-custom-font` in `auth/setup` and `create` (moving to `next/font` is v0.1).
+- Final: `tsc --noEmit` 0 errors, `eslint` 0 errors, 0 warnings.
+
+#### Section 3 — Motion pass (7 files)
+
+- **`Reveal.tsx`** — added `prefers-reduced-motion: reduce` check (skip observer, show immediately).
+- **Trip page** — wrapped 9 card sections in `<Reveal>` with 50ms staggered delays.
+- **Crew page** — wrapped summary + state sections in `<Reveal direction="left">`.
+- **`ChassisCountdown.tsx`** — auto-detect final day (`n <= 1`), add `countdown-pulse` class with 2s scale animation.
+- **`StickyRsvpBarChassis.tsx`** — trigger `<Confetti>` for 4s on successful RSVP.
+- **`DatePoll.tsx`** — 200ms `poll-select` scale animation on option toggle.
+- **`globals.css`** — new `countdown-pulse` / `poll-select` keyframes; extended `prefers-reduced-motion` block to cover avatars, sticky chips, final-day pulse, entrance animations.
+
+#### Section 4 — A11y sweep (12 files)
+
+- **Focus states** — chassis-wide `:focus-visible` outline ring using `--accent`.
+- **aria-labels** — `DatePoll` (option buttons), `AddToCalendarButton`, `LodgingGallery` (vote/lock buttons + descriptive alt text), `ExtrasSections` (collapsible headers + icon buttons), `LockedPlan` (`role="alert"` + `aria-live` on sign-in overlay).
+- **Keyboard nav** — `ThemePickerSheet` gets `role="listbox"` + arrow-key navigation; `ThemePickerTile` gets `role="option"` + `aria-selected`.
+- **Contrast fixes** — 4 themes failed WCAG AA large text (3:1) on bg/accent: `just-because`, `wellness-retreat`, `beach-trip`, `tropical`. Darkened accent colors in both theme `.ts` files and `[data-theme]` CSS blocks. All 17 themes now pass.
+
+#### Section 5 — Final QA pass
+
+Walked all 11 surfaces (auth, dashboard, passport, builder, invitee, theme picker, extras, lodging voting, crew, buzz, trip page) against their phase HTML specs. 11/11 structural pass. Visual QA deferred to CoWork for pixel-level comparison across all 17 themes + mobile viewports.
+
+#### Section 6 — Deploy
+
+- Created `.env.example` documenting all 6 required env vars.
+- Made Resend FROM address configurable via `RESEND_FROM_EMAIL` env var.
+- Created 3 Supabase auth email templates (magic-link, confirmation, recovery) in `supabase/email-templates/`.
+- Pushed to `main` → Vercel auto-deployed to `rally-gold.vercel.app`.
+- `RESEND_API_KEY` added to Vercel env vars. `RESEND_FROM_EMAIL` deferred until domain verified.
+
+#### Section 7 — Handoff docs
+
+- **`V0-RELEASE.md`** — what shipped (11 surfaces, 17 themes, auth, write workflows, motion, a11y), known issues, v0.1 deferrals, how to run/add themes/add strings, sources of truth.
+- **`DEPLOY.md`** — env vars, Supabase config (migrations, SMTP, PITR, auth settings), Resend setup, deploy sequence, smoke test checklist, rollback procedure, known gotchas.
+
+#### 3D commits
+
+```
+ae57438 Add v0 handoff docs: V0-RELEASE.md and DEPLOY.md
+485027e Deploy prep: env example, email templates, configurable FROM address
+c5e9f19 A11y sweep: focus states, aria labels, keyboard nav, contrast fixes
+427c9d4 Add motion pass: scroll reveals, countdown pulse, RSVP confetti, poll scale
+441891f Zero out lint warnings: extract strings to copy surfaces, fix purity errors
+8796a70 Remove dead AuthFlow component (missed in sweep)
+e2dfdf3 Remove dead code: legacy editor, pre-chassis trip components
+0858d0a Session 3C: Extras drawer, Lodging voting, Lock flow write-side
+```
+
+#### v0.1 deferrals (from this session)
+
+- Staging environment (no staging exists; deploy is direct to prod)
+- Email template redesign with Shrikhand wordmark (current templates are functional placeholders)
+- Supabase SMTP → Resend for magic links (currently uses Supabase default SMTP)
+- `RESEND_FROM_EMAIL` + verified sending domain
+- OG image generation for link previews
+- Move Google Fonts `<link>` tags to `next/font` in layout
+- GroupChat compose (buzz feed is read-only; compose UI is placeholder)
+- Full visual QA across all 17 themes + mobile viewports (CoWork task)
+- "1 people" → "1 person" pluralization fix in dashboard card copy
