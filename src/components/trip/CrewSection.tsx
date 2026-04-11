@@ -9,6 +9,7 @@ import type { RallyRsvp } from '@/lib/rally-types';
 import type { TripMember, User } from '@/types';
 import { Reveal } from '@/components/ui/Reveal';
 import { CrewInviteButton } from './CrewInviteButton';
+import { CrewAvatarTap } from './CrewAvatarTap';
 
 type MemberRow = TripMember & { user: User };
 
@@ -151,9 +152,17 @@ function CrewRow({
 
   return (
     <li className="crew-row">
-      <div className="av crew-row-av" style={{ background: 'var(--sticker-bg)' }}>
-        {initial}
-      </div>
+      {member.user ? (
+        <CrewAvatarTap user={member.user}>
+          <div className="av crew-row-av" style={{ background: 'var(--sticker-bg)' }}>
+            {initial}
+          </div>
+        </CrewAvatarTap>
+      ) : (
+        <div className="av crew-row-av" style={{ background: 'var(--sticker-bg)' }}>
+          {initial}
+        </div>
+      )}
       <div className="crew-row-body">
         <div className="crew-row-name">
           {name}

@@ -2,7 +2,6 @@
 // state with per-card theming via chassis_theme_id.
 //
 // Auth: Supabase user required (no guest cookie). Redirect to /auth.
-// Read-only for 3B — archive/unarchive deferred to 3C.
 
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -20,11 +19,6 @@ export const metadata = {
   title: 'rally — where to next?',
 };
 
-const SCOREBOARD_PHASES: { key: string; phases: RallyPhase[]; hot?: boolean }[] = [
-  { key: 'cooking', phases: ['sketch', 'sell'] },
-  { key: 'lock',    phases: ['lock'] },
-  { key: 'go',      phases: ['go'] },
-];
 const PHASE_ACTION: Record<RallyPhase, string> = {
   sketch: 'dashboard.actionKeepBuilding',
   sell: 'dashboard.actionTapIn',
@@ -43,21 +37,74 @@ export default async function HomePage() {
     redirect('/auth');
   }
 
-  const { cards, phaseCounts, userName } = await getDashboardData(user.id);
+  const { cards, phaseCounts, needsMoveCount, userName } = await getDashboardData(user.id);
 
   const defaultTheme: ThemeId = 'just-because';
   const activeCards = cards.filter((c) => c.phase !== 'done');
   const doneCards = cards.filter((c) => c.phase === 'done');
 
+  // Build marquee segments from active cards
+  const marqueeSegments: string[] = [];
+  for (const card of activeCards) {
+    if (card.needsMove) {
+      marqueeSegments.push(getCopy(defaultTheme, 'dashboard.marqueeYourMove', { name: card.trip.name || card.destination || 'a trip' }) as string);
+    } else if ((card.phase === 'sell' || card.phase === 'go') && card.daysUntil !== null) {
+      marqueeSegments.push(getCopy(defaultTheme, 'dashboard.marqueeDaysTo', { n: card.daysUntil, destination: card.destination || 'adventure' }) as string);
+    } else if (card.phase === 'lock') {
+      marqueeSegments.push(getCopy(defaultTheme, 'dashboard.marqueeLocked', { destination: card.destination || card.trip.name || 'trip' }) as string);
+    } else if (card.phase === 'sketch') {
+      marqueeSegments.push(getCopy(defaultTheme, 'dashboard.marqueeBrewing', { name: card.trip.name || 'something' }) as string);
+    }
+  }
+  // Add a generic hype segment if we have any trips
+  if (marqueeSegments.length > 0) {
+    marqueeSegments.push(getCopy(defaultTheme, 'dashboard.marqueeLive') as string);
+  }
+
+  // Scoreboard chip definitions
+  const cookingCount = phaseCounts.sketch + phaseCounts.sell - needsMoveCount;
+  const lockedCount = phaseCounts.lock + phaseCounts.go;
+
   return (
     <div className="chassis dash-surface">
+      {/* Marquee */}
+      {marqueeSegments.length > 0 && (
+        <div className="dash-marquee">
+          <div className="marquee">
+            <div className="marquee-track">
+              {[...marqueeSegments, ...marqueeSegments].map((text, i) => (
+                <span key={i}>{text}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="dash-header">
         <div className="dash-wordmark">
           {'rally'}<span className="bang">{'!'}</span>
         </div>
-        <SignOutButton />
+        <div className="dash-header-right">
+          <Link href="/passport" className="dash-passport-link" title="your passport">
+            <span className="dash-passport-av">{userName.charAt(0).toUpperCase()}</span>
+          </Link>
+          <SignOutButton />
+        </div>
       </div>
+
+      {/* Live-row */}
+      <div className="dash-live-row">
+        {needsMoveCount > 0 ? (
+          <>
+            <span className="dot" />
+            {getCopy(defaultTheme, 'dashboard.liveRowAction', { n: needsMoveCount })}
+          </>
+        ) : (
+          getCopy(defaultTheme, 'dashboard.liveRowClear')
+        )}
+      </div>
+
       <p className="dash-greeting">
         {getCopy(defaultTheme, 'dashboard.greeting', { name: userName })}
       </p>
@@ -67,16 +114,24 @@ export default async function HomePage() {
 
       {/* Scoreboard */}
       <div className="dash-scoreboard">
-        {SCOREBOARD_PHASES.map(({ key, phases, hot }) => {
-          const count = phases.reduce((sum, p) => sum + (phaseCounts[p] ?? 0), 0);
-          if (count === 0) return null;
-          return (
-            <span key={key} className={`dash-chip${hot ? ' hot' : ''}`}>
-              {getCopy(defaultTheme, `dashboard.score${key.charAt(0).toUpperCase() + key.slice(1)}`)}
-              {' '}<strong>{count}</strong>
-            </span>
-          );
-        })}
+        {needsMoveCount > 0 && (
+          <span className="dash-chip hot">
+            {getCopy(defaultTheme, 'dashboard.scoreYourMove')}
+            {' '}<strong>{needsMoveCount}</strong>
+          </span>
+        )}
+        {cookingCount > 0 && (
+          <span className="dash-chip">
+            {getCopy(defaultTheme, 'dashboard.scoreCooking')}
+            {' '}<strong>{cookingCount}</strong>
+          </span>
+        )}
+        {lockedCount > 0 && (
+          <span className="dash-chip">
+            {getCopy(defaultTheme, 'dashboard.scoreLock')}
+            {' '}<strong>{lockedCount}</strong>
+          </span>
+        )}
         {phaseCounts.done > 0 && (
           <span className="dash-chip">
             {getCopy(defaultTheme, 'dashboard.scoreDone')}
@@ -140,44 +195,39 @@ export default async function HomePage() {
 }
 
 function TripCard({ card, index }: { card: DashboardCard; index: number }) {
-  const { trip, phase, themeId, inCount, memberCount, daysUntil, destination, dateLabel } = card;
+  const { trip, phase, themeId, inCount, memberCount, daysUntil, destination, dateLabel, needsMove } = card;
   const defaultTheme: ThemeId = 'just-because';
-  const actionKey = PHASE_ACTION[phase];
+  const actionKey = needsMove ? 'dashboard.actionNudge' : PHASE_ACTION[phase];
   const slug = trip.share_slug;
-  const href = phase === 'sketch' ? `/trip/${slug}` : `/trip/${slug}`;
+  const href = `/trip/${slug}`;
   const members = trip.members || [];
   const displayMembers = members.slice(0, 5);
+
+  // Card classes
+  const cardClasses = [
+    'chassis',
+    'dash-card',
+    needsMove ? 'needs-move' : '',
+    phase === 'done' ? 'faded' : '',
+  ].filter(Boolean).join(' ');
+
+  // Stamp rendering
+  const stamp = getStamp(phase, daysUntil, needsMove, defaultTheme);
 
   return (
     <Link
       href={href}
-      className="chassis dash-card"
+      className={cardClasses}
       data-theme={themeId}
       style={{ animationDelay: `${0.08 * index}s` }}
     >
       {/* Countdown stamp */}
-      {phase === 'sketch' ? (
-        <div className="dash-stamp dash-stamp--sketch">
-          <span className="dash-stamp-num">{'?'}</span>
-          <span className="dash-stamp-sub">{'soon'}</span>
+      {stamp && (
+        <div className={`dash-stamp${stamp.cls ? ` ${stamp.cls}` : ''}`}>
+          <span className="dash-stamp-num">{stamp.num}</span>
+          <span className="dash-stamp-sub">{stamp.sub}</span>
         </div>
-      ) : daysUntil !== null && daysUntil >= 0 ? (
-        <div className="dash-stamp">
-          <span className="dash-stamp-num">
-            {getCopy(defaultTheme, 'dashboard.cardCountdown', { n: daysUntil })}
-          </span>
-          <span className="dash-stamp-sub">
-            {getCopy(defaultTheme, phase === 'sell' ? 'dashboard.cardCountdownLabelSell' : 'dashboard.cardCountdownLabel', { n: daysUntil })}
-          </span>
-        </div>
-      ) : phase === 'lock' ? (
-        <div className="dash-stamp">
-          <span className="dash-stamp-num">{'🔒'}</span>
-          <span className="dash-stamp-sub">
-            {getCopy(defaultTheme, 'dashboard.cardCountdownLocked')}
-          </span>
-        </div>
-      ) : null}
+      )}
 
       <div className="dash-card-name">{trip.name || destination || getCopy(defaultTheme, 'dashboard.cardDestTbd')}</div>
       <div className="dash-card-meta">
@@ -231,4 +281,39 @@ function TripCard({ card, index }: { card: DashboardCard; index: number }) {
       </div>
     </Link>
   );
+}
+
+function getStamp(
+  phase: RallyPhase,
+  daysUntil: number | null,
+  needsMove: boolean,
+  themeId: ThemeId,
+): { num: string; sub: string; cls?: string } | null {
+  switch (phase) {
+    case 'sketch':
+      return { num: '?', sub: 'soon', cls: 'dash-stamp--sketch' };
+    case 'sell':
+      if (needsMove) {
+        return {
+          num: daysUntil !== null && daysUntil >= 0 ? String(daysUntil) : '!',
+          sub: 'to lock!',
+          cls: 'urgent',
+        };
+      }
+      return daysUntil !== null && daysUntil >= 0
+        ? { num: String(daysUntil), sub: getCopy(themeId, 'dashboard.cardCountdownLabelSell') as string }
+        : null;
+    case 'lock':
+      return daysUntil !== null && daysUntil >= 0
+        ? { num: String(daysUntil), sub: getCopy(themeId, 'dashboard.cardCountdownLabel', { n: daysUntil }) as string, cls: 'locked-state' }
+        : { num: '🔒', sub: getCopy(themeId, 'dashboard.cardCountdownLocked') as string, cls: 'locked-state' };
+    case 'go':
+      return daysUntil !== null && daysUntil >= 0
+        ? { num: String(daysUntil), sub: getCopy(themeId, 'dashboard.cardCountdownLabel', { n: daysUntil }) as string }
+        : null;
+    case 'done':
+      return { num: '✓', sub: 'done', cls: 'done-state' };
+    default:
+      return null;
+  }
 }

@@ -2,6 +2,7 @@ import type { User } from '@/types';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { CrewAvatarTap } from './CrewAvatarTap';
 
 export function OrganizerCard({ organizer, tripName }: { organizer: User; tripName?: string }) {
   // Phones with `email:` prefix are placeholders for email-only users
@@ -16,19 +17,21 @@ export function OrganizerCard({ organizer, tripName }: { organizer: User; tripNa
   return (
     <GlassCard>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Avatar
-          initials={organizer.display_name.charAt(0).toUpperCase()}
-          color="#2d6b5a"
-          size={44}
-          border="2px solid rgba(255,255,255,.2)"
-          photoUrl={organizer.profile_photo_url}
-        />
+        <CrewAvatarTap user={organizer}>
+          <Avatar
+            initials={organizer.display_name.charAt(0).toUpperCase()}
+            color="#2d6b5a"
+            size={44}
+            border="2px solid rgba(255,255,255,.2)"
+            photoUrl={organizer.profile_photo_url}
+          />
+        </CrewAvatarTap>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>
               {organizer.display_name}
             </span>
-            <Badge text="Organizer" bg="rgba(45,107,90,.35)" color="#7ecdb8" />
+            <Badge text="started this" bg="rgba(45,107,90,.35)" color="#7ecdb8" />
           </div>
           {organizer.bio && (
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 1 }}>
@@ -53,7 +56,7 @@ export function OrganizerCard({ organizer, tripName }: { organizer: User; tripNa
               flexShrink: 0,
             }}
           >
-            {'\ud83d\udcac'}
+            {realPhone ? '💬' : '✉️'}
           </a>
         )}
       </div>

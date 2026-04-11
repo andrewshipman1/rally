@@ -7,7 +7,7 @@ import type { RallyPhase } from '@/lib/rally-types';
 import { chassisThemeIdFromTemplate } from '@/lib/themes/from-db';
 import type { ThemeId } from '@/lib/themes/types';
 import type { Trip, Theme, TripMember, User } from '@/types';
-import { differenceInDays } from 'date-fns';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -27,11 +27,14 @@ export interface DashboardCard {
   daysUntil: number | null;
   destination: string | null;
   dateLabel: string | null;
+  isOrganizer: boolean;
+  needsMove: boolean;
 }
 
 export interface DashboardData {
   cards: DashboardCard[];
   phaseCounts: Record<RallyPhase, number>;
+  needsMoveCount: number;
   userName: string;
 }
 
@@ -67,13 +70,17 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     return trip.members?.some((m) => m.user_id === userId);
   });
 
-  const allTrips = [
-    ...((orgTrips || []) as unknown as DashboardTrip[]),
-    ...(filteredMemberTrips as unknown as DashboardTrip[]),
-  ];
+  // Tag each trip with organizer status before merging
+  const orgTripList = ((orgTrips || []) as unknown as DashboardTrip[]).map(
+    (t) => ({ trip: t, isOrganizer: true })
+  );
+  const memberTripList = (filteredMemberTrips as unknown as DashboardTrip[]).map(
+    (t) => ({ trip: t, isOrganizer: false })
+  );
+  const allTrips = [...orgTripList, ...memberTripList];
 
   // Build cards with computed phase and theme
-  const cards: DashboardCard[] = allTrips.map((trip) => {
+  const cards: DashboardCard[] = allTrips.map(({ trip, isOrganizer }) => {
     const phase = computeRallyPhase(trip.phase, trip.date_end);
     const themeId = (trip.chassis_theme_id as ThemeId) || chassisThemeIdFromTemplate(trip.theme?.template_name);
     const members = trip.members || [];
@@ -81,8 +88,17 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     const holdingCount = members.filter((m) => m.rsvp === 'holding').length;
 
     let daysUntil: number | null = null;
-    if (trip.date_start && phase !== 'done' && phase !== 'sketch') {
-      daysUntil = differenceInDays(new Date(trip.date_start), new Date());
+    if (phase !== 'done' && phase !== 'sketch') {
+      // Sell phase: count to commit_deadline (lock cutoff).
+      // Lock/Go: count to date_start.
+      // Use Math.ceil to stay consistent with ChassisCountdown on the trip page.
+      const targetDate = phase === 'sell' && trip.commit_deadline
+        ? trip.commit_deadline
+        : trip.date_start;
+      if (targetDate) {
+        const diffMs = new Date(targetDate).getTime() - Date.now();
+        daysUntil = Math.max(0, Math.ceil(diffMs / 86_400_000));
+      }
     }
 
     let dateLabel: string | null = null;
@@ -92,6 +108,8 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
       dateLabel = `${months[start.getMonth()]} ${start.getDate()}–${end.getDate()}`;
     }
+
+    const needsMove = phase === 'sell' && holdingCount > 0 && isOrganizer;
 
     return {
       trip,
@@ -103,6 +121,8 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       daysUntil,
       destination: trip.destination,
       dateLabel,
+      isOrganizer,
+      needsMove,
     };
   });
 
@@ -114,9 +134,12 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     phaseCounts[card.phase]++;
   }
 
+  const needsMoveCount = cards.filter((c) => c.needsMove).length;
+
   return {
     cards,
     phaseCounts,
+    needsMoveCount,
     userName: profile?.display_name || 'there',
   };
 }

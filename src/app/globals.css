@@ -1099,6 +1099,10 @@ button:active {
   50%  { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
+@keyframes pulse-urgent {
+  0%, 100% { box-shadow: 3px 3px 0 var(--accent, #ff5b3a), 0 0 0 0 rgba(255,91,58,0.0); }
+  50%      { box-shadow: 4px 4px 0 var(--accent, #ff5b3a), 0 0 0 6px rgba(255,91,58,0.18); }
+}
 
 /* Reduced-motion: kill the always-on idle animations. Entrance + hover
    stay short enough to be tolerable; the constant wiggle/blink/pulse
@@ -1112,7 +1116,9 @@ button:active {
   .chassis .marquee-track,
   .chassis .avatars .av,
   .chassis .sticky-chip,
-  .chassis .countdown--final .cd-num {
+  .chassis .countdown--final .cd-num,
+  .chassis.dash-card.needs-move,
+  .dash-live-row .dot {
     animation: none !important;
   }
   .chassis .going,
@@ -2049,8 +2055,10 @@ button:active {
   min-height: 100dvh;
   background: #fafaf6;
   padding: 18px 18px 100px;
-  max-width: 600px;
+  max-width: min(600px, 100%);
   margin: 0 auto;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .dash-header {
@@ -2168,6 +2176,12 @@ button:active {
   color: var(--ink);
   transition: transform 0.12s ease;
   animation: slide-up-bounce 0.55s ease both;
+  min-height: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 .chassis.dash-card:hover {
   transform: translate(-1px, -1px);
@@ -2214,6 +2228,7 @@ button:active {
   color: var(--ink);
   margin: 0 0 4px;
   line-height: 1.1;
+  padding-right: 70px;
 }
 .chassis.dash-card .dash-card-meta {
   font-family: var(--font-body), 'DM Sans', sans-serif;
@@ -2325,6 +2340,95 @@ button:active {
   color: #1a1a1a;
   opacity: 0.6;
   margin: 0;
+}
+
+/* Needs-move card — pulsing accent halo */
+.chassis.dash-card.needs-move {
+  animation: slide-up-bounce 0.55s ease both, pulse-urgent 2.4s ease-in-out infinite 1.5s;
+}
+.chassis.dash-card.needs-move .dash-card-action {
+  background: var(--accent, #ff5b3a);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 2px solid var(--ink, #1a1a1a);
+  font-size: 14px;
+}
+.chassis.dash-card.needs-move .dash-meter-fill {
+  background: repeating-linear-gradient(45deg, var(--accent, #ff5b3a) 0 8px, #ff7a5a 8px 16px);
+}
+
+/* Faded card — archive style */
+.chassis.dash-card.faded {
+  opacity: 0.75;
+  box-shadow: 3px 3px 0 var(--ink, #1a1a1a);
+}
+
+/* Stamp variants */
+.chassis.dash-card .dash-stamp.urgent {
+  background: var(--accent, #ff5b3a);
+  color: #fff;
+  border-color: var(--ink, #1a1a1a);
+}
+.chassis.dash-card .dash-stamp.locked-state {
+  background: #c4ff7a;
+}
+.chassis.dash-card .dash-stamp.done-state {
+  background: transparent;
+  border-color: var(--ink, #1a1a1a);
+  color: var(--ink, #1a1a1a);
+  box-shadow: 2px 2px 0 var(--ink, #1a1a1a);
+}
+
+/* Dashboard marquee wrapper — bleeds to edges */
+.dash-marquee {
+  margin: 0 -18px 12px;
+}
+
+/* Dashboard live-row */
+.dash-live-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #1a1a1a;
+  opacity: 0.65;
+  margin-bottom: 6px;
+}
+.dash-live-row .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent, #ff5b3a);
+  animation: blink-dot 1.4s ease-in-out infinite;
+}
+
+/* Dashboard header — right side group */
+.dash-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash-passport-link {
+  text-decoration: none;
+}
+.dash-passport-av {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  color: #1a1a1a;
+  background: var(--sticker-bg, #ffd84d);
 }
 
 /* ───── passport (§5.15) ───── */
@@ -2603,7 +2707,7 @@ button:active {
   font-family: var(--font-display), 'Shrikhand', serif;
   font-size: 18px;
   color: var(--ink);
-  margin: 0 0 8px;
+  margin: 0 18px 8px;
 }
 .chassis .module-empty {
   color: var(--ink);
@@ -2673,4 +2777,130 @@ button:active {
 
 .chassis .buzz-inline {
   margin-top: 24px;
+}
+
+/* ─── Passport drawer (crew avatar tap) ──────────────────────────── */
+
+.passport-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(1px) brightness(0.85);
+  -webkit-backdrop-filter: blur(1px) brightness(0.85);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.passport-drawer-panel {
+  width: 100%;
+  max-width: 500px;
+  background: var(--bg, #fafaf6);
+  border-radius: 18px 18px 0 0;
+  border: 2.5px solid var(--ink, #1a1a1a);
+  border-bottom: none;
+  padding: 12px 24px 36px;
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.passport-drawer-panel--open {
+  transform: translateY(0);
+}
+
+.passport-drawer-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ink, #1a1a1a);
+  opacity: 0.2;
+  margin: 0 auto 20px;
+}
+
+.passport-drawer-avatar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.passport-drawer-photo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  border: 2.5px solid var(--ink, #1a1a1a);
+  box-shadow: 2px 2px 0 var(--ink, #1a1a1a);
+}
+.passport-drawer-initial {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--accent, #ff5b3a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 28px;
+  border: 2.5px solid var(--ink, #1a1a1a);
+  box-shadow: 2px 2px 0 var(--ink, #1a1a1a);
+}
+
+.passport-drawer-name {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 22px;
+  color: var(--ink, #1a1a1a);
+  text-align: center;
+  margin: 0 0 6px;
+  line-height: 1.1;
+}
+
+.passport-drawer-bio {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 17px;
+  color: var(--ink, #1a1a1a);
+  opacity: 0.7;
+  text-align: center;
+  margin: 0 0 16px;
+}
+
+.passport-drawer-socials {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.passport-drawer-social {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 2px solid var(--ink, #1a1a1a);
+  border-radius: 12px;
+  background: var(--surface, rgba(255,255,255,0.5));
+  text-decoration: none;
+  color: var(--ink, #1a1a1a);
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  transition: transform 0.12s ease;
+}
+.passport-drawer-social:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--ink, #1a1a1a);
+}
+.passport-drawer-social-icon {
+  font-size: 16px;
+}
+
+.passport-drawer-empty {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 17px;
+  color: var(--ink, #1a1a1a);
+  opacity: 0.45;
+  text-align: center;
+  margin: 8px 0 0;
+  font-style: italic;
 }

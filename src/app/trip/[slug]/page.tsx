@@ -43,6 +43,8 @@ import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
 import { AddToCalendarButton } from '@/components/trip/AddToCalendarButton';
 import { Reveal } from '@/components/ui/Reveal';
+import { PassportProvider } from '@/components/trip/PassportContext';
+import { CrewAvatarTap } from '@/components/trip/CrewAvatarTap';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -206,13 +208,17 @@ export default async function TripPage({ params }: Props) {
     typeof theme.strings.countdownSignature === 'string'
       ? theme.strings.countdownSignature
       : theme.strings.countdownSignature?.({});
-  const heroLabel =
-    themedSignature ?? getCopy(themeId, 'tripPageShared.countdown.label.signature');
+  // Sell phase: hero counts to lock deadline ("days to lock it in").
+  // Lock/Go: hero counts to trip start with themed signature ("days until liftoff").
+  const heroLabel = trip.phase === 'sell'
+    ? getCopy(themeId, 'tripPageShared.countdown.label.toLock') as string
+    : (themedSignature ?? getCopy(themeId, 'tripPageShared.countdown.label.signature'));
 
   // Fetch buzz feed for inline section
   const buzzDays = await getBuzzFeed(trip.id, currentUserId, themeId);
 
   return (
+    <PassportProvider>
     <div className="chassis" data-theme={themeId}>
       <PostcardHero
         themeId={themeId}
@@ -225,16 +231,19 @@ export default async function TripPage({ params }: Props) {
         isLive={trip.phase === 'go'}
       />
 
-      {/* Hero countdown — days until trip start */}
-      {tripStartIso && (
+      {/* Hero countdown — sell: days to lock deadline; lock/go: days until trip start */}
+      {trip.phase === 'sell' && cutoffIso && (
+        <ChassisCountdown target={cutoffIso} label={heroLabel} flag={fomoFlag} />
+      )}
+      {trip.phase !== 'sell' && tripStartIso && (
         <ChassisCountdown target={tripStartIso} label={heroLabel} flag={fomoFlag} />
       )}
 
-      {/* Secondary countdown — cutoff (only meaningful in sell phase) */}
-      {cutoffIso && trip.phase === 'sell' && (
+      {/* Secondary countdown — trip start teaser in sell phase */}
+      {trip.phase === 'sell' && tripStartIso && (
         <ChassisCountdown
-          target={cutoffIso}
-          label={getCopy(themeId, 'tripPageShared.countdown.label.toLock')}
+          target={tripStartIso}
+          label={themedSignature ?? (getCopy(themeId, 'tripPageShared.countdown.label.signature') as string)}
         />
       )}
 
@@ -283,7 +292,13 @@ export default async function TripPage({ params }: Props) {
         <div className="avatars">
           {goingMembers.slice(0, 6).map((m) => {
             const initial = (m.user?.display_name ?? '?').slice(0, 1).toUpperCase();
-            return (
+            return m.user ? (
+              <CrewAvatarTap key={m.id} user={m.user}>
+                <div className="av" style={{ background: 'var(--sticker-bg)' }}>
+                  {initial}
+                </div>
+              </CrewAvatarTap>
+            ) : (
               <div key={m.id} className="av" style={{ background: 'var(--sticker-bg)' }}>
                 {initial}
               </div>
@@ -477,5 +492,6 @@ export default async function TripPage({ params }: Props) {
         isOrganizer={isOrganizer}
       />
     </div>
+    </PassportProvider>
   );
 }

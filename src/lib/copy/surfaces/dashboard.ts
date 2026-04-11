@@ -12,6 +12,7 @@ export const dashboard: Record<string, Templated> = {
   'liveRowClear':         'all caught up ✨',
 
   // ─── Scoreboard ─────────────────────────────────────────────────
+  'scoreYourMove':        'your move',
   'scoreCooking':         'cooking',
   'scoreLock':            'locked',
   'scoreGo':              'live',
@@ -39,12 +40,19 @@ export const dashboard: Record<string, Templated> = {
 
   // ─── Rally meter ────────────────────────────────────────────────
   'rallyMeterLabel':      'rallied so far',
-  'rallyMeterCount':      ({ n, target }: ThemeVars) => `${n ?? '?'} / ${target ?? '?'}`,
+  'rallyMeterCount':      ({ n, target }: ThemeVars) => `${n ?? '?'} / ${target ?? '?'} ride or dies`,
 
   // ─── Empty state ────────────────────────────────────────────────
   'emptyEmoji':           '✈️',
   'emptyTitle':           'no trips yet',
   'emptySubtitle':        'start one and see where it goes',
+
+  // ─── Marquee ─────────────────────────────────────────────────────
+  'marqueeYourMove':      ({ name }: ThemeVars) => `your move on ${name ?? 'a trip'}`,
+  'marqueeDaysTo':        ({ n, destination }: ThemeVars) => `${n ?? '?'} days to ${destination ?? 'adventure'}`,
+  'marqueeLocked':        ({ destination }: ThemeVars) => `${destination ?? 'trip'} is locked`,
+  'marqueeLive':          "let's gooo",
+  'marqueeBrewing':       ({ name }: ThemeVars) => `${name ?? 'something'} is brewing`,
 
   // ─── CTA ────────────────────────────────────────────────────────
   'ctaCreate':            'start a trip 🔥',
