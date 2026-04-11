@@ -28,6 +28,8 @@ type Props = {
   /** Display name + email for new RSVPs (post-auth, this is set). */
   viewerName: string | null;
   viewerEmail: string | null;
+  /** When true, show "you started this" instead of RSVP buttons. */
+  isOrganizer?: boolean;
 };
 
 const STATES: { id: Exclude<RallyRsvp, 'pending'>; copyKey: string }[] = [
@@ -42,12 +44,23 @@ export function StickyRsvpBarChassis({
   current,
   viewerName,
   viewerEmail,
+  isOrganizer,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<RallyRsvp | null>(current);
   const [showConfetti, setShowConfetti] = useState(false);
+
+  if (isOrganizer) {
+    return (
+      <div className="sticky sticky--organizer">
+        <span className="sticky-organizer-text">
+          {'★ '}{getCopy(themeId, 'builderState.eyebrow')}
+        </span>
+      </div>
+    );
+  }
 
   const submit = async (state: Exclude<RallyRsvp, 'pending'>) => {
     setError(null);

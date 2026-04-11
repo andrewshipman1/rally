@@ -398,6 +398,7 @@ button:active {
   background: var(--bg);
   font-family: var(--font-body), 'DM Sans', sans-serif;
   position: relative;
+  min-height: 100dvh;
 }
 
 /* Marquee strip — always-on horizontal scroller, top of trip page. */
@@ -1025,7 +1026,7 @@ button:active {
 
 /* Poetic footer — only on the live trip page */
 .chassis .poetic-footer {
-  margin: 36px 18px 28px;
+  margin: 36px 18px 12px;
   text-align: center;
   font-family: var(--font-hand), 'Caveat', cursive;
   font-size: 17px;
@@ -2591,4 +2592,85 @@ button:active {
   padding: 14px;
   text-decoration: none;
   box-shadow: 3px 3px 0 rgba(0,0,0,0.15);
+}
+
+/* ─── Session 5: Module slots ────────────────────────────────────── */
+
+.chassis .module-slot {
+  margin-top: 24px;
+}
+.chassis .module-title {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 18px;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+.chassis .module-empty {
+  color: var(--ink);
+  opacity: 0.5;
+  font-size: 14px;
+  font-style: italic;
+  padding: 16px 0;
+  margin: 0;
+}
+
+/* ─── Session 5: Share link button ───────────────────────────────── */
+
+.chassis .share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  color: var(--on-surface);
+  border: 2px solid var(--stroke);
+  border-radius: 100px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.chassis .share-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* ─── Session 5: Organizer RSVP bar variant ──────────────────────── */
+
+.chassis .sticky--organizer {
+  justify-content: center;
+}
+.chassis .sticky-organizer-text {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 16px;
+  color: var(--ink);
+  opacity: 0.8;
+}
+
+/* ─── Session 5: Crew invite button ──────────────────────────────── */
+
+.chassis .crew-invite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 2px solid var(--stroke);
+  border-radius: 100px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ─── Session 5: Inline crew section ─────────────────────────────── */
+
+.chassis .crew-inline {
+  margin-top: 24px;
+}
+
+/* ─── Session 5: Inline buzz section ─────────────────────────────── */
+
+.chassis .buzz-inline {
+  margin-top: 24px;
 }

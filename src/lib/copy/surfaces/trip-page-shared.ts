@@ -18,6 +18,11 @@ export const tripPageShared: Record<string, Templated> = {
   'countdown.label.tbd':       'tbd',
   'countdown.label.toLock':    'days to lock it in',
 
+  // Module section titles
+  'flights.h2':          'flights',
+  'transport.h2':        'getting around',
+  'groceries.h2':        'groceries',
+
   // Lodging
   'lodging.h2':          'the spot',
   'lodging.carouselCta': 'scroll the listing',

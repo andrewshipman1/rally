@@ -14,6 +14,7 @@ import type { DashboardCard } from '@/lib/dashboard';
 import type { RallyPhase } from '@/lib/rally-types';
 import type { ThemeId } from '@/lib/themes/types';
 import { SignOutButton } from '@/components/dashboard/SignOutButton';
+import { CreateTripButton } from '@/components/dashboard/CreateTripButton';
 
 export const metadata = {
   title: 'rally — where to next?',
@@ -132,9 +133,7 @@ export default async function HomePage() {
 
       {/* Sticky CTA */}
       <div className="dash-sticky">
-        <Link href="/create">
-          {getCopy(defaultTheme, 'dashboard.ctaCreate')}
-        </Link>
+        <CreateTripButton />
       </div>
     </div>
   );

@@ -38,6 +38,7 @@ import { SketchCrewField } from './SketchCrewField';
 import { BuilderStickyBar } from './BuilderStickyBar';
 import { useDebouncedAutosave } from '@/lib/builder/useDebouncedAutosave';
 import { hasReadyName, hasReadyDate } from '@/lib/builder/ungate';
+import { transitionToSell } from '@/app/actions/transition-to-sell';
 
 type MemberLite = {
   id: string;
@@ -107,7 +108,7 @@ export function SketchTripShell({
 
   const { queue, flush } = useDebouncedAutosave(tripId, slug);
 
-  const ready = hasReadyName(name) && hasReadyDate(dateStart, initial.date_end) && crewReady;
+  const ready = hasReadyName(name) && hasReadyDate(dateStart, initial.date_end);
 
   // Scaffolding marquee is ` · `-delimited in the lexicon so each
   // segment lands in its own <span> the same way the live marquee does.
@@ -221,11 +222,13 @@ export function SketchTripShell({
         themeId={activeThemeId}
         ready={ready}
         onManualSave={() => void flush()}
-        onSendIt={() => {
-          // Phase 4: stub. Phase 5+ wires the sketch → sell phase
-          // transition here. For now, manual flush and let the
-          // organizer share the URL from their browser.
-          void flush();
+        onSendIt={async () => {
+          await flush();
+          const result = await transitionToSell(tripId, slug);
+          if (result.ok) {
+            window.scrollTo(0, 0);
+            router.refresh();
+          }
         }}
       />
 

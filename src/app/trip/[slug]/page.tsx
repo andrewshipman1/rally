@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { getGuestUserId, refreshGuestCookie } from '@/lib/guest-auth';
@@ -24,16 +23,20 @@ import { SketchTripShell } from '@/components/trip/builder/SketchTripShell';
 import { InviteeShell } from '@/components/trip/InviteeShell';
 import { hasNonOrganizerMember } from '@/lib/builder/ungate';
 
-// Carry-over typed component cards from v0. These get rebuilt against the
-// chassis in Session 2/3; for now they render inside the .chassis wrapper
-// so the page loads end-to-end. Their inline strings are flagged with
-// TODO(session-N) lint disables in Step 6.
+// Session 5: inline sections + module slots
+import { ModuleSlot } from '@/components/trip/ModuleSlot';
+import { CrewSection } from '@/components/trip/CrewSection';
+import { BuzzSection } from '@/components/trip/BuzzSection';
+import { ShareLinkButton } from '@/components/trip/ShareLinkButton';
+import { getBuzzFeed } from '@/lib/buzz';
+
+// Carry-over typed component cards from v0
 import { OrganizerCard } from '@/components/trip/OrganizerCard';
 import { Description } from '@/components/trip/Description';
 import { ExtrasSections } from '@/components/trip/ExtrasSections';
 import { FlightCard } from '@/components/trip/FlightCard';
 import { TransportCard } from '@/components/trip/TransportCard';
-import { RestaurantCard } from '@/components/trip/RestaurantCard';
+// RestaurantCard removed — not in v1 module order
 import { ActivityCard } from '@/components/trip/ActivityCard';
 import { GroceriesCard } from '@/components/trip/GroceriesCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
@@ -112,7 +115,7 @@ export default async function TripPage({ params }: Props) {
   const lodging = trip.lodging || [];
   const flights = trip.flights || [];
   const transport = trip.transport || [];
-  const restaurants = trip.restaurants || [];
+  // restaurants removed from v1 module order
   const activities = trip.activities || [];
   const groceries = trip.groceries || [];
   const members = trip.members || [];
@@ -120,6 +123,7 @@ export default async function TripPage({ params }: Props) {
   const polls = trip.polls || [];
 
   const cost = calculateTripCost(trip);
+  const isOrganizer = currentUserId === trip.organizer_id;
 
   const viewerMember = currentUserId
     ? members.find((m) => m.user_id === currentUserId)
@@ -205,6 +209,9 @@ export default async function TripPage({ params }: Props) {
   const heroLabel =
     themedSignature ?? getCopy(themeId, 'tripPageShared.countdown.label.signature');
 
+  // Fetch buzz feed for inline section
+  const buzzDays = await getBuzzFeed(trip.id, currentUserId, themeId);
+
   return (
     <div className="chassis" data-theme={themeId}>
       <PostcardHero
@@ -286,6 +293,13 @@ export default async function TripPage({ params }: Props) {
       </div>
 
       <div style={{ padding: '0 18px' }}>
+        {/* Share link — sell+ only */}
+        <Reveal delay={0}>
+          <div style={{ textAlign: 'center', marginTop: 12 }}>
+            <ShareLinkButton slug={slug} themeId={themeId} />
+          </div>
+        </Reveal>
+
         {/* Add-to-calendar — secondary action under going row */}
         <Reveal delay={0}>
           <div style={{ textAlign: 'center', marginTop: 12 }}>
@@ -309,54 +323,92 @@ export default async function TripPage({ params }: Props) {
         )}
       </div>
 
-      {/* Lodging gallery — chassis .house cards, voting wired in 3C */}
+      {/* ─── Module sections in correct order ─────────────────────── */}
+
+      {/* Lodging — "the spot" */}
       <Reveal delay={0}>
-        <LodgingGallery
-          themeId={themeId}
-          lodging={lodging}
-          currentUserId={currentUserId}
-          isOrganizer={currentUserId === trip.organizer_id}
-          slug={slug}
-          tripId={trip.id}
-          votingLocked={lodging.some((l) => l.is_selected)}
-        />
+        {lodging.length > 0 ? (
+          <LodgingGallery
+            themeId={themeId}
+            lodging={lodging}
+            currentUserId={currentUserId}
+            isOrganizer={isOrganizer}
+            slug={slug}
+            tripId={trip.id}
+            votingLocked={lodging.some((l) => l.is_selected)}
+          />
+        ) : (
+          <ModuleSlot
+            title={getCopy(themeId, 'tripPageShared.lodging.h2')}
+            emptyText={getCopy(themeId, 'emptyStates.lodging')}
+            hasContent={false}
+          />
+        )}
       </Reveal>
 
       <div style={{ padding: '0 18px' }}>
-        {/* Flights / Transport / Activities / Groceries / Restaurants — kept
-            as v0 typed components, rebuilt against chassis in Session 2/3.
-            They live inside .chassis so the surrounding context still works,
-            but their internals use legacy styles for now. */}
-        <Reveal delay={0.1}>
-          {flights.map((flight) => (
-            <div key={flight.id} style={{ marginTop: 12 }}>
-              <FlightCard flight={flight} themeId={themeId} />
-            </div>
-          ))}
-          {transport.map((t) => (
-            <div key={t.id} style={{ marginTop: 12 }}>
-              <TransportCard transport={t} memberCount={cost.confirmed_count} themeId={themeId} />
-            </div>
-          ))}
-          {activities.map((a) => (
-            <div key={a.id} style={{ marginTop: 12 }}>
-              <ActivityCard activity={a} themeId={themeId} />
-            </div>
-          ))}
-          {groceries.map((g) => (
-            <div key={g.id} style={{ marginTop: 12 }}>
-              <GroceriesCard grocery={g} />
-            </div>
-          ))}
-          {restaurants.map((r) => (
-            <div key={r.id} style={{ marginTop: 12 }}>
-              <RestaurantCard restaurant={r} />
-            </div>
-          ))}
+        {/* Flights */}
+        <Reveal delay={0.05}>
+          <ModuleSlot
+            title={getCopy(themeId, 'tripPageShared.flights.h2')}
+            emptyText={getCopy(themeId, 'emptyStates.flights')}
+            hasContent={flights.length > 0}
+          >
+            {flights.map((flight) => (
+              <div key={flight.id} style={{ marginTop: 12 }}>
+                <FlightCard flight={flight} themeId={themeId} />
+              </div>
+            ))}
+          </ModuleSlot>
         </Reveal>
 
-        {/* Cost breakdown — split-shared mode only for v0 */}
+        {/* Transport — "getting around" */}
+        <Reveal delay={0.1}>
+          <ModuleSlot
+            title={getCopy(themeId, 'tripPageShared.transport.h2')}
+            emptyText={getCopy(themeId, 'emptyStates.transport')}
+            hasContent={transport.length > 0}
+          >
+            {transport.map((t) => (
+              <div key={t.id} style={{ marginTop: 12 }}>
+                <TransportCard transport={t} memberCount={cost.confirmed_count} themeId={themeId} />
+              </div>
+            ))}
+          </ModuleSlot>
+        </Reveal>
+
+        {/* Activities — "what's happening" */}
         <Reveal delay={0.15}>
+          <ModuleSlot
+            title={getCopy(themeId, 'tripPageShared.activity.h2')}
+            emptyText={getCopy(themeId, 'emptyStates.activities')}
+            hasContent={activities.length > 0}
+          >
+            {activities.map((a) => (
+              <div key={a.id} style={{ marginTop: 12 }}>
+                <ActivityCard activity={a} themeId={themeId} />
+              </div>
+            ))}
+          </ModuleSlot>
+        </Reveal>
+
+        {/* Groceries */}
+        <Reveal delay={0.2}>
+          <ModuleSlot
+            title={getCopy(themeId, 'tripPageShared.groceries.h2')}
+            emptyText={getCopy(themeId, 'emptyStates.groceries')}
+            hasContent={groceries.length > 0}
+          >
+            {groceries.map((g) => (
+              <div key={g.id} style={{ marginTop: 12 }}>
+                <GroceriesCard grocery={g} />
+              </div>
+            ))}
+          </ModuleSlot>
+        </Reveal>
+
+        {/* Cost breakdown */}
+        <Reveal delay={0.25}>
           <div style={{ marginTop: 14 }}>
             <CostBreakdown trip={trip} cost={cost} themeId={themeId} dateStr={trip.date_start && trip.date_end
               ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
@@ -365,39 +417,45 @@ export default async function TripPage({ params }: Props) {
         </Reveal>
 
         {polls.length > 0 && (
-          <Reveal delay={0.2}>
+          <Reveal delay={0.3}>
             <div style={{ marginTop: 14 }}>
               <DatePoll poll={polls[0]} currentUserId={currentUserId} />
             </div>
           </Reveal>
         )}
 
-        {/* Crew link — dedicated subsurface at /trip/[slug]/crew (Phase 9) */}
-        <Reveal delay={0.25}>
-          <div style={{ marginTop: 18, textAlign: 'center' }}>
-            <Link href={`/trip/${slug}/crew`} className="crew-link">
-              {getCopy(themeId, 'crew.viewLink')}
-            </Link>
-          </div>
-        </Reveal>
-
-        {/* Buzz link — dedicated subsurface at /trip/[slug]/buzz (Phase 10) */}
-        <Reveal delay={0.3}>
-          <div style={{ marginTop: 18, textAlign: 'center' }}>
-            <Link href={`/trip/${slug}/buzz`} className="buzz-link">
-              {getCopy(themeId, 'buzz.viewLink')}
-            </Link>
-          </div>
-        </Reveal>
-
-        {/* Extras drawer — write-side wired in Session 3C */}
+        {/* Crew — inline section */}
         <Reveal delay={0.35}>
+          <CrewSection
+            members={members as any}
+            organizerId={organizer.id}
+            currentUserId={currentUserId}
+            themeId={themeId}
+            tripName={trip.name}
+            tripId={trip.id}
+            slug={slug}
+          />
+        </Reveal>
+
+        {/* Buzz — inline activity feed */}
+        <Reveal delay={0.4}>
+          <BuzzSection
+            buzzDays={buzzDays}
+            currentUserId={currentUserId}
+            themeId={themeId}
+            tripName={trip.name}
+            inCount={inCount}
+          />
+        </Reveal>
+
+        {/* Extras — packing list, playlist, house rules, photo album */}
+        <Reveal delay={0.45}>
           <ExtrasSections
             packingList={trip.packing_list || []}
             playlistUrl={trip.playlist_url}
             houseRules={trip.house_rules}
             photoAlbumUrl={trip.photo_album_url}
-            isOrganizer={currentUserId === trip.organizer_id}
+            isOrganizer={isOrganizer}
             tripId={trip.id}
             slug={slug}
             themeId={themeId}
@@ -408,7 +466,7 @@ export default async function TripPage({ params }: Props) {
       <PoeticFooter themeId={themeId} />
 
       {/* Spacer so content scrolls past the sticky bar */}
-      <div style={{ height: 90 }} />
+      <div style={{ height: 60 }} />
 
       <StickyRsvpBarChassis
         themeId={themeId}
@@ -416,6 +474,7 @@ export default async function TripPage({ params }: Props) {
         current={viewerRsvp}
         viewerName={viewerName}
         viewerEmail={viewerEmail}
+        isOrganizer={isOrganizer}
       />
     </div>
   );
