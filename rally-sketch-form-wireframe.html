@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=375, initial-scale=1" />
+<title>Rally — Sketch Form Top Section Wireframe</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1a1a1a;
+    color: #faf8f5;
+    display: flex;
+    gap: 40px;
+    padding: 40px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .frame {
+    width: 375px;
+    flex-shrink: 0;
+    background: #fce4ec;
+    color: #1a1a1a;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,.3);
+  }
+  .frame-label {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #1a1a1a;
+    color: #faf8f5;
+    text-align: center;
+    padding: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  .form-surface { padding: 16px 16px 40px; }
+
+  .marquee-bar {
+    background: #1a1a1a;
+    color: #ffd84d;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    padding: 6px 0;
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0 4px;
+  }
+  .wordmark {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+  }
+  .wordmark .bang { color: #e63946; }
+  .new-rally-btn {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    background: #ffd84d;
+    border: 2px solid #1a1a1a;
+    border-radius: 20px;
+    padding: 6px 14px;
+    transform: rotate(2deg);
+    font-weight: 700;
+  }
+
+  .eyebrow {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #999;
+    margin-bottom: 4px;
+  }
+  .badge {
+    display: inline-block;
+    background: #1a1a1a;
+    color: #faf8f5;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+  }
+
+  /* ── Fields ── */
+  .field {
+    border: 2px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,.25);
+  }
+  .field-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #777;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .field-value {
+    font-family: Georgia, serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 28px;
+    line-height: 1.2;
+  }
+  .field-value.medium {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .field-value.small {
+    font-size: 14px;
+    font-weight: 600;
+    font-style: normal;
+    font-family: -apple-system, sans-serif;
+  }
+  .field-value.placeholder {
+    color: #bbb;
+    font-style: italic;
+  }
+  .field-hint {
+    font-size: 12px;
+    font-style: italic;
+    color: #e63946;
+    margin: -4px 0 10px;
+    padding-left: 2px;
+  }
+
+  /* ── Row layouts ── */
+  .field-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .field-row .field {
+    flex: 1;
+    margin-bottom: 0;
+  }
+  .field-row .field.wide {
+    flex: 1.5;
+  }
+
+  /* ── Crew section ── */
+  .crew-section {
+    border: 2px solid #1a1a1a;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,.15);
+  }
+  .crew-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .crew-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-weight: 700;
+    color: #777;
+  }
+  .crew-count {
+    font-size: 12px;
+    font-style: italic;
+    color: #999;
+  }
+  .crew-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0,0,0,.08);
+  }
+  .crew-row:last-child { border-bottom: none; }
+  .crew-row-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .crew-av {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ffd84d;
+    border: 2px solid #1a1a1a;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .crew-name { font-weight: 600; font-size: 14px; }
+  .crew-role { font-size: 12px; color: #999; }
+  .crew-remove { font-size: 14px; color: #ccc; }
+  .crew-add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+  .crew-add-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px dashed #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #ccc;
+  }
+
+  /* ── Lodging ── */
+  .lodging-section { margin-bottom: 10px; }
+  .lodging-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .module-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-weight: 700;
+    color: #777;
+  }
+  .module-count {
+    font-size: 12px;
+    font-style: italic;
+    color: #999;
+  }
+  .lodging-card {
+    border: 2px solid #1a1a1a;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .lodging-img {
+    height: 100px;
+    background: linear-gradient(135deg, #4a8b6e, #2d6b4a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,.3);
+    font-size: 12px;
+  }
+  .lodging-info {
+    padding: 12px;
+    background: rgba(255,255,255,.25);
+  }
+  .lodging-name {
+    font-family: Georgia, serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .lodging-cost {
+    font-size: 13px;
+    color: #e63946;
+    font-style: italic;
+  }
+  .add-another {
+    border: 2px solid #1a1a1a;
+    border-radius: 14px;
+    padding: 14px;
+    text-align: center;
+    font-size: 14px;
+    color: #999;
+    background: rgba(255,255,255,.15);
+  }
+
+  /* ── Collapse toggle ── */
+  .collapse-toggle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1.5px solid #999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #999;
+    cursor: pointer;
+    transition: transform .2s;
+  }
+  .collapse-toggle.open { transform: rotate(180deg); }
+
+  /* ── Bottom drawer hint ── */
+  .drawer-hint {
+    background: #1a1a1a;
+    color: #faf8f5;
+    border-radius: 16px 16px 0 0;
+    padding: 16px;
+    margin-top: 12px;
+    position: relative;
+  }
+  .drawer-hint::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: #555;
+    border-radius: 2px;
+    margin: 0 auto 12px;
+  }
+  .drawer-hint-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #999;
+    text-align: center;
+  }
+
+  /* ── Badge z-index fix demo ── */
+  .badge-zfix {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Annotations ── */
+  .anno {
+    display: inline-block;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .anno.changed { background: #e67e22; }
+  .anno.fixed { background: #3a8eff; }
+
+  .divider {
+    width: 2px;
+    background: #333;
+    align-self: stretch;
+    border-radius: 1px;
+  }
+
+  /* ── Legend / Notes ── */
+  .legend, .notes {
+    width: 100%;
+    max-width: 830px;
+    padding: 20px;
+    background: #222;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #ccc;
+  }
+  .legend { margin-bottom: 20px; }
+  .notes { margin-top: 20px; }
+  .legend h2, .notes h3 { color: #faf8f5; }
+  .legend h2 { font-size: 16px; margin-bottom: 8px; }
+  .notes h3 { font-size: 14px; margin: 12px 0 4px; }
+  .notes h3:first-child { margin-top: 0; }
+  .notes code {
+    background: #333;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="legend">
+  <h2>Sketch Form — Top Section Redesign (Session 8E)</h2>
+  Left = current layout. Right = new layout.<br><br>
+  <strong>Changes:</strong><br>
+  • Start + end date merged into one "when" field (two native date inputs under one tap target)<br>
+  • Row 1: WHEN + RSVP BY (side by side)<br>
+  • Row 2: WHERE (full width, on its own line)<br>
+  • RSVP BY constrained: max = day before trip start<br>
+  • End date constrained: min = start date<br>
+  • Crew section: solid border, collapsible with chevron toggle<br>
+  • Crew "+": opens bottom drawer (like theme picker pattern) to add invitee<br>
+  • Lodging section: solid border, collapsible with chevron toggle (same as crew)<br>
+  • Lodging "+ add another spot": opens bottom drawer with lodging editor<br>
+  • Hotel badge z-index fix (no longer floats over sticky publish bar)<br>
+  • "1 options" → "1 option" pluralization fix<br>
+  • Mobile-first emphasis: all interactions tested at 375px
+</div>
+
+<!-- ════════ CURRENT LAYOUT ════════ -->
+<div class="frame">
+  <div class="frame-label">Current Layout</div>
+  <div class="marquee-bar">★ send it ★ tap to name ★ set the dates ★ invite the crew ★</div>
+  <div class="form-surface">
+    <div class="header-row">
+      <div class="wordmark">rally<span class="bang">!</span></div>
+      <div class="new-rally-btn">new rally</div>
+    </div>
+    <div class="eyebrow">DRAFT · ONLY YOU CAN SEE THIS</div>
+    <div class="badge">★ you started this</div>
+
+    <div class="field">
+      <div class="field-label">name it</div>
+      <div class="field-value">Mexico!!!</div>
+    </div>
+    <div class="field-hint">↑ give it a name only your group would get</div>
+
+    <div class="field">
+      <div class="field-label">one line</div>
+      <div class="field-value medium">We are going to celebrate our girl in style!!!!</div>
+    </div>
+
+    <!-- CURRENT: three fields in one row -->
+    <div class="field-row">
+      <div class="field">
+        <div class="field-label">start</div>
+        <div class="field-value small">05/29/2026</div>
+      </div>
+      <div class="field">
+        <div class="field-label">end</div>
+        <div class="field-value small">06/01/2026</div>
+      </div>
+      <div class="field">
+        <div class="field-label">where</div>
+        <div class="field-value small">Rivera M…</div>
+      </div>
+    </div>
+
+    <!-- CURRENT: RSVP full width -->
+    <div class="field">
+      <div class="field-label">rsvp by</div>
+      <div class="field-value small placeholder">mm/dd/yyyy</div>
+    </div>
+
+    <!-- CURRENT: dashed crew -->
+    <div class="crew-section" style="border-style: dashed;">
+      <div class="crew-header">
+        <span class="crew-title">the crew</span>
+        <span class="crew-count">2 invited</span>
+      </div>
+      <div class="crew-row">
+        <div class="crew-row-info">
+          <div class="crew-av">A</div>
+          <div><div class="crew-name">Andrew Shipman</div><div class="crew-role">organizer</div></div>
+        </div>
+      </div>
+      <div class="crew-row">
+        <div class="crew-row-info">
+          <div class="crew-av">R</div>
+          <div><div class="crew-name">Roger</div><div class="crew-role">info@aol.com</div></div>
+        </div>
+        <span class="crew-remove">×</span>
+      </div>
+      <div class="crew-add"><div class="crew-add-icon">+</div></div>
+    </div>
+
+    <div class="lodging-section">
+      <div class="lodging-header">
+        <span class="module-label">the spot</span>
+        <span class="module-count">1 options</span>
+      </div>
+      <div class="lodging-card">
+        <div class="lodging-img">[ hotel image ]</div>
+        <div class="lodging-info">
+          <div class="lodging-name">Maroma, A Belmond Hotel</div>
+          <div class="lodging-cost">$600/night × 3 nights × 2 rooms = ~$3,600</div>
+        </div>
+      </div>
+      <div class="add-another" style="border-style: dashed;">+ add another spot</div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ════════ NEW LAYOUT ════════ -->
+<div class="frame">
+  <div class="frame-label">New Layout (8E)</div>
+  <div class="marquee-bar">★ send it ★ tap to name ★ set the dates ★ invite the crew ★</div>
+  <div class="form-surface">
+    <div class="header-row">
+      <div class="wordmark">rally<span class="bang">!</span></div>
+      <div class="new-rally-btn">new rally</div>
+    </div>
+    <div class="eyebrow">DRAFT · ONLY YOU CAN SEE THIS</div>
+    <div class="badge">★ you started this</div>
+
+    <div class="field">
+      <div class="field-label">name it</div>
+      <div class="field-value">Mexico!!!</div>
+    </div>
+    <div class="field-hint">↑ give it a name only your group would get</div>
+
+    <div class="field">
+      <div class="field-label">one line</div>
+      <div class="field-value medium">We are going to celebrate our girl in style!!!!</div>
+    </div>
+
+    <!-- NEW ROW 1: when + rsvp by -->
+    <div class="field-row">
+      <div class="field wide">
+        <div class="field-label">when <span class="anno changed">changed</span></div>
+        <div class="field-value small">May 29 → Jun 1</div>
+      </div>
+      <div class="field">
+        <div class="field-label">rsvp by <span class="anno changed">changed</span></div>
+        <div class="field-value small">May 15</div>
+      </div>
+    </div>
+
+    <!-- NEW ROW 2: where (full width) -->
+    <div class="field">
+      <div class="field-label">where <span class="anno changed">changed</span></div>
+      <div class="field-value small">Rivera Maya!</div>
+    </div>
+
+    <!-- FIXED: solid crew + collapsible + bottom drawer add -->
+    <div class="crew-section">
+      <div class="crew-header">
+        <span class="crew-title">the crew <span class="anno fixed">solid border</span></span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="crew-count">2 invited</span>
+          <div class="collapse-toggle open" title="collapse/expand">▾</div>
+          <span class="anno changed">new</span>
+        </div>
+      </div>
+      <div class="crew-row">
+        <div class="crew-row-info">
+          <div class="crew-av">A</div>
+          <div><div class="crew-name">Andrew Shipman</div><div class="crew-role">organizer</div></div>
+        </div>
+      </div>
+      <div class="crew-row">
+        <div class="crew-row-info">
+          <div class="crew-av">R</div>
+          <div><div class="crew-name">Roger</div><div class="crew-role">info@aol.com</div></div>
+        </div>
+        <span class="crew-remove">×</span>
+      </div>
+      <div class="crew-add" title="Opens bottom drawer">
+        <div class="crew-add-icon">+</div>
+        <span style="font-size:11px;color:#999;margin-left:8px;">opens drawer ↓</span>
+        <span class="anno changed">new</span>
+      </div>
+    </div>
+
+    <!-- Bottom drawer preview: add crew member -->
+    <div class="drawer-hint">
+      <div class="drawer-hint-label">↑ "+ add" opens this drawer (same pattern as theme picker)</div>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+        <div class="field" style="border-color:#555;background:rgba(255,255,255,.08);">
+          <div class="field-label" style="color:#999;">name or email</div>
+          <div class="field-value small placeholder" style="color:#666;">invite someone…</div>
+        </div>
+        <div style="text-align:center;font-size:12px;color:#999;padding:4px;">[ send invite ] button</div>
+      </div>
+    </div>
+
+    <div class="lodging-section" style="border:2px solid #1a1a1a;border-radius:14px;padding:14px;background:rgba(255,255,255,.15);">
+      <div class="lodging-header">
+        <span class="module-label">the spot <span class="anno fixed">solid border</span></span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="module-count">1 option <span class="anno fixed">pluralized</span></span>
+          <div class="collapse-toggle open" title="collapse/expand">▾</div>
+          <span class="anno changed">new</span>
+        </div>
+      </div>
+      <div class="lodging-card badge-zfix">
+        <div class="lodging-img">[ hotel image ]</div>
+        <div class="lodging-info">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="lodging-name">Maroma, A Belmond Hotel</div>
+            <div class="badge" style="font-size:9px;margin:0;">hotel <span class="anno fixed">z-fix</span></div>
+          </div>
+          <div class="lodging-cost">$600/night × 3 nights × 2 rooms = ~$3,600</div>
+        </div>
+      </div>
+      <div class="add-another" title="Opens bottom drawer">
+        + add another spot
+        <span style="font-size:11px;color:#bbb;"> — opens drawer ↓</span>
+        <span class="anno changed">new</span>
+      </div>
+    </div>
+
+    <!-- Bottom drawer preview: add lodging -->
+    <div class="drawer-hint">
+      <div class="drawer-hint-label">↑ "+ add another spot" opens this drawer</div>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+        <div class="field" style="border-color:#555;background:rgba(255,255,255,.08);">
+          <div class="field-label" style="color:#999;">type</div>
+          <div class="field-value small" style="color:#faf8f5;">Hotel / Airbnb / Hostel</div>
+        </div>
+        <div class="field" style="border-color:#555;background:rgba(255,255,255,.08);">
+          <div class="field-label" style="color:#999;">name or URL</div>
+          <div class="field-value small placeholder" style="color:#666;">paste a link or type a name…</div>
+        </div>
+        <div style="text-align:center;font-size:12px;color:#999;padding:4px;">[ save ] button</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h3>Date "When" Field Behavior</h3>
+  • The "when" field contains two native <code>&lt;input type="date"&gt;</code> elements styled as one field<br>
+  • Display shows formatted dates: "May 29 → Jun 1" (not raw yyyy-mm-dd)<br>
+  • Tapping the field opens the first (start) native date picker<br>
+  • After selecting start, auto-focus the end date picker<br>
+  • End date <code>min</code> attribute = start date value (can't end before you start)<br>
+  • If no dates selected, show placeholder: "pick your dates"<br>
+  • DB storage unchanged: <code>date_start</code> and <code>date_end</code> remain separate columns<br>
+  • Autosave queues both values on change (same as current behavior)
+
+  <h3>RSVP By Constraints</h3>
+  • RSVP By <code>max</code> attribute = day before <code>date_start</code><br>
+  • If no start date set, RSVP By still works as a normal date picker (no constraint)<br>
+  • If start date moves to before current RSVP By value, clear RSVP By<br>
+  • Placeholder shows "set a deadline" when empty
+
+  <h3>Layout Changes in SketchHeader.tsx</h3>
+  Current structure:<br>
+  <code>field-row: [start] [end] [where]</code><br>
+  <code>[rsvp-by]</code><br><br>
+  New structure:<br>
+  <code>field-row: [when (wide)] [rsvp-by]</code><br>
+  <code>[where]</code><br><br>
+  The "when" field replaces start + end. It's wider (flex: 1.5 or similar) to accommodate the range display.
+  RSVP By moves up next to it. Where drops to its own full-width row.
+
+  <h3>Crew Section — Solid Border + Collapse + Bottom Drawer</h3>
+  • Replace <code>border: 2px dashed</code> with <code>border: 2px solid var(--ink, #1a1a1a)</code><br>
+  • Add collapse/expand toggle (chevron icon) in crew header — toggles crew list visibility<br>
+  • Collapsed state: shows header row only (title + count + chevron). Expanded: full member list<br>
+  • Default state: expanded<br>
+  • The "+" button opens a bottom drawer (same component pattern as <code>ThemePickerSheet</code>)<br>
+  • Drawer contains: name/email input field + send invite button<br>
+  • On save → drawer closes, crew list updates, section auto-expands if collapsed
+
+  <h3>Lodging — Solid Border + Collapse + Bottom Drawer</h3>
+  • Lodging section gets the same treatment as crew: solid border container + collapse chevron<br>
+  • Collapsed state: header only (title + count + chevron). Expanded: cards + add button<br>
+  • "+ add another spot" opens a bottom drawer (same pattern as crew add)<br>
+  • Drawer contains: type picker (hotel/airbnb/hostel) + name/URL field + save button<br>
+  • On save → drawer closes, new lodging card appears in list, section auto-expands<br>
+  • Replaces current behavior (inline or navigation-based add)
+
+  <h3>Hotel Badge Z-Index Fix</h3>
+  • The lodging type badge (e.g. "hotel") currently floats over the sticky publish bar at the bottom<br>
+  • Fix: ensure lodging cards have <code>position: relative; z-index: 1</code> or lower, and the sticky bar uses a higher z-index<br>
+  • Also verify at 375px that badge doesn't overlap any other fixed/sticky element
+
+  <h3>"1 option" Pluralization Fix</h3>
+  • In <code>SketchModules.tsx</code> or <code>builder-state.ts</code> copy key<br>
+  • When count === 1, display "1 option" not "1 options"<br>
+  • Could be a conditional in JSX or a pluralized copy key
+
+  <h3>Mobile-First Emphasis</h3>
+  • All new components (drawers, collapse toggle, field layout) must be designed for 375px first<br>
+  • Bottom drawers: full-width, touch-friendly targets (min 44px tap), drag-to-dismiss<br>
+  • Collapse toggle: large enough tap target (min 44px including padding)<br>
+  • Field row (WHEN + RSVP BY): ensure both fields remain readable at 375px — don't let text truncate
+</div>
+
+</body>
+</html>

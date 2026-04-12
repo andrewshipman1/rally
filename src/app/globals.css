@@ -688,6 +688,7 @@ button:active {
 .chassis .sticky {
   position: sticky;
   bottom: 0;
+  z-index: 10;
   background: var(--bg);
   border-top: 3px solid var(--ink);
   padding: 12px 18px 22px;
@@ -870,7 +871,7 @@ button:active {
   width: 100%;
   padding: 14px 0;
   text-align: center;
-  border: 2.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+  border: 2px solid var(--ink);
   border-radius: 16px;
   font-size: 14px;
   font-weight: 600;
@@ -882,7 +883,7 @@ button:active {
 /* Type picker */
 .chassis .lodging-type-picker {
   padding: 16px;
-  border: 2.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+  border: 2px solid var(--ink);
   border-radius: 16px;
   display: flex;
   flex-direction: column;
@@ -1562,7 +1563,7 @@ button:active {
 }
 .chassis .field-tagline .placeholder { opacity: 0.4; }
 
-/* When / where inline pair */
+/* When + RSVP-by row, then Where full-width */
 .chassis .field-row {
   display: flex;
   gap: 10px;
@@ -1574,38 +1575,50 @@ button:active {
   padding: 10px 14px;
   animation-delay: 0.3s;
 }
+.chassis .field-row .field-when {
+  flex: 1.5;
+}
 .chassis .field-row .field-when .placeholder,
 .chassis .field-row .field-when .field-input,
-.chassis .field-row .field-where .placeholder,
-.chassis .field-row .field-where .field-input,
-.chassis .field-row .field-start .placeholder,
-.chassis .field-row .field-start .field-input,
-.chassis .field-row .field-end .placeholder,
-.chassis .field-row .field-end .field-input {
+.chassis .field-row .field-when .when-text,
+.chassis .field-row .field-rsvp-by .placeholder,
+.chassis .field-row .field-rsvp-by .field-input {
   font-family: "DM Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
 }
 .chassis .field-row .field-when .placeholder,
-.chassis .field-row .field-where .placeholder,
-.chassis .field-row .field-start .placeholder,
-.chassis .field-row .field-end .placeholder { opacity: 0.5; }
+.chassis .field-row .field-rsvp-by .placeholder { opacity: 0.5; }
 .chassis .field-row .field.filled .placeholder { opacity: 1; }
 
-/* RSVP-by field — full width below the date/location row */
-.chassis .field-rsvp-by {
+/* Where field — full width standalone */
+.chassis .field-where {
   margin: 0 18px 14px;
   padding: 10px 14px;
 }
-.chassis .field-rsvp-by .placeholder,
-.chassis .field-rsvp-by .field-input {
+.chassis .field-where .placeholder,
+.chassis .field-where .field-input {
   font-family: "DM Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
 }
-.chassis .field-rsvp-by .placeholder { opacity: 0.5; }
+.chassis .field-where .placeholder { opacity: 0.5; }
+
+/* WhenField — merged date display + hidden inputs */
+.chassis .when-display {
+  cursor: pointer;
+  position: relative;
+}
+.chassis .when-hidden-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
 
 /* Handwritten hint beneath the title */
 .chassis .hint {
@@ -1671,9 +1684,9 @@ button:active {
 
 /* Crew field — empty roster + invite button */
 .chassis .field-crew {
-  margin: 0 18px 16px;
+  margin: 0 36px 16px;
   padding: 14px 16px;
-  border: 2.5px dashed var(--ink);
+  border: 2px solid var(--ink);
   border-radius: 16px;
   animation: slide-up 0.5s 0.5s both;
 }
@@ -1719,9 +1732,9 @@ button:active {
 
 /* ─── Invite Roster (sketch phase) ─────────────────────────────── */
 .chassis .invite-roster {
-  margin: 0 18px 16px;
+  margin: 0 36px 16px;
   padding: 14px 16px;
-  border: 2.5px dashed var(--ink);
+  border: 2px solid var(--ink);
   border-radius: 16px;
   animation: slide-up 0.5s 0.5s both;
 }
@@ -1952,7 +1965,7 @@ button:active {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin: 0 18px 16px;
+  margin: 0 36px 16px;
 }
 .chassis .sketch-module {
   display: flex;

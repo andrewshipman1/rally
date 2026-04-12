@@ -20,9 +20,11 @@ type Props = {
   /** Native input type for single-line fields. Defaults to 'text'. */
   inputType?: 'text' | 'date';
   onChange: (next: string) => void;
+  /** Max value for date inputs. */
+  max?: string;
 };
 
-export function InlineField({ variant, label, placeholder, value, inputType = 'text', onChange }: Props) {
+export function InlineField({ variant, label, placeholder, value, inputType = 'text', onChange, max }: Props) {
   const [active, setActive] = useState(false);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
@@ -68,6 +70,7 @@ export function InlineField({ variant, label, placeholder, value, inputType = 't
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type={inputType}
             placeholder={placeholder}
+            max={max}
             {...commonInputProps}
           />
         )

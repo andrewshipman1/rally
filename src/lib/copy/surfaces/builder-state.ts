@@ -23,7 +23,8 @@ export const builderState: Record<string, Templated> = {
   // ─── Inline fields (placeholders in sketch state) ───────────────
   'titlePlaceholder':      'untitled rally',
   'taglinePlaceholder':    'why are we doing this?',
-  'whenFieldPlaceholder':  'tbd ↓',
+  'whenFieldPlaceholder':  'pick your dates',
+  'whenArrow':             '→',
   'whereFieldPlaceholder': 'somewhere ↓',
   'rsvpByPlaceholder':     'set a deadline ↓',
 
@@ -84,6 +85,7 @@ export const builderState: Record<string, Templated> = {
   'lodging.emptyState':               'no options yet \u2014 add a few places to compare',
   'lodging.viewListing':              'view listing \u2192',
   'lodging.countSuffix':              'options',
+  'lodging.countSuffixSingular':      'option',
   'lodging.freeLabel':                'free',
   'lodging.totalLabel':               'total',
   'lodging.perNightLabel':            '/night',

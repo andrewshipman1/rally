@@ -95,7 +95,7 @@ export function SketchModules({
           </span>
           {lodging.length > 0 && (
             <span className="lodging-count">
-              {lodging.length} {getCopy(themeId, 'builderState.lodging.countSuffix')}
+              {lodging.length} {getCopy(themeId, lodging.length === 1 ? 'builderState.lodging.countSuffixSingular' : 'builderState.lodging.countSuffix')}
             </span>
           )}
         </div>
