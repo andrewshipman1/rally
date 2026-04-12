@@ -10,6 +10,7 @@ export function CreateTripButton() {
   return (
     <button
       type="button"
+      className="dash-cta"
       disabled={pending}
       onClick={() => startTransition(() => createTrip())}
       style={{ opacity: pending ? 0.6 : 1 }}

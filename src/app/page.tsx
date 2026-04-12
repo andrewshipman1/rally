@@ -14,6 +14,7 @@ import type { RallyPhase } from '@/lib/rally-types';
 import type { ThemeId } from '@/lib/themes/types';
 import { SignOutButton } from '@/components/dashboard/SignOutButton';
 import { CreateTripButton } from '@/components/dashboard/CreateTripButton';
+import { SwipeableCard } from '@/components/dashboard/DeleteTripButton';
 
 export const metadata = {
   title: 'rally — where to next?',
@@ -60,10 +61,6 @@ export default async function HomePage() {
   if (marqueeSegments.length > 0) {
     marqueeSegments.push(getCopy(defaultTheme, 'dashboard.marqueeLive') as string);
   }
-
-  // Scoreboard chip definitions
-  const cookingCount = phaseCounts.sketch + phaseCounts.sell - needsMoveCount;
-  const lockedCount = phaseCounts.lock + phaseCounts.go;
 
   return (
     <div className="chassis dash-surface">
@@ -112,34 +109,6 @@ export default async function HomePage() {
         {getCopy(defaultTheme, 'dashboard.pageH1')}
       </h1>
 
-      {/* Scoreboard */}
-      <div className="dash-scoreboard">
-        {needsMoveCount > 0 && (
-          <span className="dash-chip hot">
-            {getCopy(defaultTheme, 'dashboard.scoreYourMove')}
-            {' '}<strong>{needsMoveCount}</strong>
-          </span>
-        )}
-        {cookingCount > 0 && (
-          <span className="dash-chip">
-            {getCopy(defaultTheme, 'dashboard.scoreCooking')}
-            {' '}<strong>{cookingCount}</strong>
-          </span>
-        )}
-        {lockedCount > 0 && (
-          <span className="dash-chip">
-            {getCopy(defaultTheme, 'dashboard.scoreLock')}
-            {' '}<strong>{lockedCount}</strong>
-          </span>
-        )}
-        {phaseCounts.done > 0 && (
-          <span className="dash-chip">
-            {getCopy(defaultTheme, 'dashboard.scoreDone')}
-            {' '}<strong>{phaseCounts.done}</strong>
-          </span>
-        )}
-      </div>
-
       {cards.length === 0 ? (
         <div className="dash-empty">
           <div className="dash-empty-emoji">
@@ -162,9 +131,15 @@ export default async function HomePage() {
                 <span className="dash-section-count">{activeCards.length}</span>
               </h2>
               <div className="dash-cards">
-                {activeCards.map((card, i) => (
-                  <TripCard key={card.trip.id} card={card} index={i} />
-                ))}
+                {activeCards.map((card, i) =>
+                  card.phase === 'sketch' && card.isOrganizer ? (
+                    <SwipeableCard key={card.trip.id} tripId={card.trip.id}>
+                      <TripCard card={card} index={i} />
+                    </SwipeableCard>
+                  ) : (
+                    <TripCard key={card.trip.id} card={card} index={i} />
+                  )
+                )}
               </div>
             </section>
           )}

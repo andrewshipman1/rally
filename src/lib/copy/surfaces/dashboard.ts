@@ -11,13 +11,6 @@ export const dashboard: Record<string, Templated> = {
   'liveRowAction':        ({ n }: ThemeVars) => `${n ?? 1} trip${Number(n) === 1 ? '' : 's'} need${Number(n) === 1 ? 's' : ''} your move`,
   'liveRowClear':         'all caught up ✨',
 
-  // ─── Scoreboard ─────────────────────────────────────────────────
-  'scoreYourMove':        'your move',
-  'scoreCooking':         'cooking',
-  'scoreLock':            'locked',
-  'scoreGo':              'live',
-  'scoreDone':            'done',
-
   // ─── Sections ───────────────────────────────────────────────────
   'sectionCooking':       "what you're cooking",
   'sectionArchive':       'the archive',
@@ -56,4 +49,9 @@ export const dashboard: Record<string, Templated> = {
 
   // ─── CTA ────────────────────────────────────────────────────────
   'ctaCreate':            'start a trip 🔥',
+
+  // ─── Delete ──────���──────────────────────────────────────────────
+  'deleteConfirm':        'delete this draft?',
+  'deleteYes':            'yes, trash it',
+  'deleteNo':             'nah, keep it',
 };

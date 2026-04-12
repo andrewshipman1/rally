@@ -2748,33 +2748,6 @@ button:active {
   line-height: 1.1;
 }
 
-/* Scoreboard */
-.dash-scoreboard {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 22px;
-  flex-wrap: wrap;
-}
-.dash-chip {
-  font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: #1a1a1a;
-  padding: 5px 10px;
-  border: 2px solid #1a1a1a;
-  border-radius: 999px;
-  background: transparent;
-}
-.dash-chip strong {
-  font-weight: 800;
-  margin-right: 3px;
-}
-.dash-chip.hot {
-  background: #ff5b3a;
-  color: #fff;
-  border-color: #ff5b3a;
-}
-
 /* Section headers */
 .dash-section {
   margin-bottom: 22px;
@@ -2806,6 +2779,7 @@ button:active {
   flex-direction: column;
   gap: 12px;
   margin-top: 12px;
+  padding-top: 10px;
 }
 .chassis.dash-card {
   border: 2.5px solid var(--ink);
@@ -2823,8 +2797,7 @@ button:active {
   max-width: 100%;
   width: 100%;
   box-sizing: border-box;
-  overflow-x: hidden;
-  overflow-y: visible;
+  overflow: visible;
 }
 .chassis.dash-card:hover {
   transform: translate(-1px, -1px);
@@ -2940,26 +2913,109 @@ button:active {
   left: 0;
   right: 0;
   padding: 14px 18px;
-  background: #fafaf6;
-  border-top: 2.5px solid #1a1a1a;
+  background: var(--bg, #fafaf6);
+  border-top: 2.5px solid var(--ink, #1a1a1a);
   display: flex;
   justify-content: center;
+  z-index: 10;
 }
-.dash-sticky a {
+.dash-cta {
   display: block;
   width: 100%;
   max-width: 600px;
   text-align: center;
   font-family: var(--font-display), 'Shrikhand', serif;
   font-size: 18px;
-  color: #fafaf6;
-  background: #1a1a1a;
-  border: 2.5px solid #1a1a1a;
+  color: var(--bg, #fafaf6);
+  background: var(--ink, #1a1a1a);
+  border: 2.5px solid var(--ink, #1a1a1a);
   border-radius: 14px;
   padding: 14px;
-  text-decoration: none;
+  cursor: pointer;
   box-shadow: 3px 3px 0 rgba(0,0,0,0.15);
   animation: pulse-shadow 2.4s ease-in-out infinite;
+}
+.dash-cta:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(0,0,0,0.15);
+}
+
+/* Delete draft trip — long-press overlay */
+.dash-swipe-wrapper {
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.dash-delete-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  animation: fade-in 0.15s ease;
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.dash-delete-x {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  background: #ff5b3a;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: transform 0.12s ease;
+}
+.dash-delete-x:active {
+  transform: scale(0.9);
+}
+.dash-delete-overlay-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+}
+.dash-delete-overlay-prompt {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+.dash-delete-overlay-actions {
+  display: flex;
+  gap: 8px;
+}
+.dash-delete-yes,
+.dash-delete-no {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dash-delete-yes {
+  background: #ff5b3a;
+  color: #fff;
+  border: 2px solid #fff;
+}
+.dash-delete-no {
+  background: transparent;
+  color: #fff;
+  border: 2px solid rgba(255,255,255,0.6);
 }
 
 /* Empty state */
