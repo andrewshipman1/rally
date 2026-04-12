@@ -28,12 +28,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
 
+import type { Lodging, Flight, Transport, Activity, Grocery, PackingItem } from '@/types';
 import { PostcardHero } from '@/components/trip/PostcardHero';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
 import { ThemePickerSheet } from '@/components/trip/theme-picker/ThemePickerSheet';
+import { ExtrasSections } from '@/components/trip/ExtrasSections';
 import { SketchHeader } from './SketchHeader';
 import { PostcardImage } from './PostcardImage';
 import { SketchInviteList } from './SketchInviteList';
+import { SketchModules } from './SketchModules';
 import { BuilderStickyBar } from './BuilderStickyBar';
 import { useDebouncedAutosave } from '@/lib/builder/useDebouncedAutosave';
 import { hasReadyName, hasReadyDate } from '@/lib/builder/ungate';
@@ -47,6 +50,15 @@ type Props = {
   organizerId: string;
   coverImageUrl: string | null;
   members: { id: string; user_id: string; role: string; user: { display_name: string | null; email: string | null; phone: string } | null }[];
+  lodging: Lodging[];
+  flights: Flight[];
+  transport: Transport[];
+  activities: Activity[];
+  groceries: Grocery[];
+  packingList: PackingItem[];
+  playlistUrl: string | null;
+  houseRules: string | null;
+  photoAlbumUrl: string | null;
   initial: {
     name: string;
     tagline: string | null;
@@ -65,6 +77,15 @@ export function SketchTripShell({
   organizerId,
   coverImageUrl,
   members,
+  lodging,
+  flights,
+  transport,
+  activities,
+  groceries,
+  packingList,
+  playlistUrl,
+  houseRules,
+  photoAlbumUrl,
   initial,
 }: Props) {
   // Seed state from props on mount only; never re-sync from props,
@@ -181,6 +202,31 @@ export function SketchTripShell({
         slug={slug}
         members={members}
         organizerId={organizerId}
+      />
+
+      <SketchModules
+        themeId={activeThemeId}
+        tripId={tripId}
+        slug={slug}
+        dateStart={dateStart}
+        dateEnd={dateEnd}
+        lodging={lodging}
+        flights={flights}
+        transport={transport}
+        activities={activities}
+        groceries={groceries}
+        crewCount={members.length}
+      />
+
+      <ExtrasSections
+        packingList={packingList}
+        playlistUrl={playlistUrl}
+        houseRules={houseRules}
+        photoAlbumUrl={photoAlbumUrl}
+        isOrganizer
+        tripId={tripId}
+        slug={slug}
+        themeId={activeThemeId}
       />
 
       <PoeticFooter themeId={activeThemeId} />

@@ -762,89 +762,650 @@ checklist required. Release notes written into this file when done.
 
 ---
 
-### Session 8: "Sketch Page — Module Inputs"
+### Session 8: "Sketch Page — Module Inputs" (SUPERSEDED)
 
-**Loop phase:** Brief ✅ → Execute (Claude Code) → Release Notes → QA (Cowork) → Update Plan
+**Status:** Partially built, partially broken. Session 8 tried to do all 6 modules
+at once. QA found lodging UX was wonky, flights didn't save, provisions failed,
+manual entry broken after link enrichment. Decision: break into focused sessions
+(8A–8F), one module per session, with proper specs and wireframes.
 
-**Goal:** Every module on the sketch page has its input UI wired using the shared
-components from Session 7B. An organizer can add data to every section. Nothing
-is deep — just the first input for each.
+Session 8's server actions (`sketch-modules.ts`) and `SketchModules.tsx` are
+partially reusable — flights/transport/activities/provisions logic is OK. Lodging
+needs a full rebuild with accommodation types, type-specific forms, and the
+`.house` card pattern.
+
+**Original brief preserved below for reference (do not execute):**
+
+**Original goal:** Wire sketch-phase input UI for every module section so an organizer can
+add data to each one. Each input writes a real DB record to the module's existing
+table. Also fix the InviteModal share tab visibility bug from 7C QA.
+
+**Context for Claude Code:** The codebase already has dedicated tables per module
+(`lodging`, `flights`, `transport`, `activities`, `groceries`) with full schemas
+including OG scraping fields. Display components exist for sell+ (`FlightCard`,
+`TransportCard`, `ActivityCard`, `GroceriesCard`, `LodgingGallery`). Extras are
+fully built (`ExtrasSections.tsx` + server actions). The `/api/enrich` endpoint
+exists for URL metadata scraping. The shared input components from Session 7B
+(`LinkPasteInput`, `LineItemAddInput`, `EstimateInput`) need to be wired to
+server actions that insert into the correct tables.
 
 **Scope:**
 
-1. **Lodging** — `LinkPasteInput` wired. Organizer pastes an Airbnb/VRBO URL or
-   enters details manually. Creates a lodging record. Shows as a simple card
-   (image if scraped, name, price). Uses existing lodging data model.
+0. **InviteModal share tab fix** — Add a `hideShareTab` prop to `InviteModal`.
+   When `true`, only show the email/phone invite tab (hide the share link tab).
+   Pass `hideShareTab={true}` from `SketchInviteList`. Do NOT change InviteModal
+   behavior when the prop is absent or false.
 
-2. **Flights** — `LineItemAddInput` wired. Organizer adds flight entries
-   (route + cost). Saves as line items.
+1. **Lodging** — Wire `LinkPasteInput` into the lodging module slot. On submit:
+   - URL mode: call `/api/enrich` to get OG metadata, then insert into `lodging`
+     table with `name` (from og_title or URL), `link`, `og_title`,
+     `og_description`, `og_image_url`, `cost_per_night` if provided.
+   - Manual mode: insert with `name` and `cost_per_night`.
+   - After insert, render a simple card showing name, image (if scraped), price.
+   - Write a server action `addLodgingOption` (or use existing if one exists).
+   - Show existing lodging records if any are already saved.
 
-3. **Transportation** — `LineItemAddInput` wired. Same pattern as flights.
+2. **Flights** — Wire `LineItemAddInput` into the flights module slot.
+   - Fields map to: first field → route string (e.g. "JFK → BVI"), second field
+     → `estimated_price`.
+   - Insert into `flights` table. Use `departure_airport` for the route string
+     for now (we'll parse it properly in sell+).
+   - Show existing flight records as simple rows.
+   - Write a server action `addFlight`.
 
-4. **Activities** — `LineItemAddInput` wired. Same pattern.
+3. **Transportation** — Wire `LineItemAddInput` into the transport module slot.
+   - Fields map to: first field → `route` (e.g. "Airport → Airbnb"), second
+     field → `estimated_total`.
+   - Insert into `transport` table with `subtype: 'car_rental'` as default.
+   - Show existing transport records as simple rows.
+   - Write a server action `addTransport`.
 
-5. **Provisions** — `EstimateInput` wired. Single `~$` field. Saves an estimate
-   that feeds into cost calculations later. This replaces separate
-   restaurants/groceries in sketch — detail comes in sell+.
+4. **Activities** — Wire `LineItemAddInput` into the activities module slot.
+   - Fields map to: first field → `name`, second field → `estimated_cost`.
+   - Insert into `activities` table.
+   - Show existing activity records as simple rows.
+   - Write a server action `addActivity`.
 
-6. **Extras** — chooser sheet to add a packing list, playlist, house rules, or
-   album. Uses existing extras components where they exist.
+5. **Provisions** — Wire `EstimateInput` into the provisions module slot.
+   - Insert into `groceries` table with `name: 'Provisions'`,
+     `estimated_total` from the input, `cost_type: 'shared'`.
+   - If a provisions record already exists for this trip, update it instead of
+     creating a duplicate. There should only be one provisions estimate per trip
+     in sketch.
+   - In sell+, this breaks into separate restaurants/groceries — but for sketch,
+     it's a single estimate.
+   - Write a server action `setProvisionsEstimate`.
+
+6. **Extras** — `ExtrasSections.tsx` already exists and is fully functional.
+   Wire it into the sketch phase layout in `SketchTripShell`. The component and
+   server actions (`addPackingItem`, `setPlaylistUrl`, `setHouseRules`,
+   `setAlbumUrl`) already exist — just render the component. If it's already
+   rendered in sketch, confirm and move on.
 
 **Hard constraints:**
 - Use the shared input components from Session 7B — do NOT build one-off inputs
-- Each module input creates a real DB record, not just local state
+- Each module writes to its EXISTING table (lodging, flights, transport,
+  activities, groceries) — do NOT create new tables
+- Server actions must validate that the user is the trip organizer
 - DO NOT build voting, locking, or any sell+ interactions
 - DO NOT build the cost summary — that's sell+ scope
-- Keep the line-item modules using ONE shared component with a `type` prop
+- DO NOT modify the existing sell+ display components (FlightCard, etc.)
+- All new strings from `lib/copy.ts`, not hardcoded
+- Each module should show its existing records (if any) below the input
 
 **How to QA solo:**
-- Navigate to sketch trip → each module section visible
-- Paste an Airbnb URL in lodging → verify card appears
-- Add a flight line item → verify it saves and renders
-- Add transport, activity items → same verification
-- Enter a provisions estimate → verify it saves
-- Add a packing list via extras → verify it renders
-- Refresh page → verify all data persists
-- Publish trip → verify all module data carries over to sell view
+- Navigate to sketch trip → InviteModal "+" only shows email tab (no share tab)
+- Each module section visible with input UI
+- Paste a URL in lodging → card appears with OG data
+- Enter lodging manually → card appears with name + price
+- Add a flight → row appears with route + cost
+- Add transport, activity items → same
+- Enter provisions estimate → saves, shows estimate
+- Add a packing list item via extras → renders
+- Refresh → all data persists
+- Add a second lodging/flight → list grows (no duplicates lost)
+- Publish trip → module data visible in sell view
 
 **Acceptance criteria:**
-- [ ] Lodging: can paste URL → card renders with scraped or manual data
-- [ ] Flights: can add line items with name + cost
-- [ ] Transportation: can add line items
-- [ ] Activities: can add line items
-- [ ] Provisions: can enter estimate → saves to DB
-- [ ] Extras: can add at least one extra type (packing list)
+- [ ] InviteModal share tab hidden in sketch (hideShareTab prop)
+- [ ] Lodging: can paste URL → card renders with OG data
+- [ ] Lodging: can enter manually → card renders with name + price
+- [ ] Flights: can add entries with route + cost → persist
+- [ ] Transportation: can add entries → persist
+- [ ] Activities: can add entries with name + cost → persist
+- [ ] Provisions: can enter estimate → saves to groceries table
+- [ ] Provisions: updating estimate overwrites (no duplicates)
+- [ ] Extras: renders in sketch phase (packing list, playlist, rules, album)
 - [ ] All data persists on refresh
 - [ ] All data visible after publishing to sell phase
-- [ ] Shared input components reused across modules (not duplicated)
+- [ ] Shared input components reused (not duplicated per module)
+- [ ] No regressions on sell/lock/go/done phases
 
 **Files to read first:**
 - `.claude/skills/rally-session-guard/SKILL.md` (the guardrail — read first)
-- `rally-fix-plan-v1.md` (this file)
-- `rally-sketch-phase-spec.md` (flat page spec — section 5 for module layout)
-- `src/components/trip/LodgingGallery.tsx` (existing lodging display)
-- `src/types/index.ts` (data models for all modules)
-- `src/components/trip/builder/` (shared input components from Session 7B)
+- `rally-fix-plan-v1.md` (this file — especially 7B/7C release notes)
+- `rally-sketch-phase-spec.md` (section 5: module layout)
+- `src/app/api/enrich/route.ts` (URL metadata scraper — already exists)
+- `src/types/index.ts` (Lodging, Flight, Transport, Activity, Grocery types)
+- `src/components/trip/builder/LinkPasteInput.tsx` (shared — lodging input)
+- `src/components/trip/builder/LineItemAddInput.tsx` (shared — flights/transport/activities)
+- `src/components/trip/builder/EstimateInput.tsx` (shared — provisions)
+- `src/components/trip/builder/SketchTripShell.tsx` (wire modules here)
+- `src/components/trip/builder/SketchInviteList.tsx` (pass hideShareTab)
+- `src/components/trip/builder/InviteModal.tsx` (add hideShareTab prop)
+- `src/components/trip/ExtrasSections.tsx` (already built — just render in sketch)
+- `src/app/actions/extras.ts` (existing server actions — reference pattern)
+- `src/components/trip/ModuleSlot.tsx` (module wrapper — reference)
+- `supabase/migrations/002_typed_components.sql` (table schemas)
 
-**Skill usage:** Same as Session 7A — rally-session-guard governs. Pre-flight checklist
-required. Release notes written into this file when done.
+**Skill usage:** Same as prior sessions — rally-session-guard governs. Pre-flight
+checklist required. Release notes written into this file when done.
+
+#### Session 8 — Release Notes
+
+**What was built:**
+1. **InviteModal hideShareTab** — `src/components/trip/builder/InviteModal.tsx` (added `hideShareTab` prop; when true, hides share tab and defaults to email tab). Wired from `SketchInviteList.tsx`.
+2. **Server actions for all modules** — `src/app/actions/sketch-modules.ts` (new file; 5 actions: `addLodgingOption`, `addFlight`, `addTransport`, `addActivity`, `setProvisionsEstimate`). Each validates with Zod, checks organizer auth, inserts into existing module table.
+3. **SketchModules component** — `src/components/trip/builder/SketchModules.tsx` (new file; renders all 5 module sections with shared input components wired to server actions; shows existing records below each input; lodging enriches URLs via `/api/enrich`).
+4. **ExtrasSections wired into sketch** — `src/components/trip/builder/SketchTripShell.tsx` (ExtrasSections now renders in sketch phase with full packing list, playlist, house rules, album).
+5. **SketchTripShell updated** — added module data props (`lodging`, `flights`, `transport`, `activities`, `groceries`, `packingList`, `playlistUrl`, `houseRules`, `photoAlbumUrl`); renders SketchModules + ExtrasSections between invite list and footer.
+6. **page.tsx updated** — `src/app/trip/[slug]/page.tsx` (passes all module data to SketchTripShell).
+7. **Copy strings** — `src/lib/copy/surfaces/builder-state.ts` (16 new strings for module labels, placeholders, empty states).
+8. **CSS** — `src/app/globals.css` (added `.sketch-modules`, `.sketch-module-card`, `.sketch-module-row` styles for module result display).
+
+**What changed from the brief:**
+- No deviations. All 7 scope items (0–6) addressed.
+- Lodging URL enrichment uses existing `/api/enrich` endpoint.
+- Provisions uses upsert pattern (update if exists, insert if not).
+
+**What to test:**
+- [ ] InviteModal "+" in sketch shows only email tab (no share tab)
+- [ ] InviteModal in sell+ still shows both tabs (hideShareTab not passed)
+- [ ] Lodging: paste URL → card renders with OG image/title/price
+- [ ] Lodging: enter manually → card renders with name + price
+- [ ] Flights: add entry with route + cost → row appears
+- [ ] Transportation: add entry → row appears
+- [ ] Activities: add entry with name + cost → row appears
+- [ ] Provisions: enter estimate → saves; change estimate → updates (no duplicate)
+- [ ] Extras: packing list, playlist, house rules, album all render and work in sketch
+- [ ] All data persists on refresh
+- [ ] Publish → sell phase shows module data in sell display components
+- [ ] No regressions on sell/lock/go/done phases
+
+**Known issues:**
+- Preview verification limited (app requires auth login) — build passes clean
+- Lodging card in sketch is simple (name + image + price); sell+ uses full LodgingGallery with voting
+- Flight route stored in `departure_airport` field for now (brief specifies parsing properly in sell+)
 
 ---
 
-### Between Phase B and Phase C: Revisit the wireframe
+### Session 8A: "Lodging Module — Full Rebuild"
 
-After Session 8, before starting sell+ work: revisit `rally-trip-page-wireframe.html`
-with Andrew. The interactive wireframe covers all phases — use it to review and
-refine the sell phase design the same way we did for sketch. Create a flat
-`rally-sell-phase-spec.md` for Claude Code before writing sell+ briefs.
+**Loop phase:** Brief ✅ → Execute (Claude Code) → Release Notes → QA (Cowork) → Update Plan
+
+**Goal:** Rebuild the lodging module in the sketch page from scratch. Replace the
+current `LinkPasteInput`-based lodging section with a full type-aware flow:
+type picker → type-specific form with enrichment → `.house`-style card display.
+
+**Reference files (Claude Code must read these):**
+- `rally-lodging-module-spec.md` — full user flows, data model, edge cases
+- `rally-lodging-wireframe.html` — visual reference built in the real Rally
+  design system (open in browser to see the exact target)
+
+**Context for Claude Code:** Session 8 built a basic lodging input using
+`LinkPasteInput` that was too simplistic — no accommodation types, no
+type-specific fields, wonky UX when switching between URL and manual entry.
+This session replaces the lodging section entirely with a purpose-built flow.
+The rest of SketchModules (flights, transport, activities, provisions) stays
+untouched — only the lodging section changes.
+
+**Scope:**
+
+1. **DB migration** — Add two columns to the `lodging` table:
+   ```sql
+   DO $$ BEGIN
+     CREATE TYPE accommodation_type AS ENUM ('home_rental', 'hotel', 'other');
+   EXCEPTION WHEN duplicate_object THEN null;
+   END $$;
+   ALTER TABLE lodging ADD COLUMN IF NOT EXISTS accommodation_type accommodation_type NOT NULL DEFAULT 'home_rental';
+   ALTER TABLE lodging ADD COLUMN IF NOT EXISTS people_per_room integer;
+   ```
+   Write this as a new migration file in `supabase/migrations/`. Also update
+   the `Lodging` TypeScript interface in `src/types/index.ts` to include
+   `accommodation_type` and `people_per_room`.
+
+2. **Update `addLodgingOption` server action** in `sketch-modules.ts`:
+   - Accept new fields: `accommodationType`, `totalCost`, `peoplePerRoom`,
+     `bedrooms`, `maxGuests`
+   - Write `accommodation_type`, `total_cost`, `people_per_room`, `bedrooms`,
+     `max_guests` to the lodging table
+   - Keep existing OG enrichment fields (og_title, og_description, og_image_url)
+   - Add a `removeLodgingOption` action (delete by lodging ID, organizer-gated)
+
+3. **Build `LodgingAddForm` component** — new file in `src/components/trip/builder/`:
+   - **Step 1: Type picker** — three options: Home rental (🏠), Hotel (🏨),
+     Other (⛺). Uses dashed field border, type option rows.
+   - **Step 2: Type-specific form** — fields vary by type:
+     - **Home rental:** Link (optional, triggers /api/enrich on paste), Title*,
+       Total price (all-in)*, Bedrooms (optional), Max guests (optional),
+       Image (auto from OG or upload)
+     - **Hotel:** Link (optional, triggers /api/enrich), Title*, Cost per
+       night*, People per room*, computed estimate shown (cost × nights from
+       trip dates), Image (auto from OG or upload)
+     - **Other:** Title*, Link (optional), Total price (optional, $0 = free),
+       Image upload (optional)
+   - Form uses underline-only inputs (`.form-input` pattern from the chassis),
+     Caveat font for hints, accent color for required markers
+   - "Add option" button (accent pill with shadow) + "Cancel" button
+   - On submit: calls `addLodgingOption` server action → refreshes
+
+4. **Build `LodgingCard` component** — new file in `src/components/trip/builder/`:
+   - Uses the `.house` card pattern from LodgingGallery (3px border, 22px
+     radius, 6px box-shadow, image header with bottom border)
+   - Type flag badge (top-left): "🏠 home rental" / "🏨 hotel" / "⛺ other"
+   - Remove button (top-right): circle ✕, calls `removeLodgingOption`
+   - Body: Shrikhand title, cost display (varies by type), Caveat meta line,
+     **prominent "view listing →" link** as a tappable accent pill
+   - Cost display by type:
+     - Home rental: "$6,000 total"
+     - Hotel: "$289/night × 4 nights = ~$1,156" (compute from trip dates)
+     - Other: "$X total" or "Free" if $0
+   - If no image: show gradient placeholder with type emoji
+
+5. **Wire into SketchModules** — replace the current lodging `<div>` (lines
+   112–138 of SketchModules.tsx) with:
+   - `LodgingAddForm` for adding new options
+   - Map over `lodging` array → render `LodgingCard` for each
+   - Show count: "2 options" in Caveat font
+   - "Add another spot" button below cards (secondary dashed style)
+   - Pass trip dates (dateStart, dateEnd) for hotel night calculations
+
+6. **All strings through the lexicon** — every user-facing string must go
+   through `getCopy(themeId, key)`. Register new keys in
+   `lib/copy/surfaces/builder-state.ts`. Expected new keys:
+   - `lodging.typePickerTitle` ("what kind of place?")
+   - `lodging.typeHomeRental`, `lodging.typeHotel`, `lodging.typeOther`
+   - `lodging.typeHomeRentalDesc`, `lodging.typeHotelDesc`, `lodging.typeOtherDesc`
+   - `lodging.linkPlaceholder`, `lodging.linkHint`
+   - `lodging.titlePlaceholder`, `lodging.pricePlaceholder`
+   - `lodging.bedroomsPlaceholder`, `lodging.maxGuestsPlaceholder`
+   - `lodging.costPerNightPlaceholder`, `lodging.peoplePerRoomPlaceholder`
+   - `lodging.peoplePerRoomHint`
+   - `lodging.addButton`, `lodging.cancelButton`, `lodging.addAnother`
+   - `lodging.emptyState`, `lodging.viewListing`
+   - `lodging.countSuffix` ("options")
+   - `lodging.freeLabel` ("Free")
+
+**UX requirements:**
+- **Mobile-first:** large tap targets, paste-on-focus for link field, no data
+  loss on tab switch (state preserved in React)
+- **Link enrichment fires on paste** — no separate submit for the URL. Use
+  `onPaste` or debounced `onChange` on the link field
+- **Prominent outbound links** — "view listing →" is the most tappable thing
+  on each card. Opens in new tab.
+- **Design system compliance** — all styles use chassis CSS variables. Reference
+  `rally-lodging-wireframe.html` for exact visual target. Cards use `.house`
+  pattern. Forms use dashed field borders. Buttons use accent pill + shadow.
+
+**Hard constraints:**
+- DO NOT modify flights/transport/activities/provisions sections in SketchModules
+- DO NOT modify sell/lock/go/done phase lodging behavior (LodgingGallery)
+- DO NOT hardcode strings — everything through getCopy
+- DO NOT create new API routes — use existing /api/enrich + server actions
+- Image upload uses NEW `lodging-images` bucket (not trip-covers). Write a new
+  `uploadLodgingImage` utility in `src/lib/supabase/upload.ts` modeled on the
+  existing `uploadTripCover` function but targeting the `lodging-images` bucket.
+  Path pattern: `{tripId}/{lodgingId}/{timestamp}.{ext}`
+
+**How to QA solo:**
+- Navigate to sketch trip → lodging section shows empty state
+- Tap "+ add a spot" → type picker appears with 3 options
+- Pick "Home rental" → form shows with link, title, price, bedrooms, max guests
+- Paste an Airbnb URL → title + image auto-fill from OG enrichment
+- Edit the title and enter price → tap "Add option" → card appears
+- Card shows house-style with image, type badge, title, price, "view listing →"
+- Tap "view listing →" → opens in new tab
+- Add a hotel → form shows cost per night + people per room + computed estimate
+- Add an "Other" → form shows title + optional price + image upload
+- See 3 cards stacked with count "3 options"
+- Remove a card via ✕ → count updates
+- Refresh → all cards persist
+- Publish → lodging data visible in sell phase
+
+**Acceptance criteria:**
+- [ ] Type picker renders with 3 accommodation types
+- [ ] Home rental form: link enrichment + title + total price + optional fields
+- [ ] Hotel form: link enrichment + title + cost/night + people/room + estimate
+- [ ] Other form: title + optional link + optional price + image upload
+- [ ] Cards use `.house` pattern (3px border, shadow, image header)
+- [ ] Type badge on each card
+- [ ] "View listing →" prominent tappable link on cards with URLs
+- [ ] Remove button works (calls server action, card disappears)
+- [ ] Option count displays correctly
+- [ ] All data persists on refresh
+- [ ] All strings through getCopy (no hardcoded text)
+- [ ] Sell/lock/go/done phases unaffected
+- [ ] `accommodation_type` and `people_per_room` columns in DB
+- [ ] Lodging TypeScript type updated
+
+**Files to read first:**
+- `.claude/skills/rally-session-guard/SKILL.md` (the guardrail — read first)
+- `rally-fix-plan-v1.md` (this file — Session 8 release notes for what exists)
+- `rally-lodging-module-spec.md` (full spec — flows, data model, edge cases)
+- `rally-lodging-wireframe.html` (visual reference — open in browser)
+- `src/components/trip/builder/SketchModules.tsx` (current code — lodging section)
+- `src/app/actions/sketch-modules.ts` (current server actions — update lodging)
+- `src/components/trip/LodgingGallery.tsx` (sell phase — `.house` card pattern)
+- `src/app/globals.css` (chassis styles — .house, .field, .field-label, etc.)
+- `src/app/api/enrich/route.ts` (URL metadata scraper)
+- `src/lib/supabase/upload.ts` (image upload — reference pattern, write new `uploadLodgingImage` for `lodging-images` bucket)
+- `src/types/index.ts` (Lodging interface — add new fields)
+- `supabase/migrations/` (for new migration file naming convention)
+
+**Skill usage:** Same as prior sessions — rally-session-guard governs. Pre-flight
+checklist required. Release notes written into this file when done.
+
+**Supabase setup required (Andrew):**
+After CC creates the migration file, Andrew needs to run it in Supabase:
+```sql
+DO $$ BEGIN
+  CREATE TYPE accommodation_type AS ENUM ('home_rental', 'hotel', 'other');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+ALTER TABLE lodging ADD COLUMN IF NOT EXISTS accommodation_type accommodation_type NOT NULL DEFAULT 'home_rental';
+ALTER TABLE lodging ADD COLUMN IF NOT EXISTS people_per_room integer;
+```
+
+#### Session 8A — Release Notes
+
+**What was built:**
+1. **DB migration** — `supabase/migrations/013_lodging_accommodation_type.sql` (creates `accommodation_type` enum, adds `accommodation_type` + `people_per_room` columns to lodging table)
+2. **Lodging type updated** — `src/types/index.ts` (added `accommodation_type` and `people_per_room` to `Lodging` interface)
+3. **Copy strings** — `src/lib/copy/surfaces/builder-state.ts` (27 new lodging keys: type picker labels, form placeholders, card labels, meta labels, action buttons)
+4. **Server actions extended** — `src/app/actions/sketch-modules.ts` (extended `addLodgingOption` to accept `accommodationType`, `totalCost`, `peoplePerRoom`, `bedrooms`, `maxGuests`; added `removeLodgingOption` action for card deletion)
+5. **LodgingAddForm** — `src/components/trip/builder/LodgingAddForm.tsx` (new; two-step flow: type picker → type-specific form with URL enrichment via `/api/enrich`)
+6. **LodgingCard** — `src/components/trip/builder/LodgingCard.tsx` (new; `.house`-style card with type badge, image/placeholder, cost display by type, meta line, prominent "view listing →" pill, remove button)
+7. **SketchModules rewired** — `src/components/trip/builder/SketchModules.tsx` (replaced `LinkPasteInput`-based lodging section with `LodgingAddForm` + `LodgingCard` cards; added empty state, count badge, "add another" button; flights/transport/activities/provisions untouched)
+8. **SketchTripShell** — `src/components/trip/builder/SketchTripShell.tsx` (passes `dateStart` + `dateEnd` to SketchModules for hotel night calculations)
+9. **CSS** — `src/app/globals.css` (~180 lines: lodging module layout, type picker, form fields, card remove button, type badge, image placeholder, link pill, add-another button)
+
+**What changed from the brief:**
+- Image upload not wired yet — cards use OG images from enrichment only. Manual upload to `lodging-images` bucket deferred (no upload UI built; spec has it as optional and OG enrichment covers the primary use case)
+- `LinkPasteInput` import removed from SketchModules (no longer used for lodging; still exists in codebase for other modules)
+
+**What to test:**
+- [ ] Type picker renders with 3 accommodation types (home rental, hotel, other)
+- [ ] Home rental form: link enrichment + title + total price + optional bedrooms/max guests
+- [ ] Hotel form: link enrichment + title + cost/night + people/room + computed estimate
+- [ ] Other form: title + optional link + optional price
+- [ ] Cards use `.house` pattern (3px border, shadow, image header)
+- [ ] Type badge on each card
+- [ ] "View listing →" prominent tappable link on cards with URLs
+- [ ] Remove button works (card disappears, count updates)
+- [ ] Option count displays correctly
+- [ ] All data persists on refresh
+- [ ] All strings through getCopy (no hardcoded text)
+- [ ] Sell/lock/go/done phases unaffected
+- [ ] Flights/transport/activities/provisions sections unchanged
+
+**Known issues:**
+- Manual image upload not wired — `lodging-images` bucket exists but no upload UI built. OG enrichment images work.
+- Browser verification limited — could not log in through preview tool to test interactively. TypeScript compiles clean with no source errors.
+
+#### Session 8A — QA Results (Cowork, 2026-04-12)
+
+**AC verification:**
+- [x] Type picker renders with 3 accommodation types — ✅ pass
+- [x] Home rental form: link enrichment + title + total price + optional fields — ✅ pass
+- [x] Hotel form: link enrichment + title + cost/night + people/room + estimate — ✅ pass
+- [x] Other form: title + optional link + optional price — ✅ pass
+- [x] Cards use `.house` pattern (3px border, shadow, image header) — ✅ pass
+- [x] Type badge on each card — ✅ pass
+- [x] "View listing →" prominent tappable link on cards with URLs — ✅ pass
+- [x] Remove button works (card disappears, count updates) — ✅ pass
+- [x] Option count displays correctly — ✅ pass
+- [x] All data persists on refresh — ✅ pass
+- [x] All strings through getCopy — ❌ fail (hardcoded emojis in LodgingAddForm + LodgingCard, format operators like × = ~ · hardcoded in template literals, ✕ close button char)
+- [x] Sell/lock/go/done phases unaffected — ✅ pass
+- [x] Flights/transport/activities/provisions sections unchanged — ✅ pass (verified via release notes)
+- [x] `accommodation_type` and `people_per_room` columns in DB — ✅ pass
+- [x] Lodging TypeScript type updated — ✅ pass
+
+**Result: 14/15 ACs pass, 1 fail (getCopy hardcoded strings)**
+
+**Note:** CSS was not loading until dev server was restarted — turbopack had a stale bundle. After restart + hard refresh, all styles rendered correctly.
+
+**Bugs for next session:**
+1. **Hardcoded strings in lodging components** — emojis (🏠🏨⛺) hardcoded in LodgingAddForm.tsx + LodgingCard.tsx instead of getCopy; format operators (×, =, ~, ·) and ✕ close button hardcoded in template literals — `LodgingAddForm.tsx`, `LodgingCard.tsx`
+2. **Hotel cost formula missing crew logic** — should calculate rooms needed from invitee count (e.g., 6 people ÷ 2 per room = 3 rooms × cost/night × nights). Currently only shows per-room cost, not total group cost — `LodgingCard.tsx`, `LodgingAddForm.tsx`
+3. **No edit option on lodging cards** — once added, can only remove. Need edit flow (tap card → reopen form pre-filled) — `LodgingCard.tsx`, `LodgingAddForm.tsx`, `sketch-modules.ts`
+4. **"Other" form field order** — link field should come before name field, since pasting a link triggers enrichment that auto-fills the name — `LodgingAddForm.tsx`
+5. **Image upload not wired** — `lodging-images` bucket exists but no upload UI. OG enrichment covers primary case but manual upload needed for listings without OG images — `LodgingAddForm.tsx`, `src/lib/supabase/upload.ts`
+
+**Session 8A status: COMPLETE (QA done)**
 
 ---
 
-### Sessions 9+: "Sell+ Module Depth" (briefs TBD)
+### Copy / Lexicon Audit (between module sessions)
+
+After Session 8A (lodging) lands and before replicating the pattern to other
+modules: audit ALL new strings added in Sessions 7A–8A. Ensure:
+- Every user-facing string routes through `getCopy(themeId, key)` — no hardcoded text
+- All new keys are registered in `lib/copy/surfaces/builder-state.ts`
+- New lodging-specific strings (type labels, form labels, card text, hints) are
+  in the lexicon and support all 17 themes
+- Copy audit results documented here before proceeding to 8B+
+
+This prevents a debt spiral where each module session adds more hardcoded strings
+that get harder to clean up as the codebase grows. Do the audit once, establish
+the pattern, then hold the line for subsequent modules.
+
+**Status:** Folded into Session 8B scope below.
+
+---
+
+### Session 8B: "Lodging Polish — QA Fixes + Edit Flow"
+
+**Loop phase:** Brief ✅ → Execute ✅ → Release Notes ✅ → QA ✅ → Update Plan ✅
+**Status:** ✅ Complete — all 8/8 ACs passed (2026-04-12)
+
+**Goal:** Fix all bugs surfaced in 8A QA, add edit capability to lodging cards,
+improve hotel cost formula to account for crew size, and clean up hardcoded strings.
+This session closes out the lodging module before moving to sell phase.
+
+**Context for Claude Code:** Session 8A built the lodging module (type picker →
+form → cards). QA passed 14/15 ACs. The one fail is hardcoded strings. Additionally,
+Andrew flagged: hotel formula ignores crew size, no edit flow on cards, and the
+"other" form has fields in the wrong order. Fix all of these before moving on.
+
+**Scope:**
+
+1. **getCopy cleanup** — move all hardcoded user-facing strings to `getCopy()`:
+   - Emojis (🏠🏨⛺) in `LodgingAddForm.tsx` and `LodgingCard.tsx` — pull from
+     existing copy keys or register new ones
+   - Format operators (×, =, ~, ·) in template literals — extract to getCopy
+     format keys (e.g., `lodging.estimateFormat`)
+   - `✕` close button — use getCopy or a shared constant
+   - `...` enrichment loading indicator — use getCopy key
+   - Files: `LodgingAddForm.tsx`, `LodgingCard.tsx`, `builder-state.ts`
+
+2. **Hotel cost formula — crew-aware room calculation** — update the hotel
+   estimate to factor in the number of trip invitees:
+   - Formula: `ceil(crewCount / peoplePerRoom) × costPerNight × nights`
+   - Example: 6 people, 2 per room, $300/night, 4 nights = 3 rooms × $300 × 4 = $3,600
+   - Display: "$300/night × 3 rooms × 4 nights = ~$3,600" (or similar)
+   - Need crew count from trip data — pass through from SketchTripShell or
+     read from the crew/rsvp array length
+   - Files: `LodgingCard.tsx`, `LodgingAddForm.tsx`, `SketchTripShell.tsx`,
+     `SketchModules.tsx`
+
+3. **Edit flow for lodging cards** — tap a card (not the ✕) to reopen the form
+   pre-filled with existing data:
+   - Add `onEdit` callback to `LodgingCard`
+   - `LodgingAddForm` accepts optional `editingSpot` prop — when set, pre-fills
+     all fields and changes button to "save changes"
+   - On submit in edit mode: call an `updateLodgingOption` server action (new)
+     that updates the existing row by lodging ID
+   - Files: `LodgingCard.tsx`, `LodgingAddForm.tsx`, `sketch-modules.ts`,
+     `SketchModules.tsx`
+
+4. **"Other" form field order** — move the link field above the name field so
+   that pasting a URL triggers enrichment first, which auto-fills the name:
+   - Currently: name → link → price
+   - Should be: link → name → price
+   - File: `LodgingAddForm.tsx`
+
+5. **Copy / lexicon audit** — verify all 27+ lodging keys in `builder-state.ts`
+   are registered, support all 17 themes, and match the lexicon. Document any
+   gaps. This closes out the copy audit task listed above.
+   - Files: `builder-state.ts`, `rally-microcopy-lexicon-v0.md`
+
+**Hard constraints:**
+- DO NOT create new routes
+- DO NOT modify flights/transport/activities/provisions sections
+- DO NOT modify sell/lock/go/done phase lodging behavior (LodgingGallery)
+- DO NOT hardcode strings — everything through getCopy
+- DO NOT change the DB schema — no new migrations
+
+**Acceptance criteria:**
+- [ ] Zero hardcoded user-facing strings in LodgingAddForm + LodgingCard
+- [ ] Hotel estimate shows crew-aware calculation (rooms = ceil(crew / perRoom))
+- [ ] Tapping a lodging card opens edit form pre-filled with existing data
+- [ ] Editing a card and saving updates the card (no duplicate created)
+- [ ] "Other" form shows link field before name field
+- [ ] All lodging copy keys registered and working across themes
+- [ ] All existing 8A functionality still works (no regressions)
+- [ ] Remove still works after edit flow is added
+
+**Files to read first:**
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` (Session 8A release notes + QA results)
+- `src/components/trip/builder/LodgingAddForm.tsx`
+- `src/components/trip/builder/LodgingCard.tsx`
+- `src/components/trip/builder/SketchModules.tsx`
+- `src/components/trip/builder/SketchTripShell.tsx`
+- `src/app/actions/sketch-modules.ts`
+- `src/lib/copy/surfaces/builder-state.ts`
+
+**How to QA solo:**
+- Open sketch trip → lodging section with existing cards
+- Verify no hardcoded strings (search JSX for raw text not wrapped in getCopy)
+- Tap a lodging card → edit form opens with fields pre-filled
+- Change the title → save → card updates with new title
+- Add a hotel with 6 crew members → verify estimate shows room calculation
+- Open "other" form → link field appears before name field
+- Remove a card → still works
+- Refresh → all changes persist
+
+#### Session 8B — Release Notes
+
+**What was built:**
+1. **getCopy cleanup** — all 12 hardcoded user-facing strings (emojis, format operators, close button, enriching indicator, separator dot) replaced with `getCopy()` calls. 12 new copy keys added to `builder-state.ts` — `LodgingAddForm.tsx`, `LodgingCard.tsx`, `builder-state.ts`
+2. **Hotel cost formula — crew-aware room calculation** — hotel estimate now computes `ceil(crewCount / peoplePerRoom) × costPerNight × nights`. Display shows room count when >1 (e.g. "$300/night × 4 nights × 3 rooms = ~$3,600"). Crew count flows from `members.length` via SketchTripShell → SketchModules → LodgingCard/LodgingAddForm — `LodgingCard.tsx`, `LodgingAddForm.tsx`, `SketchModules.tsx`, `SketchTripShell.tsx`
+3. **Edit flow for lodging cards** — tapping a card opens the form pre-filled with existing data. Submit branches: edit mode calls `updateLodgingOption` (new server action), add mode calls `addLodgingOption`. `key={editingSpot?.id || 'new'}` forces form remount on edit target change. `stopPropagation` on remove button and link pill prevents edit trigger — `LodgingCard.tsx`, `LodgingAddForm.tsx`, `SketchModules.tsx`, `sketch-modules.ts`
+4. **"Other" form field order** — link field now renders before title for "other" accommodation type, so enrichment fires first and auto-fills the name — `LodgingAddForm.tsx`
+5. **Copy/lexicon audit** — all 12 new keys registered in `builder-state.ts`. All existing lodging keys verified present. No theme-specific overrides needed (all use `Templated` string type).
+
+**What changed from the brief:**
+- Image upload (bug #5 from 8A QA) was not in 8B scope — remains deferred
+- "Change type" button hidden in edit mode (can't switch accommodation type mid-edit since fields differ — prevents data loss)
+
+**What to test:**
+- [ ] Zero hardcoded user-facing strings in LodgingAddForm + LodgingCard (grep for emoji, ×, =, ~, ✕, ...)
+- [ ] Hotel estimate shows crew-aware calculation with room count
+- [ ] Tap lodging card → edit form opens pre-filled with existing data
+- [ ] Edit a card, save → card updates in place (no duplicate)
+- [ ] "Other" form shows link field before name field
+- [ ] Remove button still works (doesn't trigger edit)
+- [ ] Link pill clickable without triggering edit
+- [ ] Add new lodging (add flow unchanged from 8A)
+- [ ] Refresh → all changes persist
+
+**Known issues:**
+- Image upload not wired (deferred from 8A, not in 8B scope)
+- Edit mode hides "change type" button — deliberate to prevent data loss when switching accommodation types
+
+#### Session 8B — QA Results (Cowork, 2026-04-12)
+
+**Acceptance Criteria:**
+- [x] Zero hardcoded user-facing strings in LodgingAddForm + LodgingCard — ✅ PASS (code grep: all emojis, format operators, close button, enriching indicator use getCopy keys; 12 new keys in builder-state.ts)
+- [x] Hotel estimate shows crew-aware calculation (rooms = ceil(crew / perRoom)) — ✅ PASS (verified in browser: "$600/night × 3 nights × 2 rooms = ~$3,600" for 3 crew, 2 per room)
+- [x] Tapping a lodging card opens edit form pre-filled with existing data — ✅ PASS (form opens with link, name, cost/night, people/room pre-filled; button says "save changes")
+- [x] Editing a card and saving updates the card (no duplicate created) — ✅ PASS (changed name to "Maroma Belmond Resort", saved, card count stayed at 2, persisted after full page refresh)
+- [x] "Other" form shows link field before name field — ✅ PASS (field order: link → name → price; confirmed via DOM inspection)
+- [x] All lodging copy keys registered and working across themes — ✅ PASS (all 12 new keys registered in builder-state.ts, all use Templated type)
+- [x] All existing 8A functionality still works (no regressions) — ✅ PASS (type picker, cards, add flow, remove all functional)
+- [x] Remove still works after edit flow is added — ✅ PASS (removed Camping card, card count dropped to 1, edit form did NOT open)
+
+**Regression Checklist:**
+- [x] Dashboard loads with trip list
+- [x] Trip page scrolls all sections (marquee, header, crew, lodging, flights, transport, activities, provisions, footer)
+- [x] No dead-end buttons observed
+- [x] No console errors
+- [x] Link pill on card clickable without triggering edit (stopPropagation confirmed in code)
+- [x] Remove button doesn't trigger edit (stopPropagation confirmed in code + browser test)
+
+**Bugs Found:**
+1. **"1 options" pluralization** — lodging count label says "1 options" when only 1 card exists. Should be "1 option". — `SketchModules.tsx` / `builder-state.ts` copy key — LOW severity, cosmetic
+2. **Hardcoded '...' in truncateUrl()** — `LodgingCard.tsx` lines 37, 40 use raw `'...'` for URL truncation. Acceptable as technical punctuation, not user-facing copy — NO ACTION needed
+
+**Cowork fixes (CSS/copy only):**
+- None needed this session
+
+**Status:** ✅ All 8/8 ACs passed. Session 8B is complete.
+
+**Bugs for Session 8C+:**
+1. "1 options" → "1 option" pluralization fix — `SketchModules.tsx` or `builder-state.ts`
+
+---
+
+### Session 8 — Approach
+
+Session 8 is the **complete sketch page buildout**, module by module. We loop
+through sub-sessions (8A, 8B, 8C, ...) until every module on the sketch trip
+page is clean, functional, and QA'd. Each sub-session targets one module or a
+set of fixes, follows the full session loop (brief → execute → release notes →
+QA → update plan), and we don't move to Session 9 until the sketch page is done.
+
+**Completed:**
+- **8A:** Lodging module — full rebuild (type picker → forms → cards) ✅
+- **8B:** Lodging polish — QA fixes + edit flow ✅
+
+**Remaining sketch page modules (8C+ briefs TBD, written after 8B ships):**
+- **8C:** Flights / transportation — rebuild with same pattern as lodging
+  (type-aware input, cards, edit, remove)
+- **8D:** Activities — rebuild (activity type, cards, edit, remove)
+- **8E:** Food & drink / provisions — rebuild (grocery vs restaurant, estimate)
+- **8F:** Cost summary — aggregates all modules into per-person estimate
+- **8G:** Extras polish — packing list, playlist, house rules, photo album
+- **8H:** Full sketch page QA + copy/lexicon audit across all modules
+
+Sub-session letters may shift as we learn what's needed. The rule is: we keep
+looping until Andrew says the sketch page is done.
+
+**Exit criteria for Session 8 (all must be true):**
+- Every module on the sketch trip page is functional and styled
+- All strings go through getCopy across every module
+- No dead-end interactions at 375px
+- Full between-session QA checklist passes
+- Andrew signs off
+
+---
+
+### Between Session 8 and Session 9: Revisit the wireframe
+
+Before starting sell+ work: revisit `rally-trip-page-wireframe.html` with Andrew.
+The interactive wireframe covers all phases — use it to review and refine the sell
+phase design. Create a `rally-sell-phase-spec.md` for Claude Code before writing
+Session 9+ briefs.
+
+---
+
+### Session 9+: "Sell+ Module Depth" (briefs TBD)
 
 These sessions deepen each module for sell/lock/go/done phases. Briefs will be
-written after Session 8 ships, the sketch page is QA'd end-to-end, and the sell
-phase wireframe is reviewed with Andrew. Expected sessions:
+written after Session 8 ships (sketch page complete), and the sell phase wireframe
+is reviewed with Andrew. Expected sessions:
 
 - **Session 9:** Lodging voting + lock flow (sell → lock)
 - **Session 10:** Cost summary + provisions → restaurants/groceries breakdown
@@ -852,7 +1413,7 @@ phase wireframe is reviewed with Andrew. Expected sessions:
 - **Session 12:** Buzz feed depth (compose, reactions, event rows)
 - **Session 13:** Extras depth + polish (all extra types, animations, copy/color audit)
 
-These are placeholders. Exact scope depends on what we learn from sketch QA.
+These are placeholders. Exact scope depends on what we learn from the sketch page buildout.
 
 ---
 

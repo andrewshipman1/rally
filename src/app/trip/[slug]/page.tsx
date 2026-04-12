@@ -185,6 +185,15 @@ export default async function TripPage({ params }: Props) {
         organizerId={organizer.id}
         coverImageUrl={trip.cover_image_url}
         members={members}
+        lodging={lodging}
+        flights={flights}
+        transport={transport}
+        activities={activities}
+        groceries={groceries}
+        packingList={trip.packing_list || []}
+        playlistUrl={trip.playlist_url}
+        houseRules={trip.house_rules}
+        photoAlbumUrl={trip.photo_album_url}
         initial={{
           name: trip.name,
           tagline: trip.tagline,

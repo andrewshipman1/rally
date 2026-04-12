@@ -128,6 +128,7 @@ export function SketchInviteList({ themeId, tripId, slug, members, organizerId }
         slug={slug}
         themeId={themeId}
         onInvited={() => router.refresh()}
+        hideShareTab
       />
     </>
   );

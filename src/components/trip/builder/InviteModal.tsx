@@ -15,12 +15,13 @@ type Props = {
   slug: string;
   themeId: ThemeId;
   onInvited: () => void;
+  hideShareTab?: boolean;
 };
 
 type Tab = 'share' | 'email';
 
-export function InviteModal({ open, onClose, tripId, slug, themeId, onInvited }: Props) {
-  const [tab, setTab] = useState<Tab>('share');
+export function InviteModal({ open, onClose, tripId, slug, themeId, onInvited, hideShareTab }: Props) {
+  const [tab, setTab] = useState<Tab>(hideShareTab ? 'email' : 'share');
   const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -102,22 +103,24 @@ export function InviteModal({ open, onClose, tripId, slug, themeId, onInvited }:
         </div>
 
         {/* Tabs */}
-        <div className="invite-tabs">
-          <button
-            type="button"
-            className={`invite-tab${tab === 'share' ? ' active' : ''}`}
-            onClick={() => setTab('share')}
-          >
-            {getCopy(themeId, 'builderState.inviteTabShare')}
-          </button>
-          <button
-            type="button"
-            className={`invite-tab${tab === 'email' ? ' active' : ''}`}
-            onClick={() => setTab('email')}
-          >
-            {getCopy(themeId, 'builderState.inviteTabEmail')}
-          </button>
-        </div>
+        {!hideShareTab && (
+          <div className="invite-tabs">
+            <button
+              type="button"
+              className={`invite-tab${tab === 'share' ? ' active' : ''}`}
+              onClick={() => setTab('share')}
+            >
+              {getCopy(themeId, 'builderState.inviteTabShare')}
+            </button>
+            <button
+              type="button"
+              className={`invite-tab${tab === 'email' ? ' active' : ''}`}
+              onClick={() => setTab('email')}
+            >
+              {getCopy(themeId, 'builderState.inviteTabEmail')}
+            </button>
+          </div>
+        )}
 
         {/* Share tab */}
         {tab === 'share' && (

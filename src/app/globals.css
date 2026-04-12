@@ -756,6 +756,270 @@ button:active {
   color: var(--accent);
 }
 
+/* ─── Lodging module (Session 8A) ─────────────────────────────── */
+
+.chassis .lodging-module { display: flex; flex-direction: column; gap: 12px; }
+
+.chassis .lodging-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+.chassis .lodging-count {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--ink);
+  opacity: 0.5;
+}
+
+.chassis .lodging-empty {
+  padding: 20px 16px;
+  border: 2.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+  border-radius: 16px;
+  text-align: center;
+}
+.chassis .lodging-empty-text {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 17px;
+  color: var(--ink);
+  opacity: 0.5;
+  margin: 0 0 12px;
+}
+.chassis .lodging-add-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-block;
+  padding: 10px 24px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 30px;
+  box-shadow: 3px 3px 0 var(--stroke);
+}
+.chassis .lodging-add-btn:active { transform: translateY(1px); box-shadow: 1px 1px 0 var(--stroke); }
+
+.chassis .lodging-cards { display: flex; flex-direction: column; gap: 14px; }
+
+.chassis .lodging-card { position: relative; }
+
+.chassis .lodging-remove-btn {
+  all: unset;
+  cursor: pointer;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 1;
+  backdrop-filter: blur(4px);
+}
+.chassis .lodging-remove-btn:active { background: rgba(0,0,0,0.7); }
+
+.chassis .lodging-type-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+
+.chassis .lodging-img-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.chassis .lodging-card-meta {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 15px;
+  color: var(--ink);
+  opacity: 0.5;
+  margin-top: 2px;
+}
+
+.chassis .lodging-link-pill {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 18px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 30px;
+  text-decoration: none;
+  box-shadow: 2px 2px 0 var(--stroke);
+}
+.chassis .lodging-link-pill:active { transform: translateY(1px); box-shadow: 0 0 0 var(--stroke); }
+
+.chassis .lodging-add-another {
+  all: unset;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  padding: 14px 0;
+  text-align: center;
+  border: 2.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.6;
+}
+.chassis .lodging-add-another:hover { opacity: 0.8; }
+
+/* Type picker */
+.chassis .lodging-type-picker {
+  padding: 16px;
+  border: 2.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chassis .lodging-type-picker-title {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 18px;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.chassis .lodging-type-option {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+  border-radius: 12px;
+}
+.chassis .lodging-type-option:hover { border-color: var(--accent); }
+.chassis .lodging-type-option:active { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+
+.chassis .lodging-type-option-emoji { font-size: 24px; flex-shrink: 0; }
+.chassis .lodging-type-option-text { display: flex; flex-direction: column; gap: 1px; }
+.chassis .lodging-type-option-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: lowercase;
+}
+.chassis .lodging-type-option-desc {
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.5;
+}
+
+/* Add form */
+.chassis .lodging-form {
+  padding: 16px;
+  border: 2.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.chassis .lodging-form-type-label {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: lowercase;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chassis .lodging-form-change-type {
+  all: unset;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.4;
+  text-decoration: underline;
+}
+.chassis .lodging-form-group { display: flex; flex-direction: column; gap: 4px; }
+.chassis .lodging-form-row { display: flex; gap: 10px; }
+.chassis .lodging-form-row .lodging-form-field { flex: 1; }
+
+.chassis .lodging-form-field {
+  all: unset;
+  font-size: 15px;
+  color: var(--ink);
+  padding: 10px 0;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
+}
+.chassis .lodging-form-field:focus { border-bottom-color: var(--accent); }
+.chassis .lodging-form-field::placeholder { color: var(--ink); opacity: 0.35; }
+
+.chassis .lodging-form-hint {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 14px;
+  color: var(--ink);
+  opacity: 0.4;
+}
+.chassis .lodging-form-enriching {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 14px;
+  color: var(--accent);
+}
+.chassis .lodging-form-estimate {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--accent);
+  min-height: 20px;
+}
+.chassis .lodging-form-og-preview {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+}
+.chassis .lodging-form-og-img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+}
+
+.chassis .lodging-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.chassis .lodging-form-submit {
+  all: unset;
+  cursor: pointer;
+  padding: 10px 24px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 30px;
+  box-shadow: 3px 3px 0 var(--stroke);
+}
+.chassis .lodging-form-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+.chassis .lodging-form-submit:active:not(:disabled) { transform: translateY(1px); box-shadow: 1px 1px 0 var(--stroke); }
+
+.chassis .lodging-form-cancel {
+  all: unset;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink);
+  opacity: 0.5;
+  text-decoration: underline;
+}
+.chassis .lodging-form-cancel:hover { opacity: 0.7; }
+
 /* Status bar spacer — accounts for the iOS notch when running as PWA. */
 .chassis .status-bar {
   height: env(safe-area-inset-top, 0px);
@@ -1682,6 +1946,76 @@ button:active {
 }
 .chassis .line-item-input .line-item-add-btn:hover:not(:disabled) { opacity: 0.8; }
 .chassis .line-item-input .line-item-add-btn:disabled { opacity: 0.2; cursor: default; }
+
+/* ─── Sketch Modules ──────────────────────────────────────────── */
+.chassis .sketch-modules {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 18px 16px;
+}
+.chassis .sketch-module {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chassis .sketch-module-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+}
+.chassis .sketch-module-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  border-radius: 12px;
+}
+.chassis .sketch-module-card-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.chassis .sketch-module-card-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.chassis .sketch-module-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chassis .sketch-module-card-price {
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.6;
+}
+.chassis .sketch-module-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.chassis .sketch-module-row:last-child { border-bottom: none; }
+.chassis .sketch-module-row-name {
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.chassis .sketch-module-row-cost {
+  font-size: 13px;
+  color: var(--ink);
+  opacity: 0.6;
+}
 
 /* Sticky builder bar — 4 buttons: ← 🎨 save-draft publish */
 .chassis .sticky .sticky-icon {

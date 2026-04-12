@@ -94,6 +94,8 @@ export interface Lodging {
   name: string;
   link: string | null;
   cost_per_night: number | null;
+  accommodation_type: 'home_rental' | 'hotel' | 'other';
+  people_per_room: number | null;
   // OG scrape
   og_title: string | null;
   og_description: string | null;
