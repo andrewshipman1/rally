@@ -40,6 +40,8 @@ type SketchOverrides = {
   eyebrowText: string;
   /** Drops a client sub-tree in place of the title + tagline block. */
   renderBody: ReactNode;
+  /** Optional postcard image element rendered in the wordmark row. */
+  renderPostcard?: ReactNode;
 };
 
 type Props = {
@@ -147,7 +149,10 @@ export function PostcardHero({
             <span className="label">{inviteeOverrides.inviterRowText}</span>
           </div>
         )}
-        <div className="wordmark">{'rally'}<span className="bang">{'!'}</span></div>
+        <div className={`wordmark${isSketch && sketchOverrides.renderPostcard ? ' wordmark-row' : ''}`}>
+          <span>{'rally'}<span className="bang">{'!'}</span></span>
+          {isSketch && sketchOverrides.renderPostcard}
+        </div>
         <div className="eyebrow">{`★ ${eyebrow}`}</div>
         {isSketch ? (
           sketchOverrides.renderBody

@@ -21,6 +21,8 @@ export type SketchPatch = Partial<{
   destination: string | null;
   date_start: string | null;
   date_end: string | null;
+  commit_deadline: string | null;
+  cover_image_url: string | null;
 }>;
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -31,6 +33,8 @@ const ALLOWED_KEYS: ReadonlyArray<keyof SketchPatch> = [
   'destination',
   'date_start',
   'date_end',
+  'commit_deadline',
+  'cover_image_url',
 ];
 
 export async function updateTripSketch(

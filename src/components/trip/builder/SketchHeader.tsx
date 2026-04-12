@@ -2,9 +2,10 @@
 
 // The inline-editable field block that replaces the usual
 // eyebrow + title + tagline layout inside .chassis .header when
-// the trip is in sketch phase. Composes four InlineFields and a
-// handwritten hint. State is fully lifted — the parent owns the
-// values and the autosave queue.
+// the trip is in sketch state. Composes InlineFields for name,
+// tagline, start/end dates, location, and RSVP-by deadline.
+// State is fully lifted — the parent owns the values and the
+// autosave queue.
 
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
@@ -16,10 +17,14 @@ type Props = {
   tagline: string | null;
   destination: string | null;
   dateStart: string | null;
+  dateEnd: string | null;
+  commitDeadline: string | null;
   onNameChange: (next: string) => void;
   onTaglineChange: (next: string) => void;
   onDestinationChange: (next: string) => void;
   onDateStartChange: (next: string) => void;
+  onDateEndChange: (next: string) => void;
+  onCommitDeadlineChange: (next: string) => void;
 };
 
 export function SketchHeader({
@@ -28,10 +33,14 @@ export function SketchHeader({
   tagline,
   destination,
   dateStart,
+  dateEnd,
+  commitDeadline,
   onNameChange,
   onTaglineChange,
   onDestinationChange,
   onDateStartChange,
+  onDateEndChange,
+  onCommitDeadlineChange,
 }: Props) {
   return (
     <>
@@ -52,12 +61,20 @@ export function SketchHeader({
       />
       <div className="field-row">
         <InlineField
-          variant="when"
-          label={getCopy(themeId, 'builderState.fieldLabel.when')}
+          variant="start"
+          label={getCopy(themeId, 'builderState.fieldLabel.start')}
           placeholder={getCopy(themeId, 'builderState.whenFieldPlaceholder')}
           value={dateStart}
           inputType="date"
           onChange={onDateStartChange}
+        />
+        <InlineField
+          variant="end"
+          label={getCopy(themeId, 'builderState.fieldLabel.end')}
+          placeholder={getCopy(themeId, 'builderState.whenFieldPlaceholder')}
+          value={dateEnd}
+          inputType="date"
+          onChange={onDateEndChange}
         />
         <InlineField
           variant="where"
@@ -67,6 +84,14 @@ export function SketchHeader({
           onChange={onDestinationChange}
         />
       </div>
+      <InlineField
+        variant="rsvp-by"
+        label={getCopy(themeId, 'builderState.fieldLabel.rsvpBy')}
+        placeholder={getCopy(themeId, 'builderState.rsvpByPlaceholder')}
+        value={commitDeadline}
+        inputType="date"
+        onChange={onCommitDeadlineChange}
+      />
     </>
   );
 }

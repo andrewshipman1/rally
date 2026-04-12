@@ -9,14 +9,14 @@
 // React's render cycle.
 //
 // Responsibilities:
-//   - Hold the five inline-editable field values in local state.
+//   - Hold the inline-editable field values in local state.
 //   - Wire the autosave hook (one instance, keyed on tripId).
 //   - Compute the ungate boolean on every render from local state
 //     plus the server-seeded crewOk flag. Crew changes only update
 //     after a full navigation, which is acceptable in phase 4 since
 //     invites require the invitee to click through and RSVP.
-//   - Render the PostcardHero with sketch overrides, the empty
-//     countdown, the crew field, and the builder sticky bar.
+//   - Render the PostcardHero with sketch overrides, the crew field,
+//     and the builder sticky bar.
 //   - Own committedThemeId + previewThemeId; render `.chassis` with
 //     `data-theme={previewThemeId ?? committedThemeId}`; mount the
 //     ThemePickerSheet at the bottom of the tree.
@@ -26,14 +26,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
-import { themePicker } from '@/lib/copy/surfaces/theme-picker';
 import type { ThemeId } from '@/lib/themes/types';
 
 import { PostcardHero } from '@/components/trip/PostcardHero';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
 import { ThemePickerSheet } from '@/components/trip/theme-picker/ThemePickerSheet';
 import { SketchHeader } from './SketchHeader';
-import { SketchCountdownEmpty } from './SketchCountdownEmpty';
+import { PostcardImage } from './PostcardImage';
 import { SketchCrewField } from './SketchCrewField';
 import { BuilderStickyBar } from './BuilderStickyBar';
 import { useDebouncedAutosave } from '@/lib/builder/useDebouncedAutosave';
@@ -62,6 +61,7 @@ type Props = {
     destination: string | null;
     date_start: string | null;
     date_end: string | null;
+    commit_deadline: string | null;
   };
 };
 
@@ -82,6 +82,9 @@ export function SketchTripShell({
   const [tagline, setTagline] = useState<string | null>(initial.tagline);
   const [destination, setDestination] = useState<string | null>(initial.destination);
   const [dateStart, setDateStart] = useState<string | null>(initial.date_start);
+  const [dateEnd, setDateEnd] = useState<string | null>(initial.date_end);
+  const [commitDeadline, setCommitDeadline] = useState<string | null>(initial.commit_deadline);
+  const [localCoverImageUrl, setLocalCoverImageUrl] = useState<string | null>(coverImageUrl);
 
   // Phase 6 — theme state. Committed reflects server truth; preview is
   // transient while the picker sheet is open. activeThemeId drives the
@@ -108,7 +111,7 @@ export function SketchTripShell({
 
   const { queue, flush } = useDebouncedAutosave(tripId, slug);
 
-  const ready = hasReadyName(name) && hasReadyDate(dateStart, initial.date_end);
+  const ready = hasReadyName(name) && hasReadyDate(dateStart, dateEnd);
 
   // Scaffolding marquee is ` · `-delimited in the lexicon so each
   // segment lands in its own <span> the same way the live marquee does.
@@ -122,7 +125,7 @@ export function SketchTripShell({
         tripName={name}
         destination={destination}
         tagline={tagline}
-        coverImageUrl={coverImageUrl}
+        coverImageUrl={localCoverImageUrl}
         organizerName={organizerName}
         phase="sketch"
         isLive={false}
@@ -131,6 +134,16 @@ export function SketchTripShell({
           stickerText: getCopy(activeThemeId, 'builderState.sticker'),
           liveRowText: getCopy(activeThemeId, 'builderState.liveRow'),
           eyebrowText: getCopy(activeThemeId, 'builderState.eyebrow'),
+          renderPostcard: (
+            <PostcardImage
+              tripId={tripId}
+              imageUrl={localCoverImageUrl}
+              onImageChange={(url) => {
+                setLocalCoverImageUrl(url);
+                queue({ cover_image_url: url });
+              }}
+            />
+          ),
           renderBody: (
             <SketchHeader
               themeId={activeThemeId}
@@ -138,6 +151,8 @@ export function SketchTripShell({
               tagline={tagline}
               destination={destination}
               dateStart={dateStart}
+              dateEnd={dateEnd}
+              commitDeadline={commitDeadline}
               onNameChange={(v) => {
                 setName(v);
                 queue({ name: v });
@@ -154,12 +169,20 @@ export function SketchTripShell({
                 setDateStart(v);
                 queue({ date_start: v || null });
               }}
+              onDateEndChange={(v) => {
+                setDateEnd(v);
+                queue({ date_end: v || null });
+              }}
+              onCommitDeadlineChange={(v) => {
+                setCommitDeadline(v);
+                queue({ commit_deadline: v || null });
+              }}
             />
           ),
         }}
       />
 
-      <SketchCountdownEmpty themeId={activeThemeId} />
+      {/* Countdown hidden in sketch — appears in sell+ via page.tsx phase logic */}
 
       <SketchCrewField
         themeId={activeThemeId}
@@ -169,60 +192,18 @@ export function SketchTripShell({
         organizerId={organizerId}
       />
 
-      {/* Phase 6 — entry point to the theme picker. Solid accent CTA
-          so the organizer can't miss it on the sketch page. */}
-      <div style={{ padding: '20px 18px 0', textAlign: 'center' }}>
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="pick-vibe-btn"
-        >
-          🎨 {themePicker.pageHeader as string}
-        </button>
-      </div>
-
       <PoeticFooter themeId={activeThemeId} />
 
-      {/* Dev bypass: skip sketch→sell gate for QA */}
-      {process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEV_BYPASS === '1' ? (
-        <div style={{ padding: '12px 18px', textAlign: 'center' }}>
-          <button
-            type="button"
-            onClick={async () => {
-              const res = await fetch(`/api/trips/${tripId}/phase`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phase: 'sell' }),
-              });
-              if (res.ok) {
-                window.scrollTo(0, 0);
-                router.refresh();
-              }
-            }}
-            style={{
-              background: '#333',
-              color: '#ff0',
-              border: '2px dashed #ff0',
-              borderRadius: 8,
-              padding: '8px 16px',
-              fontSize: 11,
-              fontFamily: 'monospace',
-              cursor: 'pointer',
-              opacity: 0.7,
-            }}
-          >
-            🔧 DEV: skip to sell phase
-          </button>
-        </div>
-      ) : null}
 
       <div style={{ height: 90 }} />
 
       <BuilderStickyBar
         themeId={activeThemeId}
         ready={ready}
+        onBack={() => router.push('/')}
+        onThemeOpen={() => setPickerOpen(true)}
         onManualSave={() => void flush()}
-        onSendIt={async () => {
+        onPublish={async () => {
           await flush();
           const result = await transitionToSell(tripId, slug);
           if (result.ok) {

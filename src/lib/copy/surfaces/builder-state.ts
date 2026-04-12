@@ -16,12 +16,16 @@ export const builderState: Record<string, Templated> = {
   'fieldLabel.oneLine':    'one line',
   'fieldLabel.when':       'when',
   'fieldLabel.where':      'where',
+  'fieldLabel.start':      'start',
+  'fieldLabel.end':        'end',
+  'fieldLabel.rsvpBy':     'rsvp by',
 
   // ─── Inline fields (placeholders in sketch state) ───────────────
   'titlePlaceholder':      'untitled rally',
   'taglinePlaceholder':    'why are we doing this?',
   'whenFieldPlaceholder':  'tbd ↓',
   'whereFieldPlaceholder': 'somewhere ↓',
+  'rsvpByPlaceholder':     'set a deadline ↓',
 
   // ─── Handwritten hint beneath the title ─────────────────────────
   'titleHint':             'give it a name only your group would get',
@@ -43,6 +47,11 @@ export const builderState: Record<string, Templated> = {
   'saveDraftButton':       '✏️',
   'ctaDisabled':           'add the basics first',
   'ctaReady':              'send it to the group 🚀',
+  'stickyBack':            '←',
+  'stickyTheme':           '🎨',
+  'stickyDraft':           'save draft',
+  'stickyPublish':         'publish →',
+  'stickyPublishDisabled': 'name + date to publish',
 
   // ─── Share link ─────────────────────────────────────────────────
   'shareLinkCopyAction':   'copy the invite link ↗',

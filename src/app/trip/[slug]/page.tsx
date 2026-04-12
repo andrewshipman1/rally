@@ -194,6 +194,7 @@ export default async function TripPage({ params }: Props) {
           destination: trip.destination,
           date_start: trip.date_start,
           date_end: trip.date_end,
+          commit_deadline: trip.commit_deadline,
         }}
       />
     );

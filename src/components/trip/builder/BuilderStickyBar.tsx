@@ -1,13 +1,11 @@
 'use client';
 
-// Sketch-state sticky bottom bar. Two buttons: a ✏️ manual flush
-// (safety net — autosave is primary) and a wide "send it" CTA that
-// starts dashed + disabled and flips to solid + accent when the
-// ungate rule is met.
+// Sketch-state sticky bottom bar. Four buttons:
+// ← back | 🎨 theme | save draft | publish →
 //
-// `ready` is passed from the parent (SketchTripShell) so it can
-// update optimistically as the user types, without waiting for a
-// server round-trip.
+// Back navigates to dashboard. Theme opens ThemePickerSheet.
+// Save draft flushes autosave. Publish transitions sketch → sell,
+// gated on `ready` (name + date required).
 
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
@@ -15,30 +13,54 @@ import type { ThemeId } from '@/lib/themes/types';
 type Props = {
   themeId: ThemeId;
   ready: boolean;
+  onBack?: () => void;
+  onThemeOpen?: () => void;
   onManualSave?: () => void;
-  onSendIt?: () => void;
+  onPublish?: () => void;
 };
 
-export function BuilderStickyBar({ themeId, ready, onManualSave, onSendIt }: Props) {
+export function BuilderStickyBar({
+  themeId,
+  ready,
+  onBack,
+  onThemeOpen,
+  onManualSave,
+  onPublish,
+}: Props) {
   return (
     <div className="sticky">
       <button
         type="button"
-        className="save-draft"
-        onClick={onManualSave}
-        aria-label={getCopy(themeId, 'builderState.saveDraftButton')}
+        className="sticky-icon"
+        onClick={onBack}
+        aria-label="back to dashboard"
       >
-        {getCopy(themeId, 'builderState.saveDraftButton')}
+        {getCopy(themeId, 'builderState.stickyBack')}
       </button>
       <button
         type="button"
-        className={`send${ready ? '' : ' disabled'}`}
+        className="sticky-icon"
+        onClick={onThemeOpen}
+        aria-label="pick theme"
+      >
+        {getCopy(themeId, 'builderState.stickyTheme')}
+      </button>
+      <button
+        type="button"
+        className="sticky-draft"
+        onClick={onManualSave}
+      >
+        {getCopy(themeId, 'builderState.stickyDraft')}
+      </button>
+      <button
+        type="button"
+        className={`sticky-publish${ready ? '' : ' disabled'}`}
         disabled={!ready}
-        onClick={onSendIt}
+        onClick={onPublish}
       >
         {ready
-          ? getCopy(themeId, 'builderState.ctaReady')
-          : getCopy(themeId, 'builderState.ctaDisabled')}
+          ? getCopy(themeId, 'builderState.stickyPublish')
+          : getCopy(themeId, 'builderState.stickyPublishDisabled')}
       </button>
     </div>
   );

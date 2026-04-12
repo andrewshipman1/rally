@@ -10,7 +10,7 @@
 
 import { useRef, useState } from 'react';
 
-export type InlineFieldVariant = 'title' | 'tagline' | 'when' | 'where';
+export type InlineFieldVariant = 'title' | 'tagline' | 'when' | 'where' | 'start' | 'end' | 'rsvp-by';
 
 type Props = {
   variant: InlineFieldVariant;
