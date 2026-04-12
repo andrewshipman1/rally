@@ -542,6 +542,224 @@ schema. Escalate to Andrew for Supabase migration help.
 **Skill usage:** Same as Session 7A — rally-session-guard governs. Pre-flight
 checklist required. Release notes written into this file when done.
 
+#### Session 7B — Release Notes
+
+**What was built:**
+1. Invite roster component — name list with add/remove, replaces avatar circles in sketch — `InviteRoster.tsx` (new)
+2. `roster_names` field — added to `Trip` type + `SketchPatch` whitelist + autosave — `types/index.ts`, `update-trip-sketch.ts`
+3. SketchTripShell wiring — replaced `SketchCrewField` with `InviteRoster`, removed unused `members`/`organizerId`/`crewReady` props — `SketchTripShell.tsx`, `page.tsx`
+4. `EstimateInput` — shared ~$ amount input for provisions (Session 8) — `EstimateInput.tsx` (new)
+5. `LinkPasteInput` — shared URL paste + manual fallback for lodging (Session 8) — `LinkPasteInput.tsx` (new)
+6. `LineItemAddInput` — shared name + cost input for flights/transport/activities (Session 8) — `LineItemAddInput.tsx` (new)
+7. Copy strings — 12 new lexicon entries for roster + shared inputs — `builder-state.ts`
+8. CSS — invite roster styles + 3 shared input component styles — `globals.css`
+
+**What changed from the brief:**
+- Removed `members`, `organizerId`, `crewReady` props from SketchTripShell (no longer needed after SketchCrewField replacement)
+- Removed `hasNonOrganizerMember` import from page.tsx (unused)
+- `SketchCrewField.tsx` left in place (not deleted) — it's no longer imported by the sketch shell but may have other consumers
+
+**What to test:**
+- [ ] Sketch trip shows invite roster (name list), not avatar circles
+- [ ] Can type a name and press enter → appears in roster
+- [ ] Can add multiple names → list grows
+- [ ] Can remove a name via ✕ button
+- [ ] Organizer name shows first, not removable
+- [ ] Refresh page → roster persists (requires `roster_names` column — see setup)
+- [ ] Publish trip → going row shows avatar circles in sell (not roster)
+- [ ] `EstimateInput` renders correctly (test via importing in a scratch component)
+- [ ] `LinkPasteInput` renders correctly with link/manual toggle
+- [ ] `LineItemAddInput` renders correctly with name + cost + add button
+- [ ] No regressions on sell/lock/go/done phases
+
+**Known issues:**
+- `SketchCrewField.tsx` is now unused by the sketch shell — can be deleted in a future cleanup
+- `roster_names` column must be added to Supabase before the roster will persist
+
+**Supabase setup required (Andrew):**
+```sql
+ALTER TABLE trips ADD COLUMN roster_names text[] DEFAULT '{}';
+```
+Run this migration before testing roster persistence.
+
+#### Session 7B — QA Results
+
+**Status: SKIPPED — direction changed.**
+During QA Andrew identified that the InviteRoster (plain name list) was a
+downgrade from the existing invite infrastructure. The codebase already has:
+- `POST /api/invite` — creates user + trip_member from email/phone, sends invite
+- `DELETE /api/invite` — organizer uninvite
+- `InviteModal` — share link + email invite UI
+- `trip_members` table with full invite tracking (role, rsvp, invite_opened_at)
+- `CrewSection` — full member list grouped by RSVP status
+
+Building a text-only name roster on top of `roster_names text[]` was solving a
+problem that was already solved. Session 7C replaces 7B's roster work with the
+real invite data model.
+
+**Decision: invitees must create an account** to view the trip and RSVP. No
+anonymous/guest decline path. This matches the existing auth-gated invitee flow
+(`InviteeShell` → magic link → account → view trip → RSVP).
+
+---
+
+### Session 7C: "Sketch Page — Invite List (Real Data Model)"
+
+**Loop phase:** Brief ✅ → Execute (Claude Code) → Release Notes → QA (Cowork) → Update Plan
+
+**Goal:** Revert the InviteRoster swap from 7B. Restore SketchCrewField +
+InviteModal as the invite action, then build a proper sketch-phase invite list
+that shows real trip_members data (name + contact info + count + remove).
+
+**Context for Claude Code:** Session 7B built an `InviteRoster` component that
+stores plain-text names in `roster_names text[]` on the trips table. This was
+wrong — the codebase already has a full invite system using `trip_members`,
+`POST /api/invite`, and `InviteModal`. We need to revert the roster swap and
+build a proper invite list using the real data model.
+
+**Scope:**
+
+1. **Revert SketchTripShell** — remove `InviteRoster` import and usage. Restore
+   `SketchCrewField` + `InviteModal` wiring. Re-add the `members`,
+   `organizerId` props that 7B removed. Remove `roster_names` from the
+   `initial` prop and from local state / autosave queue calls.
+
+2. **Revert page.tsx** — re-add `members`, `organizerId`, and any other props
+   that 7B removed from the SketchTripShell call site. Re-add
+   `hasNonOrganizerMember` import if it was used.
+
+3. **Revert types/index.ts** — remove `roster_names` from `Trip` type and
+   `SketchPatch` whitelist. Remove from `update-trip-sketch.ts` if added there.
+
+4. **Build `SketchInviteList`** — new component in `src/components/trip/builder/`
+   that replaces the avatar-only display in SketchCrewField with a richer list:
+   - Shows each invited trip_member: display name + email or phone
+   - Shows total invitee count (e.g., "3 invited")
+   - Each row has a remove/✕ button (calls `DELETE /api/invite?memberId=...`)
+   - Organizer row shown first, not removable
+   - "+" button opens the existing `InviteModal`
+   - All new strings from `lib/copy.ts`, not hardcoded
+
+5. **Wire SketchInviteList into SketchTripShell** — replace the `SketchCrewField`
+   avatar display with the new list, keeping the InviteModal trigger intact.
+
+6. **Do NOT delete InviteRoster.tsx** — leave it as dead code for now. Do NOT
+   delete `roster_names` column from Supabase (Andrew will clean up later).
+
+**Hard constraints:**
+- DO NOT create any new API routes — use existing `POST /api/invite` and
+  `DELETE /api/invite`
+- DO NOT modify the InviteModal component — it already works
+- DO NOT modify sell/lock/go/done phase behavior
+- DO NOT build RSVP UI — invites are all "pending" in sketch phase
+- DO NOT send invite emails in sketch — emails fire when trip moves to sell
+- All new strings from `lib/copy.ts`, not hardcoded
+- Account creation is REQUIRED for invitees to view trip and RSVP (confirm
+  existing auth-gated flow in InviteeShell is intact, do not build guest paths)
+
+**Important note on invite emails:** The existing `POST /api/invite` endpoint
+sends an invite email immediately. For sketch phase, we do NOT want emails sent
+yet (invites should queue until publish/sell transition). Claude Code should
+check whether the endpoint already gates email sending on trip phase. If it
+sends emails regardless of phase, add a `skipEmail` flag or check `trip.phase`
+before sending. Escalate to Andrew if unsure.
+
+**How to QA solo:**
+- Navigate to sketch trip → verify SketchCrewField shows (not InviteRoster)
+- Click "+" → InviteModal opens with share link + email tabs
+- Add an invite via email tab → member appears in invite list with name + email
+- Verify total count updates
+- Click ✕ on a guest → member removed from list
+- Organizer row present, no ✕ button
+- Refresh → invited members persist (they're in trip_members table)
+- Publish trip → sell phase shows avatar circles as before
+- No regressions on other phases
+
+**Acceptance criteria:**
+- [ ] SketchCrewField + InviteModal restored as invite action in sketch
+- [ ] InviteRoster removed from SketchTripShell (dead code, not deleted)
+- [ ] `roster_names` removed from Trip type and SketchPatch whitelist
+- [ ] SketchInviteList shows invited members with name + contact info
+- [ ] Total invitee count displayed
+- [ ] Can remove a guest via ✕ (calls DELETE /api/invite)
+- [ ] Organizer shown first, not removable
+- [ ] Invite emails gated — not sent during sketch phase
+- [ ] Refresh persists invite list (real trip_members data)
+- [ ] No regressions on sell/lock/go/done phases
+
+**Files to read first:**
+- `.claude/skills/rally-session-guard/SKILL.md` (the guardrail — read first)
+- `rally-fix-plan-v1.md` (this file — especially 7B release notes for what to revert)
+- `rally-sketch-phase-spec.md` (flat page spec — section 4: crew/invite)
+- `src/components/trip/builder/SketchTripShell.tsx` (current state after 7B)
+- `src/components/trip/builder/SketchCrewField.tsx` (what to restore)
+- `src/components/trip/builder/InviteModal.tsx` (do not modify)
+- `src/app/api/invite/route.ts` (existing invite endpoint — check email gating)
+- `src/components/trip/CrewSection.tsx` (sell+ crew display — reference only)
+- `src/types/index.ts` (Trip type, TripMember type)
+- `src/app/trip/[slug]/page.tsx` (SketchTripShell call site)
+
+**Skill usage:** Same as prior sessions — rally-session-guard governs. Pre-flight
+checklist required. Release notes written into this file when done.
+
+#### Session 7C — Release Notes
+
+**What was built:**
+1. Reverted `roster_names` from autosave path — `src/app/actions/update-trip-sketch.ts` (removed from `SketchPatch` type and `ALLOWED_KEYS`)
+2. Reverted `roster_names` from Trip type — `src/types/index.ts` (removed field; DB column left intact)
+3. Reverted SketchTripShell — `src/components/trip/builder/SketchTripShell.tsx` (removed InviteRoster import/render, removed rosterNames state, added `members` + `organizerId` props, wired SketchInviteList)
+4. Reverted page.tsx — `src/app/trip/[slug]/page.tsx` (removed `roster_names` from initial, added `members` + `organizerId` props to SketchTripShell)
+5. Built `SketchInviteList` — `src/components/trip/builder/SketchInviteList.tsx` (new component showing real trip_members with name + contact, organizer first/non-removable, guest remove via `DELETE /api/invite`, "+" opens InviteModal, count badge)
+6. Gated invite emails on trip phase — `src/app/api/invite/route.ts` (added `phase` to trip select, wrapped email send in `trip.phase !== 'sketch'` check)
+7. Added copy strings — `src/lib/copy/surfaces/builder-state.ts` (`inviteListCount`, `inviteListOrganizer`, `inviteListRemoveLabel`)
+8. Updated CSS — `src/app/globals.css` (updated `.invite-roster` styles for header row, count badge, contact/role text, round "+" button)
+
+**What changed from the brief:**
+- No deviations. All 6 scope items addressed.
+- InviteRoster.tsx left as dead code per brief instruction.
+
+**What to test:**
+- [ ] Sketch trip shows SketchInviteList (not InviteRoster text input)
+- [ ] Organizer row shown first, not removable
+- [ ] Click "+" → InviteModal opens with share link + email tabs
+- [ ] Add invite via email → member appears in list with name + contact
+- [ ] Count badge updates (e.g. "1 invited")
+- [ ] Click ✕ on guest → member removed
+- [ ] Refresh → list persists (real trip_members data)
+- [ ] No invite email sent during sketch phase (check server logs)
+- [ ] Publish → sell phase shows normal crew avatar display
+- [ ] No regressions on sell/lock/go/done phases
+
+**Known issues:**
+- InviteRoster.tsx is dead code — needs manual cleanup later
+- `roster_names` DB column still exists — Andrew to drop manually
+- Preview verification limited (app requires auth login) — build passes clean, no type or server errors
+
+#### Session 7C — QA Results
+
+**QA date:** 2026-04-12
+
+| AC | Result |
+|----|--------|
+| SketchCrewField + InviteModal restored | ✅ Pass |
+| InviteRoster removed from SketchTripShell | ✅ Pass |
+| `roster_names` removed from Trip type / SketchPatch | ✅ Pass (verified in code) |
+| SketchInviteList shows members with name + contact | ✅ Pass — Andrew (organizer), Dempsey (info@dempzil.co), Roger (test@aol.com) |
+| Total invitee count displayed | ✅ Pass — "2 invited" |
+| Can remove guest via ✕ | ✅ Pass |
+| Organizer shown first, not removable | ✅ Pass |
+| Invite emails gated in sketch | ✅ Pass — code confirms `trip.phase !== 'sketch'` check (line 129 of route.ts) |
+| Refresh persists invite list | ✅ Pass |
+| No regressions on sell/lock/go/done | ✅ Pass — sell phase still shows avatar circles |
+
+**Bugs found:**
+1. **InviteModal share tab should be hidden in sketch phase.** The modal still
+   shows "share link" + "email" tabs. In sketch, only the email/name invite tab
+   should appear. Fix: add a `hideShareTab` prop to InviteModal, pass `true`
+   from SketchInviteList. → **Escalate to Session 7D or bundle with Session 8.**
+
+**Overall: 10/10 ACs pass. 1 minor UX bug (share tab visible in sketch).**
+
 ---
 
 ### Session 8: "Sketch Page — Module Inputs"

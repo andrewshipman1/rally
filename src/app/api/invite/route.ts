@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     const { data: trip } = await supabase
       .from('trips')
-      .select('organizer_id, name, tagline, destination, date_start, date_end, cover_image_url, share_slug')
+      .select('organizer_id, phase, name, tagline, destination, date_start, date_end, cover_image_url, share_slug')
       .eq('id', tripId)
       .single();
 
@@ -123,9 +123,10 @@ export async function POST(request: NextRequest) {
 
     if (memberErr) throw memberErr;
 
-    // Send invite email (best-effort — don't fail the request if email fails)
+    // Send invite email (best-effort — don't fail the request if email fails).
+    // In sketch phase, skip email — invites queue until the trip publishes to sell.
     let emailResult: { ok: boolean; error?: string } = { ok: false, error: 'no email' };
-    if (email) {
+    if (email && trip.phase !== 'sketch') {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       const dateStr =
         trip.date_start && trip.date_end

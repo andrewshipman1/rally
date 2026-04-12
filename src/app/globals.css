@@ -1453,6 +1453,236 @@ button:active {
   margin-left: 6px;
 }
 
+/* ─── Invite Roster (sketch phase) ─────────────────────────────── */
+.chassis .invite-roster {
+  margin: 0 18px 16px;
+  padding: 14px 16px;
+  border: 2.5px dashed var(--ink);
+  border-radius: 16px;
+  animation: slide-up 0.5s 0.5s both;
+}
+.chassis .invite-roster .invite-roster-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.chassis .invite-roster .invite-roster-count {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 15px;
+  color: var(--ink);
+  opacity: 0.6;
+}
+.chassis .invite-roster .field-label { margin-bottom: 0; }
+.chassis .invite-roster .roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.chassis .invite-roster .roster-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+}
+.chassis .invite-roster .roster-item:last-child { border-bottom: none; }
+.chassis .invite-roster .roster-item--organizer {
+  opacity: 0.6;
+}
+.chassis .invite-roster .roster-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.chassis .invite-roster .roster-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.chassis .invite-roster .roster-contact,
+.chassis .invite-roster .roster-role {
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.55;
+}
+.chassis .invite-roster .roster-remove {
+  all: unset;
+  cursor: pointer;
+  color: var(--ink);
+  opacity: 0.4;
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.chassis .invite-roster .roster-remove:hover { opacity: 0.8; }
+.chassis .invite-roster .roster-remove:disabled { opacity: 0.2; cursor: default; }
+.chassis .invite-roster .roster-item--add {
+  border-bottom: none;
+  justify-content: center;
+}
+.chassis .invite-roster .roster-add-btn {
+  all: unset;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2.5px dashed var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: var(--ink);
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.chassis .invite-roster .roster-add-btn:hover { opacity: 0.9; }
+
+/* ─── Shared Input: EstimateInput ──────────────────────────────── */
+.chassis .estimate-input {
+  padding: 14px 16px;
+  border: 2.5px dashed var(--ink);
+  border-radius: 16px;
+}
+.chassis .estimate-input.filled { border-style: solid; }
+.chassis .estimate-input .field-label { margin-bottom: 8px; }
+.chassis .estimate-input .estimate-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chassis .estimate-input .estimate-prefix {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  opacity: 0.6;
+}
+.chassis .estimate-input .estimate-field {
+  all: unset;
+  flex: 1;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.chassis .estimate-input .estimate-field::placeholder {
+  color: var(--ink);
+  opacity: 0.4;
+  font-weight: 400;
+}
+.chassis .estimate-input .placeholder {
+  font-size: 16px;
+  color: var(--ink);
+  opacity: 0.4;
+  cursor: pointer;
+}
+
+/* ─── Shared Input: LinkPasteInput ─────────────────────────────── */
+.chassis .link-paste-input {
+  padding: 14px 16px;
+  border: 2.5px dashed var(--ink);
+  border-radius: 16px;
+}
+.chassis .link-paste-input .field-label { margin-bottom: 8px; }
+.chassis .link-paste-input .link-paste-url-row,
+.chassis .link-paste-input .link-paste-manual-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.chassis .link-paste-input .link-paste-field {
+  all: unset;
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  color: var(--ink);
+  padding: 8px 0;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
+}
+.chassis .link-paste-input .link-paste-field::placeholder {
+  color: var(--ink);
+  opacity: 0.4;
+}
+.chassis .link-paste-input .link-paste-price {
+  all: unset;
+  width: 80px;
+  font-size: 15px;
+  color: var(--ink);
+  padding: 8px 0;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
+}
+.chassis .link-paste-input .link-paste-price::placeholder {
+  color: var(--ink);
+  opacity: 0.4;
+}
+.chassis .link-paste-input .link-paste-toggle {
+  all: unset;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink);
+  opacity: 0.5;
+  text-decoration: underline;
+  flex-basis: 100%;
+  margin-top: 4px;
+}
+.chassis .link-paste-input .link-paste-toggle:hover { opacity: 0.8; }
+
+/* ─── Shared Input: LineItemAddInput ───────────────────────────── */
+.chassis .line-item-input {
+  padding: 14px 16px;
+  border: 2.5px dashed var(--ink);
+  border-radius: 16px;
+}
+.chassis .line-item-input .field-label { margin-bottom: 8px; }
+.chassis .line-item-input .line-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chassis .line-item-input .line-item-name {
+  all: unset;
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  color: var(--ink);
+  padding: 8px 0;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
+}
+.chassis .line-item-input .line-item-name::placeholder {
+  color: var(--ink);
+  opacity: 0.4;
+}
+.chassis .line-item-input .line-item-cost {
+  all: unset;
+  width: 60px;
+  font-size: 15px;
+  color: var(--ink);
+  padding: 8px 0;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
+}
+.chassis .line-item-input .line-item-cost::placeholder {
+  color: var(--ink);
+  opacity: 0.4;
+}
+.chassis .line-item-input .line-item-add-btn {
+  all: unset;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2.5px dashed var(--ink);
+  border-radius: 50%;
+  font-size: 20px;
+  color: var(--ink);
+  opacity: 0.5;
+}
+.chassis .line-item-input .line-item-add-btn:hover:not(:disabled) { opacity: 0.8; }
+.chassis .line-item-input .line-item-add-btn:disabled { opacity: 0.2; cursor: default; }
+
 /* Sticky builder bar — 4 buttons: ← 🎨 save-draft publish */
 .chassis .sticky .sticky-icon {
   background: transparent;

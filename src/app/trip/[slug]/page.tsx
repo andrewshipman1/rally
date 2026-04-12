@@ -21,8 +21,6 @@ import { StickyRsvpBarChassis } from '@/components/trip/StickyRsvpBarChassis';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
 import { SketchTripShell } from '@/components/trip/builder/SketchTripShell';
 import { InviteeShell } from '@/components/trip/InviteeShell';
-import { hasNonOrganizerMember } from '@/lib/builder/ungate';
-
 // Session 5: inline sections + module slots
 import { ModuleSlot } from '@/components/trip/ModuleSlot';
 import { CrewSection } from '@/components/trip/CrewSection';
@@ -183,11 +181,10 @@ export default async function TripPage({ params }: Props) {
         themeId={themeId}
         tripId={trip.id}
         slug={slug}
-        organizerId={organizer.id}
         organizerName={organizer.display_name}
+        organizerId={organizer.id}
         coverImageUrl={trip.cover_image_url}
         members={members}
-        crewReady={hasNonOrganizerMember(members, organizer.id)}
         initial={{
           name: trip.name,
           tagline: trip.tagline,

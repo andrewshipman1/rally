@@ -117,28 +117,40 @@ This is the date that drives the sell-phase countdown ("X days to lock it in").
 
 ---
 
-### 4. Invite Roster
+### 4. Invite List
 
-Replaces the going row (avatar circles) in sketch phase.
+Replaces the going row (avatar circles) in sketch phase. Uses the real
+`trip_members` data model — not a text name list.
 
 ```
-WHO TO INVITE
+THE CREW                           3 invited
 
-┌──────────────────────┐
-│  you (organizer)     │
-└──────────────────────┘
-┌──────────────────────┐
-│  + add a person      │  ← text input
-└──────────────────────┘
+┌──────────────────────────────────────────┐
+│  👤 Andrew Shipman (you)    organizer    │
+├──────────────────────────────────────────┤
+│  👤 Jane Doe    jane@email.com       ✕  │
+├──────────────────────────────────────────┤
+│  👤 Mike R.     555-123-4567         ✕  │
+├──────────────────────────────────────────┤
+│              [ + invite ]                │  ← opens InviteModal
+└──────────────────────────────────────────┘
 ```
 
-Simple name list. Not user accounts — just names as pre-invite placeholders.
-The organizer adds people they plan to invite. When the trip publishes to sell,
-the going row switches back to avatar circles.
+Organizer adds invitees via InviteModal (share link or email/phone invite).
+Each invite creates a real `trip_members` row via `POST /api/invite`.
+All invitees show as "pending" in sketch — invite emails are NOT sent until
+the trip transitions to sell phase. Organizer can remove guests via ✕ button
+(`DELETE /api/invite`). Organizer row shown first, not removable.
 
-Data model: needs a table or column to store roster names per trip.
+When the trip publishes to sell, the going row switches to avatar circles and
+invitees receive their invite emails.
 
-**Status:** 🔴 New.
+**Account required:** Invitees must create an account (via magic link) to view
+the trip and RSVP. No anonymous/guest path.
+
+Data model: `trip_members` table (existing). No new tables or columns needed.
+
+**Status:** 🔴 New (Session 7C). Replaces the InviteRoster from 7B.
 
 ---
 
@@ -197,7 +209,7 @@ Pinned to bottom of screen. Four buttons:
 These elements exist in sell+ but are hidden/absent in sketch:
 
 - Countdown (hidden)
-- Going row avatars (replaced by invite roster)
+- Going row avatars (replaced by invite list in sketch)
 - Share / invite link (appears in sell after publish)
 - Organizer card
 - Cost summary
@@ -219,7 +231,7 @@ These elements exist in sell+ but are hidden/absent in sketch:
 | RSVP by | `commit_deadline` | Date picker | No |
 | Cover image | `cover_image_url` | Image upload | No |
 | Theme | `theme_id` | Theme picker sheet | No |
-| Invite roster | TBD | Text input (add names) | No |
+| Invite list | `trip_members` (existing table) | InviteModal (email/phone) | No |
 
 ---
 
@@ -232,6 +244,6 @@ These elements exist in sell+ but are hidden/absent in sketch:
 | 2b. Postcard image | 7A | To build |
 | 3. Hide countdown | 7A | To build |
 | 7. Sticky bar | 7A | To build |
-| 4. Invite roster | 7B | To build |
+| 4. Invite list | 7C | To build (replaces 7B roster) |
 | Shared input components | 7B | To build |
 | 5. Module inputs | 8 | To build |

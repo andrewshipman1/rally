@@ -33,28 +33,20 @@ import { PoeticFooter } from '@/components/trip/PoeticFooter';
 import { ThemePickerSheet } from '@/components/trip/theme-picker/ThemePickerSheet';
 import { SketchHeader } from './SketchHeader';
 import { PostcardImage } from './PostcardImage';
-import { SketchCrewField } from './SketchCrewField';
+import { SketchInviteList } from './SketchInviteList';
 import { BuilderStickyBar } from './BuilderStickyBar';
 import { useDebouncedAutosave } from '@/lib/builder/useDebouncedAutosave';
 import { hasReadyName, hasReadyDate } from '@/lib/builder/ungate';
 import { transitionToSell } from '@/app/actions/transition-to-sell';
 
-type MemberLite = {
-  id: string;
-  user_id: string;
-  user: { display_name: string | null } | null;
-};
-
 type Props = {
   themeId: ThemeId;
   tripId: string;
   slug: string;
-  organizerId: string;
   organizerName: string;
+  organizerId: string;
   coverImageUrl: string | null;
-  members: MemberLite[];
-  /** Derived on the server via isSketchReady — true iff >=1 non-organizer member exists. */
-  crewReady: boolean;
+  members: { id: string; user_id: string; role: string; user: { display_name: string | null; email: string | null; phone: string } | null }[];
   initial: {
     name: string;
     tagline: string | null;
@@ -69,11 +61,10 @@ export function SketchTripShell({
   themeId,
   tripId,
   slug,
-  organizerId,
   organizerName,
+  organizerId,
   coverImageUrl,
   members,
-  crewReady,
   initial,
 }: Props) {
   // Seed state from props on mount only; never re-sync from props,
@@ -184,7 +175,7 @@ export function SketchTripShell({
 
       {/* Countdown hidden in sketch — appears in sell+ via page.tsx phase logic */}
 
-      <SketchCrewField
+      <SketchInviteList
         themeId={activeThemeId}
         tripId={tripId}
         slug={slug}

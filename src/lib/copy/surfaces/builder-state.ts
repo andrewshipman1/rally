@@ -35,10 +35,29 @@ export const builderState: Record<string, Templated> = {
   'countdownLabel':        "days until — set a date and i'll start counting",
   'countdownFlag':         'soon™',
 
-  // ─── Crew field ─────────────────────────────────────────────────
+  // ─── Crew field (sell+ going row) ────────────────────────────────
   'crewLabel':             'the crew',
   'crewHelper':            "just you so far. who's in?",
   'inviteButton':          '+',
+
+  // ─── Invite roster (sketch phase) ──────────────────────────────
+  'rosterLabel':           'who to invite',
+  'rosterYou':             'you (organizer)',
+  'rosterAddPlaceholder':  '+ add a person',
+  'inviteListCount':       '$1 invited',
+  'inviteListOrganizer':   'organizer',
+  'inviteListRemoveLabel': 'remove',
+
+  // ─── Shared input components (Session 7B) ──────────────────────
+  'estimatePrefix':          '~$',
+  'estimatePlaceholder':     'rough estimate',
+  'linkPastePlaceholder':    'paste a link',
+  'linkManualToggle':        'or add manually',
+  'linkNamePlaceholder':     'name',
+  'linkPricePlaceholder':    '$ price',
+  'lineItemNamePlaceholder': 'what is it',
+  'lineItemCostPlaceholder': '$',
+  'lineItemAddButton':       '+',
 
   // ─── Scaffolding marquee (sketch state only) ────────────────────
   'marqueeScaffolding':    'tap to name · set the dates · invite the crew · send it',
