@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rally · Session 6 Scope — Dashboard Cleanup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=Caveat:wght@600;700&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: #0a0a0c; color: #d4d4d8; font-family: "DM Sans", sans-serif; }
+
+  .layout {
+    display: flex;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+    gap: 48px;
+  }
+
+  /* ---- SIDEBAR: scope checklist ---- */
+  .sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 40px;
+    align-self: flex-start;
+  }
+  .sidebar h1 {
+    font-family: "Shrikhand", serif;
+    font-size: 28px;
+    color: #f4f4f5;
+    margin-bottom: 4px;
+  }
+  .sidebar .subtitle {
+    font-size: 13px;
+    color: #71717a;
+    margin-bottom: 24px;
+  }
+  .scope-item {
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+  }
+  .scope-item:hover {
+    background: #18181b;
+  }
+  .scope-item.active {
+    border-color: var(--highlight);
+    background: rgba(255,255,255,0.03);
+  }
+  .scope-item .label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f4f4f5;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .scope-item .label .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .scope-item .desc {
+    font-size: 12px;
+    color: #a1a1aa;
+    line-height: 1.5;
+    padding-left: 18px;
+  }
+  .scope-item .complexity {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 6px;
+    padding-left: 18px;
+  }
+  .complexity.low { color: #4ade80; }
+  .complexity.medium { color: #fbbf24; }
+  .complexity.high { color: #f87171; }
+
+  .legend {
+    margin-top: 24px;
+    padding: 16px;
+    background: #18181b;
+    border-radius: 12px;
+    border: 1px solid #27272a;
+  }
+  .legend h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #71717a;
+    margin-bottom: 10px;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #a1a1aa;
+  }
+  .legend-row .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  /* ---- PHONE MOCKUP ---- */
+  .phone-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .phone {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 0 9px #1a1a1e, 0 0 0 11px #2c2c30, 0 30px 80px -20px rgba(0,0,0,0.6);
+  }
+  .phone::before {
+    content: "";
+    position: absolute;
+    top: 12px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px;
+    background: #0a0a0c; border-radius: 18px; z-index: 100;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    overflow-y: auto; overflow-x: hidden;
+    background: #fafaf6;
+    -webkit-overflow-scrolling: touch;
+    font-family: "DM Sans", sans-serif;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+
+  /* ---- scope highlight overlays ---- */
+  .scope-zone {
+    position: relative;
+    transition: all 0.3s;
+  }
+  .scope-zone::after {
+    content: attr(data-label);
+    position: absolute;
+    left: -4px; top: -4px; right: -4px; bottom: -4px;
+    border: 2.5px dashed var(--zone-color, #ff5b3a);
+    border-radius: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--zone-color, #ff5b3a);
+    padding: 2px 6px;
+    display: flex;
+    align-items: flex-start;
+  }
+  .scope-zone.highlight::after {
+    opacity: 1;
+  }
+
+  /* ---- DASHBOARD ELEMENTS ---- */
+  --ink: #1a1a1a;
+  --accent: #ff5b3a;
+  --sticker-bg: #ffd84d;
+
+  .status-bar { height: 50px; }
+
+  /* passport link */
+  .dash-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px 0;
+  }
+  .passport-link {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #ff5b3a;
+    border: 2.5px solid #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+    text-decoration: none;
+    box-shadow: 2px 2px 0 #1a1a1a;
+  }
+
+  /* marquee */
+  @keyframes marquee-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .marquee {
+    background: #1a1a1a;
+    color: #ffd84d;
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 6px 0;
+    border-bottom: 2px solid #1a1a1a;
+  }
+  .marquee-track {
+    display: inline-flex;
+    animation: marquee-scroll 22s linear infinite;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+  }
+  .marquee-track span {
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .marquee-track span::after {
+    content: "★";
+    color: #ff5b3a;
+  }
+
+  /* header */
+  .dash-header {
+    padding: 18px 20px 6px;
+  }
+  @keyframes blink-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+  .live-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #1a1a1a;
+    opacity: 0.9;
+    margin-bottom: 6px;
+  }
+  .live-row .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #ff5b3a;
+    animation: blink-dot 1.4s ease-in-out infinite;
+  }
+  .wordmark {
+    font-family: "Shrikhand", serif;
+    font-size: 28px;
+    color: #ff5b3a;
+    margin-bottom: 10px;
+  }
+  .dash-h1 {
+    font-family: "Shrikhand", serif;
+    font-size: 32px;
+    line-height: 0.95;
+    color: #1a1a1a;
+    margin-bottom: 12px;
+  }
+  .dash-h1 .accent { color: #ff5b3a; }
+
+  /* scoreboard */
+  @keyframes pulse-shadow {
+    0%, 100% { box-shadow: 3px 3px 0 #ff5b3a; }
+    50% { box-shadow: 5px 5px 0 #ff5b3a; }
+  }
+  .scoreboard {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .chip {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 5px 11px;
+    border-radius: 100px;
+    border: 2px solid #1a1a1a;
+    background: #fafaf6;
+    color: #1a1a1a;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .chip.hot {
+    background: #ff5b3a;
+    color: #fff;
+    border-color: #1a1a1a;
+    animation: pulse-shadow 2.4s ease-in-out infinite;
+  }
+  .chip .num { font-weight: 900; }
+
+  /* section headers */
+  .section-h {
+    padding: 14px 20px 8px;
+    font-family: "Caveat", cursive;
+    font-size: 20px;
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-h .count {
+    font-family: "DM Sans", sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: #ffd84d;
+    color: #1a1a1a;
+    border: 2px solid #1a1a1a;
+    padding: 2px 9px;
+    border-radius: 100px;
+  }
+
+  /* trip cards */
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(3deg); }
+    50% { transform: rotate(6deg); }
+  }
+  @keyframes pulse-urgent {
+    0%, 100% { box-shadow: 5px 5px 0 #ff5b3a, 0 0 0 0 rgba(255,91,58,0.0); }
+    50%      { box-shadow: 7px 7px 0 #ff5b3a, 0 0 0 6px rgba(255,91,58,0.18); }
+  }
+  .card {
+    margin: 0 20px 18px;
+    background: #fafaf6;
+    border: 3px solid #1a1a1a;
+    border-radius: 22px;
+    padding: 16px 18px;
+    position: relative;
+    box-shadow: 5px 5px 0 #ff5b3a;
+  }
+  .card.needs-move {
+    animation: pulse-urgent 2.4s ease-in-out infinite;
+  }
+  .card.faded {
+    opacity: 0.55;
+    box-shadow: 4px 4px 0 #1a1a1a;
+  }
+
+  /* stamps */
+  .stamp {
+    position: absolute;
+    top: -12px; right: 14px;
+    background: #ffd84d;
+    color: #1a1a1a;
+    border: 2.5px solid #1a1a1a;
+    border-radius: 14px;
+    padding: 6px 12px 4px;
+    text-align: center;
+    transform: rotate(4deg);
+    box-shadow: 3px 3px 0 #1a1a1a;
+    z-index: 5;
+    min-width: 56px;
+  }
+  .stamp-num {
+    font-family: "Shrikhand", serif;
+    font-size: 22px;
+    line-height: 0.9;
+    display: block;
+  }
+  .stamp-sub {
+    font-family: "Caveat", cursive;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    margin-top: 3px;
+    display: block;
+  }
+  .stamp.urgent { background: #ff5b3a; color: #fff; }
+  .stamp.locked-st { background: #c4ff7a; }
+  .stamp.sketch-st { background: #e8e6e0; }
+  .stamp.done-st {
+    background: #fafaf6;
+    border-color: #1a1a1a;
+    box-shadow: 2px 2px 0 #1a1a1a;
+  }
+
+  .card-title {
+    font-family: "Shrikhand", serif;
+    font-size: 22px;
+    line-height: 1;
+    color: #1a1a1a;
+    margin: 4px 0 6px;
+    padding-right: 70px;
+  }
+  .card-title .emoji {
+    font-size: 20px;
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+  .card-meta {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1a1a1a;
+    opacity: 0.85;
+    margin-bottom: 10px;
+    line-height: 1.45;
+  }
+
+  /* rally meter */
+  @keyframes fill-bar {
+    0% { width: 0%; }
+    100% { width: var(--fill, 50%); }
+  }
+  .rally-meter { margin: 0 0 10px; }
+  .rally-label {
+    font-family: "Caveat", cursive;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1a1a;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .rally-label .count-frac {
+    font-family: "DM Sans", sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .rally-bar {
+    height: 14px;
+    background: #fafaf6;
+    border: 2.5px solid #1a1a1a;
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .rally-fill {
+    height: 100%;
+    background: #ff5b3a;
+    border-right: 2px solid #1a1a1a;
+    border-radius: 0 100px 100px 0;
+    animation: fill-bar 1.2s ease-out both;
+  }
+  .card.needs-move .rally-fill {
+    background: repeating-linear-gradient(45deg, #ff5b3a 0 8px, #ff7a5a 8px 16px);
+  }
+
+  /* card bottom */
+  .card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .card-avs { display: flex; }
+  .card-avs .av {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 2px solid #1a1a1a;
+    margin-right: -6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .card-action {
+    font-family: "Caveat", cursive;
+    font-size: 17px;
+    color: #ff5b3a;
+    font-weight: 700;
+  }
+  .card.needs-move .card-action {
+    background: #ff5b3a;
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 100px;
+    border: 2px solid #1a1a1a;
+    font-size: 13px;
+    font-family: "DM Sans", sans-serif;
+    font-weight: 700;
+  }
+
+  /* sticky CTA */
+  .sticky {
+    position: sticky;
+    bottom: 0;
+    background: #fafaf6;
+    border-top: 3px solid #1a1a1a;
+    padding: 14px 20px 24px;
+  }
+  .sticky button {
+    width: 100%;
+    background: #ff5b3a;
+    color: #fff;
+    border: 3px solid #1a1a1a;
+    height: 50px;
+    border-radius: 100px;
+    font-family: "Shrikhand", serif;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 #1a1a1a;
+  }
+
+  /* responsive */
+  @media (max-width: 800px) {
+    .layout { flex-direction: column; align-items: center; }
+    .sidebar { width: 100%; position: static; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- SIDEBAR: Scope items -->
+  <div class="sidebar">
+    <h1>session 6</h1>
+    <div class="subtitle">dashboard cleanup — scope review</div>
+
+    <div class="scope-item" data-target="scoreboard" style="--highlight: #a78bfa" onclick="highlight('scoreboard')">
+      <div class="label"><span class="dot" style="background: #a78bfa"></span> 1. Scoreboard chips</div>
+      <div class="desc">"your move {n}" (hot, pulsing), "cooking {n}", "locked {n}", "done {n}". Only show chips with count > 0.</div>
+      <div class="complexity medium">medium — query trip states, map to chip components</div>
+    </div>
+
+    <div class="scope-item" data-target="live-row" style="--highlight: #34d399" onclick="highlight('live-row')">
+      <div class="label"><span class="dot" style="background: #34d399"></span> 2. Live-row</div>
+      <div class="desc">"{n} trips need your move" with blinking dot. Fallback: "all caught up."</div>
+      <div class="complexity low">low — conditional render based on trip count</div>
+    </div>
+
+    <div class="scope-item" data-target="marquee" style="--highlight: #fbbf24" onclick="highlight('marquee')">
+      <div class="label"><span class="dot" style="background: #fbbf24"></span> 3. Dashboard marquee</div>
+      <div class="desc">Scrolling strip with trip-specific text. Generates phrases from actual trip data (names, dates, destinations).</div>
+      <div class="complexity medium">medium — generate copy from trip data, CSS animation</div>
+    </div>
+
+    <div class="scope-item" data-target="cards" style="--highlight: #60a5fa" onclick="highlight('cards')">
+      <div class="label"><span class="dot" style="background: #60a5fa"></span> 4. Trip card polish</div>
+      <div class="desc">Fix title truncation (pad-right for stamps), correct stamp rendering, rally meter on sell cards, avatar stack.</div>
+      <div class="complexity medium">medium — multiple small fixes across card component</div>
+    </div>
+
+    <div class="scope-item" data-target="archive" style="--highlight: #f472b6" onclick="highlight('archive')">
+      <div class="label"><span class="dot" style="background: #f472b6"></span> 5. The archive</div>
+      <div class="desc">Section for done/past trips with faded cards. Separate from active trips.</div>
+      <div class="complexity low">low — filter trips by state, render with .faded class</div>
+    </div>
+
+    <div class="scope-item" data-target="passport" style="--highlight: #fb923c" onclick="highlight('passport')">
+      <div class="label"><span class="dot" style="background: #fb923c"></span> 6. Passport link</div>
+      <div class="desc">Profile icon/avatar in dashboard header → navigates to /passport. Page exists, just needs a doorway.</div>
+      <div class="complexity low">low — add avatar link to header</div>
+    </div>
+
+    <div class="legend">
+      <h3>complexity guide</h3>
+      <div class="legend-row"><span class="swatch" style="background: #4ade80"></span> Low — simple wiring, 30 min or less</div>
+      <div class="legend-row"><span class="swatch" style="background: #fbbf24"></span> Medium — some logic, 1-2 hours</div>
+      <div class="legend-row"><span class="swatch" style="background: #f87171"></span> High — significant work, 2+ hours</div>
+    </div>
+  </div>
+
+  <!-- PHONE MOCKUP -->
+  <div class="phone-col">
+    <div class="phone">
+      <div class="screen">
+        <div class="status-bar"></div>
+
+        <!-- MARQUEE -->
+        <div class="scope-zone" id="zone-marquee" data-label="3 · marquee" style="--zone-color: #fbbf24">
+          <div class="marquee">
+            <div class="marquee-track">
+              <span>your move on park city</span><span>21 days to vino</span><span>napa is locked</span><span>let's gooo</span><span>your move on park city</span><span>21 days to vino</span><span>napa is locked</span><span>let's gooo</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- HEADER -->
+        <div class="dash-header">
+          <!-- PASSPORT LINK -->
+          <div class="scope-zone" id="zone-passport" data-label="6 · passport" style="--zone-color: #fb923c">
+            <div class="dash-topbar">
+              <div class="wordmark">rally!</div>
+              <a class="passport-link" href="#">A</a>
+            </div>
+          </div>
+
+          <!-- LIVE ROW -->
+          <div class="scope-zone" id="zone-live-row" data-label="2 · live-row" style="--zone-color: #34d399">
+            <div class="live-row">
+              <span class="dot"></span> 1 trip needs your move
+            </div>
+          </div>
+
+          <div class="dash-h1">where to <span class="accent">next? ✈️</span></div>
+
+          <!-- SCOREBOARD -->
+          <div class="scope-zone" id="zone-scoreboard" data-label="1 · scoreboard" style="--zone-color: #a78bfa">
+            <div class="scoreboard">
+              <div class="chip hot">your move <span class="num">1</span></div>
+              <div class="chip">cooking <span class="num">2</span></div>
+              <div class="chip">locked <span class="num">1</span></div>
+              <div class="chip">done <span class="num">1</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARDS -->
+        <div class="section-h">what you're cooking <span class="count">4</span></div>
+
+        <div class="scope-zone" id="zone-cards" data-label="4 · card polish" style="--zone-color: #60a5fa">
+          <!-- Card 1 — needs move -->
+          <div class="card needs-move">
+            <div class="stamp urgent">
+              <span class="stamp-num">3</span>
+              <span class="stamp-sub">to lock!</span>
+            </div>
+            <div class="card-title"><span class="emoji">⛷️</span>park city boys</div>
+            <div class="card-meta">3 days to lock it · 4 maybes still on the fence</div>
+            <div class="rally-meter">
+              <div class="rally-label">rallied so far <span class="count-frac">5 / 8 ride or dies</span></div>
+              <div class="rally-bar"><div class="rally-fill" style="--fill: 62%"></div></div>
+            </div>
+            <div class="card-bottom">
+              <div class="card-avs">
+                <div class="av" style="background:#b8392f">T</div>
+                <div class="av" style="background:#5a4a3e">P</div>
+                <div class="av" style="background:#e8a83a">M</div>
+                <div class="av" style="background:#1a1f1a">J</div>
+                <div class="av" style="background:#ff5b3a">D</div>
+              </div>
+              <div class="card-action">nudge them →</div>
+            </div>
+          </div>
+
+          <!-- Card 2 — go state -->
+          <div class="card">
+            <div class="stamp">
+              <span class="stamp-num">21</span>
+              <span class="stamp-sub">days</span>
+            </div>
+            <div class="card-title"><span class="emoji">🍋</span>euro summer</div>
+            <div class="card-meta">lisbon → barcelona · 6 going · the crew is set</div>
+            <div class="card-bottom">
+              <div class="card-avs">
+                <div class="av" style="background:#e8551d">F</div>
+                <div class="av" style="background:#9eaf85">M</div>
+                <div class="av" style="background:#7a5a3e">G</div>
+                <div class="av" style="background:#1a1a1a">A</div>
+                <div class="av" style="background:#ff5b3a">+2</div>
+              </div>
+              <div class="card-action">tap in →</div>
+            </div>
+          </div>
+
+          <!-- Card 3 — sketch -->
+          <div class="card">
+            <div class="stamp sketch-st">
+              <span class="stamp-num">?</span>
+              <span class="stamp-sub">soon</span>
+            </div>
+            <div class="card-title"><span class="emoji">🌃</span>nyc bday weekend</div>
+            <div class="card-meta">just a sketch · still feeling it out</div>
+            <div class="card-bottom">
+              <div class="card-avs">
+                <div class="av" style="background:#ff2e7e">J</div>
+              </div>
+              <div class="card-action">keep building →</div>
+            </div>
+          </div>
+
+          <!-- Card 4 — locked -->
+          <div class="card">
+            <div class="stamp locked-st">
+              <span class="stamp-num">47</span>
+              <span class="stamp-sub">days</span>
+            </div>
+            <div class="card-title"><span class="emoji">🍷</span>napa for sam</div>
+            <div class="card-meta">cabin's booked · 8 ride or dies · nothing to do but show up</div>
+            <div class="card-bottom">
+              <div class="card-avs">
+                <div class="av" style="background:#7a2e4a">S</div>
+                <div class="av" style="background:#5e3a5c">J</div>
+                <div class="av" style="background:#9eaf85">L</div>
+                <div class="av" style="background:#3e1f3a">+5</div>
+              </div>
+              <div class="card-action">tap in →</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ARCHIVE -->
+        <div class="scope-zone" id="zone-archive" data-label="5 · archive" style="--zone-color: #f472b6">
+          <div class="section-h">the archive <span class="count">1</span></div>
+
+          <div class="card faded">
+            <div class="stamp done-st">
+              <span class="stamp-num">✓</span>
+              <span class="stamp-sub">done</span>
+            </div>
+            <div class="card-title"><span class="emoji">🌴</span>tulum '25</div>
+            <div class="card-meta">that happened · 7 went · 142 photos in the wall</div>
+            <div class="card-bottom">
+              <div class="card-avs">
+                <div class="av" style="background:#ff5b3a">L</div>
+                <div class="av" style="background:#0a2a3a">C</div>
+                <div class="av" style="background:#5cdfd1;color:#0a0a0c">M</div>
+              </div>
+              <div class="card-action">re-live it →</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height: 70px"></div>
+
+        <div class="sticky"><button>start a trip 🔥</button></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function highlight(zone) {
+    // clear all highlights
+    document.querySelectorAll('.scope-zone').forEach(z => z.classList.remove('highlight'));
+    document.querySelectorAll('.scope-item').forEach(i => i.classList.remove('active'));
+
+    // activate clicked item
+    const item = document.querySelector(`.scope-item[data-target="${zone}"]`);
+    if (item) {
+      const wasActive = item.classList.contains('active');
+      if (!wasActive) {
+        item.classList.add('active');
+        item.style.borderColor = item.style.getPropertyValue('--highlight');
+
+        // highlight matching zone(s) on phone
+        const zoneEl = document.getElementById(`zone-${zone}`);
+        if (zoneEl) {
+          zoneEl.classList.add('highlight');
+          zoneEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+  }
+</script>
+
+</body>
+</html>

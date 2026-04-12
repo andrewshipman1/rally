@@ -13,7 +13,7 @@ import { InviteModal } from './InviteModal';
 type MemberLite = {
   id: string;
   user_id: string;
-  user: { display_name: string | null } | null;
+  user: { display_name: string | null; profile_photo_url: string | null } | null;
 };
 
 type Props = {
@@ -51,11 +51,20 @@ export function SketchCrewField({ themeId, tripId, slug, members, organizerId }:
       <div className="field-crew">
         <div className="field-label">{getCopy(themeId, 'builderState.crewLabel')}</div>
         <div className="crew-row">
-          {unique.map((m) => (
-            <div key={m.id} className="av" style={{ background: 'var(--sticker-bg)' }}>
-              {initial(m)}
-            </div>
-          ))}
+          {unique.map((m) => {
+            const photoUrl = m.user?.profile_photo_url;
+            return (
+              <div
+                key={m.id}
+                className="av"
+                style={photoUrl ? {
+                  background: `url(${photoUrl}) center/cover`,
+                } : { background: 'var(--sticker-bg)' }}
+              >
+                {!photoUrl && initial(m)}
+              </div>
+            );
+          })}
           <button
             type="button"
             className="av av-add"

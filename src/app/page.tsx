@@ -38,7 +38,7 @@ export default async function HomePage() {
     redirect('/auth');
   }
 
-  const { cards, phaseCounts, needsMoveCount, userName } = await getDashboardData(user.id);
+  const { cards, phaseCounts, needsMoveCount, userName, userPhotoUrl } = await getDashboardData(user.id);
 
   const defaultTheme: ThemeId = 'just-because';
   const activeCards = cards.filter((c) => c.phase !== 'done');
@@ -84,7 +84,16 @@ export default async function HomePage() {
         </div>
         <div className="dash-header-right">
           <Link href="/passport" className="dash-passport-link" title="your passport">
-            <span className="dash-passport-av">{userName.charAt(0).toUpperCase()}</span>
+            <span
+              className="dash-passport-av"
+              style={userPhotoUrl ? {
+                backgroundImage: `url(${userPhotoUrl})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              } : undefined}
+            >
+              {!userPhotoUrl && userName.charAt(0).toUpperCase()}
+            </span>
           </Link>
           <SignOutButton />
         </div>
@@ -235,15 +244,20 @@ function TripCard({ card, index }: { card: DashboardCard; index: number }) {
       {/* Bottom: avatars + action */}
       <div className="dash-card-bottom">
         <div className="dash-avs">
-          {displayMembers.map((m) => (
-            <div
-              key={m.id}
-              className="av"
-              style={{ background: 'var(--sticker-bg)' }}
-            >
-              {m.user?.display_name?.charAt(0).toUpperCase() ?? '?'}
-            </div>
-          ))}
+          {displayMembers.map((m) => {
+            const photoUrl = m.user?.profile_photo_url;
+            return (
+              <div
+                key={m.id}
+                className="av"
+                style={photoUrl ? {
+                  background: `url(${photoUrl}) center/cover`,
+                } : { background: 'var(--sticker-bg)' }}
+              >
+                {!photoUrl && (m.user?.display_name?.charAt(0).toUpperCase() ?? '?')}
+              </div>
+            );
+          })}
           {memberCount > 5 && (
             <div className="av" style={{ background: 'var(--surface)', color: 'var(--on-surface)' }}>
               {`+${memberCount - 5}`}

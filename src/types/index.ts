@@ -23,6 +23,7 @@ export interface User {
   bio: string | null;
   instagram_handle: string | null;
   tiktok_handle: string | null;
+  home_city: string | null;
   dietary_restrictions: string | null;
   venmo_handle: string | null;
   created_at: string;

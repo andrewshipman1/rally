@@ -299,10 +299,16 @@ export default async function TripPage({ params }: Props) {
         <div className="avatars">
           {goingMembers.slice(0, 6).map((m) => {
             const initial = (m.user?.display_name ?? '?').slice(0, 1).toUpperCase();
+            const photoUrl = m.user?.profile_photo_url;
             return m.user ? (
               <CrewAvatarTap key={m.id} user={m.user}>
-                <div className="av" style={{ background: 'var(--sticker-bg)' }}>
-                  {initial}
+                <div
+                  className="av"
+                  style={photoUrl ? {
+                    background: `url(${photoUrl}) center/cover`,
+                  } : { background: 'var(--sticker-bg)' }}
+                >
+                  {!photoUrl && initial}
                 </div>
               </CrewAvatarTap>
             ) : (

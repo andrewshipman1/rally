@@ -49,6 +49,7 @@ export function GroupChat({
         bio: null,
         instagram_handle: null,
         tiktok_handle: null,
+        home_city: null,
         dietary_restrictions: null,
         venmo_handle: null,
         created_at: '',

@@ -1,0 +1,312 @@
+---
+name: rally
+description: >
+  The complete Rally development workflow — covers architecture guardrails, the
+  session loop (brief → execute → release notes → QA → update plan), escalation
+  triggers, bug triage, and project rules. Use this skill at the START of every
+  session on the Rally project, whether in Claude Code or Cowork. In Claude Code:
+  triggers before writing any code, creating files, or making architectural decisions.
+  In Cowork: triggers when Andrew says "let's QA", "what did Claude Code do", "plan
+  the next session", "review the fix plan", "write a brief", "update the plan",
+  "what's left", or any reference to the Rally workflow. Also trigger when receiving
+  release notes, transitioning between phases, or when unsure whether this skill
+  applies — it does.
+---
+
+# Rally
+
+Rally is a group trip planning app. This skill governs how every session works —
+both Claude Code (building) and Cowork (planning, QA, handoff). It exists because
+Sessions 1–4 drifted: features got built as separate pages, copy was hardcoded,
+and architectural decisions compounded into 45 QA issues.
+
+**Read this entire file before doing anything.**
+
+---
+
+## Part 1: Project Rules (Always Active)
+
+These rules apply in every session, every context, every step of the loop.
+
+### The 3-Screen Rule (non-negotiable)
+
+Rally has exactly three screens:
+
+```
+/auth          → magic link login
+/              → dashboard (trip list + scoreboard)
+/trip/[slug]   → the trip page (single scrollable surface, ALL features inline)
+```
+
+Every feature — crew list, buzz feed, lodging voting, extras, theme picker, lock
+flow — lives as a section or bottom sheet on the trip page. No sub-routes, no tabs,
+no separate pages for sub-features. If a feature "needs" its own page, that feeling
+is wrong. Stop and escalate to Andrew.
+
+### Trip Page Module Order
+
+When complete, the trip page scrolls through these sections top to bottom:
+
+```
+marquee strip → trip header / hero → countdown
+MODULE: lodging ("the spot")
+MODULE: flights | transportation | activities | groceries
+cost summary (aggregates all modules → per-person estimate)
+MODULE: crew (who's in / holding / out)
+MODULE: buzz (activity feed)
+MODULE: extras (packing list, playlist, rules, album)
+footer + [sticky RSVP bar]
+```
+
+### Phase System
+
+Trips move through: sketch → sell → lock → go → done. Each phase has different
+UI states, countdown targets, and available actions. In sell phase, the hero
+countdown targets `commit_deadline` ("days to lock it in"). In lock/go, it
+targets `date_start`.
+
+### Hard Rules
+
+- **Mobile-first.** Build for 375px. If it doesn't work at 375px, it doesn't work.
+- **No new routes.** Three screens. That's it.
+- **No hardcoded strings in JSX.** All user-facing text from `lib/copy.ts`.
+- **No hardcoded colors inside `[data-theme]`.** Use CSS variables (`--bg`, `--ink`,
+  `--accent`, `--accent2`, `--sticker-bg`, `--surface`, `--on-surface`).
+- **No dead-end interactions.** Every tap target must produce a visible result.
+  If it can't yet, hide it.
+- **The trip page is one scroll.** Sections stack vertically. No tabs, no sub-nav.
+- **Copy style:** lowercase default, sentence fragments, verbs over nouns, one
+  emoji max per string. Rally never refers to itself on trip pages.
+- **Test in the browser before declaring done.**
+
+### Single Source of Truth
+
+`rally-fix-plan-v1.md` is the only plan document. Don't create HANDOFF.md,
+TODO.md, SESSION-NOTES.md, or any other planning docs. Everything lives in the
+fix plan.
+
+### What NOT to Build (v0)
+
+If you start building any of these, the session has drifted:
+
+Push notifications, payment/Venmo integration, custom questions, threaded replies,
+@mentions, media uploads in buzz, map view, native expense logging, receipt capture,
+Apple Wallet, multi-currency, sticker marketplace, custom sticker upload, parallax
+scroll, social login (Google/Apple), co-host/admin roles.
+
+### Reference Files
+
+| File | What it tells you |
+|------|-------------------|
+| `rally-fix-plan-v1.md` | Session plans, constraints, what NOT to build |
+| `rally-qa-punch-list-v2.md` | All 45 known issues with severity |
+| `rally-microcopy-lexicon-v0.md` | Every approved user-facing string |
+| `rally-brand-brief-v0.md` | Voice rules, tone, banned words |
+| `rally-theme-content-system.md` | Per-theme copy, emoji, countdown labels |
+| `rally-qa-checklist-v0.md` | Full QA walkthrough procedure |
+| `rally-phase-*.html` | Design specs for each feature/phase |
+
+---
+
+## Part 2: The Session Loop (Cowork)
+
+This is the workflow that Cowork follows. Each step has a specific format and
+rules. Don't skip steps. Don't combine steps.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  1. BRIEF  (Cowork + Andrew)                        │
+│     Write session scope + ACs into rally-fix-plan   │
+│                      ↓                              │
+│  2. EXECUTE  (Claude Code)                          │
+│     Builds to the brief                             │
+│                      ↓                              │
+│  3. RELEASE NOTES  (Claude Code → Cowork)           │
+│     What was done, what changed, what to test       │
+│                      ↓                              │
+│  4. QA  (Cowork + Andrew)                           │
+│     Verify ACs, find bugs, fix-or-escalate          │
+│                      ↓                              │
+│  5. UPDATE PLAN  (Cowork + Andrew)                  │
+│     Mark ACs pass/fail, write next session brief    │
+│                      ↓                              │
+│  → Back to step 2                                   │
+└─────────────────────────────────────────────────────┘
+```
+
+### Step 1: Write the Brief
+
+The brief lives inside `rally-fix-plan-v1.md` under the relevant session heading.
+Don't create separate brief documents. A brief must contain:
+
+**Scope** — numbered list of specific things to build or fix. Each item references
+a file or component. Vague items like "polish the UI" are not scope.
+
+**Hard Constraints** — what Claude Code must NOT do. Always include "DO NOT create
+new routes" plus any session-specific boundaries.
+
+**Acceptance Criteria** — testable statements, verifiable by clicking through the
+app. Format: `- [ ] [What to verify] — [where to verify it]`
+
+**Files to Read** — always include the session guard skill, the fix plan, relevant
+design specs, and the lexicon if the session touches copy.
+
+**How to QA Solo** — steps Claude Code can follow to verify its own work.
+
+### Step 2: Execute (Claude Code)
+
+Happens outside Cowork. When Cowork resumes, ask Andrew what Claude Code produced.
+
+### Step 3: Intake Release Notes
+
+When Andrew shares what Claude Code did, capture it as an "Actuals" section added
+directly to `rally-fix-plan-v1.md` below the session's brief:
+
+```markdown
+#### Session N — Actuals
+
+**What was built:**
+1. [Item] — [file(s) changed]
+
+**What changed from the brief:**
+- [Deviations, additions, or items skipped]
+
+**Known issues from Claude Code:**
+- [Anything flagged but not fixed]
+```
+
+### Step 4: QA
+
+Three parts: verify ACs, regression check, bug triage.
+
+**4a. Verify Acceptance Criteria** — go through each AC from the brief. Navigate
+to the relevant screen, verify behavior. Mark each: ✅ pass, ❌ fail, ⚠️ untestable
+(with reason). Record in the Actuals section.
+
+**4b. Regression Check** — run the between-session QA checklist:
+
+```
+□ Create trip from dashboard
+□ Edit trip name, verify save
+□ Share link works
+□ Trip page scrolls all sections
+□ No dead-end buttons
+□ No clipped/overflowing elements at 375px
+□ Spot-check 5 strings against lexicon
+□ Dashboard reflects state changes
+```
+
+**4c. Bug Triage — Fix or Escalate**
+
+**Fix in Cowork** (ALL THREE must be true):
+1. Single file change
+2. CSS property, copy string, or class name only
+3. No logic, no imports, no props, no conditional behavior
+
+Examples: margin/padding in globals.css, copy string in lib/copy/surfaces/*.ts,
+CSS class name fix, comment typo.
+
+**Escalate to Claude Code** (ANY ONE of these):
+- Touches more than one file
+- Adds or changes an import
+- Modifies component props, types, or interfaces
+- Changes conditional logic or data flow
+- Requires understanding how two files interact
+- You're not 100% sure it won't break something
+
+Escalated bugs go in the fix plan:
+```markdown
+**Bugs for Session N+1:**
+1. [Bug] — [file(s)] — [root cause if known]
+```
+
+Cowork fixes get logged:
+```markdown
+**Cowork fixes (CSS/copy only):**
+1. [What was fixed] — [file:line]
+```
+
+### Step 5: Update the Plan
+
+1. Mark the current session complete with a status line
+2. Review next session scope — does the existing brief still make sense?
+   Should escalated bugs be folded in? Is the scope right-sized?
+3. Write or revise the next brief following Step 1 format
+
+### Starting a New Cowork Session
+
+1. Read `rally-fix-plan-v1.md` to understand where we are
+2. Ask Andrew: "Where are we in the loop?"
+   - "Claude Code just finished" → Step 3
+   - "Let's QA" → Step 4
+   - "Let's plan the next session" → Step 5
+   - "Let's write a brief" → Step 1
+3. Stay in the current step until complete before moving on
+
+---
+
+## Part 3: Claude Code Execution Rules
+
+These apply when Claude Code is building to a brief.
+
+### Pre-Flight Checklist
+
+Before touching any source files:
+
+1. **Read the session brief** from `rally-fix-plan-v1.md`. If there's no brief,
+   stop and ask for one. Don't improvise scope.
+2. **Read the referenced design files.** The brief lists specific HTML phase files.
+   Don't skip this.
+3. **Confirm constraints aloud.** State back the hard constraints before your first
+   code change.
+4. **Run the between-session QA check** (see Step 4b above). If anything fails,
+   fix it before starting new work.
+
+### Escalation Triggers
+
+Stop coding and ask Andrew before proceeding when you encounter:
+
+1. **Architecture changes** — new route, page, layout, or top-level component
+2. **Ambiguous requirements** — design vs. lexicon conflict, or brief doesn't
+   cover an interaction
+3. **Scope creep** — fixing bug A reveals bugs B, C, D. Fix A (in scope). Log
+   B, C, D. Don't fix them unless they're in the brief.
+4. **Copy decisions** — any string not in `lib/copy.ts` or the lexicon
+5. **Data model changes** — new columns, type changes, schema modifications, RLS
+6. **"Works but looks wrong" tradeoffs** — quick implementation doesn't match
+   design and closing the gap requires significant effort
+7. **Deleting or replacing existing code** — confirm before removing components,
+   routes, or utilities
+8. **Failing acceptance criteria** — if ACs can't be met with current approach,
+   that's a conversation, not a unilateral decision
+
+### How to Escalate
+
+1. State what you're doing
+2. State what you encountered
+3. State the options (a, b, c)
+4. State your recommendation — but don't act on it
+
+Then wait. Don't fill the silence with code.
+
+### Release Notes Format
+
+When Claude Code finishes a session, it produces release notes in this format
+and adds them to `rally-fix-plan-v1.md` under the session heading:
+
+```markdown
+#### Session N — Release Notes
+
+**What was built:**
+1. [Item] — [file(s) changed]
+
+**What changed from the brief:**
+- [Deviations, additions, or items skipped]
+
+**What to test:**
+- [ ] [Testable item 1]
+- [ ] [Testable item 2]
+
+**Known issues:**
+- [Anything flagged but not fixed]
+```

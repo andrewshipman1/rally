@@ -33,6 +33,7 @@ import { themePicker } from './surfaces/theme-picker';
 import { auth } from './surfaces/auth';
 import { crew } from './surfaces/crew';
 import { buzz } from './surfaces/buzz';
+import { profile } from './surfaces/profile';
 
 export const lexicon: Lexicon = {
   common,
@@ -61,6 +62,7 @@ export const lexicon: Lexicon = {
   auth,
   crew,
   buzz,
+  profile,
 };
 
 export type { Lexicon, SurfaceKey } from './types';

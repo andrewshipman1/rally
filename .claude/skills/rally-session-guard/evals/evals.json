@@ -1,0 +1,23 @@
+{
+  "skill_name": "rally-session-guard",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "The crew list is getting long and hard to scroll through on the trip page. I think we should move it to its own dedicated /trip/[slug]/crew page with a 'see all' link from the trip page. Can you set that up?",
+      "expected_output": "Should refuse to create the new route and escalate. Should reference the 3-screen rule and suggest alternatives like collapsing the list with a 'show more' toggle instead of a separate page.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Start working on Session 6 from the fix plan — wire the trip page sections.",
+      "expected_output": "Should run the pre-flight checklist before writing any code: read the session brief, read the referenced HTML phase files (phases 9, 10, 7, 8), state back the constraints, and run the between-session QA check. Should NOT jump straight into coding.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "The lodging section needs a header. Just put 'Where We're Staying' as the title for now and we'll refine it later.",
+      "expected_output": "Should flag this as a copy decision escalation trigger. Should check the lexicon for the approved string rather than using the placeholder. Should reference rally-microcopy-lexicon-v0.md and note that placeholder copy that ships is how drift happens.",
+      "files": []
+    }
+  ]
+}

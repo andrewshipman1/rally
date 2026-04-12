@@ -42,6 +42,8 @@ export interface Lexicon {
   crew: Record<string, Templated>;
   /** §5.26 (renumbered from §5.23) */
   buzz: Record<string, Templated>;
+  /** §5.27 — profile inline editing */
+  profile: Record<string, Templated>;
 }
 
 export type SurfaceKey = keyof Lexicon;

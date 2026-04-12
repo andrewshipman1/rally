@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rally — Trip Page Wireframe</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Shrikhand&family=Caveat:wght@400;700&family=Inter:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #1a1a1a;
+    color: #f4f4f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 20px 80px;
+  }
+
+  h1 {
+    font-family: 'Shrikhand', serif;
+    font-size: 28px;
+    color: #ffd84d;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #999;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  /* Phase switcher */
+  .phase-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #1a1a1a;
+    padding: 12px 0;
+    width: 100%;
+    max-width: 420px;
+    justify-content: center;
+  }
+  .phase-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 2px solid #444;
+    background: transparent;
+    color: #999;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .phase-btn:hover { border-color: #777; color: #ccc; }
+  .phase-btn.active {
+    border-color: #ff5b3a;
+    background: #ff5b3a;
+    color: #fff;
+  }
+
+  /* View switcher */
+  .view-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 420px;
+    justify-content: center;
+  }
+  .view-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 100px;
+    border: 1.5px solid #555;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .view-btn:hover:not(.disabled) { border-color: #888; }
+  .view-btn.active {
+    border-color: #ffd84d;
+    background: #ffd84d;
+    color: #1a1a1a;
+  }
+  .view-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 390px;
+    min-height: 600px;
+    background: #fafaf6;
+    border-radius: 40px;
+    border: 3px solid #333;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .phone-scroll {
+    height: 780px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+  }
+  .phone-scroll::-webkit-scrollbar { width: 0; }
+
+  /* Color tokens */
+  :root {
+    --bg: #fafaf6;
+    --ink: #1a1a1a;
+    --accent: #ff5b3a;
+    --accent2: #3a8eff;
+    --sticker-bg: #ffd84d;
+    --surface: #f0ece4;
+    --muted: #999;
+  }
+
+  /* Marquee */
+  .wf-marquee {
+    background: var(--ink);
+    color: var(--sticker-bg);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 7px 0;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .wf-marquee-inner {
+    display: inline-block;
+    animation: scroll-marquee 18s linear infinite;
+  }
+  @keyframes scroll-marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* Sections */
+  .wf-section {
+    padding: 0 18px;
+    margin-bottom: 2px;
+    position: relative;
+  }
+
+  /* Status badge on sections */
+  .wf-status {
+    position: absolute;
+    top: 8px;
+    right: 18px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 100px;
+    z-index: 2;
+  }
+  .wf-status.built { background: #d4edda; color: #155724; }
+  .wf-status.partial { background: #fff3cd; color: #856404; }
+  .wf-status.missing { background: #f8d7da; color: #721c24; }
+
+  /* Header */
+  .wf-header { padding-top: 14px; }
+  .wf-live-row {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .wf-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1.5s infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .wf-wordmark {
+    font-family: 'Shrikhand', serif;
+    font-size: 28px;
+    color: var(--ink);
+    transform: rotate(-3deg);
+    display: inline-block;
+    margin-bottom: 2px;
+  }
+  .wf-sticker {
+    font-family: 'Caveat', cursive;
+    font-size: 13px;
+    font-weight: 700;
+    background: var(--sticker-bg);
+    border: 2px solid var(--ink);
+    border-radius: 100px;
+    padding: 3px 10px;
+    display: inline-block;
+    float: right;
+    transform: rotate(6deg);
+    margin-top: 4px;
+  }
+  .wf-eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: var(--sticker-bg);
+    border: 2px solid var(--ink);
+    border-radius: 100px;
+    padding: 3px 10px;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+
+  /* Fields */
+  .wf-field {
+    border: 2.5px dashed #ccc;
+    border-radius: 14px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .wf-field.filled {
+    border-style: solid;
+    border-color: var(--ink);
+  }
+  .wf-field-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .wf-field-value {
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .wf-field-value.placeholder { color: #bbb; }
+  .wf-field-value.title {
+    font-family: 'Shrikhand', serif;
+    font-size: 30px;
+    line-height: 1.1;
+  }
+  .wf-field-value.tagline {
+    font-family: 'Caveat', cursive;
+    font-size: 18px;
+  }
+  .wf-field-row {
+    display: flex;
+    gap: 8px;
+  }
+  .wf-field-row .wf-field { flex: 1; }
+  .wf-hint {
+    font-family: 'Caveat', cursive;
+    font-size: 14px;
+    color: var(--muted);
+    margin: -4px 0 8px 4px;
+  }
+
+  /* Postcard image object */
+  .wf-postcard {
+    width: 64px;
+    height: 48px;
+    border-radius: 6px;
+    overflow: hidden;
+    transform: rotate(4deg);
+    flex-shrink: 0;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.15);
+    transition: width 0.2s, height 0.2s;
+  }
+  .wf-postcard.empty {
+    border: 2.5px dashed #ccc;
+    background: transparent;
+  }
+  .wf-postcard.filled {
+    border: 2.5px solid var(--ink);
+    background: linear-gradient(135deg, #7ec8e3, #3a8eff);
+  }
+  .wf-postcard-img {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .wf-postcard.filled .wf-postcard-img {
+    font-size: 0;
+    background: linear-gradient(135deg, #7ec8e3, #3a8eff);
+  }
+
+  /* Invite list (sketch phase) */
+  .wf-invite-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .wf-invite-row {
+    font-size: 13px;
+    color: var(--ink);
+    padding: 8px 12px;
+    background: var(--surface);
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .wf-invite-row .wf-invite-name { font-weight: 500; }
+  .wf-invite-row .wf-invite-contact { font-size: 11px; color: #999; }
+  .wf-invite-row .wf-invite-remove { cursor: pointer; color: #ccc; font-size: 12px; }
+  .wf-invite-count {
+    font-size: 11px; color: #999; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+
+  /* Countdown */
+  .wf-countdown {
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 18px;
+    padding: 18px 22px;
+    margin: 12px 18px;
+    border: 3px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--accent);
+  }
+  .wf-countdown.empty {
+    border-style: dashed;
+    border-color: var(--surface);
+    background: transparent;
+    color: var(--ink);
+    box-shadow: none;
+  }
+  .wf-countdown-num {
+    font-family: 'Shrikhand', serif;
+    font-size: 48px;
+    line-height: 1;
+  }
+  .wf-countdown-label {
+    font-size: 12px;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+
+  /* Module sections */
+  .wf-module {
+    margin: 12px 18px;
+    border: 2.5px solid var(--ink);
+    border-radius: 18px;
+    overflow: hidden;
+    position: relative;
+  }
+  .wf-module-head {
+    padding: 14px 16px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .wf-module-title {
+    font-family: 'Shrikhand', serif;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  .wf-module-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .wf-module-body {
+    padding: 0 16px 16px;
+  }
+
+  /* Empty state */
+  .wf-empty {
+    border: 2.5px dashed #ccc;
+    border-radius: 14px;
+    padding: 20px 16px;
+    text-align: center;
+    margin: 12px 18px;
+  }
+  .wf-empty-text {
+    font-family: 'Caveat', cursive;
+    font-size: 16px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .wf-empty-cta {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* Input placeholder (for builder) */
+  .wf-input-mock {
+    border: 2px dashed var(--accent);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-top: 8px;
+    background: rgba(255, 91, 58, 0.04);
+    font-size: 12px;
+    color: var(--accent);
+    text-align: center;
+  }
+
+  /* Avatar row */
+  .wf-avatars {
+    display: flex;
+    margin: 10px 18px;
+    align-items: center;
+    gap: 0;
+  }
+  .wf-av {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--sticker-bg);
+    border: 2.5px solid var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-right: -8px;
+  }
+  .wf-av.add {
+    border-style: dashed;
+    border-color: #bbb;
+    background: transparent;
+    color: #bbb;
+    font-size: 18px;
+    cursor: pointer;
+  }
+  .wf-av.you {
+    border-style: dashed;
+    border-color: var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .wf-av-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-left: 16px;
+  }
+
+  /* Lodging card */
+  .wf-lodging-card {
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .wf-lodging-img {
+    width: 100%;
+    height: 120px;
+    background: linear-gradient(135deg, #e8d5b7 0%, #c4a882 100%);
+    position: relative;
+  }
+  .wf-lodging-img-pill {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    font-size: 9px;
+    font-weight: 600;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 100px;
+  }
+  .wf-lodging-body { padding: 12px; }
+  .wf-lodging-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .wf-lodging-price {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .wf-vote-bar {
+    height: 6px;
+    background: var(--surface);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .wf-vote-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+  }
+  .wf-vote-btn {
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .wf-lock-stamp {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 20px;
+  }
+
+  /* Line item module */
+  .wf-line-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--surface);
+    font-size: 13px;
+  }
+  .wf-line-item:last-child { border-bottom: none; }
+  .wf-line-cost { font-weight: 700; color: var(--ink); }
+
+  /* Cost summary */
+  .wf-cost-summary {
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 18px;
+    padding: 18px;
+    margin: 12px 18px;
+  }
+  .wf-cost-total {
+    font-family: 'Shrikhand', serif;
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+  .wf-cost-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    opacity: 0.7;
+    padding: 3px 0;
+  }
+
+  /* Crew section */
+  .wf-crew-group { margin-bottom: 10px; }
+  .wf-crew-group-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .wf-crew-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+  }
+  .wf-crew-name { font-size: 13px; font-weight: 500; }
+  .wf-crew-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 100px;
+    background: var(--surface);
+  }
+
+  /* Buzz */
+  .wf-buzz-compose {
+    border: 2px solid var(--surface);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-family: 'Caveat', cursive;
+    font-size: 15px;
+    color: #bbb;
+    margin-bottom: 10px;
+  }
+  .wf-buzz-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 6px 0;
+  }
+  .wf-buzz-bubble {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 12px;
+    max-width: 80%;
+  }
+  .wf-buzz-event {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 4px 0;
+  }
+
+  /* Extras */
+  .wf-extra-card {
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  .wf-extra-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .wf-extra-icon { font-size: 18px; }
+  .wf-extra-title { font-weight: 700; font-size: 13px; }
+
+  /* Sticky bar */
+  .wf-sticky {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg);
+    border-top: 2px solid var(--ink);
+    padding: 10px 18px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    z-index: 10;
+  }
+  .wf-cta {
+    flex: 1;
+    padding: 12px;
+    border-radius: 14px;
+    font-family: 'Shrikhand', serif;
+    font-size: 14px;
+    text-align: center;
+    cursor: pointer;
+    border: 2.5px solid var(--ink);
+    transition: all 0.2s;
+  }
+  .wf-cta.primary {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .wf-cta.disabled {
+    opacity: 0.45;
+    border-style: dashed;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .wf-cta.secondary {
+    background: transparent;
+    color: var(--ink);
+    flex: 0 0 auto;
+    padding: 12px 14px;
+  }
+  .wf-cta.rsvp-in { background: var(--accent); color: #fff; }
+  .wf-cta.rsvp-hold { background: var(--sticker-bg); color: var(--ink); }
+  .wf-cta.rsvp-out { background: transparent; color: var(--ink); }
+
+  /* Section divider */
+  .wf-divider {
+    height: 1px;
+    background: var(--surface);
+    margin: 8px 18px;
+  }
+
+  /* Footer */
+  .wf-footer {
+    text-align: center;
+    padding: 24px 18px;
+    font-family: 'Caveat', cursive;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  /* Legend */
+  .legend {
+    max-width: 420px;
+    width: 100%;
+    margin-top: 32px;
+    padding: 16px;
+    background: #222;
+    border-radius: 12px;
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.6;
+  }
+  .legend h3 {
+    font-size: 13px;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  /* Hidden by phase */
+  [data-phases] { display: none; }
+  [data-phases].visible { display: block; }
+  .wf-field-row[data-phases] { display: none; }
+  .wf-field-row[data-phases].visible { display: flex; }
+  .wf-avatars[data-phases] { display: none; }
+  .wf-avatars[data-phases].visible { display: flex; }
+  .wf-sticky[data-phases] { display: none; }
+  .wf-sticky[data-phases].visible { display: flex; }
+
+  /* Annotations */
+  .wf-anno {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    background: rgba(255,91,58,0.08);
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px dashed var(--accent);
+    margin: 6px 0;
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<h1>rally! trip page wireframe</h1>
+<p class="subtitle">/trip/[slug] — same URL, different states per phase</p>
+
+<div class="phase-bar">
+  <button class="phase-btn active" data-phase="sketch">sketch</button>
+  <button class="phase-btn" data-phase="sell">sell</button>
+  <button class="phase-btn" data-phase="lock">lock</button>
+  <button class="phase-btn" data-phase="go">go</button>
+  <button class="phase-btn" data-phase="done">done</button>
+</div>
+
+<div class="view-bar">
+  <button class="view-btn active" data-view="organizer">organizer</button>
+  <button class="view-btn" data-view="crew">crew</button>
+  <button class="view-btn" data-view="invitee">invitee (pre-login)</button>
+</div>
+
+<div class="phone">
+<div class="phone-scroll" id="phoneScroll">
+
+  <!-- MARQUEE -->
+  <div class="wf-marquee">
+    <span class="wf-marquee-inner" id="marqueeText">
+      tap to name ★ set the dates ★ invite the crew ★ send it ✏️ &nbsp;&nbsp;&nbsp;
+      tap to name ★ set the dates ★ invite the crew ★ send it ✏️ &nbsp;&nbsp;&nbsp;
+    </span>
+  </div>
+
+  <!-- HEADER -->
+  <div class="wf-section wf-header">
+    <span class="wf-status built">✅ built</span>
+
+    <div class="wf-live-row">
+      <span class="wf-dot"></span>
+      <span id="liveRowText">draft · only you can see this</span>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <span class="wf-wordmark">rally!</span>
+      <!-- Postcard image object -->
+      <div class="wf-postcard" id="postcardObj" style="display:none">
+        <div class="wf-postcard-img" id="postcardImg">📷</div>
+      </div>
+      <span class="wf-sticker" id="stickerText">new rally ✨</span>
+    </div>
+
+    <div class="wf-eyebrow" id="eyebrowText">★ you started this</div>
+
+    <!-- Title field -->
+    <div class="wf-field" id="titleField">
+      <div class="wf-field-label">name it</div>
+      <div class="wf-field-value title placeholder" id="titleValue">untitled rally</div>
+    </div>
+    <div class="wf-hint" id="titleHint">↑ give it a name only your group would get</div>
+
+    <!-- Tagline field -->
+    <div class="wf-field" id="taglineField">
+      <div class="wf-field-label">one line</div>
+      <div class="wf-field-value tagline placeholder" id="taglineValue">why are we doing this?</div>
+    </div>
+
+    <!-- When/Where -->
+    <div class="wf-field-row" data-phases="all" id="whenWhereRow">
+      <div class="wf-field" id="whenStartField">
+        <div class="wf-field-label">start</div>
+        <div class="wf-field-value placeholder" id="whenStartValue">tbd ↓</div>
+      </div>
+      <div class="wf-field" id="whenEndField">
+        <div class="wf-field-label">end</div>
+        <div class="wf-field-value placeholder" id="whenEndValue">tbd ↓</div>
+      </div>
+      <div class="wf-field" id="whereField">
+        <div class="wf-field-label">where</div>
+        <div class="wf-field-value placeholder" id="whereValue">somewhere ↓</div>
+      </div>
+    </div>
+
+    <!-- RSVP-by / Commit Deadline -->
+    <div class="wf-field" id="rsvpByField">
+      <div class="wf-field-label">rsvp by</div>
+      <div class="wf-field-value placeholder" id="rsvpByValue">set a deadline ↓</div>
+    </div>
+  </div>
+
+  <!-- COUNTDOWN -->
+  <div id="countdownSection">
+    <div class="wf-countdown empty" id="countdownCard">
+      <div class="wf-countdown-num" id="countdownNum">??</div>
+      <div class="wf-countdown-label" id="countdownLabel">days until — set a date and i'll start counting</div>
+    </div>
+  </div>
+
+  <!-- GOING ROW (sell+) / INVITE ROSTER (sketch) -->
+  <div class="wf-section" id="goingSection">
+    <span class="wf-status built" id="goingStatus">✅ built</span>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#999;margin-bottom:4px" id="goingLabel">the crew</div>
+    <!-- Avatar row for sell+ -->
+    <div class="wf-avatars" id="goingAvatars" style="display:none">
+      <div class="wf-av">A</div>
+      <div class="wf-av add">+</div>
+      <span class="wf-av-label" id="goingHelper">just you so far. who's in?</span>
+    </div>
+    <!-- Invite list for sketch (real trip_members data) -->
+    <div id="inviteList" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span class="wf-invite-count" id="inviteCount">3 invited</span>
+      </div>
+      <div class="wf-invite-list" id="inviteListRows">
+        <div class="wf-invite-row">
+          <div><span class="wf-invite-name">Andrew Shipman</span> <span style="font-size:10px;color:#bbb">organizer</span></div>
+        </div>
+        <div class="wf-invite-row">
+          <div><span class="wf-invite-name">Jane Doe</span> <span class="wf-invite-contact">jane@email.com</span></div>
+          <span class="wf-invite-remove">✕</span>
+        </div>
+        <div class="wf-invite-row">
+          <div><span class="wf-invite-name">Mike R.</span> <span class="wf-invite-contact">555-123-4567</span></div>
+          <span class="wf-invite-remove">✕</span>
+        </div>
+      </div>
+      <div class="wf-input-mock" style="margin-top:6px">+ invite</div>
+      <div class="wf-anno">opens InviteModal (share link or email/phone). Uses real trip_members. Emails gated until sell.</div>
+    </div>
+  </div>
+
+  <div class="wf-divider"></div>
+
+  <!-- SHARE / INVITE ACTIONS -->
+  <div class="wf-section" data-phases="sell lock go" id="shareSection">
+    <span class="wf-status built">✅ built</span>
+    <div style="text-align:center;padding:8px 0">
+      <span style="font-size:13px;font-weight:600;color:var(--muted);cursor:pointer" id="shareText">copy the invite link ✍️</span>
+    </div>
+  </div>
+
+  <!-- ORGANIZER CARD -->
+  <div data-phases="sell lock go done" id="organizerSection">
+    <div class="wf-module" style="margin:12px 18px">
+      <span class="wf-status built">✅ built</span>
+      <div class="wf-module-body" style="padding-top:14px;display:flex;align-items:center;gap:12px">
+        <div class="wf-av" style="margin:0">A</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Andrew Shipman</div>
+          <div style="font-size:11px;color:var(--muted)">started this · ✉️</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ MODULES ═══════════ -->
+
+  <!-- LODGING -->
+  <div id="lodgingSection">
+    <div class="wf-module" id="lodgingModule">
+      <span class="wf-status partial">🟡 partial</span>
+      <div class="wf-module-head">
+        <div class="wf-module-title">the spot</div>
+        <div class="wf-module-badge" id="lodgingBadge"></div>
+      </div>
+      <div class="wf-module-body" id="lodgingBody">
+        <!-- Content changes per phase -->
+      </div>
+    </div>
+  </div>
+
+  <!-- FLIGHTS -->
+  <div id="flightsSection">
+    <div class="wf-module">
+      <span class="wf-status partial">🟡 partial</span>
+      <div class="wf-module-head">
+        <div class="wf-module-title">getting there</div>
+        <div class="wf-module-badge" id="flightsBadge"></div>
+      </div>
+      <div class="wf-module-body" id="flightsBody">
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSPORTATION -->
+  <div id="transportSection">
+    <div class="wf-module">
+      <span class="wf-status partial">🟡 partial</span>
+      <div class="wf-module-head">
+        <div class="wf-module-title">getting around</div>
+        <div class="wf-module-badge" id="transportBadge"></div>
+      </div>
+      <div class="wf-module-body" id="transportBody">
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITIES -->
+  <div id="activitiesSection">
+    <div class="wf-module">
+      <span class="wf-status partial">🟡 partial</span>
+      <div class="wf-module-head">
+        <div class="wf-module-title">what we're doing</div>
+        <div class="wf-module-badge" id="activitiesBadge"></div>
+      </div>
+      <div class="wf-module-body" id="activitiesBody">
+      </div>
+    </div>
+  </div>
+
+  <!-- PROVISIONS (replaces groceries in sketch — restaurants/groceries detail comes in sell+) -->
+  <div id="provisionsSection">
+    <div class="wf-module">
+      <span class="wf-status missing" id="provisionsStatus">🔴 missing</span>
+      <div class="wf-module-head">
+        <div class="wf-module-title">provisions</div>
+        <div class="wf-module-badge" id="provisionsBadge"></div>
+      </div>
+      <div class="wf-module-body" id="provisionsBody">
+      </div>
+    </div>
+  </div>
+
+  <!-- COST SUMMARY -->
+  <div data-phases="sell lock go" id="costSection">
+    <div class="wf-cost-summary">
+      <span class="wf-status built">✅ built</span>
+      <div class="wf-cost-total">~$284</div>
+      <div style="font-size:11px;opacity:0.6;margin-bottom:10px">per person · 3 going</div>
+      <div class="wf-cost-line"><span>🏠 lodging</span><span>$189</span></div>
+      <div class="wf-cost-line"><span>✈️ flights</span><span>$55</span></div>
+      <div class="wf-cost-line"><span>🚗 transport</span><span>$25</span></div>
+      <div class="wf-cost-line"><span>🎿 activities</span><span>$15</span></div>
+      <div class="wf-cost-line"><span>🍽️ provisions</span><span>~$133</span></div>
+    </div>
+  </div>
+
+  <div class="wf-divider"></div>
+
+  <!-- CREW SECTION -->
+  <div id="crewFullSection">
+    <div class="wf-module">
+      <span class="wf-status built">✅ built</span>
+      <div class="wf-module-head">
+        <div class="wf-module-title">the crew</div>
+        <div class="wf-module-badge">3 in · 1 holding</div>
+      </div>
+      <div class="wf-module-body">
+        <div class="wf-crew-group">
+          <div class="wf-crew-group-label">in 🙌</div>
+          <div class="wf-crew-row">
+            <div class="wf-av" style="width:28px;height:28px;font-size:11px;margin:0">A</div>
+            <span class="wf-crew-name">Andrew Shipman</span>
+            <span class="wf-crew-badge">👑 host</span>
+          </div>
+          <div class="wf-crew-row">
+            <div class="wf-av" style="width:28px;height:28px;font-size:11px;margin:0">R</div>
+            <span class="wf-crew-name">Robert</span>
+          </div>
+          <div class="wf-crew-row">
+            <div class="wf-av" style="width:28px;height:28px;font-size:11px;margin:0">A</div>
+            <span class="wf-crew-name">Alex</span>
+          </div>
+        </div>
+        <div class="wf-crew-group">
+          <div class="wf-crew-group-label">holding 🧗</div>
+          <div class="wf-crew-row">
+            <div class="wf-av" style="width:28px;height:28px;font-size:11px;margin:0;background:#eee;color:#999">J</div>
+            <span class="wf-crew-name" style="color:#999">Jen</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUZZ -->
+  <div id="buzzSection" data-phases="sell lock go done">
+    <div class="wf-module">
+      <span class="wf-status partial">🟡 partial</span>
+      <div class="wf-module-head">
+        <div class="wf-module-title">the buzz</div>
+      </div>
+      <div class="wf-module-body">
+        <div class="wf-buzz-compose">what's the word?</div>
+        <div class="wf-buzz-event">📍 andrew locked the lodging · 2h ago</div>
+        <div class="wf-buzz-row">
+          <div class="wf-av" style="width:28px;height:28px;font-size:11px;margin:0;flex-shrink:0">R</div>
+          <div class="wf-buzz-bubble">who's driving up thursday?</div>
+        </div>
+        <div class="wf-buzz-event">🙌 robert rsvp'd — i'm in · 1d ago</div>
+        <div class="wf-anno">needs: compose interaction, reactions</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXTRAS -->
+  <div id="extrasSection">
+    <div class="wf-module">
+      <span class="wf-status partial">🟡 partial</span>
+      <div class="wf-module-head">
+        <div class="wf-module-title">extras</div>
+        <div class="wf-module-badge" id="extrasBadge"></div>
+      </div>
+      <div class="wf-module-body" id="extrasBody">
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="wf-footer">
+    wherever you go, go together ✈️
+    <div style="font-size:11px;margin-top:4px;opacity:0.5">rally v0</div>
+  </div>
+
+  <!-- STICKY BAR — SKETCH -->
+  <div class="wf-sticky" data-phases="all" id="stickySketch" style="gap:6px">
+    <div class="wf-cta secondary" style="flex:0 0 40px;text-align:center;font-size:12px;padding:10px 0">←</div>
+    <div class="wf-cta secondary" style="flex:0 0 40px;text-align:center;font-size:12px;padding:10px 0">🎨</div>
+    <div class="wf-cta secondary" style="flex:1;font-size:12px;text-align:center">save draft</div>
+    <div class="wf-cta primary" id="publishBtn" style="flex:1;font-size:12px;text-align:center">publish →</div>
+  </div>
+
+  <div class="wf-sticky" data-phases="none" id="stickyRsvp">
+    <div class="wf-cta rsvp-in" style="font-size:13px">i'm in</div>
+    <div class="wf-cta rsvp-hold" style="font-size:13px">maybe</div>
+    <div class="wf-cta rsvp-out" style="font-size:13px">out</div>
+  </div>
+
+  <div class="wf-sticky" data-phases="none" id="stickyInvitee">
+    <div class="wf-cta secondary" style="font-size:13px">can't make it</div>
+    <div class="wf-cta primary" style="font-size:13px">see the plan →</div>
+  </div>
+
+</div><!-- /phone-scroll -->
+</div><!-- /phone -->
+
+<div class="legend">
+  <h3>Legend</h3>
+  <div class="legend-row">
+    <div class="legend-swatch" style="background:#d4edda"></div>
+    <span><strong>✅ built</strong> — component exists and works</span>
+  </div>
+  <div class="legend-row">
+    <div class="legend-swatch" style="background:#fff3cd"></div>
+    <span><strong>🟡 partial</strong> — display works, input/edit UI missing</span>
+  </div>
+  <div class="legend-row">
+    <div class="legend-swatch" style="background:#f8d7da"></div>
+    <span><strong>🔴 missing</strong> — not built yet</span>
+  </div>
+  <div class="legend-row">
+    <div class="legend-swatch" style="background:rgba(255,91,58,0.15);border:1px dashed #ff5b3a"></div>
+    <span><strong>dashed orange</strong> — builder input needed (organizer adds data here)</span>
+  </div>
+</div>
+
+<script>
+let currentPhase = 'sketch';
+let currentView = 'organizer';
+
+function updateDisplay() {
+  const phase = currentPhase;
+  const view = currentView;
+  const isOrganizer = view === 'organizer';
+  const isInvitee = view === 'invitee';
+  const isCrew = view === 'crew';
+  const isSketch = phase === 'sketch';
+  const isSell = phase === 'sell';
+  const isLock = phase === 'lock';
+  const isGo = phase === 'go';
+  const isDone = phase === 'done';
+  const isPostSketch = !isSketch;
+
+  // Marquee
+  const marquee = document.getElementById('marqueeText');
+  if (isSketch) {
+    marquee.textContent = 'tap to name ★ set the dates ★ invite the crew ★ send it ✏️    tap to name ★ set the dates ★ invite the crew ★ send it ✏️    ';
+  } else {
+    marquee.textContent = 'nov 20–26 ★ tortola, bvi ★ 3 going ★ let\'s gooo ★    nov 20–26 ★ tortola, bvi ★ 3 going ★ let\'s gooo ★    ';
+  }
+
+  // Live row
+  const liveRow = document.getElementById('liveRowText');
+  if (isSketch) liveRow.textContent = 'draft · only you can see this';
+  else if (isSell) liveRow.textContent = isInvitee ? 'andrew shipman called you up' : 'trip is live';
+  else if (isLock) liveRow.textContent = 'locked in';
+  else if (isGo) liveRow.textContent = "it's go time";
+  else liveRow.textContent = 'that was a time';
+
+  // Sticker
+  const sticker = document.getElementById('stickerText');
+  if (isSketch) sticker.textContent = 'new rally ✨';
+  else if (isInvitee) sticker.textContent = "you're invited 💌";
+  else if (isDone) sticker.textContent = 'done ✈️';
+  else sticker.textContent = '51 days 🌴';
+
+  // Postcard image object — sketch: small dashed tap target, sell+: bigger filled card
+  const postcardObj = document.getElementById('postcardObj');
+  const postcardImg = document.getElementById('postcardImg');
+  if (isSketch && isOrganizer) {
+    postcardObj.style.display = '';
+    postcardObj.className = 'wf-postcard empty';
+    postcardObj.style.width = '64px';
+    postcardObj.style.height = '48px';
+    postcardImg.textContent = '📷';
+  } else if (isPostSketch) {
+    postcardObj.style.display = '';
+    postcardObj.className = 'wf-postcard filled';
+    postcardObj.style.width = '88px';
+    postcardObj.style.height = '66px';
+    postcardImg.textContent = '';
+  } else {
+    postcardObj.style.display = 'none';
+  }
+
+  // Eyebrow
+  const eyebrow = document.getElementById('eyebrowText');
+  if (isOrganizer) eyebrow.textContent = '★ you started this';
+  else eyebrow.textContent = '★ andrew shipman is calling';
+
+  // Title
+  const titleField = document.getElementById('titleField');
+  const titleValue = document.getElementById('titleValue');
+  const titleHint = document.getElementById('titleHint');
+  if (isSketch && isOrganizer) {
+    titleField.className = 'wf-field';
+    titleValue.textContent = 'untitled rally';
+    titleValue.className = 'wf-field-value title placeholder';
+    titleHint.style.display = '';
+  } else {
+    titleField.className = 'wf-field filled';
+    titleValue.textContent = 'Thanksgiving in Tortola!';
+    titleValue.className = 'wf-field-value title';
+    titleHint.style.display = 'none';
+  }
+
+  // Tagline
+  const taglineField = document.getElementById('taglineField');
+  const taglineValue = document.getElementById('taglineValue');
+  if (isSketch && isOrganizer) {
+    taglineField.className = 'wf-field';
+    taglineValue.textContent = 'why are we doing this?';
+    taglineValue.className = 'wf-field-value tagline placeholder';
+  } else {
+    taglineField.className = 'wf-field filled';
+    taglineValue.textContent = 'turkey & island time 🌺';
+    taglineValue.className = 'wf-field-value tagline';
+  }
+
+  // When (start/end) / Where
+  const whenStartField = document.getElementById('whenStartField');
+  const whenStartValue = document.getElementById('whenStartValue');
+  const whenEndField = document.getElementById('whenEndField');
+  const whenEndValue = document.getElementById('whenEndValue');
+  const whereField = document.getElementById('whereField');
+  const whereValue = document.getElementById('whereValue');
+  if (isSketch && isOrganizer) {
+    whenStartField.className = 'wf-field';
+    whenStartValue.textContent = 'tbd ↓';
+    whenStartValue.className = 'wf-field-value placeholder';
+    whenEndField.className = 'wf-field';
+    whenEndValue.textContent = 'tbd ↓';
+    whenEndValue.className = 'wf-field-value placeholder';
+    whereField.className = 'wf-field';
+    whereValue.textContent = 'somewhere ↓';
+    whereValue.className = 'wf-field-value placeholder';
+  } else {
+    whenStartField.className = 'wf-field filled';
+    whenStartValue.textContent = 'nov 20';
+    whenStartValue.className = 'wf-field-value';
+    whenEndField.className = 'wf-field filled';
+    whenEndValue.textContent = 'nov 26';
+    whenEndValue.className = 'wf-field-value';
+    whereField.className = 'wf-field filled';
+    whereValue.textContent = 'Tortola, BVI';
+    whereValue.className = 'wf-field-value';
+  }
+
+  // RSVP-by / Commit Deadline
+  const rsvpByField = document.getElementById('rsvpByField');
+  const rsvpByValue = document.getElementById('rsvpByValue');
+  if (isSketch && isOrganizer) {
+    rsvpByField.style.display = '';
+    rsvpByField.className = 'wf-field';
+    rsvpByValue.textContent = 'set a deadline ↓';
+    rsvpByValue.className = 'wf-field-value placeholder';
+  } else if (isPostSketch) {
+    rsvpByField.style.display = '';
+    rsvpByField.className = 'wf-field filled';
+    rsvpByValue.textContent = 'oct 15';
+    rsvpByValue.className = 'wf-field-value';
+  } else {
+    rsvpByField.style.display = '';
+  }
+
+  // Countdown — hidden in sketch, visible sell+
+  const countdownSection = document.getElementById('countdownSection');
+  const countdownCard = document.getElementById('countdownCard');
+  const countdownNum = document.getElementById('countdownNum');
+  const countdownLabel = document.getElementById('countdownLabel');
+  if (isSketch) {
+    countdownSection.style.display = 'none';
+  } else if (isSell) {
+    countdownSection.style.display = '';
+    countdownCard.className = 'wf-countdown';
+    countdownNum.textContent = '51';
+    countdownLabel.textContent = 'days to lock it in';
+  } else if (isDone) {
+    countdownSection.style.display = '';
+    countdownCard.className = 'wf-countdown';
+    countdownNum.textContent = '0';
+    countdownLabel.textContent = 'that was a vibe';
+  } else {
+    countdownSection.style.display = '';
+    countdownCard.className = 'wf-countdown';
+    countdownNum.textContent = '224';
+    countdownLabel.textContent = 'days until island time';
+  }
+
+  // Going row (sell+) / Invite list (sketch)
+  const goingAvatars = document.getElementById('goingAvatars');
+  const inviteList = document.getElementById('inviteList');
+  const goingLabel = document.getElementById('goingLabel');
+  const goingStatus = document.getElementById('goingStatus');
+  if (isSketch) {
+    goingLabel.textContent = 'the crew';
+    goingStatus.textContent = '🔴 to build (7C)';
+    goingStatus.className = 'wf-status missing';
+    goingAvatars.style.display = 'none';
+    inviteList.style.display = '';
+  } else if (isInvitee) {
+    goingLabel.textContent = "who's coming 👇";
+    goingStatus.textContent = '✅ built';
+    goingStatus.className = 'wf-status built';
+    inviteList.style.display = 'none';
+    goingAvatars.style.display = '';
+    goingAvatars.innerHTML = '<div class="wf-av">A</div><div class="wf-av">R</div><div class="wf-av">A</div><div class="wf-av you">you?</div><span class="wf-av-label">3 already in</span>';
+  } else {
+    goingLabel.textContent = "who's coming 👇";
+    goingStatus.textContent = '✅ built';
+    goingStatus.className = 'wf-status built';
+    inviteList.style.display = 'none';
+    goingAvatars.style.display = '';
+    goingAvatars.innerHTML = '<div class="wf-av">A</div><div class="wf-av" style="background:#ff9999">R</div><div class="wf-av">A</div><span class="wf-av-label">3 going</span>';
+  }
+
+  // Show/hide phase-specific sections
+  document.querySelectorAll('[data-phases]').forEach(el => {
+    const phases = el.getAttribute('data-phases');
+    if (phases === 'all') { el.classList.add('visible'); return; }
+    if (phases === 'none') { el.classList.remove('visible'); return; }
+    const list = phases.split(' ');
+    el.classList.toggle('visible', list.includes(phase));
+  });
+
+  // Share section — sell+ only, with "drop it in the group chat" prompt for organizer
+  const shareSection = document.getElementById('shareSection');
+  const shareText = document.getElementById('shareText');
+  shareSection.style.display = isPostSketch ? '' : 'none';
+  if (isSell && isOrganizer) {
+    shareText.innerHTML = 'copy the invite link ✍️<br><span style="font-size:11px;font-weight:400;color:#bbb">drop it in the group chat — anyone with the link can join</span>';
+  } else {
+    shareText.innerHTML = isOrganizer ? 'copy the invite link ✍️' : 'add to calendar';
+  }
+
+  // Organizer card
+  const organizerSection = document.getElementById('organizerSection');
+  organizerSection.style.display = isPostSketch ? '' : 'none';
+
+  // Lodging
+  const lodgingBody = document.getElementById('lodgingBody');
+  const lodgingBadge = document.getElementById('lodgingBadge');
+  if (isSketch && isOrganizer) {
+    lodgingBadge.textContent = '';
+    lodgingBody.innerHTML = `
+      <div class="wf-empty-text">drop the first airbnb link. we'll pull the photos, price, everything.</div>
+      <div class="wf-input-mock">📎 paste a link or add manually</div>
+      <div class="wf-anno">needs: paste URL input, OG scraper, manual entry fallback</div>
+    `;
+  } else if (isSell) {
+    lodgingBadge.textContent = 'voting open';
+    lodgingBody.innerHTML = `
+      <div class="wf-lodging-card">
+        <div class="wf-lodging-img"><div class="wf-lodging-img-pill">airbnb.com</div></div>
+        <div class="wf-lodging-body">
+          <div class="wf-lodging-name">The A-Frame Cabin</div>
+          <div class="wf-lodging-price">$189/night · 6 nights · $1,134 total</div>
+          <div class="wf-vote-bar"><div class="wf-vote-fill" style="width:60%"></div></div>
+          <div class="wf-vote-btn">${isOrganizer ? 'your pick ✓' : 'tap to vote 🗳️'}</div>
+        </div>
+      </div>
+      <div class="wf-lodging-card">
+        <div class="wf-lodging-img" style="background:linear-gradient(135deg,#b7d5e8,#82a8c4)"><div class="wf-lodging-img-pill">vrbo.com</div></div>
+        <div class="wf-lodging-body">
+          <div class="wf-lodging-name">Beach House Villa</div>
+          <div class="wf-lodging-price">$220/night · 6 nights · $1,320 total</div>
+          <div class="wf-vote-bar"><div class="wf-vote-fill" style="width:40%"></div></div>
+          <div class="wf-vote-btn">tap to vote 🗳️</div>
+        </div>
+      </div>
+      ${isOrganizer ? '<div class="wf-input-mock">+ add another option</div>' : ''}
+    `;
+  } else if (isLock || isGo || isDone) {
+    lodgingBadge.textContent = 'locked 🗝️';
+    lodgingBody.innerHTML = `
+      <div class="wf-lodging-card" style="position:relative">
+        <div class="wf-lock-stamp">🗝️</div>
+        <div class="wf-lodging-img"><div class="wf-lodging-img-pill">airbnb.com</div></div>
+        <div class="wf-lodging-body">
+          <div class="wf-lodging-name">The A-Frame Cabin</div>
+          <div class="wf-lodging-price">$189/night · 6 nights · $1,134 total</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">andrew locked it · 3 votes</div>
+        </div>
+      </div>
+    `;
+  } else {
+    lodgingBadge.textContent = '';
+    lodgingBody.innerHTML = '<div class="wf-empty-text">nothing here yet</div>';
+  }
+
+  // Flights, Transport, Activities, Groceries — line-item pattern
+  const lineItemModules = [
+    { id: 'flights', items: [{name: 'JFK → Tortola (AA 2847)', cost: '$385'}, {name: 'Tortola → JFK (AA 2848)', cost: '$342'}], badge: '2 flights' },
+    { id: 'transport', items: [{name: 'Car rental — Jeep Wrangler', cost: '$480'}, {name: 'Gas estimate', cost: '$60'}], badge: '2 items' },
+    { id: 'activities', items: [{name: 'Snorkeling tour', cost: '$45/pp'}, {name: 'Beach BBQ supplies', cost: '$120'}], badge: '2 planned' },
+  ];
+
+  lineItemModules.forEach(mod => {
+    const body = document.getElementById(mod.id + 'Body');
+    const badge = document.getElementById(mod.id + 'Badge');
+    if (isSketch && isOrganizer) {
+      badge.textContent = '';
+      body.innerHTML = `
+        <div class="wf-empty-text">nothing here yet</div>
+        <div class="wf-input-mock">+ add ${mod.id === 'groceries' ? 'an item' : mod.id === 'activities' ? 'an activity' : 'a ' + mod.id.replace(/s$/,'')}</div>
+        <div class="wf-anno">needs: add/edit form (shared line-item pattern)</div>
+      `;
+    } else if (isPostSketch) {
+      badge.textContent = mod.badge;
+      let html = mod.items.map(i => `
+        <div class="wf-line-item">
+          <span>${i.name}</span>
+          <span class="wf-line-cost">${i.cost}</span>
+        </div>
+      `).join('');
+      if (isOrganizer) html += `<div class="wf-input-mock">+ add another</div>`;
+      body.innerHTML = html;
+    } else {
+      badge.textContent = '';
+      body.innerHTML = '<div class="wf-empty-text">nothing here yet</div>';
+    }
+  });
+
+  // Provisions — sketch: estimate input, sell+: detailed restaurants/groceries
+  const provisionsBody = document.getElementById('provisionsBody');
+  const provisionsBadge = document.getElementById('provisionsBadge');
+  const provisionsStatus = document.getElementById('provisionsStatus');
+  if (isSketch && isOrganizer) {
+    provisionsBadge.textContent = '';
+    provisionsStatus.textContent = '🔴 missing';
+    provisionsStatus.className = 'wf-status missing';
+    provisionsBody.innerHTML = `
+      <div class="wf-empty-text">food, drinks, dining — just a rough estimate for now</div>
+      <div class="wf-input-mock">~$ estimate</div>
+      <div class="wf-anno">needs: single estimate input, feeds into cost split</div>
+    `;
+  } else if (isPostSketch) {
+    provisionsBadge.textContent = '~$400';
+    provisionsStatus.textContent = '🟡 partial';
+    provisionsStatus.className = 'wf-status partial';
+    provisionsBody.innerHTML = `
+      <div class="wf-line-item"><span>provisions estimate</span><span class="wf-line-cost">~$400</span></div>
+      ${isOrganizer ? '<div class="wf-input-mock">+ break it down (restaurants, groceries…)</div>' : ''}
+    `;
+  } else {
+    provisionsBadge.textContent = '';
+    provisionsBody.innerHTML = '<div class="wf-empty-text">nothing here yet</div>';
+  }
+
+  // Cost section
+  const costSection = document.getElementById('costSection');
+  costSection.style.display = isPostSketch ? '' : 'none';
+
+  // Crew full section
+  const crewFull = document.getElementById('crewFullSection');
+  crewFull.style.display = isPostSketch ? '' : 'none';
+
+  // Buzz section
+  const buzzSection = document.getElementById('buzzSection');
+  buzzSection.style.display = isPostSketch ? '' : 'none';
+
+  // Extras
+  const extrasBody = document.getElementById('extrasBody');
+  const extrasBadge = document.getElementById('extrasBadge');
+  if (isSketch && isOrganizer) {
+    extrasBadge.textContent = '';
+    extrasBody.innerHTML = `
+      <div class="wf-empty-text">nothing here yet ✨</div>
+      <div class="wf-input-mock">+ add something extra</div>
+      <div class="wf-anno">needs: chooser sheet (packing / playlist / rules / album)</div>
+    `;
+  } else if (isPostSketch) {
+    extrasBadge.textContent = '3 extras';
+    extrasBody.innerHTML = `
+      <div class="wf-extra-card">
+        <div class="wf-extra-head">
+          <span class="wf-extra-icon">🧳</span>
+          <span class="wf-extra-title">packing list</span>
+          <span style="font-size:10px;color:var(--muted);margin-left:auto">2 / 5</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">✓ sunscreen · ✓ snorkel gear · ○ beach towels · ○ speakers · ○ card games</div>
+      </div>
+      <div class="wf-extra-card">
+        <div class="wf-extra-head">
+          <span class="wf-extra-icon">🎧</span>
+          <span class="wf-extra-title">playlist</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">island vibes mix · spotify · 47 tracks</div>
+      </div>
+      <div class="wf-extra-card">
+        <div class="wf-extra-head">
+          <span class="wf-extra-icon">📜</span>
+          <span class="wf-extra-title">house rules</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">· shoes off inside · quiet after 11 · whoever wakes first starts coffee</div>
+      </div>
+      ${isOrganizer ? '<div class="wf-input-mock">+ add something extra</div>' : ''}
+    `;
+  } else {
+    extrasBadge.textContent = '';
+    extrasBody.innerHTML = '<div class="wf-empty-text">nothing here yet ✨</div>';
+  }
+
+  // Sticky bars
+  const stickySketch = document.getElementById('stickySketch');
+  const stickyRsvp = document.getElementById('stickyRsvp');
+  const stickyInvitee = document.getElementById('stickyInvitee');
+  stickySketch.style.display = 'none';
+  stickyRsvp.style.display = 'none';
+  stickyInvitee.style.display = 'none';
+
+  if (isSketch && isOrganizer) {
+    stickySketch.style.display = 'flex';
+  } else if (isInvitee) {
+    stickyInvitee.style.display = 'flex';
+  } else if (isCrew && isPostSketch) {
+    stickyRsvp.style.display = 'flex';
+  }
+  // Organizer post-sketch: "you started this" — no sticky bar needed
+
+  // Scroll to top
+  document.getElementById('phoneScroll').scrollTop = 0;
+}
+
+function updateViewButtons() {
+  const isSketch = currentPhase === 'sketch';
+  document.querySelectorAll('.view-btn').forEach(btn => {
+    const view = btn.dataset.view;
+    if (view !== 'organizer' && isSketch) {
+      btn.classList.add('disabled');
+    } else {
+      btn.classList.remove('disabled');
+    }
+  });
+  // Invitee view only makes sense in sell phase
+  const inviteeBtn = document.querySelector('[data-view="invitee"]');
+  if (currentPhase !== 'sell') {
+    inviteeBtn.classList.add('disabled');
+    if (currentView === 'invitee') {
+      currentView = 'crew';
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('[data-view="crew"]').classList.add('active');
+    }
+  }
+}
+
+// Phase buttons
+document.querySelectorAll('.phase-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.phase-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPhase = btn.dataset.phase;
+    // Sketch = organizer only
+    if (currentPhase === 'sketch') {
+      currentView = 'organizer';
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('[data-view="organizer"]').classList.add('active');
+    }
+    updateViewButtons();
+    updateDisplay();
+  });
+});
+
+// View buttons
+document.querySelectorAll('.view-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('disabled')) return;
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentView = btn.dataset.view;
+    updateDisplay();
+  });
+});
+
+// Init
+updateViewButtons();
+updateDisplay();
+</script>
+
+</body>
+</html>

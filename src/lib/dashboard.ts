@@ -36,6 +36,7 @@ export interface DashboardData {
   phaseCounts: Record<RallyPhase, number>;
   needsMoveCount: number;
   userName: string;
+  userPhotoUrl: string | null;
 }
 
 // ─── Query ────────────────────────────────────────────────────────────────
@@ -141,5 +142,6 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     phaseCounts,
     needsMoveCount,
     userName: profile?.display_name || 'there',
+    userPhotoUrl: profile?.profile_photo_url ?? null,
   };
 }

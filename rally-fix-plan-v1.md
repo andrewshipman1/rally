@@ -1564,6 +1564,292 @@ page. Four targeted fixes — no new features, no trip page changes.
 
 ---
 
+### Session 8D: "Profile Page — Inline Editing"
+
+**Status:** Brief written, ready for Claude Code
+
+**Goal:** Turn the passport/profile page from a read-only display into an editable
+surface. Users can tap any field to edit it inline. No new routes, no new DB
+columns — all fields already exist in the `users` table.
+
+**Scope:**
+
+1. **Create `updateProfile` server action** — new `src/app/actions/update-profile.ts`.
+   Zod-validated partial update of the `users` row for the authenticated user.
+   Updatable fields: `display_name`, `bio`, `email`, `instagram_handle`,
+   `tiktok_handle`. Guard: user can only update their own row (`id = auth.uid()`).
+   Revalidate `/passport` on success.
+
+2. **Create `uploadProfilePhoto` utility** — new function in
+   `src/lib/supabase/upload.ts` (or separate file). Same pattern as
+   `uploadTripCover` but targets a `profile-photos` bucket. Path:
+   `{userId}/{timestamp}.{ext}`. After upload, call `updateProfile` to set
+   `profile_photo_url`. Use the `profile-images` bucket (already created in
+   Supabase by Andrew).
+
+3. **Add inline edit affordance to passport page** — for each editable field on
+   `src/app/passport/page.tsx`:
+   - **Display name**: tap to edit, shows text input, save on blur or Enter
+   - **Bio/tagline**: tap to edit, shows text input, save on blur or Enter
+   - **Profile image**: tap avatar to trigger file picker, upload + update URL
+   - **Email**: tap to edit, shows text input with basic email validation
+   - **Instagram handle**: tap to edit, shows text input (strip @ if entered)
+   - **TikTok handle**: tap to edit, shows text input (strip @ if entered)
+   Each field shows a subtle edit indicator (pencil icon, underline, or similar)
+   on hover/focus. Use `useTransition` for optimistic save feedback.
+
+4. **Phone number — display only** — show the user's phone number on the profile
+   page but do NOT make it editable. Add a subtle label like "connected via SMS"
+   or similar. Phone editing comes later with Twilio integration.
+
+5. **All new copy through getCopy** — add profile-related copy keys to a new
+   `src/lib/copy/surfaces/profile.ts` surface (or extend `dashboard.ts`).
+   Field labels, placeholder text, save confirmations, validation errors.
+
+**Hard Constraints:**
+- DO NOT create new routes (passport page already exists at `/passport`)
+- DO NOT modify the `users` table schema — all columns already exist
+- DO NOT make phone number editable — display only for now
+- DO NOT add Venmo or dietary restrictions editing — future scope
+- All user-facing strings through `getCopy`
+- All colors use CSS variables inside `[data-theme]`
+- Inline edit pattern — no separate edit page, no modal, no bottom sheet
+- Test at 375px
+
+**Acceptance Criteria:**
+- [ ] Tapping display name enters edit mode, saving updates the name in DB and on page
+- [ ] Tapping bio enters edit mode, saving updates bio in DB and on page
+- [ ] Tapping avatar opens file picker, selecting image uploads to Supabase Storage and updates profile photo
+- [ ] Profile photo renders after upload (Avatar component uses new URL)
+- [ ] Tapping email enters edit mode with basic validation, saves to DB
+- [ ] Tapping Instagram handle enters edit mode, strips leading @ if entered, saves
+- [ ] Tapping TikTok handle enters edit mode, strips leading @ if entered, saves
+- [ ] Phone number is displayed but NOT editable
+- [ ] All field labels and placeholders go through getCopy
+- [ ] Failed saves show error feedback (not silent)
+- [ ] Profile updates persist across page refresh
+- [ ] No regressions: passport stats, stamps, ride-or-dies still render correctly
+
+**Files to Read:**
+- `.claude/skills/rally-session-guard/SKILL.md` (always)
+- `rally-passport-wireframe.html` (design spec — read + edit states side by side)
+- `rally-fix-plan-v1.md` (this file — triage list + 8C results)
+- `src/app/passport/page.tsx` (page being modified)
+- `src/lib/passport.ts` (data loading functions)
+- `src/types/index.ts` (User interface — lines 17-30)
+- `src/lib/supabase/upload.ts` (existing upload pattern to replicate)
+- `src/components/auth/ProfileSetup.tsx` (reference for how fields were initially collected)
+- `src/components/trip/ProfileModal.tsx` (reference for how profile data is displayed)
+- `src/components/ui/Avatar.tsx` (avatar component)
+- `rally-microcopy-lexicon-v0.md` (for new copy keys)
+- `supabase/migrations/001_initial_schema.sql` (users table definition)
+
+**How to QA Solo:**
+1. Run `npm run dev`, navigate to `/passport` at 375px
+2. Tap display name — verify edit mode activates, change name, verify save
+3. Refresh page — verify name persisted
+4. Tap bio — edit, save, refresh, verify
+5. Tap avatar — file picker opens, select image, verify upload + display
+6. Tap email — edit with valid email, save, verify; try invalid email, verify validation
+7. Tap Instagram handle — enter "@testhandle", verify @ is stripped, saves as "testhandle"
+8. Tap TikTok handle — same @ stripping test
+9. Verify phone number is visible but not tappable/editable
+10. Check Supabase `users` table to confirm all changes persisted
+11. Verify passport stats, stamps, ride-or-dies sections still render correctly
+
+#### Session 8D — Release Notes
+
+**What was built:**
+1. **Profile copy surface** — new `src/lib/copy/surfaces/profile.ts` with 15 copy keys (labels, placeholders, save feedback, back link). Registered in `index.ts` + `types.ts`.
+2. **Extended PassportProfile** — `src/lib/passport.ts` now returns `id`, `email`, `phone`, `instagramHandle`, `tiktokHandle` alongside existing fields (data already fetched via `select('*')`).
+3. **`updateProfile` server action** — `src/app/actions/update-profile.ts`. Zod-validated partial update of `users` row. Auth guard (user can only update own row). Strips leading `@` from social handles. Validates email format. Revalidates `/passport`.
+4. **`uploadProfilePhoto` utility** — added to `src/lib/supabase/upload.ts`. Same pattern as `uploadTripCover` but targets `profile-images` bucket. Path: `{userId}/{timestamp}.{ext}`.
+5. **ProfileEditor client component** — `src/components/passport/ProfileEditor.tsx`. Contains:
+   - `InlineHeadField` — tap-to-edit for display name + bio in the profile head
+   - `InlineField` — tap-to-edit for details card rows (email, insta, tiktok)
+   - Avatar with camera badge overlay → hidden file input → upload + update
+   - Field state machine: idle → editing → saving → saved (auto-revert after 2s) / error
+   - Save on blur or Enter, cancel on Escape
+   - "✓ saved" green indicator / "✗ retry" red indicator
+6. **Passport page refactor** — `src/app/passport/page.tsx` now imports `ProfileEditor`, passes profile data as prop. Added `← my trips` back link. Est line moved below ProfileEditor. Stats/stamps/ride-or-dies unchanged.
+7. **CSS** — `src/app/globals.css` — back link, avatar wrap + badge, details card, detail rows, edit field inputs, save indicators, pencil hover/always-visible states.
+
+**What changed from the brief:**
+- Est line ("est 2026 · 0 countries deep") moved to server component outside ProfileEditor since it depends on stats data. Renders between ProfileEditor and stat strip.
+- Pencil icon always visible on mobile (touch devices), hover-reveal on desktop — better for 375px mobile-first.
+
+**What to test:**
+- [ ] Tapping display name enters edit mode, saving updates the name in DB and on page
+- [ ] Tapping bio enters edit mode, saving updates bio in DB and on page
+- [ ] Tapping avatar opens file picker, selecting image uploads to Supabase Storage and updates profile photo
+- [ ] Profile photo renders after upload (avatar shows new image)
+- [ ] Tapping email enters edit mode with basic validation, saves to DB
+- [ ] Tapping Instagram handle enters edit mode, strips leading @ if entered, saves
+- [ ] Tapping TikTok handle enters edit mode, strips leading @ if entered, saves
+- [ ] Phone number is displayed but NOT editable
+- [ ] "← my trips" back link navigates to dashboard
+- [ ] All field labels and placeholders go through getCopy
+- [ ] Failed saves show "✗ retry" error feedback
+- [ ] Profile updates persist across page refresh
+- [ ] No regressions: passport stats, stamps, ride-or-dies still render correctly
+- [ ] Page works at 375px width
+
+**Known issues:**
+- Cannot test inline editing in preview (requires authenticated Supabase session). QA must be done in local dev with real login.
+
+#### Session 8D-fix — Release Notes
+
+**What was built:**
+1. **Back link positioning** — removed `margin-top: -14px` from `.passport-back-link` so "← my trips" sits on its own line below the wordmark, not pulled up inline with it. (`globals.css:3403`)
+2. **Wordmark spacing** — reduced `.passport-wordmark` `margin-bottom` from `22px` to `8px` to match wireframe's tight wordmark → back-link spacing. (`globals.css:3147`)
+3. **Detail row gap** — added `gap: 8px` to `.passport-detail-row` to prevent label/value/pencil from running together (fixes "emailshipman.andrew@gmail.com" and "phoneconnected via sms"). (`globals.css:3482`)
+4. **Detail label width** — increased `.passport-detail-label` `min-width` from `56px` to `70px` to match wireframe column alignment. (`globals.css:3502`)
+
+**What changed from the brief:**
+- No deviations. All 4 items were CSS-only fixes as scoped.
+- Avatar badge positioning and details card border were already correct from 8D — no changes needed.
+
+**What to test:**
+- [ ] Wordmark on its own line, "← my trips" back link below it (not inline)
+- [ ] Detail rows in "your info" card: label left, value right, pencil far right — visible spacing between all three
+- [ ] Phone row: "phone" left, number center-right, "connected via sms" right — not running together
+- [ ] Empty TikTok field shows placeholder in lighter color + italic
+- [ ] No regressions at 375px
+
+**Known issues:**
+- None
+
+#### Session 8D — QA Results (Cowork, 2026-04-12)
+
+**Acceptance Criteria (from 8D + 8D-fix combined):**
+- [x] Tapping display name enters edit mode, saving updates name — ✅ PASS
+- [x] Tapping bio enters edit mode, saving updates bio — ✅ PASS
+- [ ] Tapping avatar opens file picker, uploads and updates photo — ❌ FAIL (file picker opens but upload errors. Root cause: `profile-images` storage bucket likely missing or lacks RLS policies — no migration creates it)
+- [ ] Profile photo renders after upload — ❌ FAIL (blocked by upload bug)
+- [x] Tapping email enters edit mode with validation, saves — ✅ PASS
+- [x] Tapping Instagram handle, strips @, saves — ✅ PASS
+- [x] Tapping TikTok handle, strips @, saves — ✅ PASS
+- [ ] Phone number displayed — ❌ FAIL (row shows "PHONE" + "connected via sms" but no actual number)
+- [x] "← my trips" back link navigates to dashboard — ✅ PASS (but missing ← arrow character)
+- [x] All field labels and placeholders through getCopy — ✅ PASS (code verified)
+- [ ] Failed saves show error feedback — ⚠️ PARTIAL (field saves show ✗ retry, but photo upload fails silently)
+- [x] Profile updates persist across refresh — ✅ PASS (name, bio, email, socials all persist)
+- [x] Stats, stamps, ride-or-dies still render — ✅ PASS
+- [x] Detail card layout: label left, value right, proper spacing — ✅ PASS
+- [x] Placeholder text in lighter color + italic — ✅ PASS
+- [x] Page works at 375px — ✅ PASS
+
+**Additional issues found during QA:**
+1. Phone should be editable (not just displayed) — remove "connected via sms"
+2. "start a new one" sticky CTA at bottom is redundant — remove
+3. Back link missing "← " arrow prefix
+4. Andrew wants a "based in" / home city field added (new scope — requires DB column)
+
+**Status:** 12/16 ACs passed, 2 failed (photo upload, phone display), 1 partial, 1 cosmetic. Session 8D **incomplete** — needs 8D-fix2.
+
+**Bugs for Session 8D-fix2:**
+1. Create `profile-images` storage bucket via migration + RLS policies
+2. Add error feedback for photo upload failure in ProfileEditor
+3. Display + make phone number editable, remove "connected via sms"
+4. Remove passport page sticky CTA
+5. Add ← arrow to back link
+6. Add `home_city` column to users table + inline editable "based in" field
+
+#### Session 8D-fix2 — Release Notes
+
+**What was built:**
+1. **Storage bucket migration** — `supabase/migrations/015_profile_images_bucket.sql`. Creates `profile-images` bucket with RLS: authenticated users upload/update/delete in their own folder, public read for all.
+2. **Photo upload error feedback** — `ProfileEditor.tsx` now tracks `photoError` state. On failed upload or failed DB save, shows "upload failed — tap to retry" in red below avatar (tappable to re-open file picker). Copy key: `profile.photoFailed`.
+3. **Phone editable** — replaced read-only phone row with `InlineField`. Added `phone` to Zod schema in `update-profile.ts`. Removed `phoneLocked` copy key, added `placeholderPhone`.
+4. **Removed sticky CTA** — deleted `passport-sticky` section from `page.tsx`. Reduced bottom padding from `100px` to `40px`.
+5. **Back link arrow** — moved `←` into the copy string (`backLink: '← my trips'`), removed `::before` pseudo-element rule.
+6. **Home city field** — `supabase/migrations/016_user_home_city.sql` adds `home_city text` column. Added to `User` type, `PassportProfile` interface, `getPassportProfile` query, `updateProfile` action (Zod + payload), and `ProfileEditor` as new `InlineField` with label "based in" and placeholder "your city". Copy keys: `labelCity`, `placeholderCity`.
+
+**What changed from the brief:**
+- Fixed a type error in `GroupChat.tsx` caused by adding `home_city` to `User` interface — added the missing property to the inline User object constructor.
+
+**What to test:**
+- [ ] Run migrations 015 + 016 against Supabase (`supabase db push` or apply manually)
+- [ ] Photo upload: select image → uploads successfully, avatar updates
+- [ ] Photo upload failure: shows red "upload failed — tap to retry" below avatar
+- [ ] Phone field: tappable, editable, saves to DB
+- [ ] "based in" field: shows in details card, editable, saves `home_city` to DB
+- [ ] Back link shows "← my trips" with arrow
+- [ ] Sticky CTA at bottom is gone
+- [ ] All new copy keys go through getCopy
+- [ ] No regressions at 375px
+
+**Known issues:**
+- Migrations must be applied to Supabase before testing photo upload and home_city.
+
+#### Session 8D — Final QA Results (Cowork, 2026-04-12)
+
+**All ACs now passing after 8D + 8D-fix + 8D-fix2 + migrations applied:**
+- [x] Display name inline edit + save — ✅
+- [x] Bio inline edit + save — ✅
+- [x] Photo upload: avatar tap → file picker → upload → avatar updates — ✅ (after migration 015)
+- [x] Photo upload error shows "upload failed — tap to retry" — ✅
+- [x] Email inline edit with validation + save — ✅
+- [x] Instagram @ stripping + save — ✅
+- [x] TikTok @ stripping + save — ✅
+- [x] Phone displayed + editable + saves — ✅ (8D-fix2)
+- [x] "Based in" field: editable, saves home_city to DB — ✅ (after migration 016)
+- [x] "← my trips" back link with arrow — ✅ (8D-fix2)
+- [x] Sticky CTA removed — ✅ (8D-fix2)
+- [x] All copy through getCopy — ✅
+- [x] Updates persist across refresh — ✅
+- [x] Stats, stamps, ride-or-dies render correctly — ✅
+- [x] Details card layout matches wireframe — ✅
+- [x] Page works at 375px — ✅
+- [x] Trip cards still navigate from dashboard — ✅ (regression)
+
+**Status:** ✅ Session 8D **complete** (8D + 8D-fix + 8D-fix2 + 8D-fix3).
+
+**Bugs for Session 8D-fix3:**
+1. 11 locations render initials-only instead of profile photos — see prompt for full list
+
+#### Session 8D-fix3 — Release Notes
+
+**What was built:**
+Profile photo avatars now render everywhere a user avatar appears, with initial-letter fallback when no photo exists. 10 locations updated across 8 files:
+
+1. **Dashboard header avatar** — `src/app/page.tsx` `.dash-passport-av` now shows photo background when `userPhotoUrl` exists. Added `userPhotoUrl` to `DashboardData` interface in `src/lib/dashboard.ts`.
+2. **Dashboard trip card crew avatars** — `src/app/page.tsx` `.dash-avs .av` divs now use photo background per member.
+3. **Crew section rows** — `src/components/trip/CrewSection.tsx` `.crew-row-av` uses `member.user.profile_photo_url`.
+4. **Trip page "going" row** — `src/app/trip/[slug]/page.tsx` going avatars use photo when available.
+5. **Buzz section comment avatars** — `src/components/trip/BuzzSection.tsx` both "mine" and "not mine" avatars use `comment.user.profile_photo_url`.
+6. **Invitee shell going members** — `src/components/trip/InviteeShell.tsx` avatars use photo.
+7. **Sketch crew field** — `src/components/trip/builder/SketchCrewField.tsx` expanded `MemberLite` type to include `profile_photo_url`, render photo in `.av`.
+8. **Passport stamps** — `src/lib/passport.ts` `PassportStamp.members` now includes `photoUrl`. `src/app/passport/page.tsx` stamp avatars render it.
+9. **Passport ride-or-dies** — `src/app/passport/page.tsx` `.passport-rod-av` now uses `rod.photoUrl` (already in data, just wasn't rendered).
+10. **ProfileEditor avatar** — already handled photo rendering correctly, no change needed.
+
+**What changed from the brief:**
+- No deviations. All 11 locations addressed (one was already correct).
+
+**What to test:**
+- [ ] Upload a profile photo, then check every screen: dashboard header, trip card crew dots, trip page going row, crew section, buzz avatars, invitee shell, sketch crew field, passport stamps, passport ride-or-dies
+- [ ] Users WITHOUT photos still show initial-letter avatars with sticker-bg color
+- [ ] Profile photo renders correctly in circular clip at all avatar sizes (24px stamps, 32px default, 36px rod, 38px going row, 40px crew field)
+- [ ] No regressions at 375px
+- [ ] Dashboard loads without errors
+
+**Known issues:**
+- None
+
+#### Session 8D-fix3 — QA Results (Cowork, 2026-04-12)
+
+**Acceptance Criteria:**
+- [x] Profile photos render across all avatar locations — ✅ PASS (confirmed by Andrew)
+- [x] Initial-letter fallback still works for users without photos — ✅ PASS (code verified: all locations use conditional photo/initial pattern)
+- [x] MemberLite type expanded to include profile_photo_url — ✅ PASS (code verified)
+- [x] No regressions at 375px — ✅ PASS
+- [x] Dashboard loads without errors — ✅ PASS
+
+**Status:** ✅ Session 8D is **complete** (8D + 8D-fix + 8D-fix2 + 8D-fix3). All ACs passed.
+
+---
+
 ### Session 8 — Approach
 
 Session 8 is the **complete sketch page buildout**, module by module. We loop
@@ -1576,10 +1862,11 @@ QA → update plan), and we don't move to Session 9 until the sketch page is don
 - **8A:** Lodging module — full rebuild (type picker → forms → cards) ✅
 - **8B:** Lodging polish — QA fixes + edit flow ✅
 - **8C:** Dashboard cleanup — removed chips, fixed badges, restyled CTA, added long-press delete ✅
+- **8D:** Profile page — inline editing (name, bio, photo, email, phone, socials, based-in) ✅
 
 **Up next:**
 
-**Remaining sketch page modules (8D+ briefs TBD):**
+**Remaining sketch page modules (8E+ briefs TBD):**
 - **8D:** Flights / transportation — rebuild with same pattern as lodging
   (type-aware input, cards, edit, remove)
 - **8E:** Activities — rebuild (activity type, cards, edit, remove)

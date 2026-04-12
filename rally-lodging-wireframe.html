@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rally — Lodging Module Wireframe (Design System)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=DM+Sans:wght@400;500;600;700&family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ── Rally Chassis Kernel ── */
+  :root {
+    --bg:          #fafafa;
+    --ink:         #1a1a1a;
+    --accent:      #fa581e;
+    --accent2:     #1fa8ff;
+    --sticker-bg:  #ffd84d;
+    --stroke:      #1a1a1a;
+    --surface:     #1a1a1a;
+    --on-surface:  #fafafa;
+    --on-accent:   #fff;
+
+    --font-display: 'Shrikhand', serif;
+    --font-body:    'DM Sans', sans-serif;
+    --font-hand:    'Caveat', cursive;
+
+    --badge-home:  #4a9e6f;
+    --badge-hotel: #5b7bb5;
+    --badge-other: #b5885b;
+  }
+
+  /* ── Theme overrides (example — switch data-theme to preview) ── */
+  [data-theme="beach-trip"] {
+    --bg: #e6f6f4; --ink: #1a1a1a; --accent: #e55f37;
+    --sticker-bg: #ffd84d; --stroke: #1a1a1a;
+  }
+  [data-theme="bachelorette"] {
+    --bg: #fde9ed; --ink: #1a1a1a; --accent: #ff2e7e;
+    --sticker-bg: #ffd84d; --stroke: #1a1a1a;
+  }
+  [data-theme="boys-trip"] {
+    --bg: #0f0e10; --ink: #f5f5f4; --accent: #e84a1a;
+    --sticker-bg: #ffd84d; --stroke: #f5f5f4;
+    --surface: #232225; --on-surface: #f5f5f4;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    background: #e8e4df;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    min-height: 100dvh;
+  }
+
+  /* ── Controls (outside chassis) ── */
+  .controls {
+    width: 100%;
+    max-width: 420px;
+    margin-bottom: 16px;
+  }
+  .controls h1 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    margin-bottom: 8px;
+    color: #1a1a1a;
+  }
+  .control-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .control-row label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #999;
+    width: 100%;
+    margin-bottom: 2px;
+  }
+  .view-tab {
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 2px solid #1a1a1a;
+    background: #fff;
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #1a1a1a;
+    transition: all 0.15s;
+  }
+  .view-tab.active {
+    background: #1a1a1a;
+    color: #fff;
+  }
+  .theme-tab {
+    padding: 4px 12px;
+    border-radius: 100px;
+    border: 1.5px solid #ccc;
+    background: #fff;
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #666;
+  }
+  .theme-tab.active {
+    border-color: #1a1a1a;
+    color: #1a1a1a;
+  }
+
+  /* ── Chassis (the actual app frame) ── */
+  .chassis {
+    width: 100%;
+    max-width: 420px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    border-radius: 22px;
+    border: 3px solid var(--stroke);
+    box-shadow: 6px 6px 0 var(--stroke);
+    overflow: hidden;
+    padding-bottom: 24px;
+    position: relative;
+  }
+
+  /* ── Section header ── */
+  .section-h2 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    line-height: 1;
+    color: var(--ink);
+    margin: 24px 18px 12px;
+    letter-spacing: -0.01em;
+  }
+
+  /* ── Field label ── */
+  .field-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink);
+    opacity: 0.55;
+    margin-bottom: 4px;
+  }
+
+  /* ── Dashed field shell ── */
+  .field {
+    border: 2.5px dashed var(--ink);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin: 0 18px 14px;
+    background: transparent;
+    transition: border 0.15s ease, background 0.15s ease;
+  }
+  .field:hover {
+    background: color-mix(in srgb, var(--ink) 4%, transparent);
+  }
+  .field.filled {
+    border-style: solid;
+  }
+
+  /* ── Empty state ── */
+  .lodging-empty {
+    margin: 0 18px;
+    padding: 24px 18px;
+    border: 2.5px dashed var(--stroke);
+    border-radius: 18px;
+    text-align: center;
+  }
+  .lodging-empty p {
+    font-family: var(--font-hand);
+    font-size: 18px;
+    color: var(--ink);
+    opacity: 0.65;
+    margin-bottom: 14px;
+  }
+
+  /* ── Add spot button (pill) ── */
+  .add-spot-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 22px;
+    border-radius: 100px;
+    border: 3px solid var(--stroke);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-family: var(--font-display);
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--stroke);
+    transition: transform 0.15s ease;
+  }
+  .add-spot-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--stroke); }
+  .add-spot-btn.secondary {
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 700;
+    border: 2.5px dashed var(--ink);
+    box-shadow: none;
+    opacity: 0.6;
+  }
+  .add-spot-btn.secondary:hover { opacity: 1; }
+
+  /* ── Type picker ── */
+  .type-picker {
+    margin: 0 18px 14px;
+    padding: 16px;
+    border: 2.5px dashed var(--ink);
+    border-radius: 16px;
+  }
+  .type-picker-title {
+    font-family: var(--font-hand);
+    font-size: 20px;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+  .type-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 2.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .type-option:hover {
+    border-color: var(--ink);
+    background: color-mix(in srgb, var(--ink) 4%, transparent);
+  }
+  .type-icon { font-size: 26px; flex-shrink: 0; }
+  .type-label { font-size: 15px; font-weight: 700; color: var(--ink); }
+  .type-desc { font-size: 12px; color: var(--ink); opacity: 0.5; }
+
+  /* ── Add form ── */
+  .add-form {
+    margin: 0 18px 14px;
+    padding: 16px;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--accent) 4%, var(--bg));
+  }
+  .type-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 4px 12px;
+    border-radius: 100px;
+    color: white;
+    margin-bottom: 14px;
+    border: 2px solid var(--stroke);
+  }
+  .type-badge.home { background: var(--badge-home); }
+  .type-badge.hotel { background: var(--badge-hotel); }
+  .type-badge.other { background: var(--badge-other); }
+
+  .form-group { margin-bottom: 14px; }
+  .form-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+    opacity: 0.55;
+    margin-bottom: 4px;
+  }
+  .form-label .req { color: var(--accent); }
+  .form-input {
+    width: 100%;
+    padding: 10px 0;
+    border: none;
+    border-bottom: 2px solid color-mix(in srgb, var(--ink) 20%, transparent);
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    background: transparent;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--ink); opacity: 0.25; }
+  .form-input.link-field {
+    font-size: 13px;
+    color: var(--accent);
+  }
+  .form-hint {
+    font-family: var(--font-hand);
+    font-size: 14px;
+    color: var(--ink);
+    opacity: 0.45;
+    margin-top: 4px;
+  }
+
+  .form-computed {
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+  .form-computed .meta { font-weight: 400; opacity: 0.5; font-size: 12px; }
+
+  .image-preview {
+    width: 100%;
+    height: 140px;
+    border-radius: 14px;
+    border: 2px solid var(--stroke);
+    object-fit: cover;
+    margin-bottom: 14px;
+  }
+  .image-drop {
+    border: 2.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    font-family: var(--font-hand);
+    font-size: 16px;
+    color: var(--ink);
+    opacity: 0.4;
+    cursor: pointer;
+    margin-bottom: 14px;
+    transition: all 0.15s;
+  }
+  .image-drop:hover { opacity: 0.7; border-color: var(--ink); }
+
+  .form-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+  .btn-cancel {
+    padding: 8px 18px;
+    border: 2px solid color-mix(in srgb, var(--ink) 25%, transparent);
+    border-radius: 100px;
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--ink);
+    opacity: 0.5;
+  }
+  .btn-add {
+    padding: 8px 22px;
+    border: 2.5px solid var(--stroke);
+    border-radius: 100px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-family: var(--font-display);
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--stroke);
+  }
+
+  /* ── Lodging cards (house style) ── */
+  .cards-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 0 18px 10px;
+  }
+  .cards-count {
+    font-family: var(--font-hand);
+    font-size: 17px;
+    color: var(--ink);
+    opacity: 0.55;
+  }
+
+  .house {
+    background: var(--bg);
+    border: 3px solid var(--stroke);
+    border-radius: 22px;
+    box-shadow: 6px 6px 0 var(--stroke);
+    position: relative;
+    overflow: hidden;
+    margin: 0 18px 16px;
+  }
+  .house-img {
+    height: 160px;
+    border-bottom: 3px solid var(--stroke);
+    position: relative;
+    overflow: hidden;
+  }
+  .house-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .house-img-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--accent2), var(--sticker-bg));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+  }
+  .house-flag {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: var(--bg);
+    color: var(--stroke);
+    border: 2px solid var(--stroke);
+    border-radius: 100px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    z-index: 2;
+  }
+  .house-remove {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--bg);
+    color: var(--stroke);
+    border: 2px solid var(--stroke);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 2;
+    transition: background 0.15s;
+  }
+  .house-remove:hover { background: var(--accent); color: var(--on-accent); }
+  .house-body {
+    padding: 14px 16px 16px;
+  }
+  .house-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    line-height: 1.1;
+    margin-bottom: 4px;
+    color: var(--ink);
+  }
+  .house-cost {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .house-cost .calc {
+    font-weight: 400;
+    font-size: 12px;
+    opacity: 0.5;
+  }
+  .house-meta {
+    font-family: var(--font-hand);
+    font-size: 16px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .house-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 6px 14px;
+    border: 2px solid var(--accent);
+    border-radius: 100px;
+    margin-top: 8px;
+    transition: all 0.15s;
+  }
+  .house-link:hover { background: var(--accent); color: var(--on-accent); }
+
+  /* ── View visibility ── */
+  .view { display: none; }
+  .view.active { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Controls outside the chassis -->
+<div class="controls">
+  <h1>lodging module — sketch phase</h1>
+
+  <div class="control-row">
+    <label>Step</label>
+    <button class="view-tab active" data-view="empty">Empty state</button>
+    <button class="view-tab" data-view="type-pick">1. Pick type</button>
+    <button class="view-tab" data-view="form-home">2a. Home rental</button>
+    <button class="view-tab" data-view="form-hotel">2b. Hotel</button>
+    <button class="view-tab" data-view="form-other">2c. Other</button>
+    <button class="view-tab" data-view="cards">3. Cards</button>
+  </div>
+
+  <div class="control-row">
+    <label>Theme</label>
+    <button class="theme-tab active" data-theme="">Default</button>
+    <button class="theme-tab" data-theme="beach-trip">Beach</button>
+    <button class="theme-tab" data-theme="bachelorette">Bachelorette</button>
+    <button class="theme-tab" data-theme="boys-trip">Boys Trip</button>
+  </div>
+</div>
+
+<!-- The actual app chassis -->
+<div class="chassis" id="chassis">
+
+  <h2 class="section-h2">the spot</h2>
+
+  <!-- ═══ EMPTY STATE ═══ -->
+  <div class="view active" id="view-empty">
+    <div class="lodging-empty">
+      <p>no options yet — add a few places to compare</p>
+      <button class="add-spot-btn">+ add a spot</button>
+    </div>
+  </div>
+
+  <!-- ═══ TYPE PICKER ═══ -->
+  <div class="view" id="view-type-pick">
+    <div class="type-picker">
+      <div class="type-picker-title">what kind of place?</div>
+      <div class="type-option">
+        <span class="type-icon">🏠</span>
+        <div>
+          <div class="type-label">Home rental</div>
+          <div class="type-desc">Airbnb, VRBO, vacation rental</div>
+        </div>
+      </div>
+      <div class="type-option">
+        <span class="type-icon">🏨</span>
+        <div>
+          <div class="type-label">Hotel</div>
+          <div class="type-desc">Hotel, resort, inn</div>
+        </div>
+      </div>
+      <div class="type-option">
+        <span class="type-icon">⛺</span>
+        <div>
+          <div class="type-label">Other</div>
+          <div class="type-desc">Campsite, family home, hostel</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ HOME RENTAL FORM ═══ -->
+  <div class="view" id="view-form-home">
+    <div class="add-form">
+      <div class="type-badge home">🏠 home rental</div>
+
+      <div class="form-group">
+        <div class="form-label">Link</div>
+        <input class="form-input link-field" type="text" value="https://airbnb.com/rooms/28374923" placeholder="paste an Airbnb or VRBO link">
+        <div class="form-hint">auto-fills title + image from link</div>
+      </div>
+
+      <img class="image-preview" src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=200&fit=crop" alt="property">
+
+      <div class="form-group">
+        <div class="form-label">Title <span class="req">*</span></div>
+        <input class="form-input" type="text" value="Beach House on the Cape" placeholder="e.g. Beachfront villa">
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Total price (all-in) <span class="req">*</span></div>
+        <input class="form-input" type="text" value="$6,000" placeholder="$0">
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Bedrooms</div>
+        <input class="form-input" type="text" value="3" placeholder="optional">
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Max guests</div>
+        <input class="form-input" type="text" value="8" placeholder="optional">
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-cancel">cancel</button>
+        <button class="btn-add">add option</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ HOTEL FORM ═══ -->
+  <div class="view" id="view-form-hotel">
+    <div class="add-form">
+      <div class="type-badge hotel">🏨 hotel</div>
+
+      <div class="form-group">
+        <div class="form-label">Link</div>
+        <input class="form-input link-field" type="text" value="https://marriott.com/harbor-hotel-hyannis" placeholder="paste a hotel link">
+        <div class="form-hint">auto-fills title + image from link</div>
+      </div>
+
+      <img class="image-preview" src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=200&fit=crop" alt="hotel">
+
+      <div class="form-group">
+        <div class="form-label">Title <span class="req">*</span></div>
+        <input class="form-input" type="text" value="Harbor Hotel Hyannis" placeholder="e.g. Marriott Downtown">
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Cost per night <span class="req">*</span></div>
+        <input class="form-input" type="text" value="$289" placeholder="$0">
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">People per room <span class="req">*</span></div>
+        <input class="form-input" type="text" value="2" placeholder="e.g. 2">
+        <div class="form-hint">how many people can share a room</div>
+      </div>
+
+      <div class="form-computed">
+        $289/night × 4 nights = <strong>~$1,156 total</strong>
+        <span class="meta">(nights auto from trip dates)</span>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-cancel">cancel</button>
+        <button class="btn-add">add option</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ OTHER FORM ═══ -->
+  <div class="view" id="view-form-other">
+    <div class="add-form">
+      <div class="type-badge other">⛺ other</div>
+
+      <div class="form-group">
+        <div class="form-label">Title <span class="req">*</span></div>
+        <input class="form-input" type="text" value="Mom's lake house" placeholder="e.g. Uncle Bob's cabin">
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Link</div>
+        <input class="form-input link-field" type="text" placeholder="optional link" value="">
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Total price</div>
+        <input class="form-input" type="text" value="$0" placeholder="$0 if free">
+      </div>
+
+      <div class="image-drop">add a photo (optional)</div>
+
+      <div class="form-actions">
+        <button class="btn-cancel">cancel</button>
+        <button class="btn-add">add option</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CARDS DISPLAY ═══ -->
+  <div class="view" id="view-cards">
+    <div class="cards-header">
+      <span></span>
+      <span class="cards-count">2 options</span>
+    </div>
+
+    <!-- Home rental card -->
+    <div class="house">
+      <div class="house-img">
+        <img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=200&fit=crop" alt="property">
+        <div class="house-flag">🏠 home rental</div>
+        <button class="house-remove">✕</button>
+      </div>
+      <div class="house-body">
+        <div class="house-title">Beach House on the Cape</div>
+        <div class="house-cost">$6,000 total</div>
+        <div class="house-meta">3 bedrooms · 8 max guests</div>
+        <a class="house-link" href="#" target="_blank">view listing →</a>
+      </div>
+    </div>
+
+    <!-- Hotel card -->
+    <div class="house">
+      <div class="house-img">
+        <img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=200&fit=crop" alt="hotel">
+        <div class="house-flag">🏨 hotel</div>
+        <button class="house-remove">✕</button>
+      </div>
+      <div class="house-body">
+        <div class="house-title">Harbor Hotel Hyannis</div>
+        <div class="house-cost">$289/night × 4 nights = ~$1,156 <span class="calc">(auto)</span></div>
+        <div class="house-meta">2 per room</div>
+        <a class="house-link" href="#" target="_blank">view listing →</a>
+      </div>
+    </div>
+
+    <!-- Other card (no image) -->
+    <div class="house">
+      <div class="house-img">
+        <div class="house-img-placeholder">⛺</div>
+        <div class="house-flag">⛺ other</div>
+        <button class="house-remove">✕</button>
+      </div>
+      <div class="house-body">
+        <div class="house-title">Mom's Lake House</div>
+        <div class="house-cost">Free</div>
+        <div class="house-meta">the og spot</div>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin: 4px 18px 8px;">
+      <button class="add-spot-btn secondary">+ add another spot</button>
+    </div>
+  </div>
+
+</div><!-- end chassis -->
+
+<script>
+  // View switching
+  document.querySelectorAll('.view-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const view = tab.dataset.view;
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + view).classList.add('active');
+    });
+  });
+
+  // Theme switching
+  document.querySelectorAll('.theme-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.theme-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const theme = tab.dataset.theme;
+      const chassis = document.getElementById('chassis');
+      if (theme) {
+        chassis.setAttribute('data-theme', theme);
+      } else {
+        chassis.removeAttribute('data-theme');
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

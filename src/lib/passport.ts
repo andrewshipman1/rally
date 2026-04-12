@@ -10,9 +10,15 @@ import type { User, Trip, Theme, TripMember } from '@/types';
 // ─── Types ────────────────────────────────────────────────────────────────
 
 export interface PassportProfile {
+  id: string;
   displayName: string;
   photoUrl: string | null;
   bio: string | null;
+  email: string | null;
+  phone: string;
+  instagramHandle: string | null;
+  tiktokHandle: string | null;
+  homeCity: string | null;
   joinYear: number;
 }
 
@@ -30,7 +36,7 @@ export interface PassportStamp {
   dateStart: string | null;
   dateEnd: string | null;
   memberCount: number;
-  members: { initial: string; displayName: string }[];
+  members: { initial: string; displayName: string; photoUrl: string | null }[];
 }
 
 export interface RideOrDie {
@@ -54,9 +60,15 @@ export async function getPassportProfile(userId: string): Promise<PassportProfil
   if (!data) return null;
   const user = data as unknown as User;
   return {
+    id: user.id,
     displayName: user.display_name || '?',
     photoUrl: user.profile_photo_url,
     bio: user.bio,
+    email: user.email,
+    phone: user.phone,
+    instagramHandle: user.instagram_handle,
+    tiktokHandle: user.tiktok_handle,
+    homeCity: user.home_city,
     joinYear: new Date(user.created_at).getFullYear(),
   };
 }
@@ -134,6 +146,7 @@ export async function getPassportStamps(userId: string): Promise<PassportStamp[]
       members: inMembers.slice(0, 5).map((m) => ({
         initial: (m.user?.display_name ?? '?').charAt(0).toUpperCase(),
         displayName: m.user?.display_name ?? '?',
+        photoUrl: m.user?.profile_photo_url ?? null,
       })),
     };
   });

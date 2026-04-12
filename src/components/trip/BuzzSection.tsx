@@ -87,8 +87,13 @@ function BuzzRow({ item, themeId }: { item: BuzzItem; themeId: ThemeId }) {
   return (
     <div className={`buzz-post${isMine ? ' mine' : ''}`}>
       {!isMine && (
-        <div className="av buzz-post-av" style={{ background: 'var(--sticker-bg)' }}>
-          {initial}
+        <div
+          className="av buzz-post-av"
+          style={comment.user?.profile_photo_url ? {
+            background: `url(${comment.user.profile_photo_url}) center/cover`,
+          } : { background: 'var(--sticker-bg)' }}
+        >
+          {!comment.user?.profile_photo_url && initial}
         </div>
       )}
       <div className="buzz-post-content">
@@ -117,8 +122,13 @@ function BuzzRow({ item, themeId }: { item: BuzzItem; themeId: ThemeId }) {
         )}
       </div>
       {isMine && (
-        <div className="av buzz-post-av" style={{ background: 'var(--accent)' }}>
-          {initial}
+        <div
+          className="av buzz-post-av"
+          style={comment.user?.profile_photo_url ? {
+            background: `url(${comment.user.profile_photo_url}) center/cover`,
+          } : { background: 'var(--accent)' }}
+        >
+          {!comment.user?.profile_photo_url && initial}
         </div>
       )}
     </div>

@@ -86,9 +86,16 @@ export function InviteeShell({
         <div className="avatars">
           {goingMembers.slice(0, 5).map((m) => {
             const initial = (m.user.display_name ?? '?').slice(0, 1).toUpperCase();
+            const photoUrl = m.user.profile_photo_url;
             return (
-              <div key={m.id} className="av" style={{ background: 'var(--sticker-bg)' }}>
-                {initial}
+              <div
+                key={m.id}
+                className="av"
+                style={photoUrl ? {
+                  background: `url(${photoUrl}) center/cover`,
+                } : { background: 'var(--sticker-bg)' }}
+              >
+                {!photoUrl && initial}
               </div>
             );
           })}

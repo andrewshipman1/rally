@@ -154,8 +154,13 @@ function CrewRow({
     <li className="crew-row">
       {member.user ? (
         <CrewAvatarTap user={member.user}>
-          <div className="av crew-row-av" style={{ background: 'var(--sticker-bg)' }}>
-            {initial}
+          <div
+            className="av crew-row-av"
+            style={member.user.profile_photo_url ? {
+              background: `url(${member.user.profile_photo_url}) center/cover`,
+            } : { background: 'var(--sticker-bg)' }}
+          >
+            {!member.user.profile_photo_url && initial}
           </div>
         </CrewAvatarTap>
       ) : (

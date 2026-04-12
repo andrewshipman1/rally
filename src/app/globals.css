@@ -3135,7 +3135,7 @@ button:active {
 .passport-surface {
   min-height: 100dvh;
   background: #fafaf6;
-  padding: 18px 18px 100px;
+  padding: 18px 18px 40px;
   max-width: 600px;
   margin: 0 auto;
 }
@@ -3144,7 +3144,7 @@ button:active {
   font-family: var(--font-display), 'Shrikhand', serif;
   font-size: 22px;
   color: #1a1a1a;
-  margin-bottom: 22px;
+  margin-bottom: 8px;
   animation: wiggle 5s ease-in-out infinite;
   display: inline-block;
 }
@@ -3395,6 +3395,209 @@ button:active {
   padding: 14px;
   text-decoration: none;
   box-shadow: 3px 3px 0 rgba(0,0,0,0.15);
+}
+
+/* ─── Session 8D: Profile inline editing ─────────────────────────── */
+
+/* Back link */
+.passport-back-link {
+  display: block;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #999;
+  text-decoration: none;
+  padding: 0 0 12px;
+}
+/* Photo upload error */
+.passport-photo-error {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #e63946;
+  text-align: center;
+  margin: 4px 0 0;
+  cursor: pointer;
+}
+
+/* Avatar wrap + badge */
+.passport-avatar-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+.passport-avatar-wrap .passport-avatar {
+  margin: 0;
+}
+.passport-avatar-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  color: #fafaf6;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fafaf6;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.passport-avatar-spinner {
+  font-size: 24px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Editable hint on profile head fields */
+.passport-editable {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 6px;
+  transition: background 0.15s;
+}
+.passport-editable:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Your info details card */
+.passport-details-card {
+  background: #fff;
+  border: 2px solid #1a1a1a;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 16px 0;
+}
+.passport-details-title {
+  font-family: var(--font-display), 'Shrikhand', serif;
+  font-size: 16px;
+  color: #1a1a1a;
+  margin-bottom: 12px;
+}
+
+/* Detail rows */
+.passport-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0ede8;
+  font-size: 14px;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: 4px;
+}
+.passport-detail-row:last-child {
+  border-bottom: none;
+}
+.passport-detail-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+.passport-detail-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #999;
+  font-weight: 700;
+  min-width: 70px;
+}
+.passport-detail-value {
+  flex: 1;
+  text-align: right;
+  color: #1a1a1a;
+}
+.passport-detail-value.placeholder {
+  color: #ccc;
+  font-style: italic;
+}
+.passport-detail-locked {
+  font-size: 10px;
+  color: #ccc;
+  font-style: italic;
+  margin-left: 6px;
+}
+.passport-pencil {
+  font-size: 11px;
+  color: #ccc;
+  margin-left: 6px;
+  opacity: 1;
+  transition: opacity 0.15s;
+}
+@media (hover: hover) {
+  .passport-pencil {
+    opacity: 0;
+  }
+  .passport-detail-row:hover .passport-pencil {
+    opacity: 1;
+  }
+}
+
+/* Inline edit field (shared between head fields and detail rows) */
+.passport-edit-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 2px solid #1a1a1a;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 2px 0;
+  width: 100%;
+}
+.passport-head-edit {
+  margin: 4px auto;
+  max-width: 280px;
+}
+.passport-edit-label {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #999;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.passport-edit-input {
+  border: none;
+  outline: none;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 15px;
+  flex: 1;
+  background: transparent;
+  color: #1a1a1a;
+  min-width: 0;
+}
+.passport-edit-input::placeholder {
+  color: #ccc;
+  font-style: italic;
+}
+
+/* Save indicator */
+.passport-save-indicator {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.passport-save-ok {
+  color: #2a9d4a;
+}
+.passport-save-err {
+  color: #e63946;
+  cursor: pointer;
+}
+
+/* Est line — centered when outside .passport-head */
+.passport-surface > .passport-est {
+  text-align: center;
+  margin-bottom: 4px;
 }
 
 /* ─── Session 5: Module slots ────────────────────────────────────── */

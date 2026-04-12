@@ -1,8 +1,8 @@
 // §5.15 — Passport page. Social proof surface showing user's trip
 // portfolio, stat strip, stamp grid, and ride-or-dies leaderboard.
+// Profile head + "your info" card are inline-editable via ProfileEditor.
 //
 // Auth: Supabase user required (no guest cookie). Redirect to /auth.
-// Read-only — profile edit is v0.1 scope.
 
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -17,6 +17,7 @@ import {
   getRideOrDies,
 } from '@/lib/passport';
 import type { ThemeId } from '@/lib/themes/types';
+import { ProfileEditor } from '@/components/passport/ProfileEditor';
 
 export const metadata: Metadata = {
   title: 'rally — your passport',
@@ -47,28 +48,26 @@ export default async function PassportPage() {
     redirect('/auth');
   }
 
-  const initial = profile.displayName.charAt(0).toUpperCase();
-
   return (
     <div className="chassis passport-surface">
       <div className="passport-wordmark">
         {'rally'}<span className="bang">{'!'}</span>
       </div>
 
-      {/* Profile head */}
-      <div className="passport-head">
-        <div className="passport-avatar">{initial}</div>
-        <h1 className="passport-name">{profile.displayName}</h1>
-        <p className="passport-handle">
-          {profile.bio || getCopy(defaultTheme, 'passport.handlePlaceholder')}
-        </p>
-        <p className="passport-est">
-          {getCopy(defaultTheme, 'passport.estLine', {
-            year: profile.joinYear,
-            n_countries: stats.countries,
-          })}
-        </p>
-      </div>
+      <Link href="/" className="passport-back-link">
+        {getCopy(defaultTheme, 'profile.backLink')}
+      </Link>
+
+      {/* Profile head + your info card (client, inline-editable) */}
+      <ProfileEditor profile={profile} />
+
+      {/* Est line (server rendered, read-only) */}
+      <p className="passport-est">
+        {getCopy(defaultTheme, 'passport.estLine', {
+          year: profile.joinYear,
+          n_countries: stats.countries,
+        })}
+      </p>
 
       {/* Stat strip */}
       <div className="passport-stats">
@@ -151,9 +150,11 @@ export default async function PassportPage() {
                         <div
                           key={j}
                           className="av"
-                          style={{ background: 'var(--sticker-bg)' }}
+                          style={m.photoUrl ? {
+                            background: `url(${m.photoUrl}) center/cover`,
+                          } : { background: 'var(--sticker-bg)' }}
                         >
-                          {m.initial}
+                          {!m.photoUrl && m.initial}
                         </div>
                       ))}
                       {stamp.memberCount > 5 && (
@@ -200,7 +201,16 @@ export default async function PassportPage() {
                 style={{ animationDelay: `${0.08 * i + 0.3}s` }}
               >
                 <span className="passport-rod-rank">{`#${i + 1}`}</span>
-                <div className="passport-rod-av">{rod.initial}</div>
+                <div
+                  className="passport-rod-av"
+                  style={rod.photoUrl ? {
+                    backgroundImage: `url(${rod.photoUrl})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  } : undefined}
+                >
+                  {!rod.photoUrl && rod.initial}
+                </div>
                 <span className="passport-rod-name">{rod.displayName}</span>
                 <span className="passport-rod-count">
                   {getCopy(defaultTheme, 'passport.rodCount', { n: rod.sharedTrips })}
@@ -211,12 +221,6 @@ export default async function PassportPage() {
         )}
       </section>
 
-      {/* Sticky CTA */}
-      <div className="passport-sticky">
-        <Link href="/create">
-          {getCopy(defaultTheme, 'passport.ctaCreate')}
-        </Link>
-      </div>
     </div>
   );
 }

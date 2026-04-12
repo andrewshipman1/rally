@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=375, initial-scale=1" />
+<title>Rally — Passport Page Wireframe (Read + Edit States)</title>
+<style>
+  /* ── Reset ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1a1a1a;
+    color: #faf8f5;
+    display: flex;
+    gap: 40px;
+    padding: 40px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* ── Frame ── */
+  .frame {
+    width: 375px;
+    flex-shrink: 0;
+    background: #faf8f5;
+    color: #1a1a1a;
+    border-radius: 24px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 8px 40px rgba(0,0,0,.3);
+  }
+  .frame-label {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #1a1a1a;
+    color: #faf8f5;
+    text-align: center;
+    padding: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  /* ── Passport surface ── */
+  .passport {
+    padding: 0 20px 100px;
+  }
+
+  /* ── Wordmark ── */
+  .wordmark {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    padding: 16px 0 8px;
+    color: #1a1a1a;
+  }
+  .wordmark .bang { color: #e63946; }
+
+  /* ── Back link ── */
+  .back-link {
+    font-size: 13px;
+    color: #999;
+    padding: 4px 0 12px;
+    display: block;
+  }
+  .back-link::before { content: '← '; }
+
+  /* ── Profile head ── */
+  .profile-head {
+    text-align: center;
+    padding: 20px 0 8px;
+  }
+
+  .avatar-wrap {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 12px;
+  }
+  .avatar {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: #ffd84d;
+    border: 4px solid #e63946;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Georgia, serif;
+    font-weight: 900;
+    font-size: 36px;
+    color: #1a1a1a;
+    overflow: hidden;
+  }
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .avatar-edit-badge {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    color: #faf8f5;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #faf8f5;
+  }
+
+  .profile-name {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 28px;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+
+  .profile-bio {
+    font-style: italic;
+    color: #888;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .profile-est {
+    font-size: 13px;
+    color: #aaa;
+  }
+
+  /* ── Inline editable field ── */
+  .editable {
+    position: relative;
+    cursor: pointer;
+    transition: background .15s;
+    border-radius: 6px;
+    padding: 2px 4px;
+  }
+  .editable:hover {
+    background: rgba(0,0,0,.04);
+  }
+  .editable .edit-hint {
+    display: none;
+    font-size: 10px;
+    color: #ccc;
+    margin-left: 4px;
+  }
+  .editable:hover .edit-hint {
+    display: inline;
+  }
+
+  /* ── Edit mode field ── */
+  .edit-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin: 2px 0;
+  }
+  .edit-field input {
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 15px;
+    flex: 1;
+    background: transparent;
+    color: #1a1a1a;
+  }
+  .edit-field .field-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #999;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .edit-field .save-indicator {
+    font-size: 11px;
+    color: #2a9d4a;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* ── Stat strip ── */
+  .stat-strip {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    padding: 20px 0;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-num {
+    font-family: Georgia, serif;
+    font-weight: 900;
+    font-size: 32px;
+    line-height: 1;
+  }
+  .stat-num.trips { text-shadow: 2px 2px 0 #ff5b3a; }
+  .stat-num.rod { text-shadow: 2px 2px 0 #3a8eff; }
+  .stat-num.countries { text-shadow: 2px 2px 0 #ffd84d; }
+  .stat-label {
+    font-size: 12px;
+    color: #999;
+    margin-top: 2px;
+  }
+
+  /* ── Details card (new) ── */
+  .details-card {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 14px;
+    padding: 16px;
+    margin: 16px 0;
+  }
+  .details-card-title {
+    font-family: Georgia, serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+  .detail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0ede8;
+    font-size: 14px;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #999;
+    font-weight: 700;
+    min-width: 70px;
+  }
+  .detail-value {
+    flex: 1;
+    text-align: right;
+    color: #1a1a1a;
+  }
+  .detail-value.placeholder {
+    color: #ccc;
+    font-style: italic;
+  }
+  .detail-value.editable-val {
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 2px 6px;
+    transition: background .15s;
+  }
+  .detail-value.editable-val:hover {
+    background: rgba(0,0,0,.04);
+  }
+  .detail-row .pencil {
+    font-size: 11px;
+    color: #ccc;
+    margin-left: 6px;
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .detail-row:hover .pencil { opacity: 1; }
+
+  .detail-locked {
+    font-size: 10px;
+    color: #ccc;
+    font-style: italic;
+  }
+
+  /* ── Section ── */
+  .section {
+    margin: 24px 0;
+  }
+  .section-title {
+    font-family: Georgia, serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+  .section-sub {
+    font-size: 13px;
+    color: #999;
+    font-style: italic;
+    margin-bottom: 16px;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 24px 16px;
+  }
+  .empty-title {
+    font-style: italic;
+    color: #999;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .empty-sub {
+    font-size: 13px;
+    color: #ccc;
+  }
+
+  /* ── Stamp grid ── */
+  .stamp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .stamp {
+    border: 2px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 14px 12px;
+    transform: rotate(var(--rot, 0deg));
+  }
+  .stamp-pink { background: #fce4ec; }
+  .stamp-green { background: #e8f5e9; }
+  .stamp-yellow { background: #fff8e1; }
+  .stamp-place {
+    font-family: Georgia, serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 15px;
+  }
+  .stamp-trip {
+    font-style: italic;
+    font-size: 12px;
+    color: #888;
+    margin: 2px 0;
+  }
+  .stamp-meta {
+    font-size: 11px;
+    color: #aaa;
+  }
+  .stamp-avs {
+    display: flex;
+    gap: -4px;
+    margin-top: 6px;
+  }
+  .stamp-av {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffd84d;
+    border: 2px solid #1a1a1a;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: -4px;
+  }
+  .stamp-av:first-child { margin-left: 0; }
+
+  /* ── Ride or dies ── */
+  .rod-list { margin: 0; }
+  .rod-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0ede8;
+  }
+  .rod-row:last-child { border-bottom: none; }
+  .rod-rank {
+    font-size: 12px;
+    color: #999;
+    font-weight: 700;
+    width: 24px;
+  }
+  .rod-av {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    border: 2px solid #1a1a1a;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rod-name {
+    flex: 1;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .rod-count {
+    font-size: 12px;
+    color: #999;
+    font-style: italic;
+  }
+
+  /* ── Sticky CTA ── */
+  .sticky-cta {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 20px 20px;
+    background: linear-gradient(transparent, #faf8f5 30%);
+  }
+  .cta-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: #1a1a1a;
+    color: #faf8f5;
+    border: none;
+    border-radius: 14px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 16px;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  /* ── Annotation markers ── */
+  .anno {
+    display: inline-block;
+    background: #e63946;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .anno.new { background: #2a9d4a; }
+  .anno.changed { background: #e67e22; }
+  .anno.removed { background: #999; }
+
+  /* ── Side-by-side section divider ── */
+  .divider {
+    width: 2px;
+    background: #333;
+    align-self: stretch;
+    border-radius: 1px;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    width: 100%;
+    max-width: 790px;
+    padding: 20px;
+    background: #222;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #ccc;
+  }
+  .legend h2 {
+    font-size: 16px;
+    margin-bottom: 8px;
+    color: #faf8f5;
+  }
+  .legend code {
+    background: #333;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+
+  /* ── Notes panel ── */
+  .notes {
+    width: 100%;
+    max-width: 790px;
+    padding: 20px;
+    background: #222;
+    border-radius: 12px;
+    margin-top: 20px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: #ccc;
+  }
+  .notes h3 {
+    font-size: 14px;
+    color: #faf8f5;
+    margin: 12px 0 4px;
+  }
+  .notes h3:first-child { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════ LEGEND ════════════════ -->
+<div class="legend">
+  <h2>Passport Page Redesign — Wireframe</h2>
+  Session 8D: Full page redesign with inline editing. Left = read state (default).
+  Right = edit state (fields active). Annotations:
+  <span class="anno new">new</span> = new element,
+  <span class="anno changed">changed</span> = redesigned,
+  <span class="anno removed">removed</span> = removed from current.
+  <br><br>
+  <strong>Key changes from current:</strong><br>
+  • New "your info" details card groups editable contact + social fields<br>
+  • Avatar gets a camera badge tap target for photo upload<br>
+  • Display name + bio editable inline (tap to toggle)<br>
+  • Phone displayed as read-only with "connected via sms" label<br>
+  • Socials (IG, TikTok) in the details card, not hidden<br>
+  • Back link to dashboard added<br>
+  • Stats, stamps, and ride-or-dies sections are unchanged
+</div>
+
+<!-- ════════════════ READ STATE ════════════════ -->
+<div class="frame">
+  <div class="frame-label">Read State (default view)</div>
+  <div class="passport">
+
+    <div class="wordmark">rally<span class="bang">!</span></div>
+    <span class="back-link">my trips</span>
+
+    <!-- Profile head -->
+    <div class="profile-head">
+      <div class="avatar-wrap">
+        <div class="avatar">A</div>
+      </div>
+      <div class="profile-name editable">
+        Andrew Shipman
+      </div>
+      <div class="profile-bio editable">
+        Trip Dad
+      </div>
+      <div class="profile-est">est 2026 · 0 countries deep</div>
+    </div>
+
+    <!-- Stat strip -->
+    <div class="stat-strip">
+      <div class="stat">
+        <div class="stat-num trips">0</div>
+        <div class="stat-label">trips done</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num rod">0</div>
+        <div class="stat-label">ride or dies</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num countries">0</div>
+        <div class="stat-label">countries</div>
+      </div>
+    </div>
+
+    <!-- NEW: Your info card -->
+    <div class="details-card">
+      <div class="details-card-title">your info <span class="anno new">new</span></div>
+
+      <div class="detail-row">
+        <span class="detail-label">email</span>
+        <span class="detail-value editable-val">andrew@rally.app</span>
+        <span class="pencil">✎</span>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">phone</span>
+        <span class="detail-value">+1 (555) 012-3456</span>
+        <span class="detail-locked">connected via sms</span>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">insta</span>
+        <span class="detail-value editable-val">@shipman.andrew</span>
+        <span class="pencil">✎</span>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">tiktok</span>
+        <span class="detail-value placeholder editable-val">add handle</span>
+        <span class="pencil">✎</span>
+      </div>
+    </div>
+
+    <!-- Stamps -->
+    <div class="section">
+      <div class="section-title">your passport</div>
+      <div class="section-sub">every rally, stamped</div>
+
+      <div class="empty-state">
+        <div class="empty-title">first stamp is the hardest</div>
+        <div class="empty-sub">start a rally or wait for a friend to call you up</div>
+      </div>
+    </div>
+
+    <!-- Ride or dies -->
+    <div class="section">
+      <div class="section-title">ride or dies</div>
+      <div class="section-sub">the people who keep showing up</div>
+
+      <div class="empty-state">
+        <div class="empty-title">no ride or dies yet</div>
+        <div class="empty-sub">one trip and this fills up</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="sticky-cta">
+    <button class="cta-btn">start a rally 🔥</button>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ════════════════ EDIT STATE ════════════════ -->
+<div class="frame">
+  <div class="frame-label">Edit State (fields active)</div>
+  <div class="passport">
+
+    <div class="wordmark">rally<span class="bang">!</span></div>
+    <span class="back-link">my trips</span>
+
+    <!-- Profile head — edit mode -->
+    <div class="profile-head">
+      <div class="avatar-wrap">
+        <div class="avatar">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88'%3E%3Crect fill='%23ddd' width='88' height='88'/%3E%3Ctext x='44' y='50' text-anchor='middle' fill='%23999' font-size='11'%3Euploaded%3C/text%3E%3C/svg%3E" alt="" />
+        </div>
+        <div class="avatar-edit-badge" title="tap to change photo">📷</div>
+        <span class="anno new" style="position:absolute; top:-8px; right:-30px;">new</span>
+      </div>
+      <div style="margin-top: 8px;">
+        <div class="edit-field">
+          <span class="field-label">name</span>
+          <input type="text" value="Andrew Shipman" />
+          <span class="save-indicator">✓ saved</span>
+        </div>
+      </div>
+      <div style="margin-top: 4px;">
+        <div class="edit-field">
+          <span class="field-label">bio</span>
+          <input type="text" value="Trip Dad" placeholder="tagline, vibe, whatever" />
+          <span class="save-indicator">✓ saved</span>
+        </div>
+      </div>
+      <div class="profile-est" style="margin-top: 8px;">est 2026 · 0 countries deep</div>
+    </div>
+
+    <!-- Stat strip (unchanged) -->
+    <div class="stat-strip">
+      <div class="stat">
+        <div class="stat-num trips">0</div>
+        <div class="stat-label">trips done</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num rod">0</div>
+        <div class="stat-label">ride or dies</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num countries">0</div>
+        <div class="stat-label">countries</div>
+      </div>
+    </div>
+
+    <!-- Your info card — edit mode -->
+    <div class="details-card">
+      <div class="details-card-title">your info</div>
+
+      <div class="detail-row" style="flex-direction: column; align-items: stretch; gap: 4px;">
+        <div class="edit-field">
+          <span class="field-label">email</span>
+          <input type="email" value="andrew@rally.app" />
+          <span class="save-indicator">✓ saved</span>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">phone</span>
+        <span class="detail-value">+1 (555) 012-3456</span>
+        <span class="detail-locked">connected via sms</span>
+      </div>
+
+      <div class="detail-row" style="flex-direction: column; align-items: stretch; gap: 4px;">
+        <div class="edit-field">
+          <span class="field-label">insta</span>
+          <input type="text" value="shipman.andrew" placeholder="handle without @" />
+          <span class="save-indicator">✓ saved</span>
+        </div>
+      </div>
+
+      <div class="detail-row" style="flex-direction: column; align-items: stretch; gap: 4px;">
+        <div class="edit-field">
+          <span class="field-label">tiktok</span>
+          <input type="text" value="" placeholder="handle without @" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Stamps (unchanged) -->
+    <div class="section">
+      <div class="section-title">your passport</div>
+      <div class="section-sub">every rally, stamped</div>
+
+      <div class="stamp-grid">
+        <div class="stamp stamp-pink" style="--rot: -2deg;">
+          <div class="stamp-place">Riviera Maya</div>
+          <div class="stamp-trip">"Mexico!!!"</div>
+          <div class="stamp-meta">may 2026 · 3 nights</div>
+          <div class="stamp-avs">
+            <div class="stamp-av">A</div>
+            <div class="stamp-av">R</div>
+            <div class="stamp-av">K</div>
+          </div>
+        </div>
+        <div class="stamp stamp-green" style="--rot: 1.5deg;">
+          <div class="stamp-place">Madrid</div>
+          <div class="stamp-trip">"Spain 2027!!!"</div>
+          <div class="stamp-meta">apr 2027 · 8 nights</div>
+          <div class="stamp-avs">
+            <div class="stamp-av">A</div>
+            <div class="stamp-av">J</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ride or dies (unchanged, showing populated state) -->
+    <div class="section">
+      <div class="section-title">ride or dies</div>
+      <div class="section-sub">the people who keep showing up</div>
+
+      <div class="rod-list">
+        <div class="rod-row">
+          <span class="rod-rank">#1</span>
+          <div class="rod-av">R</div>
+          <span class="rod-name">Roger</span>
+          <span class="rod-count">2 trips</span>
+        </div>
+        <div class="rod-row">
+          <span class="rod-rank">#2</span>
+          <div class="rod-av">K</div>
+          <span class="rod-name">Katie</span>
+          <span class="rod-count">1 trip</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="sticky-cta">
+    <button class="cta-btn">start a rally 🔥</button>
+  </div>
+</div>
+
+<!-- ════════════════ NOTES ════════════════ -->
+<div class="notes">
+  <h3>Design Decisions</h3>
+  • <strong>"your info" card</strong> is new — groups all contact/social fields in one
+    bordered card below the stats. Gives the editable fields a clear home without
+    cluttering the profile head.<br>
+  • <strong>Inline edit pattern:</strong> tap any editable field → it transforms into a
+    bordered input with a label. Save on blur or Enter. No save button needed — auto-save
+    with "✓ saved" indicator. Failed saves show red "✗ retry" instead.<br>
+  • <strong>Avatar upload:</strong> camera badge on avatar is the tap target. Opens native
+    file picker. Upload happens immediately, avatar updates in-place.<br>
+  • <strong>Phone is read-only</strong> with "connected via sms" label — makes it clear this
+    is the auth-linked number, not a casual field.<br>
+  • <strong>@ stripping:</strong> social handle inputs strip leading @ on save. Placeholder
+    says "handle without @" to set expectation.<br>
+  • <strong>Back link:</strong> "← my trips" replaces needing the browser back button.
+    Links to dashboard (/).
+
+  <h3>What's NOT Changing</h3>
+  • Stat strip (trips done, ride or dies, countries) — read-only, auto-calculated<br>
+  • Stamps section — read-only, populated from completed trips<br>
+  • Ride or dies section — read-only, auto-calculated from shared trips<br>
+  • Sticky CTA at bottom
+
+  <h3>Interaction States (for Claude Code)</h3>
+  • <strong>Default:</strong> all fields in read mode. Pencil icon appears on hover (desktop)
+    or always visible (mobile) for editable fields in the details card. Name and bio
+    show subtle underline on hover.<br>
+  • <strong>Editing:</strong> field transforms to bordered input. Focus is set automatically.
+    Label appears at left. Input is full-width within the container.<br>
+  • <strong>Saving:</strong> on blur or Enter, call updateProfile server action.
+    Show "✓ saved" in green on success. Show "✗ retry" in red on failure.<br>
+  • <strong>Avatar uploading:</strong> after file selection, show loading spinner on avatar
+    while uploading. On success, swap to new image. On failure, revert and show toast
+    or inline error.
+
+  <h3>Copy Keys Needed (profile.ts surface)</h3>
+  <code>infoTitle</code> → "your info"<br>
+  <code>labelEmail</code> → "email"<br>
+  <code>labelPhone</code> → "phone"<br>
+  <code>labelInsta</code> → "insta"<br>
+  <code>labelTiktok</code> → "tiktok"<br>
+  <code>phoneLocked</code> → "connected via sms"<br>
+  <code>placeholderBio</code> → "tagline, vibe, whatever"<br>
+  <code>placeholderHandle</code> → "handle without @"<br>
+  <code>placeholderEmail</code> → "your email"<br>
+  <code>saveSuccess</code> → "✓ saved"<br>
+  <code>saveFailed</code> → "✗ retry"<br>
+  <code>backLink</code> → "my trips"<br>
+</div>
+
+</body>
+</html>
