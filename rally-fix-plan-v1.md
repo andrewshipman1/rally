@@ -2184,6 +2184,160 @@ Pasting a URL (e.g. fourseasons.com/anguilla) into the lodging add form inside t
 8. Test crew "+" drawer still works
 9. Test collapse toggles on both sections
 
+#### Session 8G — Release Notes
+
+**What was built:**
+1. Ref-based event listeners for lodging link input — `src/components/trip/builder/LodgingAddForm.tsx`
+
+**What changed from the brief:**
+- Root cause: React synthetic event delegation (`onChange`, `onPaste`) does not reliably reach DOM nodes rendered inside `createPortal` to `document.body` (outside the React root container). Events bubble through the DOM tree to `body` but may not pass through the React root where event listeners are delegated.
+- Fix: replaced React synthetic `onPaste` and enrichment-triggering `onChange` with native DOM event listeners attached via `useRef` + `useEffect`. A native `paste` listener intercepts paste, prevents default, and calls `handleLinkChange` directly. A native `input` listener handles typed URLs. React `onChange` is kept only for controlled input state sync (`setLink`).
+
+**What to test:**
+- [ ] Pasting a URL in the lodging add form (inside drawer) triggers OG enrichment
+- [ ] OG enrichment auto-fills the title field and pulls the OG image
+- [ ] Enrichment loading state is visible while fetching
+- [ ] Typing a URL manually also triggers enrichment on change
+- [ ] No regressions: crew drawer, collapse toggles, ThemePickerSheet all still work
+
+**Known issues:**
+- None
+
+#### Session 8G — QA Results (Cowork, 2026-04-13)
+
+**Status: ❌ FIX DID NOT WORK — escalating to 8H**
+
+Verified in Chrome at localhost:3000, trip `k5PbSJff`, hotel form inside the lodging drawer.
+
+**Acceptance criteria:**
+- ❌ AC1 — Pasting URL triggers OG enrichment (real paste of `https://www.fourseasons.com/anguilla/` produced no visible change; `/api/enrich` was never called)
+- ❌ AC2 — Title auto-fill + OG image (moot; enrichment never fires)
+- ❌ AC3 — Loading state visible (moot; enrichment never fires)
+- ❌ AC4 — Typed URL triggers enrichment (typed full URL via real keystrokes; `link` state updated and the "auto-fills title + image" hint appeared, confirming React `onChange` ran, but `/api/enrich` was never called)
+- ✅ AC5 — Crew "+" drawer opens correctly; lodging collapse toggle works; ThemePickerSheet opens
+
+**Diagnostic evidence:**
+- Patched `window.fetch` to record all calls. Across multiple paste and type attempts, **zero `/api/enrich` calls** were captured.
+- React `onChange` is firing (proven: typing updates the controlled input and the conditional "auto-fills title + image" hint, which only renders when `link` truthy, appears).
+- A test `addEventListener('input', …)` placed on the same input element *does* fire on synthetic input events, so the input element itself is event-capable.
+- Conclusion: the rally native `paste`/`input` listeners attached in `LodgingAddForm.tsx` `useEffect` are either not attaching, getting stripped, or `handleLinkChange` is silently bailing before the fetch.
+
+**Hypotheses for 8H:**
+1. `linkRef.current` is null when `useEffect` runs (form rendered conditionally). Add a guard log to verify ref is populated.
+2. `handleLinkChange` closure issue — `useCallback` dep is `[title]`, so `useEffect` dep `[handleLinkChange]` re-runs on title change; in some path the cleanup fires after attach without a re-attach.
+3. The React-controlled `onChange` on the same input may be calling `setLink` synchronously and re-rendering, replacing the DOM node and orphaning the listener (unlikely with React reconciliation, but possible if a `key` is added or parent unmounts).
+4. `BottomDrawer`'s `chassis` wrapper or portal mount order causes the `useEffect` to fire before the input is in the DOM tree.
+
+**Bugs for Session 8H:**
+1. Lodging URL auto-enrich still does not fire inside the drawer (paste or typed) — `LodgingAddForm.tsx` ref-based listener approach didn't work; needs different fix or deeper diagnosis.
+
+**Cowork fixes (CSS/copy only):**
+- None this round.
+
+**Other observations (not blockers):**
+- ThemePickerSheet "close" button: tapped it via MCP and the sheet appeared to remain on screen on the next screenshot, but a follow-up DOM probe found no backdrop/close button — likely a screenshot caching artifact rather than a bug. Worth a sanity check during the next session.
+
+---
+
+### Session 8H: "Drawer URL Auto-Enrich Fix — Round 2"
+
+**Goal:** Actually make URL paste/type inside the lodging drawer trigger `/api/enrich`. The 8G ref-based listener approach did not fire — `/api/enrich` is never called when the user pastes or types a URL into the lodging form's link field inside the BottomDrawer.
+
+**Depends on:** Session 8G (failed fix in place, do not assume it worked)
+
+**Context:** See Session 8G QA Results above for the diagnostic evidence. React `onChange` on the input is firing (state updates, conditional hint renders), but the native `useEffect` listener wired to `linkRef` does not call `handleLinkChange` for either paste or input events. Patched `window.fetch` recorded zero `/api/enrich` calls during real keystrokes.
+
+#### Scope
+
+**1. Diagnose why the 8G listener doesn't fire**
+- Add temporary `console.log` calls inside the `useEffect` body (after `linkRef.current` check), inside `onPaste`, and inside `onInput` to confirm whether the effect runs and whether the listeners are invoked
+- Verify with the same trip / drawer flow at 375px in Chrome
+- Once root cause is known, remove the debug logs
+
+**2. Fix the enrichment trigger**
+- Pick the simplest reliable approach. Options to consider:
+  - Move enrichment back into the React `onChange` directly (the simplest fix — drop the ref/native listener entirely; the original portal-event-delegation theory may have been wrong)
+  - Trigger enrichment on `onBlur` of the link field as a fallback if `onChange` is fragile
+  - If the ref pattern is genuinely necessary, fix whatever makes it not attach (e.g. ensure `linkRef.current` is non-null when effect runs, simplify the dep array)
+- Whatever the approach, AC1 and AC4 must both pass
+
+#### Hard constraints
+- No new routes
+- All strings through `getCopy`
+- Don't redesign the lodging cards, the BottomDrawer, or the form layout
+- Don't touch `.lodging-module` border/padding CSS
+- Don't change the OG enrich API or its response shape
+
+#### Files to read first
+- `CLAUDE.md` → `.claude/skills/rally-session-guard/SKILL.md`
+- `src/components/trip/builder/LodgingAddForm.tsx` (current ref-based listener that doesn't fire)
+- `src/components/trip/BottomDrawer.tsx` (portal + chassis wrapper)
+- `src/components/trip/builder/SketchModules.tsx` (how `LodgingAddForm` is mounted inside the drawer — check whether the form is conditionally rendered such that the input remounts)
+
+#### Acceptance criteria
+- [ ] Pasting a URL in the lodging add form (inside drawer) triggers `/api/enrich` and the OG response is applied
+- [ ] OG enrichment auto-fills the title field and pulls the OG image
+- [ ] Enrichment loading state is visible while fetching
+- [ ] Typing a URL manually also triggers enrichment
+- [ ] No regressions: crew drawer, collapse toggles, ThemePickerSheet still work
+- [ ] Verify with the patched-fetch trick (or the network panel) that `/api/enrich` actually fires
+
+#### How to QA solo
+1. Open trip page at 375px viewport; sign in if needed
+2. Open lodging drawer via "+ add another spot"; pick "hotel"
+3. Open DevTools → Network, filter for `enrich`
+4. Paste `https://www.fourseasons.com/anguilla/` into the link field
+5. Verify: a request to `/api/enrich` appears, loading state shows, title and image populate
+6. Clear field, type a URL by hand — same expectation
+7. Save the spot — confirm it persists with enriched data
+8. Open the crew "+" drawer and confirm it still works
+9. Toggle the lodging collapse twice — confirm content hides/shows
+10. Open theme picker and close it — confirm it dismisses cleanly
+
+#### Session 8H — Release Notes
+
+**What was built:**
+1. Reverted 8G's ref-based native listeners, restored enrichment in React `onChange`/`onPaste` — `src/components/trip/builder/LodgingAddForm.tsx`
+
+**What changed from the brief:**
+- Skipped the diagnosis step (adding console.logs). Root cause of 8G failure is clear from code analysis: the `useEffect` that attached native listeners ran during `step === 'pick'` when the link input wasn't mounted, so `linkRef.current` was null. The effect never re-ran because its dependency (`handleLinkChange`) didn't change when the user picked a type.
+- The original portal-event-delegation theory (8G) was wrong. React synthetic events (`onChange`, `onPaste`) work correctly inside `createPortal` — React bubbles events through the React component tree, not the DOM tree. The original 8F bug report was likely a testing error.
+- Fix: removed the entire ref/useEffect/native-listener pattern. Restored the original inline React handlers: `onChange` calls `handleLinkChange` (sets link + triggers enrichment), `onPaste` calls `preventDefault` + `setLink` + `handleLinkChange`.
+
+**What to test:**
+- [ ] Pasting a URL in the lodging add form (inside drawer) triggers `/api/enrich` and the OG response is applied
+- [ ] OG enrichment auto-fills the title field and pulls the OG image
+- [ ] Enrichment loading state is visible while fetching
+- [ ] Typing a URL manually also triggers enrichment
+- [ ] No regressions: crew drawer, collapse toggles, ThemePickerSheet still work
+- [ ] Verify with Network panel that `/api/enrich` actually fires
+
+**Known issues:**
+- None
+
+#### Session 8H — QA Results (Cowork, 2026-04-13)
+
+**Status: ✅ FIX VERIFIED**
+
+Verified in Chrome at localhost:3000, trip `k5PbSJff`, hotel form inside the lodging drawer.
+
+**Acceptance criteria:**
+- ✅ AC1 — Pasting URL triggers `/api/enrich` and OG response is applied
+- ✅ AC2 — Title auto-fills and OG image pulls
+- ✅ AC3 — Enrichment loading state visible while fetching
+- ✅ AC4 — Typing URL manually also triggers enrichment
+- ✅ AC5 — No regressions: crew drawer, collapse toggles, ThemePickerSheet still work (verified in 8G QA, no UI changes since)
+
+**Notes:**
+- Reverting to inline React `onChange`/`onPaste` handlers was the right call. The 8G portal-event-delegation theory was wrong; React synthetic events bubble through the React component tree, not the DOM tree, so `createPortal` doesn't break them.
+- The original 8F report of "enrichment broken in drawer" is now suspect — may have been a testing artifact rather than a real regression. Worth noting for future drawer work.
+
+**Bugs for Session 8I:**
+- None.
+
+**Cowork fixes (CSS/copy only):**
+- None this round.
+
 ---
 
 ### Session 8 — Approach
@@ -2203,7 +2357,8 @@ QA → update plan), and we don't move to Session 9 until the sketch page is don
 
 **Up next:**
 - **8F:** Collapsible sections + bottom drawers — generic BottomDrawer component, crew/lodging collapse, move existing add flows into drawers ✅ (2 bugs → 8G)
-- **8G:** Drawer URL auto-enrich fix (border fixed in Cowork) ← BRIEF WRITTEN
+- **8G:** Drawer URL auto-enrich fix ❌ — ref-based listener approach did not fire; `/api/enrich` never called on paste or type. Bug carried into 8H.
+- **8H:** Drawer URL auto-enrich — round 2 ✅ verified — reverted 8G ref approach, restored React inline handlers (portal event theory was wrong)
 
 **Remaining sketch page modules (8G+ briefs TBD):**
 - Flights / transportation — rebuild with same pattern as lodging
