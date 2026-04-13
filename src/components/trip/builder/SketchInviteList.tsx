@@ -2,14 +2,16 @@
 
 // Sketch-phase invite list. Shows real trip_members data (name +
 // contact info + remove) instead of the old text-only roster.
-// The "+" button opens InviteModal for share link or email invite.
+// The "+" button opens a BottomDrawer with the invite form inside.
 // Organizer row is shown first and is not removable.
+// Section is collapsible via chevron toggle (Session 8F).
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
 import { InviteModal } from './InviteModal';
+import { BottomDrawer } from '@/components/trip/BottomDrawer';
 
 type MemberWithUser = {
   id: string;
@@ -27,7 +29,8 @@ type Props = {
 };
 
 export function SketchInviteList({ themeId, tripId, slug, members, organizerId }: Props) {
-  const [modalOpen, setModalOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const router = useRouter();
 
@@ -65,71 +68,97 @@ export function SketchInviteList({ themeId, tripId, slug, members, organizerId }
     return null;
   }
 
+  function handleInvited() {
+    router.refresh();
+    setDrawerOpen(false);
+    setCollapsed(false); // auto-expand on invite
+  }
+
   return (
     <>
       <div className="invite-roster">
         <div className="invite-roster-header">
           <span className="field-label">{getCopy(themeId, 'builderState.crewLabel')}</span>
-          {guestCount > 0 && <span className="invite-roster-count">{countLabel}</span>}
-        </div>
-
-        <div className="roster-list">
-          {unique.map((m) => {
-            const isOrganizer = m.user_id === organizerId;
-            const displayName = m.user?.display_name || '?';
-            const contact = contactInfo(m);
-
-            return (
-              <div
-                key={m.id}
-                className={`roster-item${isOrganizer ? ' roster-item--organizer' : ''}`}
-              >
-                <div className="roster-item-info">
-                  <span className="roster-name">{displayName}</span>
-                  {isOrganizer ? (
-                    <span className="roster-role">
-                      {getCopy(themeId, 'builderState.inviteListOrganizer')}
-                    </span>
-                  ) : contact ? (
-                    <span className="roster-contact">{contact}</span>
-                  ) : null}
-                </div>
-                {!isOrganizer && (
-                  <button
-                    type="button"
-                    className="roster-remove"
-                    disabled={removing === m.id}
-                    onClick={() => handleRemove(m.id)}
-                    aria-label={getCopy(themeId, 'builderState.inviteListRemoveLabel')}
-                  >
-                    &times;
-                  </button>
-                )}
-              </div>
-            );
-          })}
-
-          <div className="roster-item roster-item--add">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {guestCount > 0 && <span className="invite-roster-count">{countLabel}</span>}
             <button
               type="button"
-              className="roster-add-btn"
-              onClick={() => setModalOpen(true)}
+              className={`collapse-toggle${collapsed ? ' collapse-toggle--collapsed' : ''}`}
+              onClick={() => setCollapsed(!collapsed)}
+              aria-label={getCopy(themeId, 'builderState.crewCollapseLabel')}
             >
-              {getCopy(themeId, 'builderState.inviteButton')}
+              &#x25BE;
             </button>
+          </div>
+        </div>
+
+        <div className={`collapsible-body${collapsed ? ' collapsible-body--collapsed' : ''}`}>
+          <div className="roster-list">
+            {unique.map((m) => {
+              const isOrganizer = m.user_id === organizerId;
+              const displayName = m.user?.display_name || '?';
+              const contact = contactInfo(m);
+
+              return (
+                <div
+                  key={m.id}
+                  className={`roster-item${isOrganizer ? ' roster-item--organizer' : ''}`}
+                >
+                  <div className="roster-item-info">
+                    <span className="roster-name">{displayName}</span>
+                    {isOrganizer ? (
+                      <span className="roster-role">
+                        {getCopy(themeId, 'builderState.inviteListOrganizer')}
+                      </span>
+                    ) : contact ? (
+                      <span className="roster-contact">{contact}</span>
+                    ) : null}
+                  </div>
+                  {!isOrganizer && (
+                    <button
+                      type="button"
+                      className="roster-remove"
+                      disabled={removing === m.id}
+                      onClick={() => handleRemove(m.id)}
+                      aria-label={getCopy(themeId, 'builderState.inviteListRemoveLabel')}
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="roster-item roster-item--add">
+              <button
+                type="button"
+                className="roster-add-btn"
+                onClick={() => setDrawerOpen(true)}
+              >
+                {getCopy(themeId, 'builderState.inviteButton')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <InviteModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        tripId={tripId}
-        slug={slug}
+      <BottomDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={getCopy(themeId, 'builderState.crewDrawerTitle')}
         themeId={themeId}
-        onInvited={() => router.refresh()}
-        hideShareTab
-      />
+      >
+        <InviteModal
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          tripId={tripId}
+          slug={slug}
+          themeId={themeId}
+          onInvited={handleInvited}
+          hideShareTab
+          renderInline
+        />
+      </BottomDrawer>
     </>
   );
 }

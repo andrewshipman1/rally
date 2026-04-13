@@ -146,6 +146,13 @@ export const builderState: Record<string, Templated> = {
   'shareLinkCopyAction':   'copy the invite link ↗',
   'shareLinkCopiedToast':  'link copied. drop it in the chat.',
 
+  // ─── Collapse / drawer (Session 8F) ─────────────────────────────
+  'crewDrawerTitle':         'invite someone',
+  'lodgingDrawerTitle':      'add a spot',
+  'lodgingDrawerEditTitle':  'edit spot',
+  'crewCollapseLabel':       'toggle crew',
+  'lodgingCollapseLabel':    'toggle lodging',
+
   // ─── Invite modal ──────────────────────────────────────────────
   'inviteModalTitle':      'add to the crew',
   'inviteTabShare':        'share link',

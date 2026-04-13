@@ -2099,6 +2099,91 @@ All three builder sections below the header now have 36px horizontal inset, matc
 - [ ] All strings use getCopy — no hardcoded text
 - [ ] No regressions: everything from 8E still works
 
+#### Session 8F — Actuals
+
+**What was built:**
+1. Generic `BottomDrawer` component — `src/components/trip/BottomDrawer.tsx` (new file). Portal-based, slides up from bottom, dark overlay, drag handle, drag-to-dismiss, Esc to close, body scroll lock. Accepts `themeId` prop for `.chassis` scoping inside portal.
+2. Collapsible crew section — chevron toggle, smooth `max-height` transition, default expanded — `SketchInviteList.tsx`
+3. Crew invite → bottom drawer — "+" opens BottomDrawer with InviteModal (`renderInline` prop added) — `SketchInviteList.tsx`, `InviteModal.tsx`
+4. Collapsible lodging section — same chevron pattern as crew — `SketchModules.tsx`
+5. Lodging add/edit → bottom drawer — "add another spot" and edit both open BottomDrawer with LodgingAddForm — `SketchModules.tsx`
+6. Lodging module border — `2px solid var(--ink)` + padding on `.lodging-module` — `globals.css`
+7. 5 new copy keys in `builder-state.ts`: `crewDrawerTitle`, `lodgingDrawerTitle`, `lodgingDrawerEditTitle`, `crewCollapseLabel`, `lodgingCollapseLabel`
+
+**What changed from the brief:**
+- Added `themeId` prop to BottomDrawer (not in spec) — needed because `createPortal` renders outside `.chassis`, so theme-scoped CSS won't apply without a wrapper
+- Added `renderInline` prop to InviteModal so it renders without its own overlay when embedded in BottomDrawer
+- Added lodging module border (not in brief) — per Andrew's feedback during session
+
+**Known issues from Claude Code:**
+- None identified during dev
+
+**QA results:**
+
+Bug 1 — ✅ **Lodging section outer border not visually distinct** (fixed in Cowork)
+
+Bug 2 — ❌ **URL auto-enrich broken in lodging drawer**
+Pasting a URL (e.g. fourseasons.com/anguilla) into the lodging add form inside the BottomDrawer does not trigger OG enrichment (image pull + title auto-fill). This worked when the form was inline. The enrichment flow is `handleLinkChange()` in `LodgingAddForm.tsx` which calls `/api/enrich` on paste/change. Likely cause: interaction between `createPortal` rendering, the `key` prop on `LodgingAddForm`, or paste event handling inside the portal. The auto-enrich should work inside the drawer — this is the intended UX.
+- Files: `src/components/trip/builder/LodgingAddForm.tsx`, `src/components/trip/BottomDrawer.tsx`
+- Severity: functional — core lodging add flow is degraded
+
+**Cowork fixes (CSS only):**
+1. Lodging section border — bumped `.lodging-module` padding to `18px 24px`, border to `2.5px solid var(--ink)` — `globals.css:766-767`
+2. Lodging collapsible body — added flex column + `align-items: center` to `.lodging-module .collapsible-body` for button centering — `globals.css:874-878`
+3. "+ add another spot" button — changed from full-width block with solid border to compact centered pill (`inline-flex`, `padding: 8px 20px`, `1.5px dashed` at 25% opacity, `margin-top: 16px`) — `globals.css:882-895`
+
+**Bugs for Session 8G:**
+1. URL auto-enrich broken in drawer — `LodgingAddForm.tsx` + `BottomDrawer.tsx` — enrichment doesn't fire when form renders inside portal
+
+---
+
+### Session 8G: "Drawer URL Auto-Enrich Fix"
+
+**Goal:** Restore URL auto-enrich inside the BottomDrawer so pasting a hotel/lodging link auto-fills the title and pulls the OG image.
+
+**Depends on:** Session 8F complete + Cowork CSS fixes applied
+
+**Context:** The lodging section border was fixed in Cowork (CSS only). The remaining bug is that `handleLinkChange()` in `LodgingAddForm.tsx` doesn't trigger OG enrichment when the form renders inside `BottomDrawer` via `createPortal`. This worked when the form was inline. The auto-enrich is the intended UX inside the drawer.
+
+#### Scope
+
+**1. URL auto-enrich in drawer**
+- Debug why `handleLinkChange()` in `LodgingAddForm.tsx` doesn't fire when the form renders inside `BottomDrawer`
+- The paste → enrich → auto-fill title + pull OG image flow must work identically inside the drawer as it did inline
+- Test with a real URL paste (e.g. a hotel booking link)
+- Likely investigation areas: portal event propagation, `key` prop causing remount, paste event `preventDefault` behavior inside portal, input `onChange`/`onPaste` handlers not attached
+
+#### Hard constraints
+- No new routes
+- All strings through `getCopy`
+- Don't redesign the lodging cards or the BottomDrawer — fix the enrich bug only
+- CSS variables for theming
+- Do not touch `.lodging-module` border/padding CSS (already fixed in Cowork)
+
+#### Files to read first
+- `CLAUDE.md` → `.claude/skills/rally-session-guard/SKILL.md`
+- `src/components/trip/builder/LodgingAddForm.tsx` (enrichment flow — `handleLinkChange`, `onPaste`, `/api/enrich` call)
+- `src/components/trip/BottomDrawer.tsx` (portal rendering, `themeId` wrapper)
+- `src/components/trip/builder/SketchModules.tsx` (how LodgingAddForm is passed to drawer)
+
+#### Acceptance criteria
+- [ ] Pasting a URL in the lodging add form (inside drawer) triggers OG enrichment
+- [ ] OG enrichment auto-fills the title field and pulls the OG image
+- [ ] Enrichment loading state is visible while fetching
+- [ ] Typing a URL manually also triggers enrichment on change
+- [ ] No regressions: crew drawer, collapse toggles, ThemePickerSheet all still work
+
+#### How to QA solo
+1. Open trip page at 375px viewport
+2. Open lodging drawer via "+ add another spot"
+3. Select a lodging type (e.g. hotel)
+4. Paste a URL (e.g. `https://www.fourseasons.com/anguilla/`) into the link field
+5. Verify: loading state appears, title auto-fills, image loads
+6. Save the spot — verify card appears with pulled image and title
+7. Edit the spot — verify enriched data persists in the form
+8. Test crew "+" drawer still works
+9. Test collapse toggles on both sections
+
 ---
 
 ### Session 8 — Approach
@@ -2117,7 +2202,8 @@ QA → update plan), and we don't move to Session 9 until the sketch page is don
 - **8E:** Sketch form layout + quick fixes — date merge, field row rearrangement, solid borders, badge z-index, pluralization, width alignment ✅
 
 **Up next:**
-- **8F:** Collapsible sections + bottom drawers — generic BottomDrawer component, crew/lodging collapse, move existing add flows into drawers ← BRIEF WRITTEN
+- **8F:** Collapsible sections + bottom drawers — generic BottomDrawer component, crew/lodging collapse, move existing add flows into drawers ✅ (2 bugs → 8G)
+- **8G:** Drawer URL auto-enrich fix (border fixed in Cowork) ← BRIEF WRITTEN
 
 **Remaining sketch page modules (8G+ briefs TBD):**
 - Flights / transportation — rebuild with same pattern as lodging

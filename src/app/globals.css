@@ -759,7 +759,14 @@ button:active {
 
 /* ─── Lodging module (Session 8A) ─────────────────────────────── */
 
-.chassis .lodging-module { display: flex; flex-direction: column; gap: 12px; }
+.chassis .lodging-module {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 24px;
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+}
 
 .chassis .lodging-header {
   display: flex;
@@ -864,16 +871,26 @@ button:active {
 }
 .chassis .lodging-link-pill:active { transform: translateY(1px); box-shadow: 0 0 0 var(--stroke); }
 
+.chassis .lodging-module .collapsible-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.chassis .lodging-module .collapsible-body .lodging-cards {
+  width: 100%;
+}
 .chassis .lodging-add-another {
   all: unset;
   cursor: pointer;
-  display: block;
-  width: 100%;
-  padding: 14px 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  padding: 8px 20px;
   text-align: center;
-  border: 2px solid var(--ink);
-  border-radius: 16px;
-  font-size: 14px;
+  border: 1.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+  border-radius: 20px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink);
   opacity: 0.6;
@@ -3818,4 +3835,123 @@ button:active {
   text-align: center;
   margin: 8px 0 0;
   font-style: italic;
+}
+
+/* ─── Bottom Drawer (Session 8F) ──────────────────────────────── */
+
+.bottom-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(1px) brightness(0.85);
+  -webkit-backdrop-filter: blur(1px) brightness(0.85);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.bottom-drawer-panel {
+  width: 100%;
+  max-width: 500px;
+  background: var(--bg, #fafaf6);
+  border-radius: 18px 18px 0 0;
+  border: 2.5px solid var(--ink, #1a1a1a);
+  border-bottom: none;
+  padding: 12px 20px 36px;
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  max-height: 85vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.bottom-drawer-panel--open {
+  transform: translateY(0);
+}
+
+.bottom-drawer-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ink, #1a1a1a);
+  opacity: 0.2;
+  margin: 0 auto 16px;
+}
+
+.bottom-drawer-title {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 22px;
+  color: var(--ink, #1a1a1a);
+  margin: 0 0 16px;
+}
+
+.bottom-drawer-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Collapse chevron (Session 8F) ───────────────────────────── */
+
+.collapse-toggle {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 14px;
+  color: var(--ink, #1a1a1a);
+  opacity: 0.5;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+  min-height: 44px;
+  min-width: 44px;
+}
+.collapse-toggle:hover {
+  opacity: 0.8;
+}
+.collapse-toggle--collapsed {
+  transform: rotate(-90deg);
+}
+
+/* Collapsible section body */
+.collapsible-body {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+  max-height: 2000px;
+  opacity: 1;
+}
+.collapsible-body--collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Invite modal rendered inline inside drawer — strip its own overlay */
+.bottom-drawer-body .invite-modal {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  max-width: none;
+  width: 100%;
+}
+.bottom-drawer-body .invite-header {
+  display: none;
+}
+.bottom-drawer-body .invite-tabs {
+  display: none;
+}
+.bottom-drawer-body .invite-body {
+  padding: 0;
+}
+
+/* Lodging form inside drawer — strip outer border since drawer provides it */
+.bottom-drawer-body .lodging-type-picker {
+  border: none;
+  padding: 0;
+}
+.bottom-drawer-body .lodging-form {
+  border: none;
+  padding: 0;
 }

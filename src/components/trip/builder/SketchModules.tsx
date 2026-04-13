@@ -3,6 +3,7 @@
 // Sketch-phase module inputs. Renders each module section with its
 // shared input component, wired to server actions that insert into
 // the existing module tables. Shows existing records below each input.
+// Lodging section is collapsible and add/edit flows use BottomDrawer (Session 8F).
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -14,6 +15,7 @@ import { LodgingAddForm } from './LodgingAddForm';
 import { LodgingCard } from './LodgingCard';
 import { LineItemAddInput } from './LineItemAddInput';
 import { EstimateInput } from './EstimateInput';
+import { BottomDrawer } from '@/components/trip/BottomDrawer';
 
 import {
   addFlight,
@@ -54,12 +56,24 @@ export function SketchModules({
   const [provisionsValue, setProvisionsValue] = useState<number | null>(
     provisionsRecord?.estimated_total ?? null,
   );
-  const [lodgingFormOpen, setLodgingFormOpen] = useState(false);
+  const [lodgingDrawerOpen, setLodgingDrawerOpen] = useState(false);
   const [editingSpot, setEditingSpot] = useState<Lodging | null>(null);
+  const [lodgingCollapsed, setLodgingCollapsed] = useState(false);
 
   function handleEditLodging(spot: Lodging) {
     setEditingSpot(spot);
-    setLodgingFormOpen(true);
+    setLodgingDrawerOpen(true);
+  }
+
+  function handleOpenLodgingAdd() {
+    setEditingSpot(null);
+    setLodgingDrawerOpen(true);
+  }
+
+  function handleLodgingDone() {
+    setLodgingDrawerOpen(false);
+    setEditingSpot(null);
+    setLodgingCollapsed(false); // auto-expand on add
   }
 
   async function handleFlightAdd(item: { name: string; cost?: number }) {
@@ -85,6 +99,10 @@ export function SketchModules({
     }
   }
 
+  const drawerTitle = editingSpot
+    ? getCopy(themeId, 'builderState.lodgingDrawerEditTitle')
+    : getCopy(themeId, 'builderState.lodgingDrawerTitle');
+
   return (
     <div className="sketch-modules">
       {/* ─── Lodging ─────────────────────────────────────────── */}
@@ -93,50 +111,78 @@ export function SketchModules({
           <span className="field-label">
             {getCopy(themeId, 'builderState.moduleLodging')}
           </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {lodging.length > 0 && (
+              <span className="lodging-count">
+                {lodging.length} {getCopy(themeId, lodging.length === 1 ? 'builderState.lodging.countSuffixSingular' : 'builderState.lodging.countSuffix')}
+              </span>
+            )}
+            <button
+              type="button"
+              className={`collapse-toggle${lodgingCollapsed ? ' collapse-toggle--collapsed' : ''}`}
+              onClick={() => setLodgingCollapsed(!lodgingCollapsed)}
+              aria-label={getCopy(themeId, 'builderState.lodgingCollapseLabel')}
+            >
+              &#x25BE;
+            </button>
+          </div>
+        </div>
+
+        <div className={`collapsible-body${lodgingCollapsed ? ' collapsible-body--collapsed' : ''}`}>
+          {/* Empty state */}
+          {lodging.length === 0 && (
+            <div className="lodging-empty">
+              <p className="lodging-empty-text">
+                {getCopy(themeId, 'builderState.lodging.emptyState')}
+              </p>
+              <button
+                className="lodging-add-btn"
+                onClick={handleOpenLodgingAdd}
+                type="button"
+              >
+                {getCopy(themeId, 'builderState.lodging.addFirst')}
+              </button>
+            </div>
+          )}
+
+          {/* Existing cards */}
           {lodging.length > 0 && (
-            <span className="lodging-count">
-              {lodging.length} {getCopy(themeId, lodging.length === 1 ? 'builderState.lodging.countSuffixSingular' : 'builderState.lodging.countSuffix')}
-            </span>
+            <div className="lodging-cards">
+              {lodging.map((l) => (
+                <LodgingCard
+                  key={l.id}
+                  spot={l}
+                  themeId={themeId}
+                  tripId={tripId}
+                  slug={slug}
+                  dateStart={dateStart}
+                  dateEnd={dateEnd}
+                  onEdit={handleEditLodging}
+                  crewCount={crewCount}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Add another button (when cards exist) */}
+          {lodging.length > 0 && (
+            <button
+              className="lodging-add-another"
+              onClick={handleOpenLodgingAdd}
+              type="button"
+            >
+              {getCopy(themeId, 'builderState.lodging.addAnother')}
+            </button>
           )}
         </div>
 
-        {/* Empty state */}
-        {lodging.length === 0 && !lodgingFormOpen && (
-          <div className="lodging-empty">
-            <p className="lodging-empty-text">
-              {getCopy(themeId, 'builderState.lodging.emptyState')}
-            </p>
-            <button
-              className="lodging-add-btn"
-              onClick={() => setLodgingFormOpen(true)}
-              type="button"
-            >
-              {getCopy(themeId, 'builderState.lodging.addFirst')}
-            </button>
-          </div>
-        )}
-
-        {/* Existing cards */}
-        {lodging.length > 0 && (
-          <div className="lodging-cards">
-            {lodging.map((l) => (
-              <LodgingCard
-                key={l.id}
-                spot={l}
-                themeId={themeId}
-                tripId={tripId}
-                slug={slug}
-                dateStart={dateStart}
-                dateEnd={dateEnd}
-                onEdit={handleEditLodging}
-                crewCount={crewCount}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Add form */}
-        {lodgingFormOpen && (
+        {/* Lodging add/edit drawer */}
+        <BottomDrawer
+          open={lodgingDrawerOpen}
+          onClose={() => { setLodgingDrawerOpen(false); setEditingSpot(null); }}
+          title={drawerTitle}
+          themeId={themeId}
+        >
           <LodgingAddForm
             key={editingSpot?.id || 'new'}
             themeId={themeId}
@@ -144,22 +190,11 @@ export function SketchModules({
             slug={slug}
             dateStart={dateStart}
             dateEnd={dateEnd}
-            onDone={() => { setLodgingFormOpen(false); setEditingSpot(null); }}
+            onDone={handleLodgingDone}
             editingSpot={editingSpot}
             crewCount={crewCount}
           />
-        )}
-
-        {/* Add another button (when cards exist but form is closed) */}
-        {lodging.length > 0 && !lodgingFormOpen && (
-          <button
-            className="lodging-add-another"
-            onClick={() => { setEditingSpot(null); setLodgingFormOpen(true); }}
-            type="button"
-          >
-            {getCopy(themeId, 'builderState.lodging.addAnother')}
-          </button>
-        )}
+        </BottomDrawer>
       </div>
 
       {/* ─── Flights ─────────────────────────────────────────── */}
