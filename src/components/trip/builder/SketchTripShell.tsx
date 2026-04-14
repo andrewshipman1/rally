@@ -28,7 +28,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
 
-import type { Lodging, Flight, Transport, Activity, Grocery, PackingItem } from '@/types';
+import type { Lodging, Flight, Transport, Grocery, PackingItem } from '@/types';
+import type { HeadlinerData } from './Headliner';
 import { PostcardHero } from '@/components/trip/PostcardHero';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
 import { ThemePickerSheet } from '@/components/trip/theme-picker/ThemePickerSheet';
@@ -53,12 +54,15 @@ type Props = {
   lodging: Lodging[];
   flights: Flight[];
   transport: Transport[];
-  activities: Activity[];
   groceries: Grocery[];
   packingList: PackingItem[];
   playlistUrl: string | null;
   houseRules: string | null;
   photoAlbumUrl: string | null;
+  /** Session 8J — "the headliner" (optional, singular trip-level). */
+  headliner: HeadlinerData;
+  /** Session 8K — sketch-phase activities per-person estimate (whole dollars). */
+  activitiesEstimate: number | null;
   initial: {
     name: string;
     tagline: string | null;
@@ -80,12 +84,13 @@ export function SketchTripShell({
   lodging,
   flights,
   transport,
-  activities,
   groceries,
   packingList,
   playlistUrl,
   houseRules,
   photoAlbumUrl,
+  headliner,
+  activitiesEstimate,
   initial,
 }: Props) {
   // Seed state from props on mount only; never re-sync from props,
@@ -178,12 +183,29 @@ export function SketchTripShell({
                 queue({ destination: v });
               }}
               onDateStartChange={(v) => {
-                setDateStart(v);
-                queue({ date_start: v || null });
+                // Session 8L — silent auto-correct: if the new start is
+                // after the current end, snap end to match. ISO date
+                // strings compare lexicographically (YYYY-MM-DD).
+                if (v && dateEnd && v > dateEnd) {
+                  setDateStart(v);
+                  setDateEnd(v);
+                  queue({ date_start: v, date_end: v });
+                } else {
+                  setDateStart(v);
+                  queue({ date_start: v || null });
+                }
               }}
               onDateEndChange={(v) => {
-                setDateEnd(v);
-                queue({ date_end: v || null });
+                // Session 8L — silent auto-correct: if the new end is
+                // before the current start, snap start to match.
+                if (v && dateStart && v < dateStart) {
+                  setDateStart(v);
+                  setDateEnd(v);
+                  queue({ date_start: v, date_end: v });
+                } else {
+                  setDateEnd(v);
+                  queue({ date_end: v || null });
+                }
               }}
               onCommitDeadlineChange={(v) => {
                 setCommitDeadline(v);
@@ -213,9 +235,10 @@ export function SketchTripShell({
         lodging={lodging}
         flights={flights}
         transport={transport}
-        activities={activities}
         groceries={groceries}
         crewCount={members.length}
+        headliner={headliner}
+        activitiesEstimate={activitiesEstimate}
       />
 
       <ExtrasSections

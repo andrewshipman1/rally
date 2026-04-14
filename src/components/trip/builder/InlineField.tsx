@@ -43,7 +43,23 @@ export function InlineField({ variant, label, placeholder, value, inputType = 't
   const handleActivate = () => {
     setActive(true);
     // Defer focus so the <input> exists when we call focus().
-    requestAnimationFrame(() => inputRef.current?.focus());
+    // 8L-followup: for date variants, also call showPicker() so the
+    // native calendar opens on the first tap rather than leaving the
+    // user in an empty text-input limbo. Optional-chain guards older
+    // browsers that don't implement HTMLInputElement.showPicker.
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      if (inputType === 'date' && el instanceof HTMLInputElement) {
+        try {
+          el.showPicker?.();
+        } catch {
+          // showPicker can throw if not triggered by a user gesture
+          // in some browsers — swallow silently, the focus is enough.
+        }
+      }
+    });
   };
 
   const commonInputProps = {

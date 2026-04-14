@@ -876,6 +876,65 @@ A single reverse-chron feed mixing system events (rsvps, votes, lock-ins, additi
 - Events are templated server-side from the activity log. Post content is user-generated and rendered as plain text (no markdown, no links until v1).
 - Deferred: threading/replies, @mentions, media, read receipts, muting, edit/delete, push notification preferences.
 
+### 5.27 The headliner (Session 8J)
+
+Optional, singular trip-level module that surfaces on the sketch page
+when a trip is organized around a specific pre-bookable premise
+(festival pass, F1 race, golf tournament, yoga retreat). Theme-agnostic —
+same label, shape, and iconography across every theme.
+
+| Key | String |
+|---|---|
+| `headliner.eyebrow` | the headliner |
+| `headliner.addLabel` | + the headliner |
+| `headliner.addHint` | for trips with a main event — festival pass, race tickets, tee times, retreat booking. |
+| `headliner.drawerTitleAdd` | the headliner |
+| `headliner.drawerTitleEdit` | edit the headliner |
+| `headliner.linkLabel` | link |
+| `headliner.linkPlaceholder` | paste a url |
+| `headliner.linkHint` | optional — we'll auto-fill details from the page |
+| `headliner.descriptionLabel` | description |
+| `headliner.descriptionPlaceholder` | what's the headliner? |
+| `headliner.costLabel` | estimated cost |
+| `headliner.costUnitPerPerson` | / person |
+| `headliner.costUnitTotal` | / total |
+| `headliner.saveAdd` | save the headliner |
+| `headliner.saveEdit` | update |
+| `headliner.remove` | remove |
+| `headliner.removeConfirm` | remove the headliner? |
+| `headliner.removeConfirmHint` | tap remove again to confirm |
+| `headliner.estimateCaption` | rough estimate |
+| `headliner.pulledFrom` | pulled from {domain} · edit anytime |
+| `headliner.enrichingIndicator` | pulling details… |
+| `headliner.saveError` | couldn't save — try again |
+
+**Behavior:**
+- One headliner per trip, max — enforced as six nullable columns on `trips`, not a related table.
+- Cost pill format: `$X,XXX / person · rough estimate` (or `/ total · rough estimate`) — uses `formatMoney` for thousands separators.
+- Remove requires second-tap confirm; clears all six columns.
+- Description max 80 chars.
+- Enrichment reuses `/api/enrich` via the shared `enrichUrl` helper (`src/lib/enrich-url.ts`). OG strings pass through an HTML entity decoder so `&amp;`, `&#39;`, `&#8217;` etc. render as plain text.
+- `saveError` renders inline above the drawer's primary action when `updateHeadliner` / `removeHeadliner` returns `{ok:false}`; cleared on any field change (Session 8K patch).
+
+### 5.28 Activities module (Session 8K)
+
+Sketch-phase activities collapses to a single per-person estimate field —
+matches the provisions shape. Line-item/drawer/card UI is retired at
+sketch; the `activities` table is retained for the sell/lock activity
+mechanic in a later session.
+
+| Key | String |
+|---|---|
+| `activitiesModuleLabel` | activities |
+| `activitiesEstimateHint` | rough per-person budget for the stuff you book ahead |
+| `activitiesEstimatePlaceholder` | $ / person |
+
+**Behavior:**
+- Stored as `trips.activities_estimate_per_person_cents` (nullable integer).
+- Contributes directly per person to the sketch cost summary (no divisor math — already per-person).
+- Save on blur through `setActivitiesEstimate`.
+- Null state renders identically to provisions null state.
+
 ---
 
 ## 6. Theme microcopy library

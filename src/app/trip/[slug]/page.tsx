@@ -188,12 +188,24 @@ export default async function TripPage({ params }: Props) {
         lodging={lodging}
         flights={flights}
         transport={transport}
-        activities={activities}
         groceries={groceries}
         packingList={trip.packing_list || []}
         playlistUrl={trip.playlist_url}
         houseRules={trip.house_rules}
         photoAlbumUrl={trip.photo_album_url}
+        headliner={{
+          description: trip.headliner_description,
+          costCents: trip.headliner_cost_cents,
+          costUnit: trip.headliner_cost_unit,
+          linkUrl: trip.headliner_link_url,
+          imageUrl: trip.headliner_image_url,
+          sourceTitle: trip.headliner_source_title,
+        }}
+        activitiesEstimate={
+          trip.activities_estimate_per_person_cents != null
+            ? Math.round(trip.activities_estimate_per_person_cents / 100)
+            : null
+        }
         initial={{
           name: trip.name,
           tagline: trip.tagline,

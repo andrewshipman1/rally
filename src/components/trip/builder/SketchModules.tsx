@@ -9,20 +9,22 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
-import type { Lodging, Flight, Transport, Activity, Grocery } from '@/types';
+import type { Lodging, Flight, Transport, Grocery } from '@/types';
 
 import { LodgingAddForm } from './LodgingAddForm';
 import { LodgingCard } from './LodgingCard';
 import { LineItemAddInput } from './LineItemAddInput';
 import { EstimateInput } from './EstimateInput';
 import { BottomDrawer } from '@/components/trip/BottomDrawer';
+import { Headliner, type HeadlinerData } from './Headliner';
+import { HeadlinerDrawerForm } from './HeadlinerDrawerForm';
 
 import {
   addFlight,
   addTransport,
-  addActivity,
   setProvisionsEstimate,
 } from '@/app/actions/sketch-modules';
+import { setActivitiesEstimate } from '@/app/actions/update-trip-sketch';
 
 type Props = {
   themeId: ThemeId;
@@ -33,9 +35,12 @@ type Props = {
   lodging: Lodging[];
   flights: Flight[];
   transport: Transport[];
-  activities: Activity[];
   groceries: Grocery[];
   crewCount: number;
+  /** Session 8J — optional, singular trip-level "headliner" data. */
+  headliner: HeadlinerData;
+  /** Session 8K — sketch activities estimate (whole dollars, per person). */
+  activitiesEstimate: number | null;
 };
 
 export function SketchModules({
@@ -47,18 +52,24 @@ export function SketchModules({
   lodging,
   flights,
   transport,
-  activities,
   groceries,
   crewCount,
+  headliner,
+  activitiesEstimate,
 }: Props) {
   const router = useRouter();
   const provisionsRecord = groceries.find((g) => g.name === 'Provisions');
   const [provisionsValue, setProvisionsValue] = useState<number | null>(
     provisionsRecord?.estimated_total ?? null,
   );
+  // Session 8K — single per-person estimate, same shape as provisions.
+  const [activitiesValue, setActivitiesValue] = useState<number | null>(
+    activitiesEstimate ?? null,
+  );
   const [lodgingDrawerOpen, setLodgingDrawerOpen] = useState(false);
   const [editingSpot, setEditingSpot] = useState<Lodging | null>(null);
   const [lodgingCollapsed, setLodgingCollapsed] = useState(false);
+  const [headlinerDrawerOpen, setHeadlinerDrawerOpen] = useState(false);
 
   function handleEditLodging(spot: Lodging) {
     setEditingSpot(spot);
@@ -86,9 +97,15 @@ export function SketchModules({
     router.refresh();
   }
 
-  async function handleActivityAdd(item: { name: string; cost?: number }) {
-    await addActivity(tripId, slug, item.name, item.cost);
-    router.refresh();
+  async function handleActivitiesChange(v: number | null) {
+    setActivitiesValue(v);
+    // Mirror provisions' save-on-change: persist positive values; clearing
+    // the field below 1 leaves the previous non-null persisted value in
+    // place — the user can clear explicitly by entering 0 if needed.
+    if (v !== null && v > 0) {
+      await setActivitiesEstimate(tripId, slug, v);
+      router.refresh();
+    }
   }
 
   async function handleProvisionsChange(v: number | null) {
@@ -103,8 +120,38 @@ export function SketchModules({
     ? getCopy(themeId, 'builderState.lodgingDrawerEditTitle')
     : getCopy(themeId, 'builderState.lodgingDrawerTitle');
 
+  const headlinerIsSet = !!headliner.description;
+  const headlinerDrawerTitle = headlinerIsSet
+    ? getCopy(themeId, 'builderState.headliner.drawerTitleEdit')
+    : getCopy(themeId, 'builderState.headliner.drawerTitleAdd');
+
   return (
     <div className="sketch-modules">
+      {/* ─── Headliner (8J) ──────────────────────────────────── */}
+      <div className="sketch-module headliner-module">
+        <Headliner
+          themeId={themeId}
+          headliner={headliner}
+          onOpen={() => setHeadlinerDrawerOpen(true)}
+        />
+      </div>
+
+      <BottomDrawer
+        open={headlinerDrawerOpen}
+        onClose={() => setHeadlinerDrawerOpen(false)}
+        title={headlinerDrawerTitle}
+        themeId={themeId}
+      >
+        <HeadlinerDrawerForm
+          key={headliner.description ?? 'new'}
+          themeId={themeId}
+          tripId={tripId}
+          slug={slug}
+          initial={headliner}
+          onDone={() => setHeadlinerDrawerOpen(false)}
+        />
+      </BottomDrawer>
+
       {/* ─── Lodging ─────────────────────────────────────────── */}
       <div className="sketch-module lodging-module">
         <div className="lodging-header">
@@ -243,27 +290,18 @@ export function SketchModules({
         )}
       </div>
 
-      {/* ─── Activities ──────────────────────────────────────── */}
+      {/* ─── Activities (8K — single per-person estimate) ────── */}
       <div className="sketch-module">
-        <LineItemAddInput
+        <EstimateInput
           themeId={themeId}
-          label={getCopy(themeId, 'builderState.moduleActivities')}
-          onAdd={handleActivityAdd}
-          namePlaceholder={getCopy(themeId, 'builderState.moduleActivitiesName')}
-          costPlaceholder={getCopy(themeId, 'builderState.moduleActivitiesCost')}
+          label={getCopy(themeId, 'builderState.activitiesModuleLabel')}
+          value={activitiesValue}
+          onChange={handleActivitiesChange}
+          placeholder={getCopy(themeId, 'builderState.activitiesEstimatePlaceholder')}
         />
-        {activities.length > 0 && (
-          <div className="sketch-module-items">
-            {activities.map((a) => (
-              <div key={a.id} className="sketch-module-row">
-                <span className="sketch-module-row-name">{a.name}</span>
-                {a.estimated_cost != null && (
-                  <span className="sketch-module-row-cost">~${a.estimated_cost}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <p className="sketch-module-hint">
+          {getCopy(themeId, 'builderState.activitiesEstimateHint')}
+        </p>
       </div>
 
       {/* ─── Provisions ──────────────────────────────────────── */}

@@ -93,8 +93,7 @@ The trip page is one scroll. What's visible depends on the phase.
 │  invite roster (name list)  │  ← "who to invite" — names, not avatars
 ├─────────────────────────────┤
 │  MODULE: lodging            │  ← paste a link or estimate
-│  MODULE: flights            │  ← line-item add
-│  MODULE: transportation     │  ← line-item add
+│  MODULE: transportation     │  ← group pre-booked line items (rental, train, charter, ferry…)
 │  MODULE: activities         │  ← line-item add
 │  MODULE: provisions         │  ← single estimate (~$) for food/drink
 │  MODULE: extras             │  ← chooser sheet (packing/playlist/rules/album)
@@ -116,10 +115,11 @@ No countdown, no cost summary, no crew avatars, no share link in sketch.
 │  organizer card             │
 ├─────────────────────────────┤
 │  MODULE: lodging            │  ← voting (sell), locked (lock+)
-│  MODULE: flights            │  ← line items with costs
-│  MODULE: transportation     │  ← line items with costs
+│  MODULE: transportation     │  ← group pre-booked line items with costs
 │  MODULE: activities         │  ← line items with costs
 │  MODULE: provisions         │  ← estimate, or broken into restaurants/groceries
+│  (individual flight         │  ← sell+ only: per-crew-member estimate via
+│   estimator — per crew)     │     passport origin → trip destination deep link
 ├─────────────────────────────┤
 │  cost summary               │  ← aggregates all modules → per-person estimate
 ├─────────────────────────────┤
@@ -2340,6 +2340,1769 @@ Verified in Chrome at localhost:3000, trip `k5PbSJff`, hotel form inside the lod
 
 ---
 
+### Session 8I: "Transportation Module Rebuild + 'Getting Here' Slot"
+
+**Goal:** Replace the two legacy placeholder slots ("flights" and
+"transportation") with a single, well-built **transportation module** that
+captures pre-booked trip transport as a list of line items — including intra-
+trip flights. Each line item has a cost + unit toggle (per-person or total).
+Multi-leg trips (e.g. Rome → Barcelona → Paris) are handled natively via
+multiple line items. Additionally, introduce a new lightweight **"getting
+here" slot** above transportation that surfaces helper text explaining that
+the home → meetup leg is estimated per-crew-member in sell (the sell-phase
+arrival estimator is deferred to Session 9+). Flights-as-a-module is retired
+from sketch; the `flights` table is kept for repurposing in sell.
+
+**Depends on:** 8F (BottomDrawer), 8H (drawer URL handling verified), 8A/8B
+(lodging pattern as the reference)
+
+#### Design decisions (locked in before this brief)
+
+1. **One transportation module, not two.** The legacy flights module slot
+   is deleted entirely. Transportation is the sole module for pre-booked
+   trip transport.
+2. **Flight is a *type* within transportation**, not its own module. This
+   covers intra-region flights (Rome → Barcelona), charter / puddle-jumper
+   flights, etc. The first leg (home → meetup) is NOT captured here —
+   see the "getting here" slot below.
+3. **Type tag, not a type picker.** Transportation entries share one form
+   shape. Type is an optional visual tag only — it does not branch the
+   form.
+4. **Tag list (exactly 7):** `flight`, `rental`, `train`, `van-bus`,
+   `ferry`, `charter`, `other`. No `rideshare` (day-of; excluded by
+   pre-booked-only rule). No `puddle-jumper` as its own tag — small
+   flights use `flight`.
+5. **Cost unit is explicit per line item.** Each entry stores
+   `cost_cents` + `cost_unit` (`per_person` or `total`). Default `total`
+   for rental / charter / van-bus / ferry / other; default `per_person`
+   for flight / train. Organizer can override.
+6. **Multi-leg handled natively.** Each leg is its own line item with its
+   own type + cost + unit. No separate "leg" concept; it's just a list.
+7. **No URL enrichment.** Optional link field is plain text only — no OG
+   scraping, no `/api/enrich` call. Transport confirmation pages don't
+   have useful OG data.
+8. **No dates on line items.** Defer to sell if ever needed.
+9. **Estimate framing everywhere.** Field label is "estimated cost" (not
+   "cost"). Module header explicitly frames entries as rough estimates.
+10. **"Getting here" is its own slot — not a transport line item.** It
+    sits above transportation on the sketch page. At sketch it is
+    helper-text only (no input, no cost contribution). The per-crew
+    arrival estimator is deferred to Session 9+ (sell phase); see the
+    expanded note in the Session 9+ section.
+11. **Flights table is kept.** Do NOT drop or alter the schema — it will
+    be repurposed (or deprecated) as part of the sell-phase arrival
+    estimator work.
+
+#### Scope
+
+**1. Remove the flights module slot**
+
+- Delete the flights section from `SketchModules.tsx`
+- Remove flights-related render logic, imports, and props if unused elsewhere
+- Keep the `flights` table in the DB — do NOT drop or alter the schema
+- Remove `flights` from any module-order constants or type unions if they exist
+
+**2. Build the "getting here" slot (helper-text only at sketch)**
+
+- Small section above the transportation module on the sketch page.
+- Header: "getting here"
+- Body: single line of helper text (see Copy section for approved string).
+- No input, no cost, no card, no drawer at sketch. Purely a hint that
+  tees up the sell-phase mechanic.
+- Component should be trivial (a `<section>` with header + paragraph,
+  matching other modules' visual rhythm) — ~20 lines of JSX max.
+- Cost summary does NOT include any contribution from this slot in 8I.
+
+**3. Build the transportation module (following the lodging pattern)**
+
+- Collapsible section with chevron toggle, count badge, default expanded
+- Inside the section: cards for existing entries + "+ add transportation" button
+- "+ add transportation" opens `BottomDrawer` (the component from 8F)
+- Drawer contents: a single form (no type picker / branching step):
+  - Description (required, text input) — placeholder: e.g. "rome → barcelona"
+  - Estimated cost (required, number input, USD)
+  - Cost unit (required, segmented control) — "/ person" or "/ total";
+    default depends on type (see Design Decision 5)
+  - Type (optional, chip group) — 7 options listed above
+  - Link (optional, text input) — plain URL, no enrichment
+- Save creates a new card and closes the drawer
+- Card shows: type icon (based on tag), description, estimated cost with
+  unit suffix (e.g. "$120 / person"), optional external link icon
+- Tap a card → drawer reopens with values prefilled for edit
+- Drawer has a delete affordance for existing entries
+- Empty state: collapsed section shows title + "0" badge; expanded empty
+  state shows "+ add transportation" button with short prompt copy
+
+**4. Data layer**
+
+- Reuse the existing `transport` table if schemas are compatible; otherwise
+  write a migration. Do NOT silently drop existing data.
+- Schema (target):
+  - `id`, `trip_id`, `description` (text, not null), `cost_cents`
+    (integer, not null), `cost_unit` (enum: `per_person` / `total`, not null,
+    default `total`), `type_tag` (enum: flight / rental / train / van-bus /
+    ferry / charter / other, nullable), `link_url` (text, nullable),
+    `created_at`, `updated_at`
+- Server actions: create, update, delete — mirror the lodging action shape
+- RLS: same pattern as lodging (organizer full access, crew read-only for now)
+
+**5. Cost summary wiring**
+
+- For each transportation line:
+  - If `cost_unit = per_person`: contributes `cost_cents` directly to the
+    per-person total.
+  - If `cost_unit = total`: contributes `cost_cents / in_crew_count` to the
+    per-person total.
+- Summed across all transport lines → per-person transport estimate.
+- Expose to whatever currently renders the cost summary (if it exists; if
+  not, this is prep for a later session).
+- Single helper (probably `lib/cost-summary.ts`) — do NOT duplicate logic
+  across components.
+
+**6. Copy**
+
+All user-facing strings through `getCopy`. Register new keys in
+`rally-microcopy-lexicon-v0.md` with approved strings:
+
+- `gettingHereTitle` — "getting here"
+- `gettingHereHint` — "each crew will pull their own arrival estimate in sell — however they're getting here."
+- `transportModuleTitle` — "transportation"
+- `transportEmptyPrompt` — "add the stuff you book ahead — rentals, trains, intra-trip flights."
+- `transportAddButton` — "+ add transportation"
+- `transportDrawerTitleAdd` — "add transportation"
+- `transportDrawerTitleEdit` — "edit transportation"
+- `transportDescriptionLabel` — "description"
+- `transportDescriptionPlaceholder` — "rome → barcelona" (or similar)
+- `transportEstimatedCostLabel` — "estimated cost"
+- `transportCostUnitPerPerson` — "/ person"
+- `transportCostUnitTotal` — "/ total"
+- `transportTypeLabel` — "type"
+- `transportLinkLabel` — "link"
+- `transportTypeTag.flight` — "flight"
+- `transportTypeTag.rental` — "rental"
+- `transportTypeTag.train` — "train"
+- `transportTypeTag.vanBus` — "van / bus"
+- `transportTypeTag.ferry` — "ferry"
+- `transportTypeTag.charter` — "charter"
+- `transportTypeTag.other` — "other"
+- `transportDeleteConfirm` — "remove this?"
+
+**7. Styling**
+
+- CSS variables only for all themed colors (`--bg`, `--ink`, `--accent`, etc.)
+- Match the visual weight of lodging (`2.5px solid var(--ink)` border, same
+  padding rhythm) so the sketch page reads as a consistent stack
+- "Getting here" slot: lighter visual weight than a full module — no card
+  border, no count badge, just title + paragraph in the same horizontal
+  rhythm as modules
+- Mobile-first at 375px — all tap targets ≥ 44px
+- Type tag icons: simple, monoline, one per type. Reuse existing icon set
+  (lucide or current library) — do NOT introduce a new icon dependency
+
+#### Hard constraints
+
+- **No new routes.** All drawers overlay `/trip/[slug]`.
+- **Do NOT drop the `flights` table.** Retained for sell-phase feature.
+- **Do NOT build any per-crew arrival estimator in 8I.** Getting-here is
+  helper text only at sketch.
+- **Do NOT add a Google Flights deep-link, API integration, or any other
+  flight pricing source** — all estimates are user-entered.
+- **Do NOT modify lodging, crew, activities, provisions, or extras** beyond
+  what's needed to delete the flights slot next to them.
+- **Do NOT add `rideshare` as a type tag** — excluded by pre-booked-only rule.
+- **Do NOT add dates, notes, "who's on this," or assignee fields** to
+  transportation entries.
+- **Do NOT allow multiple headliners, multiple arrivals, or multi-leg
+  lodging** — multi-leg lodging is deferred entirely (see backlog note).
+- **No hardcoded strings in JSX** — all copy via `getCopy` + lexicon.
+- **No hardcoded colors inside `[data-theme]`** — CSS variables only.
+
+#### Files to read first
+
+- `.claude/skills/rally-session-guard/SKILL.md` (updated with new cross-module
+  rules: pre-booked only, estimate framing)
+- `rally-fix-plan-v1.md` (this file — 8I brief, sell-phase arrival estimator
+  note, multi-leg deferral note)
+- **`rally-sketch-modules-v2-mockup.html` (REQUIRED — canonical module order
+  and shape for 8I/8J/8K). Do NOT use `rally-sketch-form-wireframe.html`,
+  `rally-phase-4-builder.html`, or the sketch sections of
+  `rally-trip-page-wireframe.html` — they predate 8I and show obsolete
+  module order / flights-as-module / line-item activities.**
+- `rally-microcopy-lexicon-v0.md` (add new transport + getting-here keys)
+- `rally-lodging-module-spec.md` (the pattern 8I replicates)
+- `src/components/trip/builder/SketchModules.tsx` (where the flights slot
+  lives today; where transportation + getting-here are rebuilt)
+- `src/components/trip/BottomDrawer.tsx` (from 8F — reuse as-is)
+- `src/components/trip/builder/LodgingAddForm.tsx` (pattern reference for the
+  drawer form shape; do NOT copy the URL enrichment logic)
+- `src/app/actions/sketch-modules.ts` (existing transport action shape)
+- `src/app/globals.css` (lodging module CSS as the visual reference)
+
+#### Acceptance criteria
+
+- [ ] Flights section fully removed from `SketchModules.tsx` — no placeholder,
+      no empty state, no mention in JSX
+- [ ] `flights` table still exists in the DB (verified via schema check)
+- [ ] "Getting here" slot present above transportation — title + approved
+      helper text, no inputs, no cost contribution
+- [ ] Transportation section present between "getting here" and activities
+      in the sketch page module order
+- [ ] Transportation section has a collapsible chevron toggle, count badge,
+      default expanded
+- [ ] "+ add transportation" opens `BottomDrawer`
+- [ ] Drawer contains one form with: description (required), estimated cost
+      (required), cost unit toggle (required, default set by type), type tag
+      (optional, 7 options), link (optional)
+- [ ] Selecting a type updates the default cost unit (flight/train → per
+      person; all others → total); organizer can override
+- [ ] Saving creates a new card, closes the drawer, increments the count badge
+- [ ] Card shows type icon, description, estimated cost with unit suffix
+      (e.g. "$120 / person"), optional link indicator
+- [ ] Tapping an existing card opens the drawer with values prefilled
+- [ ] Drawer provides a delete affordance for existing entries
+- [ ] All entries persist in the `transport` table and survive refresh
+- [ ] Cost summary (wherever currently rendered) reflects per-person
+      contribution from each line based on its unit (per-person added
+      directly; total divided by in-crew count)
+- [ ] Multi-leg works: adding 3+ lines with mixed types and units all show
+      up correctly and contribute correctly to the summary
+- [ ] All strings routed through `getCopy` — no hardcoded labels in JSX
+- [ ] All new copy keys added to `rally-microcopy-lexicon-v0.md` with
+      approved strings
+- [ ] Module header / field label explicitly frames entries as estimates
+- [ ] Works at 375px — all tap targets ≥ 44px
+- [ ] No regressions: lodging, crew, activities, provisions, extras, theme
+      picker, and all 8F–8H behaviors still function
+- [ ] No dead-end interactions — every button produces a visible result
+
+#### How to QA solo
+
+1. Open an existing sketch trip. Verify flights section is gone.
+2. Verify "getting here" slot appears above transportation with the approved
+   helper text. No input field. No cost contribution in summary.
+3. Collapse / expand the transportation section via chevron. Count reads 0.
+4. Tap "+ add transportation" → drawer opens. Fill: description "rome →
+   barcelona", cost "120", type "flight". Unit defaults to "/ person". Save.
+5. Drawer closes; card shows flight icon + "rome → barcelona" + "$120 / person".
+   Count = 1.
+6. Tap the card → drawer reopens prefilled. Change unit to "/ total", save.
+   Card updates to "$120 / total".
+7. Add a second entry: description "rental suv tuscany", cost "400", type
+   "rental", unit defaults to "/ total". Save.
+8. Add a third entry: description "train barcelona → paris", cost "90", type
+   "train", unit defaults to "/ person". Save.
+9. Refresh the page. All three entries persist with correct unit framing.
+10. Confirm cost summary (if rendered) shows per-person total:
+    `120 + (400 / in_crew_count) + 90` — verify by changing in-crew count.
+11. Delete one entry from the drawer. Count decrements; summary updates.
+12. Resize browser to 375px. All tap targets remain usable, nothing overflows.
+13. Spot-check 5 strings against the updated lexicon.
+
+#### Scope boundary reminders
+
+If any of the following come up, STOP and ask Andrew — don't unilaterally
+expand scope:
+- Adding date ranges, "who's on this," or assignee fields to transport lines
+- Building a per-line cost-split UI beyond the per_person/total toggle
+- Building any per-crew arrival estimator in 8I (sell-phase — Session 9+)
+- Integrating any flight pricing API or external data source
+- Adding a Google Flights deep-link button in 8I
+- Rebuilding the cost summary component (only wire into it if it exists)
+- Supporting multi-leg lodging (deferred — see backlog note)
+- Adding activity or provisions work (separate sessions)
+
+---
+
+### Session 8J: "The Headliner"
+
+**Goal:** Introduce "the headliner" — a new optional, trip-level component that
+surfaces on the sketch page when a trip is centered on a specific pre-bookable
+premise (festival pass, F1 race, golf tournament, yoga retreat, etc.). Data
+model, UI component, drawer with URL enrichment, and cost summary wiring for
+the headliner only. Activities module simplification is split into its own
+session (8K) to keep scope focused.
+
+**Reference mockup:** `rally-headliner-mockup.html` — interactive, shows the
+headliner across 5 trip archetypes plus the null state.
+
+**Depends on:** 8I complete (flights removed, transportation rebuilt). 8F's
+`BottomDrawer`. 8A/8B/8H lodging `LinkPasteInput` + `/api/enrich` pattern.
+
+#### Design decisions (locked in before this brief)
+
+1. **Singular.** One headliner per trip, max. Constraint enforced at the
+   data model level. "The one thing the trip's really about."
+2. **Optional.** Most trips won't have one. Null-state surfaces as a subtle
+   dashed "+ the headliner" affordance above the modules.
+3. **Theme-agnostic component.** Same label, same shape, same iconography
+   across every theme. Themes contribute accent color automatically via
+   CSS vars — no per-theme emoji, no per-theme copy variants.
+4. **Image-forward.** When URL is pasted, `/api/enrich` pulls the OG image
+   and title; the image becomes the component's visual anchor (140px hero).
+   Reuse the lodging enrichment pattern — do NOT fork or rebuild.
+5. **Cost unit is explicit.** The organizer picks per-person OR total in the
+   drawer. Default per-person (matches the common cases: tickets, tee times,
+   retreats). Store both the amount and the unit.
+6. **No per-theme treatment.** No per-theme icons in the headliner eyebrow.
+   No per-theme copy. No per-theme layout changes. Accent color is the only
+   thing that varies.
+7. **Bundled-lodging edge case is OUT OF SCOPE** for 8J. If the headliner
+   bundles lodging (e.g., yoga retreat with on-site stay), "the spot" module
+   still renders normally; the organizer just leaves it blank. Handled as
+   its own polish session later.
+8. **No yellow accent stripe at the top of the component.** The hero image
+   carries the visual weight. Keep the component clean.
+9. **Do NOT touch the activities module** — that's Session 8K's scope. 8J
+   leaves activities exactly as 8I left it.
+
+#### Scope
+
+**1. Data model — headliner as trip-level singleton**
+
+Add columns to the `trips` table (new migration):
+- `headliner_description` — text, nullable
+- `headliner_cost_cents` — integer, nullable
+- `headliner_cost_unit` — enum (`per_person`, `total`), nullable
+- `headliner_link_url` — text, nullable
+- `headliner_image_url` — text, nullable (from enrichment)
+- `headliner_source_title` — text, nullable (the OG title pulled, retained
+  for reference; `headliner_description` is the user-editable display)
+
+Rules:
+- All six columns nullable. "Headliner present" = `headliner_description IS NOT NULL`.
+- No separate table needed (singleton per trip).
+- RLS: mirror existing trip-level field permissions.
+
+**2. UI — the headliner component (display)**
+
+- Renders on the sketch page directly below the trip title + meta row,
+  above "the spot" (lodging) module.
+- Populated state (headliner is set):
+  - Eyebrow: "the headliner" (lowercase, no emoji, letterspaced per mockup)
+  - 140px OG image hero with subtle bottom gradient overlay + domain chip
+    ("↗ coachella.com") at bottom-left
+  - Title: serif italic bold, pulled from `headliner_description`
+  - Cost pill: black pill with yellow "$" accent, format "$X,XXX / person ·
+    rough estimate" (or "/ total · rough estimate" based on `headliner_cost_unit`)
+  - Small caption: "pulled from {domain} · edit anytime" (only if link present)
+  - Tap anywhere on the component → opens drawer in edit mode
+- Null state (headliner not set):
+  - Subtle dashed "+ the headliner" affordance (per mockup)
+  - Hint copy: "for trips with a main event — festival pass, race tickets,
+    tee times, retreat booking."
+  - Tap → opens drawer in add mode
+
+**3. UI — the headliner drawer**
+
+- Uses the `BottomDrawer` component from 8F (drag handle, backdrop, Esc,
+  drag-to-dismiss, body scroll lock). Do NOT rebuild.
+- Drawer title: "the headliner" (add mode) / "edit the headliner" (edit mode)
+- Fields (in order):
+  1. **Link** (text input, optional but recommended at top) — on paste or
+     blur, calls `/api/enrich` (same endpoint lodging uses). Fills
+     `headliner_source_title`, `headliner_description`, and
+     `headliner_image_url` if OG metadata available. Non-blocking: form
+     remains usable while enrichment is pending.
+  2. **Description** (text input, required) — auto-filled from enrichment,
+     editable. Max 80 chars.
+  3. **Estimated cost** (number input, required) — USD, whole dollars.
+  4. **Cost unit** (segmented control, required) — "/ person" | "/ total"
+     — default `/ person`.
+- Primary action: "save the headliner" / in edit mode, "update"
+- Secondary action in edit mode: "remove" (destructive, requires short
+  confirm — "remove the headliner?" with a single confirm tap)
+- Form validation:
+  - Description: required, min 1 char, max 80
+  - Cost: required, > 0, integer
+  - Link: optional; if provided, must be a valid URL (same validator
+    lodging uses)
+
+**4. Cost summary wiring**
+
+- Headliner contributes to the per-person total:
+  - If `headliner_cost_unit = per_person`: add `headliner_cost_cents` directly
+  - If `headliner_cost_unit = total`: add `headliner_cost_cents / in_crew_count`
+- Other module contributions (lodging, transportation from 8I, provisions)
+  continue unchanged — do NOT rewire those in 8J.
+- In the cost summary breakdown, the headliner line renders **first**, with
+  visual emphasis (bold or accent color) and the domain-derived icon if
+  available. Everything else follows.
+- Put headliner math in a single helper (probably `lib/cost-summary.ts` —
+  create if not present). Do NOT duplicate logic across components.
+
+**5. Copy**
+
+All strings through `getCopy`. New keys (register in
+`rally-microcopy-lexicon-v0.md` with approved strings):
+- `headlinerEyebrow` — "the headliner"
+- `headlinerAddLabel` — "+ the headliner"
+- `headlinerAddHint` — "for trips with a main event — festival pass, race
+  tickets, tee times, retreat booking."
+- `headlinerDrawerTitleAdd` — "the headliner"
+- `headlinerDrawerTitleEdit` — "edit the headliner"
+- `headlinerLinkLabel` — "link"
+- `headlinerLinkPlaceholder` — "paste a url"
+- `headlinerDescriptionLabel` — "description"
+- `headlinerCostLabel` — "estimated cost"
+- `headlinerCostUnitPerPerson` — "/ person"
+- `headlinerCostUnitTotal` — "/ total"
+- `headlinerSaveAdd` — "save the headliner"
+- `headlinerSaveEdit` — "update"
+- `headlinerRemove` — "remove"
+- `headlinerRemoveConfirm` — "remove the headliner?"
+- `headlinerEstimateCaption` — "rough estimate"
+- `headlinerPulledFrom` — "pulled from {domain} · edit anytime"
+
+**6. Styling**
+
+- All themed colors via CSS variables (`--bg`, `--ink`, `--accent`, `--hot`,
+  `--headliner-bg` — new var for the subtle headliner component background
+  tint, per mockup)
+- OG image hero is 140px tall, 1.5px black border, 10px border radius,
+  bottom-to-top dark gradient for domain chip legibility
+- Cost pill: black background, yellow accent "$", serif italic bold
+- Mobile-first at 375px, tap targets ≥ 44px
+- Do NOT reintroduce the yellow top accent stripe from early mockup drafts
+
+#### Hard constraints
+
+- **No new routes.** The headliner drawer is an overlay on `/trip/[slug]`.
+- **Only touch what's necessary to add the headliner.** 8J's entire
+  footprint is: (a) the new headliner component + drawer, (b) mounting it
+  between the "getting here" slot and "the spot" module, (c) the six new
+  columns on the `trips` table, (d) the cost-summary helper (create or
+  extend) to wire in the headliner contribution. **Everything else is
+  off-limits.**
+- **Single-module discipline applies (see SKILL.md).** 8J's footprint is
+  strictly: headliner component + drawer + mount point + data model +
+  cost-summary helper. Everything else is off-limits, including:
+  - **Trip-level fields:** trip name, start/end dates, destination,
+    meetup location, RSVP-by, phase, theme, `commit_deadline`, crew
+    roster fields
+  - **Everything above "the spot":** marquee strip, trip header/hero,
+    countdown, "getting here" slot (from 8I)
+  - **Every other module:** lodging, transportation, activities,
+    provisions, crew, buzz, extras, theme picker, sticky publish bar
+  - **Auth, dashboard, profile:** out of scope entirely
+  If a change "feels cleaner" while you're in there — don't. Log it
+  for a future session.
+- **Singular.** Enforce "one headliner per trip" at the data model level
+  (columns on trips, not a related table).
+- **Do NOT touch the activities module.** That's 8K's scope. Leave it
+  exactly as 8I left it.
+- **Do NOT build per-theme headliner variants** — no per-theme icons, no
+  per-theme copy, no per-theme component layout.
+- **Do NOT handle the bundled-lodging edge case** — "the spot" module
+  always renders regardless of headliner state in 8J.
+- **Do NOT rebuild the lodging enrichment logic** — reuse `LinkPasteInput` /
+  `/api/enrich` / the image-fetch pattern as-is. Extract to a shared
+  module only if it's trivial; otherwise import directly.
+- **Do NOT add fields to the headliner beyond the five** — no dates, no
+  notes, no "who's booking this," no attendee list.
+- **No hardcoded strings in JSX** — all copy via `getCopy` + lexicon.
+- **No hardcoded colors inside `[data-theme]`** — CSS variables only.
+
+#### Files to read first
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` (this file — 8I, 8J brief, cross-module rules)
+- **`rally-sketch-modules-v2-mockup.html` (REQUIRED — module order / where
+  the headliner sits in the stack. Do NOT reference pre-8I wireframes.)**
+- **`rally-headliner-drawer-wireframe.html` (REQUIRED — drawer internals:
+  field order, enrichment loading state, cost unit toggle, edit + remove
+  flow across 4 states)**
+- `rally-headliner-mockup.html` (visual reference for component + null state)
+- `rally-microcopy-lexicon-v0.md` (add all new copy keys here)
+- `src/components/trip/builder/SketchModules.tsx` (where activities
+  simplification lands, and where the headliner component likely mounts)
+- `src/components/trip/builder/LodgingAddForm.tsx` (enrichment pattern
+  reference — do NOT copy wholesale, import the shared helper if one
+  exists, otherwise extract a small shared fetch utility)
+- `src/app/api/enrich/route.ts` (the enrichment endpoint)
+- `src/components/trip/BottomDrawer.tsx` (reuse as-is)
+- `src/app/actions/*.ts` (trip update actions — add headliner + activities
+  estimate updates here)
+- `src/app/globals.css` (lodging styling is the visual reference)
+
+#### Acceptance criteria
+
+- [ ] Migration adds six `headliner_*` columns to `trips` table; applied
+      cleanly; RLS verified
+- [ ] Headliner component renders between trip meta row and "the spot" on
+      the sketch page
+- [ ] Null state: subtle dashed "+ the headliner" affordance with Option 2
+      hint copy; tap opens drawer in add mode
+- [ ] Populated state: OG image hero (when image_url set), title, cost pill
+      with per-person or total framing, domain caption
+- [ ] Drawer has fields in order: link (top), description, estimated cost,
+      cost unit toggle
+- [ ] Pasting a URL in the link field triggers `/api/enrich`; on success,
+      image + title auto-fill; form remains usable during enrichment
+- [ ] Saving from drawer persists all six headliner columns; component
+      updates without page reload
+- [ ] Tapping the populated component reopens the drawer with values prefilled
+- [ ] Remove action clears all six headliner columns; component returns to
+      null state
+- [ ] Cost unit toggle (`/ person` vs. `/ total`) affects cost summary math
+      correctly
+- [ ] Activities module is untouched from its pre-8J state (8K owns that work)
+- [ ] Cost summary (wherever currently rendered) includes the headliner
+      contribution (converted to per-person if total); other module lines
+      unchanged
+- [ ] Headliner line renders first in the cost summary breakdown with
+      visible emphasis
+- [ ] All strings routed through `getCopy`; all new keys added to lexicon
+      with approved values
+- [ ] All new UI uses CSS variables for themed colors — works across every
+      existing theme without additional CSS
+- [ ] Works at 375px, tap targets ≥ 44px
+- [ ] No regressions: lodging, crew, transportation (8I), provisions,
+      extras, theme picker, 8F drawer behaviors all still function
+- [ ] No dead-end interactions
+
+#### How to QA solo
+
+1. Run the migration locally. Verify `trips` schema shows the six headliner
+   columns + the activities estimate column.
+2. Open a sketch trip. Verify the dashed "+ the headliner" affordance renders
+   between the meta row and "the spot." Verify Option 2 hint copy.
+3. Tap it → drawer opens. Paste a Coachella URL into the link field. Wait
+   for enrichment. Verify description + image auto-fill. Confirm form stays
+   responsive during the fetch.
+4. Enter cost "619", leave unit as `/ person`. Save. Drawer closes.
+5. Verify populated headliner renders with hero image, title, "$619 / person
+   · rough estimate" cost pill, and "pulled from coachella.com" caption.
+6. Open cost summary. Verify the headliner contributes $619/person and
+   renders first in the breakdown.
+7. Tap the headliner → drawer reopens in edit mode. Change unit to `/ total`.
+   Save. Cost summary should now divide $619 by the in-crew count.
+8. Tap "remove" in the drawer. Confirm. Component returns to null state.
+   Summary reflects the removal.
+9. Switch themes (theme picker). Verify headliner component picks up theme
+   accent color but keeps identical layout and copy.
+10. Resize to 375px. All tap targets remain usable. No overflow.
+11. Spot-check 5 new copy keys against the lexicon.
+
+#### Scope boundary reminders
+
+STOP and ask Andrew before expanding beyond the brief if any of these come up:
+- Adding multiple headliners per trip
+- Per-theme headliner variants (icons, copy, layout)
+- Handling the bundled-lodging edge case (e.g., auto-collapsing "the spot")
+- Touching the activities module in any way (that's 8K)
+- Adding dates, attendees, or "who's booking this" to the headliner
+- Building a flight pricing integration (that's the sell-phase estimator,
+  Session 9+)
+- Rebuilding the cost summary component (only wire into it if it exists)
+
+#### Session 8J — Release Notes
+
+**What was built:**
+
+1. **Migration** — `supabase/migrations/017_trip_headliner_columns.sql`.
+   Adds six nullable columns to `trips`: `headliner_description`,
+   `headliner_cost_cents`, `headliner_cost_unit`
+   (enum `per_person` | `total`), `headliner_link_url`,
+   `headliner_image_url`, `headliner_source_title`. Existing trip-row
+   RLS policies cover these (no new policies).
+
+2. **Shared URL enrichment helper** — `src/lib/enrich-url.ts`. Extracts
+   the `/api/enrich` fetch + URL regex check into a single async
+   function `enrichUrl(url): Promise<OgData | null>`. Returns `null` on
+   non-URL input, non-2xx, or thrown error (silent fallback). Used by
+   both `LodgingAddForm` and `HeadlinerDrawerForm`.
+
+3. **LodgingAddForm refactor** — `src/components/trip/builder/LodgingAddForm.tsx`.
+   Inline fetch in `handleLinkChange` swapped for `enrichUrl()`. Local
+   `OgData` type re-exported from the shared helper. Loading state,
+   auto-fill, and form behavior unchanged.
+
+4. **Trip type + cost math** — `src/types/index.ts`. Added the six
+   headliner columns to the `Trip` interface; added
+   `headliner_per_person: number` to `TripCostSummary`. `calculateTripCost`
+   computes headliner contribution (`per_person` unit adds directly;
+   `total` unit divides by `divisor_used`) and adds it to
+   `per_person_total`.
+
+5. **Server actions** — `src/app/actions/update-trip-sketch.ts`.
+   - `updateHeadliner(tripId, slug, patch)` — validates
+     description (1–80 chars), cost (> 0 integer cents), unit enum,
+     optional URL; checks organizer + writes all six columns;
+     revalidates `/trip/${slug}`. Not phase-gated (works in any phase).
+   - `removeHeadliner(tripId, slug)` — clears all six columns; same
+     organizer guard.
+
+6. **Copy keys** — 21 new `headliner.*` keys in
+   `src/lib/copy/surfaces/builder-state.ts` (and registered in
+   `rally-microcopy-lexicon-v0.md` as new section §5.27). Covers
+   eyebrow, add/edit drawer titles, field labels/placeholders/hints,
+   cost unit labels, primary/secondary CTA, remove + confirm, estimate
+   caption, "pulled from {domain}" caption, enriching indicator.
+
+7. **Headliner display component** — `src/components/trip/builder/Headliner.tsx`.
+   Populated state: eyebrow, 140px OG hero with domain chip + bottom
+   gradient, serif italic bold title, black cost pill with yellow `$`
+   accent, "pulled from {domain} · edit anytime" caption. Null state:
+   dashed "+ the headliner" button with hint copy. Entire component
+   is a single `<button>` → `onOpen` callback.
+
+8. **Headliner drawer form** — `src/components/trip/builder/HeadlinerDrawerForm.tsx`.
+   Four states (add empty / enriching / ready / edit with remove) per
+   the wireframe. Fields in required order: link (top) → description
+   (80 char max) → cost row (number + `/ person` vs `/ total` segmented
+   toggle, defaulting to `/ person`). Enrichment fires on every link
+   change matching `http(s)://`, non-blocking, silent-fail. OG image
+   and auto-filled description populate the form state (description
+   only auto-fills if empty). Remove button only in edit mode with
+   second-tap confirm bar.
+
+9. **Mount + prop threading** —
+   - `src/components/trip/builder/SketchModules.tsx`: headliner
+     component + `BottomDrawer` + drawer form mounted at the TOP of
+     `.sketch-modules`, above the lodging section. New
+     `headlinerDrawerOpen` state mirrors the existing `lodgingDrawerOpen`
+     pattern. Drawer title switches between add/edit based on
+     `headliner.description != null`.
+   - `src/components/trip/builder/SketchTripShell.tsx`: new `headliner`
+     prop on `Props`, threaded through to `SketchModules`.
+   - `src/app/trip/[slug]/page.tsx`: sketch-phase short-circuit now
+     passes `headliner={{…}}` constructed from `trip.headliner_*`
+     columns (which flow through automatically via `trips.*` in the
+     shared trip loader).
+
+10. **Styling** — `src/app/globals.css`. New `.chassis .headliner*`
+    block covers both the component (populated + null states) and the
+    drawer form (fields, OG preview + shimmer, unit toggle, primary /
+    remove / confirm-bar). All themed colors via CSS vars
+    (`--bg`, `--ink`, `--accent`, `--surface`). No per-theme overrides.
+    Min-heights of 44px on all tap targets.
+
+11. **CostBreakdown** — `src/components/trip/CostBreakdown.tsx`. If
+    `cost.headliner_per_person > 0`, pushes a new `items` entry FIRST
+    with `emphasize: true` (accent-colored icon + label + value,
+    bolder weight). All other rows untouched.
+
+**What changed from the brief:**
+
+- **Cost-summary location** — per plan-mode decision with Andrew:
+  extended `calculateTripCost()` in `src/types/index.ts` in place
+  rather than creating a new `src/lib/cost-summary.ts`. Smallest
+  footprint; respects single-module discipline.
+- **Number formatting** — audited the app's existing convention
+  (`src/lib/money.ts` + `toLocaleString('en-US')`); the display
+  component uses `toLocaleString('en-US')` directly for the pill's
+  numeric portion (the accent-colored `$` is a sibling span, so
+  `formatMoney` would need its prefix stripped — cleaner to call
+  `toLocaleString` once).
+- **Sketch-phase cost summary** — Rally does NOT currently render
+  `CostBreakdown` on the sketch page (only sell/lock/go). The
+  headliner contribution flows through `calculateTripCost` and will
+  surface automatically once the trip transitions to sell. The
+  headliner-first row rendering AC is satisfied in `CostBreakdown`
+  (sell/lock/go), which is "wherever currently rendered."
+- **Copy keys** — added 4 additional keys beyond the brief's 17
+  (`linkHint`, `descriptionPlaceholder`, `removeConfirmHint`,
+  `enrichingIndicator`) to cover in-drawer microcopy seen in the
+  wireframe. All 21 registered in both `builder-state.ts` and the
+  lexicon.
+
+**What to test:**
+
+- [ ] Run `supabase migration up` locally. Confirm `trips` schema
+      includes six `headliner_*` columns + enum type `headliner_cost_unit`.
+- [ ] Open a sketch trip. Dashed "+ the headliner" affordance renders
+      at the top of the modules section, above "the spot."
+- [ ] Tap affordance → drawer opens with drawer title "the headliner,"
+      link field on top, save button disabled.
+- [ ] Paste `https://www.coachella.com/passes` into link. Spinner +
+      "pulling details…" appear. Shimmer placeholder renders where
+      the OG image will land. Description auto-fills. Form stays
+      interactive during the fetch (can type in the cost field).
+- [ ] Leave the unit as `/ person`, enter `619`. Save button enables.
+      Tap save. Drawer closes.
+- [ ] Populated headliner renders: OG hero with `↗ coachella.com`
+      chip, serif italic title, cost pill `$619 / person · rough estimate`,
+      "pulled from coachella.com · edit anytime" caption.
+- [ ] Move trip to sell phase. Cost breakdown on the sell/lock view
+      shows the headliner row FIRST with accent emphasis, contributing
+      $619/person. Per-person total reflects the addition.
+- [ ] Tap the populated headliner → drawer reopens with all values
+      prefilled + drawer title "edit the headliner" + remove button
+      below update.
+- [ ] Change unit to `/ total`. Save. Once transitioned to sell,
+      breakdown now divides 619 by divisor count.
+- [ ] Tap remove. First tap shows the red confirm bar ("remove the
+      headliner? · tap remove again to confirm"). Second tap on remove
+      clears all six columns; component returns to null state.
+- [ ] Switch themes via the picker. Headliner layout/copy identical;
+      accent color (cost pill dollar, focus outlines) updates.
+- [ ] Resize to 375px. No overflow; all tap targets ≥ 44px.
+- [ ] Regression: lodging add/edit still enriches correctly (shared
+      helper now — same behavior, different call site). Existing
+      lodging rows still render with images.
+- [ ] Regression: RSVP, crew, transport (8I), provisions, extras all
+      still function.
+- [ ] Spot-check 5 headliner copy keys against lexicon §5.27.
+
+**Known issues / caveats:**
+
+- Browser walkthrough in this session was limited to: TypeScript
+  `tsc --noEmit` on `src/` (clean), `next dev` starts cleanly with no
+  server errors, `/` returns 307 → `/auth` as expected. Authenticated
+  end-to-end walkthrough (create trip → paste URL → save → edit →
+  remove → theme switch) requires magic-link auth and was NOT driven
+  from this session. Cowork/Andrew to run the QA-solo steps above.
+- No dev-environment migration `up` was run from this session (the
+  file is written but not applied). Run locally before QA.
+- Drawer form input focus is NOT auto-focused on open — relying on
+  the browser's default. Wireframe shows the link input with a focus
+  ring, but the existing BottomDrawer has no auto-focus hook and the
+  brief didn't specify adding one. Flagging for future polish if the
+  missing autofocus feels off in QA.
+- `updateHeadliner` is NOT phase-gated (unlike `updateTripSketch`
+  which requires `phase === 'sketch'`). Intentional: the brief
+  describes the headliner as a trip-level singleton that could
+  conceivably be edited after sketch (e.g., "oh the Coachella price
+  went up"). If that's wrong, single-line fix to add the same phase
+  guard as `updateTripSketch`.
+
+#### Session 8J — Cowork QA (2026-04-14)
+
+**Environment:** cloud Supabase (`ytiyvwnaipmsnzasylis.supabase.co`).
+Migration 017 was not auto-applied; Andrew ran the SQL manually in the
+Supabase dashboard SQL Editor before the populated state worked. Until
+the columns existed, every `updateHeadliner` returned `{ok:false}` and
+the drawer silently did nothing.
+
+**ACs verified ✅:**
+- AC #2 null state + hint copy
+- AC #3 drawer opens (title, link on top, save disabled until valid)
+- AC #4 URL paste triggers enrichment, image + title auto-fill
+- AC #5 save persists (after migration applied)
+- AC #6 populated state: eyebrow, OG hero, domain chip, cost pill,
+  "pulled from …" caption
+
+**ACs NOT verified (deferred):**
+- AC #7 sell-phase cost breakdown — this sketch trip isn't in sell; no
+  sell trip tested this pass
+- AC #8 edit drawer prefill + remove button
+- AC #9 `/total` unit math
+- AC #10 remove confirm flow
+- AC #11 theme switch
+- AC #12 375px tap targets
+- AC #13/14 regressions (lodging enrichment especially — shares the
+  same `enrich-url.ts` helper)
+- AC #15 copy keys spot-check
+
+**Escalated bugs for next Claude Code session (8J.1):**
+
+1. **HTML entities not decoded in `/api/enrich`** — file
+   `src/app/api/enrich/route.ts`. `extractMeta` and `extractTitle`
+   return the raw regex-captured string, so OG titles come back with
+   `&amp;`, `&#39;`, `&quot;`, etc. intact. Repro: Coachella headliner
+   renders as *"Coachella Valley Music &amp; Arts Festival"*. Fix:
+   decode HTML entities in `extractMeta` / `extractTitle` before
+   returning (named entities `&amp; &lt; &gt; &quot; &#39; &apos;`
+   plus numeric `&#NNN;` / `&#xHH;`). This predates 8J but is newly
+   prominent because the headliner uses the OG title as primary
+   display text. **Also affects lodging** (any titles containing `&`
+   etc.) — single-source fix will cover both.
+
+2. **Server action errors are silently swallowed in the drawer** —
+   file `src/components/trip/builder/HeadlinerDrawerForm.tsx`,
+   `handleSubmit`. When `updateHeadliner` returns `{ok:false}`, the
+   drawer stays open with no toast, no inline error, nothing in the
+   console. Made the missing-migration bug invisible from the UI.
+   Fix: surface a generic inline error in the drawer when
+   `result.ok === false` so future schema/auth/RLS failures aren't
+   silent.
+
+**Non-blocking observations (log only, not escalating):**
+- Crew module renders ABOVE the headliner on the sketch page. The
+  canonical module order in SKILL.md puts crew after the modules.
+  Pre-existing sketch-page ordering issue, not 8J's scope.
+- Release Notes flagged "no migration run from this session" — which
+  matters more than it sounds. Cloud Supabase means migrations never
+  auto-apply from the repo; worth adding to the Rally skill that
+  migrations must be applied via dashboard SQL Editor (or `supabase
+  db push`) before QA.
+
+**Cowork fixes (CSS/copy only):** none this pass.
+
+**Note:** The two 8J bugs (HTML entity decode + silent drawer save failures) are folded into Session 8K as pre-work — see 8K scope item #0.
+
+---
+
+### Session 8K: "Activities Module Simplification (+ 8J bug patches)"
+
+**Goal:** Collapse the activities module on the sketch page to a single
+per-person estimate field, matching the provisions pattern. No line items,
+no drawer, no cards. The full activities mechanic (planning, voting,
+per-day itinerary) belongs in sell/lock — this session just gets sketch
+to the right shape.
+
+**Depends on:** 8I and 8J complete. No new infrastructure required.
+
+#### Design decisions (locked in before this brief)
+
+1. **Sketch captures a rough per-person activities budget only.** One
+   number. That's it. No line items, no "which activities," no drawer.
+2. **Matches the provisions module shape.** If provisions is a single
+   estimate field, activities renders identically. If provisions is
+   something else, match whatever the current provisions pattern is —
+   DO NOT invent a new shape.
+3. **Existing `activities` table stays.** Do NOT drop it. It will be
+   repurposed for the sell/lock activity mechanic in a later session.
+4. **Pre-booked framing still applies.** Copy should hint that this is
+   for pre-trip estimates (tours, tickets, etc.) — not day-of dining
+   or impulse spending.
+5. **"Estimated" framing required.** Per cross-module rule: label
+   clearly as an estimate, never as a binding total.
+
+#### Scope
+
+**0. Pre-work: 8J bug patches** (do these first — small, surgical)
+
+**0a. HTML entity decode in `/api/enrich`**
+- File: `src/app/api/enrich/route.ts`.
+- `extractMeta` and `extractTitle` return raw regex captures, so OG
+  titles persist with `&amp;`, `&#39;`, `&quot;` etc. intact (e.g.
+  `Coachella Valley Music &amp; Arts Festival`). These dirty
+  strings flow into `headliner_description`, `headliner_source_title`,
+  and lodging option titles.
+- Add a small inline HTML-entity decoder used by both extractors.
+  Must handle:
+  - Named: `&amp; &lt; &gt; &quot; &apos; &#39; &nbsp;`
+  - Numeric decimal: `&#NNN;` (e.g. `&#8217;` → `'`)
+  - Numeric hex: `&#xHH;` (e.g. `&#x2019;` → `'`)
+- No heavyweight library. Inline function.
+- **No data backfill.** Existing dirty rows self-correct on next
+  re-enrich/edit.
+
+**0b. Surface server-action errors in the headliner drawer**
+- File: `src/components/trip/builder/HeadlinerDrawerForm.tsx`
+  (`handleSubmit` and `handleRemove`).
+- Currently when `updateHeadliner` / `removeHeadliner` returns
+  `{ok:false}` the drawer stays open silently — no toast, no inline
+  error, nothing in the console. This made the 8J missing-migration
+  bug invisible.
+- Add local state `error: string | null`. Render inline above the
+  primary action when non-null. Use generic copy (`headliner.saveError`
+  → "couldn't save — try again"). Log full error to console.
+- Reset `error` to null on any field change.
+
+**0c. Copy**
+- Add `headliner.saveError` in `src/lib/copy/surfaces/builder-state.ts`
+  → `"couldn't save — try again"`. Register in
+  `rally-microcopy-lexicon-v0.md` §5.27.
+
+**1. Data model**
+
+- Add column to `trips` table (new migration):
+  - `activities_estimate_per_person_cents` — integer, nullable
+- No changes to the `activities` table itself (retained for future
+  sell/lock work).
+- RLS: mirror existing trip-level field permissions.
+
+**2. UI — activities module**
+
+- In `SketchModules.tsx`, remove the current activities line-item UI
+  (whatever currently renders — likely `LineItemAddInput` or similar
+  placeholder).
+- Replace with the same shape as the provisions module:
+  - Module label: "activities"
+  - Single number input (or inline-editable field) showing
+    `activities_estimate_per_person_cents / 100`, formatted as
+    "$X / person"
+  - Hint copy below: "rough per-person budget for the stuff you
+    book ahead"
+- Save on blur (debounced), same pattern as other estimate fields.
+- No drawer. No cards. No line items.
+
+**3. Cost summary wiring**
+
+- Activities contributes `activities_estimate_per_person_cents` per
+  person to the cost summary.
+- Add the activities line to the cost summary breakdown (place it
+  after lodging/transport; before provisions if provisions is already
+  there — match existing ordering conventions).
+- Use the same cost-summary helper that 8J established (or extend
+  `lib/cost-summary.ts` if already present).
+
+**4. Copy**
+
+All strings through `getCopy`. New keys (register in
+`rally-microcopy-lexicon-v0.md`):
+- `activitiesModuleLabel` — "activities"
+- `activitiesEstimateHint` — "rough per-person budget for the stuff
+  you book ahead"
+- `activitiesEstimatePlaceholder` — "$ / person"
+
+#### Hard constraints
+
+- **No new routes.** Sketch page only.
+- **Do NOT drop the `activities` table.** Only adds the estimate
+  column to `trips`.
+- **Do NOT rebuild the module as a drawer/card/line-item UI.** Single
+  estimate field only.
+- **Match provisions exactly.** If provisions renders a certain way,
+  activities renders the same way. Do not introduce a third pattern.
+- **No hardcoded strings in JSX** — all copy via `getCopy` + lexicon.
+- **Label clearly as "estimate,"** never "cost" or "total" alone.
+- **Pre-work (scope #0) touches only the 3 files listed.** Do NOT
+  rebuild the enrichment regex — just decode output. Do NOT add a
+  global toast system — keep the error state inline. Do NOT
+  backfill dirty DB rows.
+
+#### Files to read first
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` (8I, 8J + 8J Actuals, 8K + cross-module rules)
+- `src/app/api/enrich/route.ts` (pre-work 0a)
+- `src/components/trip/builder/HeadlinerDrawerForm.tsx` (pre-work 0b)
+- `src/components/trip/builder/LodgingAddForm.tsx` (confirm lodging benefits from the decode — no changes expected)
+- `src/lib/copy/surfaces/builder-state.ts` (pre-work 0c + activities copy)
+- **`rally-sketch-modules-v2-mockup.html` (REQUIRED — canonical activities
+  module shape. Do NOT reference pre-8I wireframes.)**
+- `rally-microcopy-lexicon-v0.md` (add new copy keys)
+- `src/components/trip/builder/SketchModules.tsx` (the activities
+  module lives here; provisions module is the shape to match)
+- `src/app/actions/*.ts` (trip update actions — add activities
+  estimate update)
+- `src/app/globals.css` (provisions styling is the visual reference)
+- `lib/cost-summary.ts` (if present from 8J — extend; otherwise
+  create)
+
+#### Acceptance criteria
+
+**Pre-work (8J patches):**
+- [ ] Pasting `https://www.coachella.com/passes` in the headliner drawer auto-fills description as `Coachella Valley Music & Arts Festival` (no `&amp;`)
+- [ ] A URL whose OG title contains `&#39;` or `&#8217;` auto-fills as a plain apostrophe
+- [ ] Lodging link paste also decodes entities (shared helper benefits both; no 8A regression)
+- [ ] When `updateHeadliner` returns `{ok:false}` (simulate by temporarily throwing in the action), the drawer shows inline `"couldn't save — try again"` and stays open
+- [ ] The inline error clears when any field is changed
+- [ ] `headliner.saveError` key registered in lexicon §5.27
+
+**Activities module:**
+- [ ] Migration adds `activities_estimate_per_person_cents` to `trips`
+      table; applied cleanly; RLS verified
+- [ ] Existing `activities` table is untouched (not dropped, not
+      altered)
+- [ ] Activities module in sketch is a single per-person estimate
+      field — no line items, no drawer, no cards
+- [ ] Activities module visually matches the provisions module shape
+- [ ] Estimate value persists across page reloads
+- [ ] Cost summary includes the activities contribution per person
+- [ ] All strings routed through `getCopy`; new keys in lexicon
+- [ ] Works at 375px, tap targets ≥ 44px
+- [ ] No regressions: headliner (8J), lodging, transportation (8I),
+      provisions, crew, extras all still function
+- [ ] No dead-end interactions
+
+#### How to QA solo
+
+**Pre-work first:**
+1. Paste `https://www.coachella.com/passes` into the headliner link field. Description auto-fills as `Coachella Valley Music & Arts Festival`.
+2. Paste a URL into the lodging `LinkPasteInput` — verify entities decode there too.
+3. Temporarily `throw` in `updateHeadliner`, retry save, verify inline error `"couldn't save — try again"` appears and drawer stays open. Change any field — error clears. Undo the throw.
+
+**Activities module:**
+4. Run the migration locally. Verify `trips` schema shows
+   `activities_estimate_per_person_cents`. Verify `activities` table
+   still exists and is unchanged.
+5. Open a sketch trip. Scroll to the activities module. Confirm it
+   renders as a single estimate field matching provisions — no "add
+   activity" button, no line items.
+6. Enter "150" in the estimate field. Tab away / blur. Refresh page.
+   Value persists.
+7. Open cost summary. Verify activities contributes $150/person and
+   renders in the breakdown.
+8. Clear the field. Refresh. Null state renders cleanly; cost summary
+   excludes activities.
+9. Switch themes. Verify styling matches across themes.
+10. Resize to 375px. No overflow, tap targets ≥ 44px.
+11. Spot-check new copy keys against the lexicon.
+
+#### Scope boundary reminders
+
+STOP and ask Andrew before expanding beyond the brief if any of these
+come up:
+- Rebuilding the line-item / card / drawer UI for activities
+- Adding multi-day, per-person, or ticketed activity mechanics (those
+  belong to sell/lock)
+- Dropping or modifying the existing `activities` table
+- Changing the provisions module shape to "match" activities — the
+  direction is the other way around
+
+#### Session 8K — Release Notes
+
+**Pre-work (8J bug patches):**
+1. HTML entity decoder — `src/app/api/enrich/route.ts`. Inline `decodeHtmlEntities()` handles named (`&amp; &lt; &gt; &quot; &apos; &nbsp;`), numeric decimal (`&#NNN;`), and hex (`&#xHH;`) entities. Applied to both `extractMeta` and `extractTitle`. Benefits lodging automatically (shared `/api/enrich`); no changes to `LodgingAddForm.tsx` needed.
+2. Inline server-action error in headliner drawer — `src/components/trip/builder/HeadlinerDrawerForm.tsx`. Added `error` state; rendered inline above the primary action via new `.headliner-form-error` class; clears on any field change (description, cost, unit, link). Full error logged to `console.error` on failure.
+3. `headliner.saveError` copy — `src/lib/copy/surfaces/builder-state.ts` + `rally-microcopy-lexicon-v0.md` §5.27.
+
+**Activities module (8K main):**
+4. Migration — `supabase/migrations/018_trip_activities_estimate.sql`. Adds `activities_estimate_per_person_cents integer` to `trips`. No RLS changes (existing trip-row policies cover it). Existing `activities` table untouched.
+5. `Trip` type + cost math — `src/types/index.ts`. Added the new column to `Trip`. Added `activities_per_person: number` to `TripCostSummary`. In `calculateTripCost`, **removed** the old line-item aggregation (shared/individual sums over `trip.activities.estimated_cost`) and sourced the activities contribution directly from the new trip column (already per-person; integer dollars; adds into `per_person_total`).
+6. Copy keys — `src/lib/copy/surfaces/builder-state.ts`: `activitiesModuleLabel` (`activities`), `activitiesEstimateHint` (`rough per-person budget for the stuff you book ahead`), `activitiesEstimatePlaceholder` (`$ / person`). Registered in lexicon §5.28.
+7. Server action — `setActivitiesEstimate(tripId, slug, dollars | null)` in `src/app/actions/update-trip-sketch.ts`. Organizer guard; NOT phase-gated (mirrors headliner behavior); accepts `null` to clear; converts whole dollars → cents on write.
+8. UI rewrite — `src/components/trip/builder/SketchModules.tsx`. Removed `LineItemAddInput` usage for activities, `addActivity` import, `handleActivityAdd` handler, and the `activities` prop entirely. Replaced with `EstimateInput` in the exact shape of provisions + a new `.sketch-module-hint` paragraph under the field showing `activitiesEstimateHint`. Saves on change (same pattern as provisions) via `setActivitiesEstimate`. New `activitiesEstimate: number | null` prop seeded into local state.
+9. Prop threading — `SketchTripShell.tsx` dropped `activities` prop (unused at sketch) and forwards `activitiesEstimate`. `src/app/trip/[slug]/page.tsx` computes `activitiesEstimate` = `Math.round(trip.activities_estimate_per_person_cents / 100)` or `null`, and stops passing `activities` to `SketchTripShell`. `ActivityCard` usage in sell/lock sections retained (non-sketch rendering paths unchanged).
+10. `CostBreakdown.tsx` — replaced legacy `sharedActs/indActs` aggregation with `cost.activities_per_person` from the summary. Row still renders with the `🤿 Activities` label/icon and the same progress-bar visual.
+11. CSS — `src/app/globals.css`: added `.headliner-form-error` (matching confirm-bar styling) and `.sketch-module-hint` (subtle ink-derived hint text).
+
+**What changed from the brief:**
+- Brief said "Use the same cost-summary helper that 8J established (or extend `lib/cost-summary.ts` if already present)." 8J never created `lib/cost-summary.ts`; the math lives inline in `calculateTripCost` in `src/types/index.ts`. Continued that pattern — extended in place. No new files.
+- Brief said the activities server action should live wherever estimate fields live. Placed in `update-trip-sketch.ts` rather than `sketch-modules.ts` because activities is now a trip-level column (like headliner), not a module-table upsert (like provisions). Mirrors `updateHeadliner`/`removeHeadliner` structure exactly.
+- Removed the `activities` prop from `SketchModules` and `SketchTripShell` since the sketch-phase activities rendering no longer reads line items. The `trip.activities` array still loads in `page.tsx` and continues to flow to sell/lock rendering paths (`ActivityCard`). This is a follow-on to "UI rewrite" — flagged so the change is visible.
+- Added `role="alert"` on the inline headliner error so screen readers announce server-action failures. Not in the brief; considered standard a11y pass for inline errors.
+- Error state clears on the description/cost/unit changes too (brief says "on any field change"). Implemented literally.
+
+**What to test:**
+
+*Pre-work patches (8J bug fixes):*
+- [ ] Paste `https://www.coachella.com/passes` in the headliner drawer → description auto-fills as `Coachella Valley Music & Arts Festival` (plain `&`, no `&amp;`).
+- [ ] Paste a URL whose OG title uses `&#39;` or `&#8217;` → description shows a plain apostrophe.
+- [ ] Lodging link paste also benefits (same `/api/enrich` path). No 8A regression.
+- [ ] Temporarily `throw new Error('boom')` in `updateHeadliner` — drawer shows inline `"couldn't save — try again"` and stays open. Change any field → error clears. Undo the throw.
+- [ ] `headliner.saveError` key present in lexicon §5.27.
+
+*Activities module:*
+- [ ] Run `supabase migration up`. `trips` shows `activities_estimate_per_person_cents`. `activities` table still exists, unchanged.
+- [ ] Sketch trip loads with activities module rendering as a single estimate field — no "add activity" button, no cards, no drawer. Hint copy `rough per-person budget for the stuff you book ahead` visible below.
+- [ ] Enter `150`, blur. Refresh. Value persists.
+- [ ] Cost summary (in sell+ phase — `CostBreakdown` doesn't render at sketch) includes activities row at `$150/person`.
+- [ ] Clear the field (explicit `0`) — null state restores; cost summary excludes the activities line.
+- [ ] Theme switch → styling flows via CSS vars, no hardcoded colors broken.
+- [ ] 375px viewport → EstimateInput + hint both fit, tap targets ≥ 44px.
+- [ ] Regression sweep: headliner (8J), lodging (8A/8B/8H), transportation (8I), provisions, crew, extras all still function.
+- [ ] `setActivitiesEstimate` rejects non-integer / negative values (organizer only).
+
+**Known caveats / deferrals:**
+- `CostBreakdown` is only rendered in sell/lock/go (not sketch). Activities contribution flows through `calculateTripCost` automatically once the trip transitions — same 8J caveat.
+- Existing activity line-item rows in DB become dormant at sketch (still readable, no longer contribute to cost math). They remain visible in non-sketch phases through `ActivityCard`. When 8K+ tackles the sell/lock activity mechanic, existing rows become the data layer for that feature.
+- `setActivitiesEstimate` is NOT phase-gated — intentional, mirrors headliner. If strict sketch-only gating is desired later, add `.eq('phase', 'sketch')` to the supabase update. Flagged for Andrew's review.
+- `handleActivitiesChange` only persists positive values (mirrors provisions' save-on-change). To clear an estimate, the user enters 0 — which fails `v > 0` and does NOT hit the server. If explicit "clear to null" UX is wanted later, branch on `v === 0` to call `setActivitiesEstimate(tripId, slug, null)`.
+
+**Cowork fixes (CSS/copy only):** none this pass.
+
+#### Session 8K — Actuals (QA, 2026-04-14)
+
+**Status:** ✅ APPROVED — activities module on-spec.
+
+**Acceptance criteria:**
+
+*Pre-work (8J bug patches):*
+- ✅ Coachella URL (`&amp;` → `&`) decodes correctly in headliner drawer
+- ✅ Numeric entities (`&#39;` / `&#8217;`) decode to plain apostrophe
+- ✅ Lodging link paste benefits from shared decoder — no 8A regression
+- ⚠️ Inline drawer error on `{ok:false}` — **deferred** (required simulated `throw`; Andrew opted to skip. Release notes claim it works; re-verify if the drawer error path becomes relevant.)
+- ⚠️ Error clears on field change — deferred with AC4
+- ✅ `headliner.saveError` registered in lexicon §5.27
+
+*Activities module:*
+- ✅ Migration `018_trip_activities_estimate.sql` applied (required manual push to hosted Supabase — see finding below)
+- ✅ `activities` table untouched
+- ✅ Single estimate field in sketch — no line items, no drawer, no cards (code: `SketchModules.tsx` uses `EstimateInput` + `setActivitiesEstimate`)
+- ✅ Matches provisions shape (+ required hint paragraph per brief)
+- ✅ Value persists across reload (after migration push)
+- ✅ Cost summary wiring confirmed in code (`calculateTripCost` adds `activities_per_person` to `per_person_total`; `CostBreakdown.tsx` renders row). Not visually verified — `CostBreakdown` is sell+ only; known 8J caveat.
+- ✅ All strings via `getCopy`; new keys in lexicon §5.28
+- ⚠️ 375px / tap targets — not explicitly resized in devtools; screenshot at ~desktop width shows no overflow; acceptable but not formally verified
+- ✅ No dead-end interactions in activities area
+- ✅ Regression sweep — Andrew confirmed other modules still function
+
+**Findings outside 8K scope (escalated for future sessions):**
+
+1. **Migration-push friction.** Andrew's local has no Docker, and his app points at hosted Supabase. `supabase migration up` couldn't run locally. The `018` migration had to be pushed to the hosted DB manually via `npx supabase link` + `db push` (or SQL Editor paste). Without this, writes silently returned `{ok:false}` — invisible to the UI. **Log as a process issue:** every future session that includes a migration must explicitly call out the hosted-DB push step in the brief + QA solo steps. Consider adding a pre-flight check to the session-guard skill.
+
+2. **Silent save failures on activities field.** `handleActivitiesChange` in `SketchModules.tsx` does not check the return value of `setActivitiesEstimate` — same failure mode the 8J headliner-drawer fix addressed. Provisions has the identical pattern. Not in 8K scope to fix, but the next sketch-polish session should propagate the 8J inline-error treatment to the provisions + activities estimate fields.
+
+3. **Orphan transport/flights line-items render outside their dashed container.** Visible as a bare "600" floating between the transportation module and activities when a user entered a route name with no cost. Pre-existing 8I output; not an 8K regression. Needs a dedicated polish pass.
+
+4. **Provisions field shows native number-input spinner arrows when focused.** Activities uses the same `EstimateInput` but was not focused in screenshots, so the inconsistency surfaced visually. Real fix: add `appearance: none` + `-webkit-inner-spin-button { display: none; }` to `.estimate-field` in `globals.css`.
+
+5. **Broader sketch-page visual gap vs. `rally-sketch-modules-v2-mockup.html`.** Andrew flagged that the sketch page overall is "far from the wireframe." This is 8I/8J styling/polish debt, not 8K. Needs a dedicated styling session — proposed as **Session 8L: sketch-page polish**, working wireframe-in-hand to close every visual gap across modules.
+
+**Cowork fixes (CSS/copy only):** none this pass.
+
+**Next session:** 8L (calendar/date input rules) — brief drafted below.
+
+#### Session 8L — Actuals (partial QA, 2026-04-14)
+
+**Status:** ⚠️ BUILT BUT NOT APPROVED — code-level ACs pass, but Andrew reported poor UX that needs an 8L follow-up session to diagnose and fix.
+
+**Verified in code:**
+- ✅ TripForm auto-correct handlers present (lines 33–48) — snap to same-day per spec
+- ✅ TripForm `min={today}` on start, `max={dateEnd || undefined}` on start, `min={dateStart || today}` on end
+- ✅ SketchTripShell auto-correct handlers present (lines 185–209) — snap to same-day per spec, queues both columns
+- ✅ WhenField picker constraints applied in both render branches (`max={dateEnd}` on start, `min={dateStart}` on end)
+- ✅ No new user-facing copy introduced (no lexicon commits since 8K)
+- ✅ InlineField supports `inputType="date"` (line 71) — RSVP-by should render as native date picker
+
+**Reported UX issues (destination: 8L-followup or 8M):**
+
+1. **"Pushes you a week out" on date changes.** Andrew observed that editing dates in the sketch page feels wonky — describes the UI as "pushing you a week out from the new date." The spec was same-day snap (`date_end = date_start`), and the code reflects that. Needs direct observation to diagnose. Possibilities: (a) a different piece of code adds a 7-day offset somewhere (transport?, countdown?), (b) the calendar's visible month is jumping in a way that feels disorienting, (c) the autosave is rendering an intermediate state badly. **Next step:** Claude Code to repro with Andrew watching, or Andrew to screen-record.
+
+2. **RSVP-by feels like a manual-entry text field.** Code says `InlineField` is passed `inputType="date"` and renders `<input type="date">` — should produce the native date picker. Andrew's impression is that it behaves as a text entry. Possibilities: (a) on mobile, tapping the RSVP field mounts the input but doesn't auto-open the picker (requires a second tap), (b) the placeholder `mm/dd/yyyy` makes the empty state read as a text field, (c) some interaction between `handleActivate` + `requestAnimationFrame(focus)` isn't triggering `showPicker()` the way WhenField does. **Next step:** align RSVP-by's activation flow with WhenField's (which calls `input.showPicker()` on tap).
+
+**What to test (unblocked, code-verified):**
+- [x] TripForm auto-correct handlers exist and are wired to the date inputs
+- [x] TripForm date inputs have expected `min`/`max` attributes
+- [x] SketchTripShell auto-correct handlers queue both columns when snapping
+- [x] WhenField picker constraints present in both render branches
+- [x] No lexicon additions
+- [ ] All live-browser tests blocked on 8L-followup
+
+**Cowork fixes (CSS/copy only):** none this pass.
+
+---
+
+### Session 8L-followup: "Date input UX polish"
+
+**Goal:** Resolve the two UX issues reported in 8L QA with the minimum possible code change. Keep the invariant (no invalid ranges persist), drop the visual constraints that make pickers feel wonky, and make RSVP-by actually open a calendar.
+
+**Hypothesis for the "week out" feel:** the `min`/`max` attributes on the native `<input type="date">` elements cause the browser's calendar to hide or disable cells and jump the visible month, making it feel like the UI is shoving the user somewhere. Removing those constraints lets the picker stay stable. The silent auto-correct in the change handlers still prevents invalid ranges from persisting — the invariant moves from the picker UI to the save path only.
+
+#### Scope
+
+**1. Strip `min`/`max` from the date pickers (in all three files).**
+
+- `src/components/editor/TripForm.tsx`
+  - Remove `min={today}` and `max={dateEnd || undefined}` from the start-date input.
+  - Remove `min={dateStart || today}` from the end-date input.
+  - Remove the unused `today` variable if nothing else references it.
+- `src/components/trip/builder/WhenField.tsx`
+  - Remove `max={dateEnd ?? undefined}` from both start-date `<input>` elements (display + null-state branches).
+  - Remove `min={dateStart ?? undefined}` from both end-date `<input>` elements.
+- `src/components/trip/builder/SketchHeader.tsx`
+  - Leave `max={rsvpMax}` on the RSVP-by InlineField alone. RSVP-by must still be bounded by `dayBefore(dateStart)` — that's its own semantic (pre-existing, not 8L).
+
+**2. Keep the auto-correct logic untouched.**
+
+- `TripForm.tsx` handlers (lines 33–48) stay exactly as-is.
+- `SketchTripShell.tsx` handlers (lines 185–209) stay exactly as-is.
+- These handlers silently snap to same-day when the user picks an out-of-order date. That's the real invariant.
+
+**3. Make RSVP-by (and all `InlineField` date-variant inputs) open the native picker on tap.**
+
+- `src/components/trip/builder/InlineField.tsx`
+  - In `handleActivate`, after the existing `requestAnimationFrame(() => inputRef.current?.focus())`, call `inputRef.current?.showPicker?.()` if the input type is `'date'`. Optional chaining because older browsers may not implement it.
+  - Guard: `showPicker()` must be called in the same tick as a user gesture, which it will be since `handleActivate` fires from the onClick. Safe.
+
+#### Hard constraints
+
+- **Do not touch auto-correct logic.** It works.
+- **Do not touch any module UI, lodging, activities, provisions, transport, extras, crew.**
+- **Do not add copy keys.**
+- **Do not introduce new components or dependencies.**
+- **Leave RSVP-by's `max={rsvpMax}` in place** — that bounds RSVP to before trip start, which is correct semantics.
+
+#### Files to read first
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` (8L brief + 8L Actuals + this 8L-followup section)
+- `src/components/trip/builder/InlineField.tsx`
+- `src/components/trip/builder/WhenField.tsx`
+- `src/components/trip/builder/SketchHeader.tsx`
+- `src/components/editor/TripForm.tsx`
+- `src/components/trip/builder/SketchTripShell.tsx`
+
+#### Acceptance criteria
+
+- [ ] `TripForm` start-date input has no `min` or `max`; end-date input has no `min`
+- [ ] `WhenField` start-date `<input>` elements (both branches) have no `max`
+- [ ] `WhenField` end-date `<input>` elements (both branches) have no `min`
+- [ ] Calendar does NOT visually jump or shove focus when the user changes one date and the other becomes out-of-order
+- [ ] Auto-correct still fires: picking an end before start silently snaps start back; picking a start after end silently snaps end forward. DB reflects the corrected pair.
+- [ ] Tapping RSVP-by opens the native date picker immediately on first tap (no "empty text input" limbo state)
+- [ ] Tapping "when" (start or end) in `WhenField` also opens the picker on first tap (same `showPicker` path once in `InlineField`... or verify `WhenField` already does this itself — if it does, no change needed there)
+- [ ] Lodging `$X/night × N nights` math still renders after valid or auto-corrected ranges
+- [ ] No regressions: headliner, activities, transport, provisions, crew, extras all still function
+- [ ] No new user-facing copy
+
+#### How to QA solo
+
+1. Dashboard → New Trip. In the sketch form, tap the start input. Native picker opens immediately. Pick tomorrow.
+2. Tap the end input. Native picker opens. Pick yesterday. On blur, end auto-snaps forward to tomorrow (same-day trip). No calendar jump during the pick.
+3. Enter a name, land on the trip page. Tap the "when" field in the header. Picker opens. Pick a new range, try inverting it — same auto-correct behavior. No jumpiness.
+4. Tap RSVP-by — picker opens immediately, no text-input limbo. Pick a date before the trip start. Saves.
+5. Check lodging module — if dates are valid, the `$X/night × N × R = ~$Y` math renders.
+6. Regression pass: headliner drawer, activities estimate, provisions estimate, transport line-items all still work.
+
+#### Scope boundary reminders
+
+STOP and ask Andrew before expanding if any of these come up:
+- Rewriting the auto-correct logic
+- Adding any new date rule (max trip length, minimum advance, weekday restrictions)
+- Replacing native `<input type="date">` with a custom picker
+- Touching RSVP-by's `max={rsvpMax}` constraint
+
+#### Session 8L-followup — Release Notes (2026-04-14)
+
+**Built**
+- `src/components/editor/TripForm.tsx` — removed `min={today}` / `max={dateEnd || undefined}` from start input, `min={dateStart || today}` from end input. Dropped the now-unused `today` variable. Auto-correct handlers (`handleDateStartChange` / `handleDateEndChange`) unchanged — same-day snap still fires on invalid picks; the invariant now lives entirely in the save path.
+- `src/components/trip/builder/WhenField.tsx` — removed `max={dateEnd ?? undefined}` from both `startRef` inputs (filled-display branch + null-state branch) and `min={dateStart ?? undefined}` from both `endRef` inputs. Parent `SketchTripShell` auto-correct still runs on every change.
+- `src/components/trip/builder/InlineField.tsx` — `handleActivate` now calls `inputRef.current.showPicker()` after focus when `inputType === 'date'`. Wrapped in try/catch because `showPicker` can throw on browsers that require a direct user-gesture stack, and optional-chained for older UAs that don't implement it. This makes RSVP-by (and any future date-variant InlineField) open the native calendar on first tap instead of leaving the user in an empty text-field limbo.
+
+**Deviations from brief**
+- None. Scope list hit exactly.
+
+**What did not change**
+- `SketchTripShell.tsx` auto-correct handlers (lines 185–209) — left verbatim, as instructed.
+- `TripForm.tsx` auto-correct handlers (lines 33–48, now 27–42 after `today` removal) — left verbatim.
+- `SketchHeader.tsx` RSVP-by `max={rsvpMax}` — preserved; that's the pre-existing "must be before trip start" bound, not an 8L constraint.
+- No lexicon keys, no new components, no new copy.
+
+**Verified**
+- Typecheck clean.
+- Dev server booted clean (121ms), no runtime errors in logs.
+
+**QA checklist (for Andrew)**
+- [ ] Dashboard → New Trip. Tap start input — picker opens immediately.
+- [ ] In the sketch form, pick end before start; on commit, end silently snaps to start. No visual "week-out jump" during the pick.
+- [ ] On the sketch trip page, tap "when" field — picker opens on first tap; invert range to test auto-correct.
+- [ ] Tap RSVP-by — native picker opens on first tap (no text-input limbo). Confirm this is the key behavior change. Cannot pick a date after trip start (rsvpMax still in effect).
+- [ ] Lodging `$X/night × N nights × R = ~$Y` math still renders with valid/auto-corrected ranges.
+- [ ] Regression: headliner, activities estimate, provisions, transport, crew, extras untouched.
+
+**Known caveats**
+- `showPicker()` is a relatively recent API. On very old WebKit or in-app browsers it'll silently no-op and the user will still get the focus-only behavior. Not worth a polyfill — acceptable degrade.
+- Safari on iOS sometimes ignores `showPicker()` outside a direct click handler stack; `handleActivate` is called from the onClick, so the user-gesture chain is intact. If Andrew sees issues on iOS Safari specifically, the fix is likely to drop the `requestAnimationFrame` and call focus/showPicker synchronously — but that risks the input not being mounted yet. Revisit only if QA flags it.
+- Removing `min`/`max` means the calendar will accept any date the user picks — past dates on initial creation are now possible at the UI level. If Andrew wants that specific rule back, a server-side guard in the create action is the safer home than re-adding the HTML attribute (which was the thing causing the "week-out jump" feel).
+
+#### Session 8L-followup — QA Results (Cowork, 2026-04-14)
+
+**Status:** ✅ APPROVED — shipped. All ACs passed clean.
+
+- ✅ `TripForm` start/end inputs have no `min`/`max`
+- ✅ `WhenField` start/end inputs (both branches) have no `min`/`max`
+- ✅ Calendar no longer visually jumps when dates are changed
+- ✅ Auto-correct still fires silently (end before start → end snaps forward; start after end → start snaps forward)
+- ✅ Tapping RSVP-by opens the native picker on first tap (no text-input limbo)
+- ✅ Tapping "when" fields opens the picker on first tap
+- ✅ Lodging `$X/night × N nights` math still renders
+- ✅ No regressions across modules
+- ✅ No new user-facing copy
+
+**Cowork fixes (CSS/copy only):** none this pass.
+
+**Next session:** 8M (transportation module rebuild to wireframe) — brief below.
+
+---
+
+### Session 8L: "Calendar / date input rules"
+
+**Goal:** No sketch trip can exist with an invalid date range. Enforce `date_end >= date_start` at input time via silent auto-correction, and prevent invalid picks at the UI level by constraining the native date inputs' `min`/`max`. Every downstream surface (lodging nights, countdowns, cost summary) can then trust that if both dates are present, the range is valid.
+
+**Depends on:** 8K complete. No new infrastructure required. No migrations.
+
+#### Design decisions (locked in before this brief)
+
+1. **Auto-correct, not reject.** When the user picks a start later than the current end, snap `date_end = date_start` (single-night default). When the user picks an end earlier than the current start, snap `date_start = date_end`. Silent — no toast, no inline error. The UI is simply never allowed into an invalid state.
+2. **Native `<input type="date">` constraints.** Use `min` / `max` HTML attributes on the date inputs to disable invalid picks visually (greyed-out calendar cells). Do not introduce a custom date-picker component.
+3. **Past dates.** Start date may NOT be in the past on the initial sketch-form entry (first time creating a trip). Ongoing edits to an existing trip may keep historical start dates if they were already set — do not retroactively invalidate existing data. Implementation: apply `min={today}` only on the initial `TripForm` start-date input, not on the ongoing-edit date row in `SketchTripShell`.
+4. **Scope boundary.** This session touches date inputs ONLY. Do not fix the "? nights" lodging display, do not touch any module UI, do not restyle anything. Those are 8M/8N/8O.
+5. **RSVP-by / commit_deadline.** Out of scope for this session. Only `date_start` / `date_end` pair. RSVP-by has its own semantics (must be between "now" and `date_start`) and will get its own rules in a future session if needed.
+
+#### Scope
+
+**1. Auto-correct logic in `SketchTripShell.tsx`**
+
+- Current handlers (lines ~185–192):
+  ```ts
+  onDateStartChange={(v) => { setDateStart(v); queue({ date_start: v || null }); }}
+  onDateEndChange={(v) => { setDateEnd(v); queue({ date_end: v || null }); }}
+  ```
+- Replace with auto-correcting versions:
+  - `onDateStartChange`: if new start is non-null AND (`dateEnd` is null OR new start > `dateEnd`), set both states (`setDateStart(v); setDateEnd(v);`) and queue both (`queue({ date_start: v, date_end: v })`). Otherwise normal path.
+  - `onDateEndChange`: if new end is non-null AND (`dateStart` is null OR new end < `dateStart`), set both states and queue both. Otherwise normal path.
+- All comparisons on ISO date strings (`YYYY-MM-DD`) — lexicographic comparison works. Guard against time-zone issues by NOT using `new Date()` constructors.
+
+**2. Native picker constraints in `SketchTripShell.tsx`**
+
+- The date inputs live inside the sketch form row rendered by `SketchTripShell`. Pass `min` / `max` to them:
+  - Start date input: `max={dateEnd ?? undefined}`
+  - End date input: `min={dateStart ?? undefined}`
+- Both constraints live at the `<input type="date">` level. No JS validation beyond the auto-correct from scope #1 (picker constraints are cosmetic — auto-correct is the actual guarantee).
+
+**3. Initial sketch form (`TripForm.tsx`)**
+
+- Apply the same auto-correct pattern to start/end handlers on the initial trip-creation form.
+- Additionally, on the start-date input only (and only in the initial-creation path, NOT editing): `min={today}` where `today = new Date().toISOString().slice(0,10)`. Computed client-side on render. End-date input gets `min={dateStart ?? today}` and no upper bound.
+- Do NOT apply `min={today}` to the edit path in `SketchTripShell` — historical trips retain whatever dates they have.
+
+**4. No copy changes**
+
+- This session adds no new user-facing strings. No lexicon updates.
+
+#### Hard constraints
+
+- **No new routes.** Sketch form + trip page only.
+- **No module changes.** Activities, lodging, transport, provisions, crew, extras — all untouched.
+- **No lodging fixes.** The "? nights" preview and null-state hints are 8M's scope.
+- **No new components.** No custom date picker. Keep native `<input type="date">`.
+- **No RSVP-by or commit_deadline logic.** Explicitly out of scope.
+- **No migrations.** Database schema unchanged.
+- **No new hardcoded strings.** This session shouldn't introduce user-facing copy at all.
+
+#### Files to read first
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` (8L brief + 8K Actuals for context on why this is needed)
+- `src/components/trip/builder/SketchTripShell.tsx` (ongoing-edit date handlers, lines ~100–200)
+- `src/components/editor/TripForm.tsx` (initial sketch-form date handlers)
+- Any shared date-row component used by both (verify if one exists before duplicating logic)
+
+#### Acceptance criteria
+
+- [ ] In `SketchTripShell`, picking a start date later than the current end auto-snaps end to the new start (both fields update; both persist to DB)
+- [ ] In `SketchTripShell`, picking an end date earlier than the current start auto-snaps start to the new end (both fields update; both persist to DB)
+- [ ] In `SketchTripShell`, the end-date `<input>` has `min` set to the current start date; invalid dates are visually disabled in the native calendar
+- [ ] In `SketchTripShell`, the start-date `<input>` has `max` set to the current end date; invalid dates are visually disabled
+- [ ] In `TripForm` (initial creation), same auto-correct behavior on both handlers
+- [ ] In `TripForm`, start-date input has `min={today}`; past dates disabled in calendar
+- [ ] In `TripForm`, end-date input has `min={dateStart ?? today}`
+- [ ] Existing sketch trips with historical dates still load and edit without forced corrections
+- [ ] No new user-facing copy introduced
+- [ ] Lodging, activities, provisions, transport, headliner all untouched and functioning
+- [ ] Auto-correct is silent — no toast, no inline error, no flash
+
+#### How to QA solo
+
+1. Create a new trip via the dashboard. In the sketch form, try entering start = tomorrow, end = yesterday. Verify end auto-snaps to tomorrow.
+2. In the same form, try entering end = next week first, then start = two weeks out. Verify end auto-snaps to the new start.
+3. Try entering a start date in the past — the calendar should visually disable those cells; the input should reject the pick.
+4. Complete the form, land on the sketch trip page. In the ongoing date row (top of `SketchTripShell`), repeat tests 1 and 2. Same auto-correct behavior, no "reject past dates" this time (edits are permitted on historical trips).
+5. Verify persisted dates match what ended up in the UI — inspect the trip in Supabase Studio or reload the page.
+6. Open the lodging module. With valid dates, `LodgingCard` should show the full `$X/night × N nights × R rooms = ~$Y` math (this is the downstream proof that 8L did its job — the "? nights" bug from 8K QA cannot recur).
+7. Spot-check: headliner, activities, provisions — all still work normally.
+
+#### Scope boundary reminders
+
+STOP and ask Andrew before expanding beyond the brief if any of these come up:
+- Fixing the "? nights" literal in `LodgingCard` / `LodgingAddForm` preview (that's 8M)
+- Adding a custom date-picker component (stay native)
+- Touching RSVP-by or commit_deadline inputs
+- Adding validation rules beyond end ≥ start (e.g. max trip length, minimum advance notice)
+- Introducing any new user-facing strings
+
+#### Session 8L — Release Notes
+
+**What was built:**
+1. Auto-correct handlers on the ongoing-edit date row — `src/components/trip/builder/SketchTripShell.tsx`. `onDateStartChange`: if the new start is non-null and greater than the current end, both `setDateStart` and `setDateEnd` fire with the new value, and both columns queue to the autosave. `onDateEndChange`: symmetric — new end earlier than current start snaps both. Lexicographic ISO string comparison (`YYYY-MM-DD`); no `new Date()` constructors — sidesteps timezone drift.
+2. Native picker constraints on the sketch-page date row — `src/components/trip/builder/WhenField.tsx`. Added `max={dateEnd ?? undefined}` to both `startRef` inputs (display mode + null-state mode). End input's `min={dateStart ?? undefined}` was already present; left in place. The picker now visually disables invalid cells.
+3. Auto-correct + initial-creation constraints — `src/components/editor/TripForm.tsx`. Added `handleDateStartChange` / `handleDateEndChange` with identical auto-correct logic, `today = new Date().toISOString().slice(0,10)` computed each render, and constraints: start input gets `min={today}` + `max={dateEnd || undefined}`; end input gets `min={dateStart || today}`. Wired both date inputs to the new handlers.
+
+**What changed from the brief:**
+- Brief said "Pass `min` / `max` to them" at the SketchTripShell level — the actual date inputs live in `WhenField` (nested inside `SketchHeader`), so the `max` attribute landed there instead. Behavior matches the brief; structure follows the existing component tree.
+- `WhenField` has duplicated `<input type="date">` elements (one set rendered in the filled-display branch, another in the null-state branch) — both got the same `max`/`min` treatment so the constraints work regardless of which branch is live. Not in the brief; flagged as a known quirk of the existing component.
+- `handleDateStartChange` in `SketchHeader` (the thin wrapper that clears `commitDeadline` when it conflicts) was left alone. It still receives the post-autocorrect value since the parent's handler runs first. Verified the RSVP-clear logic continues to behave correctly after an auto-corrected start.
+- `TripForm` uses local string-state (not null) — the auto-correct branches use `v && dateEnd && v > dateEnd`-style guards to treat empty string as "no date set," matching the existing pattern.
+
+**What to test:**
+- [ ] Create a new trip via the dashboard. In `TripForm`, enter start = tomorrow, then try entering end = yesterday → end auto-snaps forward to tomorrow (both fields visually update).
+- [ ] In `TripForm`, enter end = next week first, then enter start = two weeks out → end auto-snaps forward to the new start.
+- [ ] In `TripForm`, try picking a start date in the past → calendar cells are disabled; past dates cannot be selected.
+- [ ] In `TripForm`, end-date calendar cells before the current start (or before today if no start is set) are disabled.
+- [ ] Create the trip, land on the sketch page. In the sketch header's `WhenField`, repeat the two auto-correct tests → same behavior, both state and DB updates.
+- [ ] Historical trip (already has start/end in the past) opens and allows editing without forced corrections.
+- [ ] Persisted dates match the displayed values — reload the trip page, verify both columns round-trip through the autosave.
+- [ ] Auto-correction is silent — no toast, no error banner, no visual flash other than the second input updating.
+- [ ] Lodging `$X/night × N nights` math renders correctly after any auto-corrected range (proves the downstream "? nights" bug can't recur when dates are valid).
+- [ ] Regression: headliner (8J), activities (8K), transport (8I), lodging (8A/8B/8H), provisions, crew, extras, RSVP-by all still function.
+- [ ] No new user-facing copy introduced.
+
+**Known caveats / deferrals:**
+- `min={today}` is only on the initial `TripForm`, not on `SketchTripShell`'s ongoing-edit row — intentional per brief, so historical trips remain editable.
+- `WhenField` uses `input.showPicker()` and hidden inputs; some browsers may ignore `min`/`max` on programmatically-opened native pickers (Safari in particular has had intermittent bugs). Auto-correct is the real guarantee — picker constraints are cosmetic.
+- `today` in `TripForm` is recomputed on every render, not memoized; a create-trip tab left open past midnight will pick up the new day naturally. No state sync needed.
+- RSVP-by / `commit_deadline` explicitly out of scope — `SketchHeader`'s existing `rsvpMax = dayBefore(dateStart)` constraint untouched; `TripForm`'s deadline input also untouched.
+- `WhenField` null-state has a hidden `<input>` rendered at the root rather than a portal — the `max` attr was added there too so pickers respect it from the very first tap.
+
+**Cowork fixes (CSS/copy only):** none this pass.
+
+---
+
+### Session 8M: "Transportation Module — Rebuild to Wireframe"
+
+**Goal:** Replace the 8I transportation implementation with a version that
+matches `rally-transportation-wireframe.html` exactly. 7 sharpened tags,
+chip-based required type picker with inline definitions, drawer-only OG
+enrichment, compact single-line cards, and a framing line that pins the
+"getting here vs. transportation" boundary so users know this module is
+for **what the crew books together on the trip** — not the home → meetup
+leg.
+
+**Depends on:** 8I (module slot + BottomDrawer already in place), 8J
+(headliner drawer enrichment pattern is the reference), 8L-followup
+(unblocks live-date QA of this module).
+
+**Why a rebuild, not a polish pass:** 8I shipped without a dedicated
+wireframe. The result drifted — compact card shape was lost ("orphan 600"
+bug, 8K finding #3), the `transport_subtype` enum is still the 3-value
+legacy shape (`car_rental` / `taxi` / `public_transit`) from migration
+002, `cost_type` is loose text, description lives in `route`/`notes` with
+no clear canonical field. 8M fixes the schema, component structure, and
+visual contract in one coordinated pass against the wireframe.
+
+#### Design decisions (locked in before this brief)
+
+1. **7 tags (final names):** `flight`, `train`, `rental car/van`, `charter
+   van/bus`, `charter boat`, `ferry`, `other`. Enum values stored as
+   `flight`, `train`, `rental_car_van`, `charter_van_bus`, `charter_boat`,
+   `ferry`, `other`. Display labels come from lexicon.
+2. **Tag picker is chips, required.** Exactly one selected. No
+   multi-select, no blank state at save time.
+3. **Selected tag shows inline definition** (see wireframe Frame 5 —
+   yellow-tinted block below the chip row). Definition copy per tag
+   registered in lexicon §5.29.
+4. **Split toggle UI labels:** `individual` and `group split`. The
+   database does NOT migrate values — `transport.cost_type` stays as
+   `'individual'` / `'shared'` (loose text). The render layer maps
+   `'shared'` → "group split." If this mapping ever needs to change,
+   it's a single `getCopy` key.
+5. **Default split by tag:** `flight`, `train`, `ferry` → individual;
+   `rental_car_van`, `charter_van_bus`, `charter_boat`, `other` → group
+   split. Organizer can override after selection. Once overridden
+   manually, do NOT auto-reset on a subsequent tag change.
+6. **Link field optional.** OG enrichment runs on paste/blur via existing
+   `/api/enrich`. Preview renders inside the drawer ONLY — no hero
+   thumbnail on the card. If enrichment returns nothing useful, preview
+   block is hidden entirely (no broken image placeholder).
+7. **Compact single-line card.** Grid = `28px icon · 1fr body · auto
+   link-chip`. Title = description. Meta = `$X · {split label} · {tag
+   label}`. Link-chip (↗) renders only when URL is present.
+8. **Framing line above drawer fields** (always visible): *"for what the
+   crew books together on the trip — not how you're getting to the
+   meetup. (the home → meetup leg lives under 'getting here.')"*
+9. **Multiple entries of the same tag are supported.** No uniqueness
+   constraint. Users with 3 flights + 2 rentals work exactly as users
+   with 1 each.
+10. **No "who's splitting" UI.** Sketch assumes every in-crew member
+    splits group-split lines. Subset cost modeling is a sell/go concern
+    (see Session 9+ note).
+11. **No changes to the "getting here" slot.** It's already shipped and
+    correct at sketch phase.
+12. **Legacy `transport.subtype` column stays in place.** Don't drop it;
+    just stop reading from it. Same with other legacy columns
+    (`provider`, `vehicle_type`, `daily_rate`, `num_days`,
+    `per_ride_cost`, `route`, `pickup_*`, `dropoff_*`). Silent
+    deprecation.
+
+#### Migration script (Andrew runs against hosted DB)
+
+> Andrew's local has no Docker — he runs this directly against the hosted
+> Supabase DB (via SQL Editor or `supabase db push` after linking).
+> Commit the file as `supabase/migrations/019_transport_type_tag.sql`
+> for the local record even though it's pushed manually.
+
+```sql
+-- 019_transport_type_tag.sql
+-- 8M: add the 7-value type_tag enum + description column on transport.
+-- Keep legacy subtype enum and columns in place; silently deprecated.
+
+create type transport_type_tag as enum (
+  'flight',
+  'train',
+  'rental_car_van',
+  'charter_van_bus',
+  'charter_boat',
+  'ferry',
+  'other'
+);
+
+alter table public.transport
+  add column if not exists type_tag transport_type_tag,
+  add column if not exists description text;
+
+-- Backfill type_tag from legacy subtype for pre-existing rows
+update public.transport
+set type_tag = case subtype
+  when 'car_rental'     then 'rental_car_van'::transport_type_tag
+  when 'taxi'           then 'other'::transport_type_tag
+  when 'public_transit' then 'train'::transport_type_tag
+  else 'other'::transport_type_tag
+end
+where type_tag is null;
+
+-- Backfill description with a sensible fallback chain
+update public.transport
+set description = coalesce(
+  nullif(trim(route), ''),
+  nullif(trim(provider), ''),
+  nullif(trim(notes), ''),
+  'transportation'
+)
+where description is null;
+
+-- NOT NULL once backfill is safe
+alter table public.transport
+  alter column type_tag set not null,
+  alter column description set not null;
+```
+
+#### Scope
+
+**1. Schema migration (above).** File the SQL as
+`supabase/migrations/019_transport_type_tag.sql`. Andrew runs against
+hosted DB.
+
+**2. Types (`src/types/index.ts`).**
+
+- Add `TransportTypeTag` union literal (7 values).
+- Update `Transport` interface: add `type_tag: TransportTypeTag`,
+  `description: string`. Leave legacy fields in the type as optional
+  (`?:`) to keep reads backward compatible.
+- Cost summary helper (line 440 area): replace subtype-driven logic with
+  `cost_type`-driven only. `'shared'` → divide by in-crew count;
+  `'individual'` → add directly.
+
+**3. Server actions (`src/app/actions/sketch-modules.ts`).**
+
+- Create, update, delete transport line items by `type_tag` +
+  `description` + `estimated_total` + `cost_type` + `booking_link` +
+  `og_image_url`.
+- Stop writing `subtype = 'car_rental'` as a stub (line 247).
+- Follow lodging/headliner action shape — return `{ok: true, id}` /
+  `{ok: false, error}` pattern.
+
+**4. New component: `TransportAddForm.tsx`.**
+
+- Mirrors `LodgingAddForm` + `HeadlinerDrawerForm` structure.
+- Renders the 7-chip tag picker, inline definition block, split toggle,
+  cost input, optional link input, enrichment preview (drawer-only).
+- Wires to `/api/enrich` on link paste/blur (reuse existing hook if one
+  exists; otherwise replicate the headliner drawer's enrichment flow).
+- Form validation: description + type_tag + cost required. Save button
+  disabled until all three present.
+- Edit mode: prefills from existing row, renders remove-with-confirm
+  (reuse headliner's confirm-bar pattern).
+
+**5. New component: `TransportCard.tsx` (replace the existing one).**
+
+- Grid layout per wireframe Frame 2: `28px icon · 1fr body · auto
+  link-chip`.
+- Icon: emoji based on `type_tag` (mapping: flight✈️, train🚆,
+  rental_car_van🚗, charter_van_bus🚐, charter_boat⛵, ferry⛴, other·).
+- Body: `card-title` = description; `card-meta` = `$X · {split} · {tag}`.
+- Link-chip renders only if `booking_link` present.
+- Tap card → opens edit drawer (same `BottomDrawer` + `TransportAddForm`).
+
+**6. `SketchModules.tsx` integration.**
+
+- Replace inline transport rendering with `<TransportCard>` list +
+  `<BottomDrawer>` containing `<TransportAddForm>`.
+- Empty state: collapsible section header + count badge + empty-hint
+  copy + "+ add transportation" button (wireframe Frame 1).
+- Stop rendering anything that used `subtype` or legacy fields.
+
+**7. Cost summary wiring.**
+
+- Shared helper (update `lib/cost-summary.ts` or equivalent):
+  `individual` lines contribute `estimated_total` directly;
+  `shared` (= group split in UI) contribute `estimated_total /
+  in_crew_count`.
+- Summed across all transport lines → `transport_per_person` estimate.
+- Wire into the existing `CostBreakdown.tsx` surface (sell+ only — same
+  caveat as 8J/8K).
+
+**8. Copy / lexicon (§5.29 transportation).**
+
+All strings through `getCopy`. Register new keys:
+
+- `transport.moduleTitle` — "transportation"
+- `transport.emptyHint` — "add the stuff the crew books together on the trip — rentals, charters, intra-trip flights or trains."
+- `transport.addButton` — "+ add transportation"
+- `transport.drawerTitleAdd` — "add transportation"
+- `transport.drawerTitleEdit` — "edit transportation"
+- `transport.drawerFraming` — "for what the crew books together on the trip — not how you're getting to the meetup. (the home → meetup leg lives under 'getting here.')"
+- `transport.descriptionLabel` — "description"
+- `transport.descriptionPlaceholder` — "e.g. rome → barcelona"
+- `transport.typeLabel` — "type"
+- `transport.costLabel` — "estimated cost"
+- `transport.splitIndividual` — "individual"
+- `transport.splitGroup` — "group split"
+- `transport.splitDefaultHintPre` — "split fills in once you pick a type. you can override it."
+- `transport.splitDefaultHintPost` — "default for {tag} — tap to override."
+- `transport.linkLabel` — "link"
+- `transport.linkPlaceholder` — "paste a url (optional)"
+- `transport.linkHelper` — "optional — we'll pull a preview in here. doesn't render on the card."
+- `transport.tagLabel.flight` — "flight"
+- `transport.tagLabel.train` — "train"
+- `transport.tagLabel.rentalCarVan` — "rental car/van"
+- `transport.tagLabel.charterVanBus` — "charter van/bus"
+- `transport.tagLabel.charterBoat` — "charter boat"
+- `transport.tagLabel.ferry` — "ferry"
+- `transport.tagLabel.other` — "other"
+- `transport.tagDefinition.flight` — "intra-trip flight — rome → barcelona, small charter. not your flight to the meetup."
+- `transport.tagDefinition.train` — "intra-trip train ticket — amtrak, tgv. not your train in."
+- `transport.tagDefinition.rentalCarVan` — "car, suv, van, or rv the crew drives on the trip."
+- `transport.tagDefinition.charterVanBus` — "hired van, shuttle, or bus the crew rides together."
+- `transport.tagDefinition.charterBoat` — "boat, yacht, or fishing charter the crew takes together."
+- `transport.tagDefinition.ferry` — "scheduled ferry crossing during the trip."
+- `transport.tagDefinition.other` — "anything else pre-booked. pick the split that fits."
+- `transport.removeConfirm` — "remove this?"
+- `transport.saveError` — "couldn't save — try again."
+
+**9. Styling.**
+
+- CSS variables only for all themed colors.
+- Match wireframe exactly — compact card padding, chip styling, drawer
+  framing block (yellow-tint only on the tag-definition reveal, not on
+  the framing line at top).
+- Mobile-first at 375px; tap targets ≥ 44px.
+
+#### Hard constraints
+
+- **`rally-transportation-wireframe.html` is the contract.** When 8I
+  and the wireframe disagree, the wireframe wins. Read all 7 frames +
+  the annotation before writing code.
+- **No hero image on the transport card.** Drawer-only enrichment.
+- **No "who's splitting" UI.** Every group-split line divides by
+  `in_crew_count`.
+- **No Google Flights / flight pricing API.** All estimates
+  user-entered.
+- **No changes to "getting here" slot.**
+- **No changes to any other module** (lodging, activities, provisions,
+  headliner, crew, extras, RSVP).
+- **Do NOT drop the `flights` table** — retained for sell-phase arrival
+  estimator.
+- **Do NOT drop `transport.subtype` or legacy transport columns.**
+  Silent deprecation only. Leave legacy columns nullable in place.
+- **No new routes.** Drawer overlays `/trip/[slug]`.
+- **No hardcoded strings in JSX** — all copy via `getCopy` + lexicon
+  §5.29.
+- **No hardcoded colors inside `[data-theme]`** — CSS variables only.
+- **No dead-end interactions** — every tap target produces a visible
+  result.
+
+#### Files to read first
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` (this brief + 8I brief for legacy context +
+  8K Actuals findings #2 & #3 for the silent-save + orphan-render bugs
+  to avoid)
+- **`rally-transportation-wireframe.html` (REQUIRED — canonical
+  contract).** Read all 7 frames + annotation.
+- `rally-sketch-modules-v2-mockup.html` (module-order context only; do
+  NOT use older sketch wireframes)
+- `rally-microcopy-lexicon-v0.md` (add §5.29)
+- `src/components/trip/builder/SketchModules.tsx`
+- `src/components/trip/builder/LodgingAddForm.tsx` (drawer-form pattern)
+- `src/components/trip/builder/HeadlinerDrawerForm.tsx` (enrichment
+  pattern)
+- `src/components/trip/BottomDrawer.tsx`
+- `src/components/trip/TransportCard.tsx` (to be replaced)
+- `src/app/actions/sketch-modules.ts` (transport action wiring)
+- `src/types/index.ts` (Transport interface, lines ~165–190;
+  cost-summary helper, lines ~440–470)
+- `supabase/migrations/002_typed_components.sql` (legacy transport
+  schema — context only)
+
+#### Acceptance criteria
+
+- [ ] Migration `019_transport_type_tag.sql` committed locally and
+      applied to hosted DB (Andrew runs the script)
+- [ ] `transport.type_tag` enum column exists with 7 values and
+      NOT NULL; pre-existing rows backfilled
+- [ ] `transport.description` column exists and NOT NULL; pre-existing
+      rows backfilled from route/provider/notes fallback
+- [ ] Legacy `transport.subtype` enum and columns still exist (not
+      dropped)
+- [ ] Collapsible transportation section renders per wireframe Frame 1
+      in the empty state
+- [ ] Empty-state hint and "+ add transportation" button match lexicon
+- [ ] "+ add transportation" opens `BottomDrawer` with
+      `TransportAddForm`
+- [ ] Drawer framing line renders above fields exactly as specced
+- [ ] Description field is required; tag chip picker is required; cost
+      is required; save is disabled until all three filled
+- [ ] All 7 tag chips render with their emojis; selected chip gets
+      filled style
+- [ ] Selecting a chip reveals the inline tag definition block
+- [ ] Selecting a chip sets the default split per the design decisions;
+      organizer override persists across subsequent chip changes
+- [ ] Cost input accepts integer USD; `$` is decoration only
+- [ ] Split toggle shows "individual" / "group split" labels; DB stores
+      `cost_type` as `'individual'` / `'shared'`
+- [ ] Link field is optional; OG enrichment runs on paste/blur;
+      preview renders inside the drawer only
+- [ ] Preview block is hidden entirely when enrichment returns nothing
+      useful (no broken image / no empty card)
+- [ ] No enrichment thumbnail renders on the card
+- [ ] Card shape matches wireframe Frame 2: compact single-line, no
+      hero, emoji + description + `$X · {split} · {tag}` + optional ↗
+- [ ] Multi-leg (wireframe Frame 3) renders 4+ cards cleanly with mixed
+      tags and splits; no orphan text outside dashed containers
+- [ ] Multiple entries of the same tag are supported (no uniqueness
+      error)
+- [ ] Tapping a card opens the drawer in edit mode with values
+      prefilled; drawer title reads "edit transportation"
+- [ ] Edit drawer has a "remove" affordance with confirm-bar pattern
+- [ ] Cost summary aggregates: individual lines contribute directly;
+      group split lines contribute `cost / in_crew_count`
+- [ ] All strings routed through `getCopy`; §5.29 registered in
+      `rally-microcopy-lexicon-v0.md`
+- [ ] Works at 375px; tap targets ≥ 44px; no overflow
+- [ ] No regressions: lodging, activities, provisions, headliner, crew,
+      extras, RSVP, date inputs, cost summary, "getting here" slot all
+      untouched and functioning
+- [ ] Silent save failures handled per the 8J inline-error pattern (8K
+      finding #2) — if `{ok:false}`, surface an inline error near the
+      save button
+- [ ] No dead-end interactions
+
+#### How to QA solo
+
+1. Run the migration against the hosted DB. Verify the new columns
+   and enum exist; pre-existing transport rows have non-null `type_tag`
+   and `description`.
+2. Open an existing sketch trip. Transportation section renders in the
+   empty state per Frame 1.
+3. Tap "+ add transportation" → drawer opens. Framing line is visible
+   above fields. Save is disabled.
+4. Fill description "rome → barcelona", select `flight` chip. Definition
+   appears. Split toggle snaps to "individual." Enter cost "120." Save
+   enables; save.
+5. Drawer closes; card renders per Frame 2 with ✈️ icon, "rome →
+   barcelona", "$120 · individual · flight." Count badge = 1.
+6. Tap the card → drawer reopens in edit mode. Change chip to
+   `train`. Definition updates. Split stays "individual" (no reset
+   needed since default for train is also individual). Save.
+7. Add a second line: "tuscany rental," chip `rental car/van`, cost
+   "480." Split defaults to "group split." Save.
+8. Add a third line with a real link (e.g. a charter company site).
+   Paste URL → enrichment loads → preview renders in drawer. Save.
+   Verify NO thumbnail appears on the card.
+9. Add a fourth line with a link that returns no OG data (e.g. a
+   random 404 or auth-walled page). Preview block hides cleanly.
+10. Refresh the page. All 4 entries persist with correct splits and
+    tags.
+11. Tap one card → drawer → "remove" → confirm. Card disappears, count
+    decrements.
+12. Cost summary reflects per-person contributions based on split.
+13. Resize to 375px. No overflow, no orphan text, all taps usable.
+14. Spot-check 5 strings against lexicon §5.29.
+15. Regression sweep: lodging, activities, provisions, headliner, crew,
+    date inputs, RSVP, "getting here" slot all still function.
+
+#### Scope boundary reminders
+
+STOP and ask Andrew before expanding if any of these come up:
+- Dropping legacy `transport.subtype` or other legacy columns
+- Adding a hero image / thumbnail to the card
+- Adding a "who's splitting" / subset picker
+- Adding dates, assignees, or "who's on this" to transport lines
+- Changing the "getting here" slot
+- Touching any other module (lodging, activities, provisions,
+  headliner, crew, extras)
+- Adding a flight-pricing API or Google Flights deep-link
+- Introducing a new route or sub-page
+- Adding any user-facing copy not in §5.29
+
+---
+
 ### Session 8 — Approach
 
 Session 8 is the **complete sketch page buildout**, module by module. We loop
@@ -2359,11 +4122,29 @@ QA → update plan), and we don't move to Session 9 until the sketch page is don
 - **8F:** Collapsible sections + bottom drawers — generic BottomDrawer component, crew/lodging collapse, move existing add flows into drawers ✅ (2 bugs → 8G)
 - **8G:** Drawer URL auto-enrich fix ❌ — ref-based listener approach did not fire; `/api/enrich` never called on paste or type. Bug carried into 8H.
 - **8H:** Drawer URL auto-enrich — round 2 ✅ verified — reverted 8G ref approach, restored React inline handlers (portal event theory was wrong)
+- **8I:** Transportation module rebuild + "getting here" slot ✅
+- **8J:** The headliner ✅
+- **8K:** Activities module simplification ✅ (QA 2026-04-14 — activities on-spec; broader sketch-page polish escalated to 8L)
 
-**Remaining sketch page modules (8G+ briefs TBD):**
-- Flights / transportation — rebuild with same pattern as lodging
-- Activities — rebuild (activity type, cards, edit, remove)
-- Food & drink / provisions — rebuild (grocery vs restaurant, estimate)
+**Up next:**
+- **8L (proposed):** Calendar/date input rules (tight scope — logic only, no styling/polish work). Enforces valid date ranges at input time so downstream surfaces (lodging nights, countdowns, cost summary) can trust the data.
+
+**Parked follow-ups (future sessions, not in 8L):**
+- **8M (parked):** Lodging null-state + cost display fixes — hide computation line when `nights` is null/invalid, fix "? nights" preview in edit drawer, subtle "set trip dates to see total" hint. Single-module (lodging).
+- **8N (parked):** Estimate-field polish — number-input spinner suppression + propagate 8J inline-error treatment to `handleProvisionsChange` and `handleActivitiesChange` (both silently swallow `{ok:false}`). Affects provisions + activities.
+- **8O (parked):** Transport/flights line-item styling — container for existing line items, inline delete affordance. Single-module (transport).
+- **Wireframe alignment pass:** Deferred. Will emerge naturally as each per-module polish session runs with `rally-sketch-modules-v2-mockup.html` in hand. Not a standalone session.
+
+**Open bugs (triaged 2026-04-14, destination TBD):**
+- **Lodging cost total: missing date-ordering validation + ugly null fallback.** `LodgingCard` and the edit drawer rendered `"$1000/night × ? nights"` (literal question marks) because the trip dates were inverted (`Apr 19 → Apr 17`). `computeNights` in `LodgingCard.tsx` (line 31) returns null whenever `diff <= 0`, falling through to a malformed preview string. Diagnosis confirmed 2026-04-14 — re-entering valid dates fixed the display. **Fixes needed (8L or lodging-polish session):** (a) the sketch date-range input must validate that `date_end >= date_start`; reject or auto-correct inverted ranges at input time; (b) on `LodgingCard` + `LodgingAddForm` preview, hide the computation line when `nights` is null/invalid and show a subtle hint ("set trip dates to see total") rather than "? nights"; (c) treat any other `nights === null` surface the same way.
+
+**Canonical design reference for 8I/8J/8K:** `rally-sketch-modules-v2-mockup.html`.
+Pre-8I wireframes (`rally-sketch-form-wireframe.html`,
+`rally-phase-4-builder.html`, sketch sections of `rally-trip-page-wireframe.html`)
+are banner-deprecated and must not be used for module order.
+
+**Remaining sketch page modules (briefs TBD):**
+- Food & drink / provisions — confirm shape (already "single estimate")
 - Cost summary — aggregates all modules into per-person estimate
 - Extras polish — packing list, playlist, house rules, photo album
 - Full sketch page QA + copy/lexicon audit across all modules
@@ -2400,8 +4181,119 @@ is reviewed with Andrew. Expected sessions:
 - **Session 11:** Crew section depth (RSVP flow, +1, confetti)
 - **Session 12:** Buzz feed depth (compose, reactions, event rows)
 - **Session 13:** Extras depth + polish (all extra types, animations, copy/color audit)
+- **Session 14 (candidate):** Per-crew arrival estimator (sell phase) — flight / drive / train / other, Google Flights deep-link for flyers. See note below.
 
 These are placeholders. Exact scope depends on what we learn from the sketch page buildout.
+
+#### Per-crew arrival estimator — sell phase feature (deferred from Session 8 planning)
+
+**Context:** The home → meetup leg was originally planned as a sketch module
+("flights"), but during 8I planning we concluded it doesn't fit the group-
+transportation shape. Each crew member has a different origin, so the cost is
+per-person by nature and can't be split evenly. It's also the #2 cost line
+behind lodging, and Rally can't reliably estimate it without trust risk. Right
+mechanic: per-crew-member, surfaced in sell phase when dates are firm and the
+commit decision is imminent. Renamed from "individual flight estimator" to
+"arrival estimator" because not every crew member flies — some drive, some
+train, some are already local.
+
+**Sketch precursor (8I, already scoped):** A "getting here" slot with helper
+text only: *"each crew will pull their own arrival estimate in sell — however
+they're getting here."* No input, no cost contribution at sketch.
+
+**Proposed sell-phase mechanic (branches by arrival mode):**
+
+1. On the sell-phase trip page, each crew member sees a "my arrival" line on
+   their own card (and only theirs — it's personal data).
+2. Step 1: crew picks their arrival mode — **flight · drive · train · other /
+   already local**.
+3. Step 2: the form adapts based on mode:
+   - **Flight** → copy: *"need a flight to the meetup? estimate your flight
+     cost."* Plus a "check flight prices" button deep-linking to Google
+     Flights with URL params pre-filled from their passport "based in" city
+     (origin), the trip destination, and the trip dates. They browse real
+     prices, come back to Rally, enter their estimate (e.g., "$420").
+   - **Drive** → copy: *"driving in? estimate your gas + tolls."* Manual
+     entry. Mileage-based prompt is a v-next enhancement (nice-to-have).
+   - **Train / bus** → copy: *"taking the train? drop in an estimate."*
+     Manual entry.
+   - **Other / already local** → free-text or skip entirely.
+4. That per-person number feeds the cost summary — each crew member sees
+   their own personal total (lodging share + transport share + arrival + etc.).
+5. "Arrival checked: 4 of 6" style indicator on the crew/cost summary — turns
+   into a soft commitment signal.
+
+**Google Flights deep-link format** (flight mode only):
+`https://www.google.com/travel/flights?q=Flights%20from%20{origin}%20to%20{dest}%20on%20{date_start}%20through%20{date_end}`
+(or the structured params format — verify what Google currently honors at
+build time).
+
+**Explicit non-goals:**
+- Do not integrate any paid flight pricing API (Amadeus, SerpAPI, etc.) in v1.
+- Do not scrape or parse anything returned from Google Flights.
+- Do not show Rally-generated estimates — all numbers are user-entered.
+
+**Data model notes:**
+- Field belongs on the crew membership / RSVP record, not the trip.
+- Store: `arrival_mode` (enum: flight / drive / train / other), `arrival_cost_cents`,
+  `arrival_updated_at`.
+- Keep the existing `flights` table (do NOT drop it in 8I) — may repurpose into
+  this structure or deprecate once the sell-phase design is finalized.
+- Needs passport "based in" to be populated (added in 8D) — already in place.
+
+**Open questions for the actual brief (don't answer now):**
+- Do we let them enter a range ($400–$600) or a single number?
+- What happens if they haven't filled in their passport "based in"? Fallback
+  copy prompting them to update passport first.
+- Does this show only for people who've RSVP'd yes, or everyone on the roster?
+- Does the cost summary show each person's individual total, or a group total
+  with arrival as a user-variable line?
+- Do we allow a "skip — already local" state explicitly, or just let them
+  enter $0?
+
+---
+
+#### Multi-leg / multi-city trips — deferred architectural question
+
+**Context:** Rally's current trip model is single-destination — one lodging,
+one countdown target, one "we're all meeting up and going here." Euro-summer-
+style trips (Rome → Barcelona → Paris) break this: lodging becomes a sequence,
+transportation interleaves with lodging, voting gets combinatorial (vote on
+each city's hotel, or on the whole itinerary?), and the phase system gets
+ambiguous per leg.
+
+**Why it's deferred:** Of 17 themes, only **Euro Summer** is multi-city by
+default. 2 more themes *could* flex multi-city (Couples / Honeymoon, Wine
+Country). The remaining 14 are single-destination by nature. Retrofitting
+every module (lodging, transportation, cost summary, voting, phase system)
+to support multi-leg for 1-in-17 themes is a massive architectural spread
+pre-PMF.
+
+**v0 workaround for multi-leg organizers:**
+- Use the anchor city as "the spot" (primary lodging).
+- Add subsequent stays as line-items in extras or as additional spots (once
+  "the spot" supports it — not in 8I/8J/8K).
+- Use the transportation module's multi-leg support (8I) for intra-trip
+  transport (it already handles Rome → Bcn flight + Bcn → Paris train as
+  separate line items).
+- Voting only operates on the primary spot. Secondary stays are organizer-
+  decided.
+
+**When to revisit:**
+- If Euro Summer adoption is disproportionately high in the first cohort.
+- If multiple early users request multi-city lodging.
+- If the pre-Session-9 wireframe review surfaces a sell-phase multi-leg need.
+
+**Likely shape when tackled:**
+- `trips` → `trip_segments` (one segment per city/leg, each with its own
+  dates + lodging).
+- Voting becomes scoped per segment.
+- Cost summary aggregates across segments.
+- Phase system probably stays trip-level (not per-segment) — one countdown,
+  one lock moment — but the hero needs to surface "next segment" context.
+
+**Out of scope until triggered.** Do NOT attempt to solve for multi-leg in
+any sketch or sell session before this note is explicitly revisited.
 
 ---
 

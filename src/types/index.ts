@@ -70,6 +70,16 @@ export interface Trip {
   rsvp_emojis: RsvpEmojis;
   chassis_theme_id: string | null;
   archived_at: string | null;
+  // Session 8J — "the headliner" (singular trip-level premise)
+  headliner_description: string | null;
+  headliner_cost_cents: number | null;
+  headliner_cost_unit: 'per_person' | 'total' | null;
+  headliner_link_url: string | null;
+  headliner_image_url: string | null;
+  headliner_source_title: string | null;
+  // Session 8K — sketch-phase activities collapse to a single per-person
+  // estimate (stored as whole dollars × 100 = cents). Nullable = unset.
+  activities_estimate_per_person_cents: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -390,6 +400,17 @@ export interface TripCostSummary {
   confirmed_count: number;
   divisor_used: number;
   divisor_is_estimate: boolean;
+  /**
+   * Session 8J — headliner contribution expressed as per-person dollars.
+   * `per_person` unit adds the value directly; `total` unit divides by
+   * divisor_used. 0 if no headliner is set.
+   */
+  headliner_per_person: number;
+  /**
+   * Session 8K — activities contribution expressed as per-person dollars.
+   * Sourced from the single trip-level estimate column. 0 if unset.
+   */
+  activities_per_person: number;
 }
 
 export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
@@ -418,20 +439,41 @@ export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
 
   const sharedTransport = trip.transport.filter(t => t.cost_type === 'shared').reduce((s, t) => s + (t.estimated_total || 0), 0);
   const sharedRestaurants = trip.restaurants.filter(r => r.cost_type === 'shared').reduce((s, r) => s + (r.cost_per_person || 0) * divisor_used, 0);
-  const sharedActivities = trip.activities.filter(a => a.cost_type === 'shared').reduce((s, a) => s + (a.estimated_cost || 0) * divisor_used, 0);
+  // Session 8K — activities line-items no longer aggregate into the
+  // sketch cost summary. The trip-level `activities_estimate_per_person_cents`
+  // column is the source of truth. The activities table is retained for
+  // future sell/lock work (not read here).
   const sharedGroceries = (trip.groceries || [])
     .filter(g => g.cost_type === 'shared')
     .reduce((s, g) => s + (g.estimated_total || 0), 0);
-  const shared_total = lodgingCost + sharedTransport + sharedRestaurants + sharedActivities + sharedGroceries;
+  const shared_total = lodgingCost + sharedTransport + sharedRestaurants + sharedGroceries;
 
   const flights = trip.flights.reduce((s, f) => s + (f.estimated_price || 0), 0);
-  const indActivities = trip.activities.filter(a => a.cost_type === 'individual').reduce((s, a) => s + (a.estimated_cost || 0), 0);
   const indRestaurants = trip.restaurants.filter(r => r.cost_type === 'individual').reduce((s, r) => s + (r.cost_per_person || 0), 0);
   const indTransport = trip.transport.filter(t => t.cost_type === 'individual').reduce((s, t) => s + (t.estimated_total || 0), 0);
-  const individual_total = flights + indActivities + indRestaurants + indTransport;
+  const individual_total = flights + indRestaurants + indTransport;
 
   const per_person_shared = Math.round(shared_total / divisor_used);
-  const per_person_total = per_person_shared + individual_total;
+
+  // Session 8J — headliner contribution. `per_person` unit adds
+  // directly, `total` unit divides by divisor_used. Stored in cents,
+  // surfaced as whole dollars.
+  let headliner_per_person = 0;
+  if (trip.headliner_description && trip.headliner_cost_cents != null) {
+    const dollars = trip.headliner_cost_cents / 100;
+    headliner_per_person = trip.headliner_cost_unit === 'total'
+      ? Math.round(dollars / divisor_used)
+      : Math.round(dollars);
+  }
+
+  // Session 8K — activities estimate is already per-person, add directly.
+  const activities_per_person =
+    trip.activities_estimate_per_person_cents != null
+      ? Math.round(trip.activities_estimate_per_person_cents / 100)
+      : 0;
+
+  const per_person_total =
+    per_person_shared + individual_total + headliner_per_person + activities_per_person;
 
   return {
     shared_total,
@@ -441,6 +483,8 @@ export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
     confirmed_count: confirmed,
     divisor_used,
     divisor_is_estimate,
+    headliner_per_person,
+    activities_per_person,
   };
 }
 

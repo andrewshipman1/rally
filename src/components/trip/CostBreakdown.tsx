@@ -16,8 +16,18 @@ export function CostBreakdown({
   dateStr: string;
   themeId: ThemeId;
 }) {
-  // Build breakdown line items from typed components
-  const items: { label: string; val: number; icon: string }[] = [];
+  // Build breakdown line items from typed components.
+  // Session 8J: headliner renders first with accent emphasis when present.
+  const items: { label: string; val: number; icon: string; emphasize?: boolean }[] = [];
+
+  if (cost.headliner_per_person > 0 && trip.headliner_description) {
+    items.push({
+      label: `the headliner · ${trip.headliner_description}`,
+      val: cost.headliner_per_person,
+      icon: '★',
+      emphasize: true,
+    });
+  }
 
   const selectedLodging = trip.lodging.find((l) => l.is_selected) || trip.lodging[0];
   if (selectedLodging) {
@@ -56,16 +66,11 @@ export function CostBreakdown({
   const mealsPerPerson = sharedMeals + indMeals;
   if (mealsPerPerson > 0) items.push({ label: 'Meals', val: Math.round(mealsPerPerson), icon: '🍽️' });
 
-  const sharedActs = trip.activities
-    .filter((a) => a.cost_type === 'shared')
-    .reduce((s, a) => s + (a.estimated_cost || 0), 0);
-  const indActs = trip.activities
-    .filter((a) => a.cost_type === 'individual')
-    .reduce((s, a) => s + (a.estimated_cost || 0), 0);
-  const activitiesPerPerson =
-    Math.round(sharedActs / (cost.divisor_used)) + indActs;
-  if (activitiesPerPerson > 0)
-    items.push({ label: 'Activities', val: activitiesPerPerson, icon: '🤿' });
+  // Session 8K — activities sources from the single trip-level estimate
+  // (already per-person). Legacy activities line-item aggregation retired.
+  if (cost.activities_per_person > 0) {
+    items.push({ label: 'Activities', val: cost.activities_per_person, icon: '🤿' });
+  }
 
   const nightsMatch = dateStr.match(/(\d+)[–-](\d+)/);
   const nights = nightsMatch ? parseInt(nightsMatch[2]) - parseInt(nightsMatch[1]) : 3;
@@ -110,8 +115,23 @@ export function CostBreakdown({
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <span style={{ fontSize: 13 }}>{b.icon}</span>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{b.label}</span>
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: b.emphasize ? 'var(--rally-accent)' : undefined,
+                  }}
+                >
+                  {b.icon}
+                </span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: b.emphasize ? 'var(--rally-accent)' : 'rgba(255,255,255,0.6)',
+                    fontWeight: b.emphasize ? 700 : 400,
+                  }}
+                >
+                  {b.label}
+                </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div
@@ -136,8 +156,8 @@ export function CostBreakdown({
                 <span
                   style={{
                     fontSize: 12,
-                    color: '#fff',
-                    fontWeight: 600,
+                    color: b.emphasize ? 'var(--rally-accent)' : '#fff',
+                    fontWeight: b.emphasize ? 800 : 600,
                     minWidth: 36,
                     textAlign: 'right',
                     fontVariantNumeric: 'tabular-nums',

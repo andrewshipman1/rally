@@ -49,14 +49,26 @@ When complete, the trip page scrolls through these sections top to bottom:
 
 ```
 marquee strip → trip header / hero → countdown
+SLOT: getting here (helper text only at sketch; per-crew estimator at sell+)
+MODULE: the headliner (optional, singular trip-level premise — 8J)
 MODULE: lodging ("the spot")
-MODULE: flights | transportation | activities | groceries
+MODULE: transportation (flight-as-type, multi-leg, per-line cost unit — 8I)
+MODULE: activities (single per-person estimate — 8K)
+MODULE: provisions (single per-person estimate)
 cost summary (aggregates all modules → per-person estimate)
+(sell+ only) per-crew arrival estimator — branches by mode (flight / drive /
+  train / other); flight uses Google Flights deep-link, passport-aware
 MODULE: crew (who's in / holding / out)
 MODULE: buzz (activity feed)
 MODULE: extras (packing list, playlist, rules, album)
 footer + [sticky RSVP bar]
 ```
+
+**Canonical sketch-page design reference:** `rally-sketch-modules-v2-mockup.html`.
+Pre-8I wireframes (`rally-sketch-form-wireframe.html`,
+`rally-phase-4-builder.html`, sketch sections of
+`rally-trip-page-wireframe.html`) are deprecated and must NOT be used for
+module order or shape.
 
 ### Phase System
 
@@ -78,6 +90,36 @@ targets `date_start`.
 - **Copy style:** lowercase default, sentence fragments, verbs over nouns, one
   emoji max per string. Rally never refers to itself on trip pages.
 - **Test in the browser before declaring done.**
+- **Pre-booked costs only in sketch/sell.** Modules capture expenses that get
+  booked ahead of the trip (rental car, train ticket, lodging deposit, prepaid
+  tour). Costs incurred during the trip (gas at the pump, day-of rideshare,
+  restaurant tabs, impulse cocktails) belong to the go phase and will be
+  tracked by a separate mechanism — do not build them into sketch/sell modules.
+- **All costs are estimates, labeled as such.** Every cost input and summary
+  must be framed as "estimated." Never present a number as a commitment or
+  binding total. Use "estimated cost," "rough total," "per-person estimate"
+  style copy — never "cost" or "total" alone.
+- **Single-module discipline.** Each session touches ONE module (plus its
+  data layer + cost-summary wiring, if relevant). NEVER modify trip-level
+  fields (trip name, start/end dates, destination, meetup location,
+  RSVP-by, phase, theme, commit_deadline), the header/hero, the marquee
+  strip, the countdown, the "getting here" slot, the sticky publish bar,
+  or ANY other module unless it is explicitly named in the session's
+  scope. If a fix "feels obvious" while working in an unrelated file —
+  STOP, log it, move on. This rule is what keeps sessions shippable and
+  QA-able.
+
+### Local Environment
+
+Andrew's Rally repo lives at `~/Desktop/claude/rally` on his MacBook Air.
+When walking him through any local command, prefix with `cd ~/Desktop/claude/rally`.
+Standard startup sequence:
+
+```bash
+cd ~/Desktop/claude/rally
+supabase migration up   # only when a new migration has landed
+npm run dev             # http://localhost:3000
+```
 
 ### Single Source of Truth
 

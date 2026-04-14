@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — "the headliner" mockup (8J concept)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1a1a1a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 32px 16px 64px;
+  }
+
+  .doc-header {
+    max-width: 760px;
+    margin: 0 auto 28px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: #ffd84d;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 28px;
+    color: #faf8f5;
+    margin-bottom: 6px;
+  }
+  .doc-sub {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.5;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  /* ── Trip-type picker ── */
+  .picker {
+    max-width: 760px;
+    margin: 0 auto 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .pick-btn {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    font-weight: 700;
+    background: transparent;
+    color: #faf8f5;
+    border: 1.5px solid #555;
+    border-radius: 22px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .pick-btn:hover { border-color: #ffd84d; color: #ffd84d; }
+  .pick-btn.active {
+    background: #ffd84d;
+    color: #1a1a1a;
+    border-color: #ffd84d;
+  }
+
+  /* ── Frame ── */
+  .stage {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .frame {
+    width: 375px;
+    flex-shrink: 0;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    background: var(--bg, #fce4ec);
+    color: #1a1a1a;
+    position: relative;
+  }
+  .frame-label {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #1a1a1a;
+    color: #faf8f5;
+    text-align: center;
+    padding: 9px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .form-surface { padding: 14px 16px 36px; }
+
+  /* ── Marquee ── */
+  .marquee-bar {
+    background: #1a1a1a;
+    color: var(--accent, #ffd84d);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    padding: 6px 0;
+    text-align: center;
+    text-transform: uppercase;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  /* ── Trip header ── */
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0 4px;
+  }
+  .wordmark {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+  }
+  .wordmark .bang { color: var(--hot, #e63946); }
+  .phase-chip {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 10px;
+    background: #1a1a1a;
+    color: #faf8f5;
+    border-radius: 12px;
+    padding: 4px 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .eyebrow {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #777;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .trip-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 30px;
+    line-height: 1.08;
+    margin-bottom: 2px;
+    letter-spacing: -.01em;
+  }
+  .trip-tagline {
+    font-size: 13px;
+    color: #444;
+    font-style: italic;
+    margin-bottom: 10px;
+  }
+
+  /* ── Meta row (dates / where) ── */
+  .meta-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .meta-pill {
+    flex: 1;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 10px;
+    padding: 7px 10px;
+    background: rgba(255,255,255,.25);
+  }
+  .meta-label {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #777;
+    font-weight: 700;
+    margin-bottom: 1px;
+  }
+  .meta-value {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* ── THE HEADLINER ── */
+  .headliner {
+    border: 2.5px solid #1a1a1a;
+    border-radius: 16px;
+    padding: 14px 14px 16px;
+    margin-bottom: 16px;
+    background: var(--headliner-bg, rgba(255,216,77,.25));
+    position: relative;
+    overflow: hidden;
+  }
+  .headliner::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: 14px;
+    right: 14px;
+    height: 4px;
+    background: var(--accent, #ffd84d);
+    border-radius: 0 0 6px 6px;
+  }
+  .headliner-eyebrow {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    font-weight: 900;
+    color: var(--hot, #e63946);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .headliner-eyebrow::after {
+    content: "";
+    flex: 1;
+    height: 1.5px;
+    background: var(--hot, #e63946);
+    opacity: .35;
+  }
+  .headliner-og {
+    position: relative;
+    height: 140px;
+    border-radius: 10px;
+    margin: 0 0 12px;
+    overflow: hidden;
+    border: 1.5px solid #1a1a1a;
+    background-size: cover;
+    background-position: center;
+  }
+  .headliner-og::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,.55) 100%);
+  }
+  .headliner-og-domain {
+    position: absolute;
+    bottom: 8px;
+    left: 10px;
+    z-index: 2;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: rgba(255,255,255,.85);
+    text-transform: lowercase;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .headliner-og-domain::before {
+    content: "↗";
+    font-weight: 900;
+  }
+
+  /* per-variant OG image backgrounds (stand-ins for real OG fetches) */
+  .og-festival {
+    background-image:
+      linear-gradient(135deg, rgba(230,57,70,.7), rgba(255,216,77,.55)),
+      radial-gradient(circle at 80% 30%, rgba(255,255,255,.35), transparent 40%),
+      linear-gradient(180deg, #ff8c42, #e63946);
+  }
+  .og-race {
+    background-image:
+      linear-gradient(135deg, rgba(26,26,26,.75), rgba(214,40,40,.55)),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 8px, transparent 8px 24px),
+      linear-gradient(180deg, #1a1a1a, #d62828);
+  }
+  .og-golf {
+    background-image:
+      linear-gradient(160deg, rgba(74,139,58,.65), rgba(184,134,43,.4)),
+      radial-gradient(circle at 20% 80%, rgba(255,255,255,.25), transparent 40%),
+      linear-gradient(180deg, #6b9a4a, #2d4a1a);
+  }
+  .og-retreat {
+    background-image:
+      linear-gradient(160deg, rgba(212,163,115,.55), rgba(163,123,76,.5)),
+      radial-gradient(circle at 70% 30%, rgba(255,255,255,.3), transparent 45%),
+      linear-gradient(180deg, #c9a77a, #6b4a2b);
+  }
+
+  .headliner-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 20px;
+    line-height: 1.15;
+    margin-bottom: 10px;
+    letter-spacing: -.005em;
+  }
+  .headliner-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .cost-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    background: #1a1a1a;
+    color: #faf8f5;
+    padding: 5px 12px;
+    border-radius: 16px;
+  }
+  .cost-pill .dollar { color: var(--accent, #ffd84d); }
+  .cost-sub {
+    font-size: 11px;
+    font-style: italic;
+    color: #666;
+  }
+  .link-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #1a1a1a;
+    background: rgba(255,255,255,.5);
+    border: 1.5px solid #1a1a1a;
+    border-radius: 14px;
+    padding: 4px 10px;
+    text-decoration: none;
+  }
+  .estimate-note {
+    margin-top: 10px;
+    font-size: 10px;
+    color: #777;
+    font-style: italic;
+  }
+
+  /* ── Null-state headliner CTA (progressive disclosure) ── */
+  .add-headliner {
+    border: 1.5px dashed #999;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: rgba(255,255,255,.08);
+    cursor: pointer;
+  }
+  .add-headliner:hover {
+    border-color: #1a1a1a;
+    background: rgba(255,255,255,.2);
+  }
+  .add-headliner-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .add-headliner-label {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 14px;
+    color: #1a1a1a;
+  }
+  .add-headliner-hint {
+    font-size: 10px;
+    color: #777;
+    font-style: italic;
+  }
+  .add-headliner-plus {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a1a;
+    background: rgba(255,255,255,.4);
+    flex-shrink: 0;
+  }
+
+  /* ── Generic module ── */
+  .module {
+    border: 2px solid #1a1a1a;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,.15);
+  }
+  .module-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .module-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    font-weight: 700;
+    color: #555;
+  }
+  .module-count {
+    font-size: 11px;
+    font-style: italic;
+    color: #888;
+  }
+  .module-empty {
+    font-size: 12px;
+    color: #888;
+    font-style: italic;
+    padding: 4px 0;
+  }
+
+  /* single-estimate field (activities + provisions) */
+  .estimate-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0 2px;
+  }
+  .estimate-label {
+    font-size: 11px;
+    color: #555;
+    font-style: italic;
+  }
+  .estimate-value {
+    font-family: Georgia, serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 18px;
+    margin-left: auto;
+  }
+  .estimate-value .dim { color: #aaa; }
+
+  /* placeholder line items for lodging / transport */
+  .mini-card {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+    background: rgba(255,255,255,.35);
+    border-radius: 10px;
+    margin-bottom: 6px;
+  }
+  .mini-card:last-child { margin-bottom: 0; }
+  .mini-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent, #ffd84d);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .mini-info { flex: 1; min-width: 0; }
+  .mini-name {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mini-cost {
+    font-size: 11px;
+    color: var(--hot, #e63946);
+    font-style: italic;
+  }
+
+  /* ── Cost summary preview ── */
+  .cost-summary {
+    border: 2.5px solid #1a1a1a;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-top: 16px;
+    background: rgba(255,255,255,.3);
+  }
+  .cost-summary-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .cost-summary-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    font-weight: 700;
+    color: #555;
+  }
+  .cost-summary-est {
+    font-size: 9px;
+    font-style: italic;
+    color: #888;
+  }
+  .cost-summary-total {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 28px;
+    line-height: 1;
+    letter-spacing: -.01em;
+  }
+  .cost-summary-total .unit {
+    font-size: 13px;
+    font-weight: 700;
+    color: #777;
+    margin-left: 4px;
+    font-style: italic;
+  }
+  .cost-breakdown {
+    margin-top: 10px;
+    font-size: 11px;
+    color: #666;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .cost-breakdown div {
+    display: flex;
+    justify-content: space-between;
+  }
+  .cost-breakdown .headliner-line {
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+
+  /* ── Footnote below frame ── */
+  .variant-notes {
+    max-width: 760px;
+    margin: 24px auto 0;
+    font-size: 12px;
+    color: #999;
+    line-height: 1.55;
+    text-align: center;
+  }
+  .variant-notes strong { color: #ffd84d; }
+
+  .legend {
+    max-width: 760px;
+    margin: 32px auto 0;
+    padding: 18px 22px;
+    border: 1px solid #333;
+    border-radius: 14px;
+    background: #222;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #bbb;
+  }
+  .legend h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 15px;
+    color: #faf8f5;
+    margin-bottom: 8px;
+  }
+  .legend ul { padding-left: 16px; margin-top: 6px; }
+  .legend code {
+    background: #111;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: #ffd84d;
+    font-size: 11px;
+  }
+
+  /* ── Theme palettes (per trip) ── */
+  .theme-festival {
+    --bg: #fce4ec;
+    --accent: #ffd84d;
+    --hot: #e63946;
+    --headliner-bg: rgba(230,57,70,.12);
+  }
+  .theme-race {
+    --bg: #fff3e0;
+    --accent: #ff6b35;
+    --hot: #d62828;
+    --headliner-bg: rgba(214,40,40,.10);
+  }
+  .theme-golf {
+    --bg: #e6f0e0;
+    --accent: #4a8b3a;
+    --hot: #b8862b;
+    --headliner-bg: rgba(184,134,43,.12);
+  }
+  .theme-retreat {
+    --bg: #f0e8dc;
+    --accent: #d4a373;
+    --hot: #a37b4c;
+    --headliner-bg: rgba(163,123,76,.12);
+  }
+  .theme-beach {
+    --bg: #d7f0f5;
+    --accent: #2ec4b6;
+    --hot: #ff6b6b;
+    --headliner-bg: rgba(46,196,182,.10);
+  }
+
+  .toggle-hide { display: none; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 8j mockup · option c</div>
+  <div class="doc-title">the headliner</div>
+  <div class="doc-sub">
+    an optional trip-level component that surfaces when the trip is centered on a specific pre-bookable premise.
+    toggle trip types below to see how it renders across archetypes — and what the null state looks like.
+  </div>
+</div>
+
+<div class="picker">
+  <button class="pick-btn active" data-variant="festival">festival · coachella</button>
+  <button class="pick-btn" data-variant="race">f1 · miami gp</button>
+  <button class="pick-btn" data-variant="golf">golf · bandon dunes</button>
+  <button class="pick-btn" data-variant="retreat">retreat · ubud yoga</button>
+  <button class="pick-btn" data-variant="beach">destination · tulum (no headliner)</button>
+</div>
+
+<div class="stage">
+
+  <!-- ─────────── FESTIVAL ─────────── -->
+  <div class="frame theme-festival" data-frame="festival">
+    <div class="frame-label">sketch · festival</div>
+    <div class="marquee-bar">★ coachella weekend 2 · palm trees, music, mayhem ★ coachella weekend 2 ★</div>
+    <div class="form-surface">
+      <div class="header-row">
+        <div class="wordmark">rally<span class="bang">!</span></div>
+        <span class="phase-chip">sketch</span>
+      </div>
+      <div class="eyebrow">sketching a trip</div>
+      <div class="trip-title">coachella w2</div>
+      <div class="trip-tagline">palm trees, music, and questionable decisions</div>
+
+      <div class="meta-row">
+        <div class="meta-pill">
+          <div class="meta-label">when</div>
+          <div class="meta-value">apr 17–19 '26</div>
+        </div>
+        <div class="meta-pill">
+          <div class="meta-label">where</div>
+          <div class="meta-value">indio, ca</div>
+        </div>
+      </div>
+
+      <!-- THE HEADLINER -->
+      <div class="headliner">
+        <div class="headliner-eyebrow">the headliner</div>
+        <div class="headliner-og og-festival">
+          <div class="headliner-og-domain">coachella.com</div>
+        </div>
+        <div class="headliner-title">coachella weekend 2 · 3-day pass</div>
+        <div class="headliner-row">
+          <span class="cost-pill"><span class="dollar">$</span>619</span>
+          <span class="cost-sub">/ person · rough estimate</span>
+        </div>
+        <div class="estimate-note">pulled from coachella.com · edit anytime.</div>
+      </div>
+
+      <!-- lodging (truncated for context) -->
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">the spot</div>
+          <div class="module-count">2 options · ⌄</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🏠</div>
+          <div class="mini-info">
+            <div class="mini-name">desert modern 4br</div>
+            <div class="mini-cost">~$2,800 total · $350/pp</div>
+          </div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🏨</div>
+          <div class="mini-info">
+            <div class="mini-name">ace hotel palm springs</div>
+            <div class="mini-cost">~$3,400 total · $425/pp</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- transportation -->
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">transportation</div>
+          <div class="module-count">1 item · ⌄</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🚐</div>
+          <div class="mini-info">
+            <div class="mini-name">group van rental</div>
+            <div class="mini-cost">~$480 total · $60/pp</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- activities (SIMPLIFIED — single estimate) -->
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">other activities</div>
+          <div class="module-count">estimate</div>
+        </div>
+        <div class="estimate-field">
+          <div class="estimate-label">rough per-person budget for everything else</div>
+          <div class="estimate-value">$120<span class="dim">/pp</span></div>
+        </div>
+      </div>
+
+      <!-- provisions -->
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">food + drink</div>
+          <div class="module-count">estimate</div>
+        </div>
+        <div class="estimate-field">
+          <div class="estimate-label">groceries + restaurants</div>
+          <div class="estimate-value">$180<span class="dim">/pp</span></div>
+        </div>
+      </div>
+
+      <!-- cost summary -->
+      <div class="cost-summary">
+        <div class="cost-summary-top">
+          <div class="cost-summary-label">rough total</div>
+          <div class="cost-summary-est">estimates only · not bookings</div>
+        </div>
+        <div class="cost-summary-total">~$1,329<span class="unit">/person</span></div>
+        <div class="cost-breakdown">
+          <div class="headliner-line"><span>🎟 coachella pass</span><span>$619</span></div>
+          <div><span>the spot (avg)</span><span>$388</span></div>
+          <div><span>transportation</span><span>$60</span></div>
+          <div><span>other activities</span><span>$120</span></div>
+          <div><span>food + drink</span><span>$180</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── RACE ─────────── -->
+  <div class="frame theme-race toggle-hide" data-frame="race">
+    <div class="frame-label">sketch · f1 weekend</div>
+    <div class="marquee-bar">★ miami gp '26 · engines + ocean drive ★ miami gp '26 ★</div>
+    <div class="form-surface">
+      <div class="header-row">
+        <div class="wordmark">rally<span class="bang">!</span></div>
+        <span class="phase-chip">sketch</span>
+      </div>
+      <div class="eyebrow">sketching a trip</div>
+      <div class="trip-title">miami gp '26</div>
+      <div class="trip-tagline">engines, ocean drive, and a little sunburn</div>
+
+      <div class="meta-row">
+        <div class="meta-pill">
+          <div class="meta-label">when</div>
+          <div class="meta-value">may 1–3 '26</div>
+        </div>
+        <div class="meta-pill">
+          <div class="meta-label">where</div>
+          <div class="meta-value">miami gardens, fl</div>
+        </div>
+      </div>
+
+      <div class="headliner">
+        <div class="headliner-eyebrow">the headliner</div>
+        <div class="headliner-og og-race">
+          <div class="headliner-og-domain">f1.com/miami</div>
+        </div>
+        <div class="headliner-title">miami grand prix · 3-day paddock club</div>
+        <div class="headliner-row">
+          <span class="cost-pill"><span class="dollar">$</span>1,850</span>
+          <span class="cost-sub">/ person · rough estimate</span>
+        </div>
+        <div class="estimate-note">pulled from f1.com · edit anytime.</div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">the spot</div>
+          <div class="module-count">1 option · ⌄</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🏨</div>
+          <div class="mini-info">
+            <div class="mini-name">the setai miami beach</div>
+            <div class="mini-cost">~$6,200 total · $1,240/pp</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">transportation</div>
+          <div class="module-count">1 item · ⌄</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🚐</div>
+          <div class="mini-info">
+            <div class="mini-name">chauffeured suv to paddock</div>
+            <div class="mini-cost">~$900 total · $180/pp</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">other activities</div>
+          <div class="module-count">estimate</div>
+        </div>
+        <div class="estimate-field">
+          <div class="estimate-label">south beach + club nights</div>
+          <div class="estimate-value">$350<span class="dim">/pp</span></div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">food + drink</div>
+          <div class="module-count">estimate</div>
+        </div>
+        <div class="estimate-field">
+          <div class="estimate-label">groceries + restaurants</div>
+          <div class="estimate-value">$450<span class="dim">/pp</span></div>
+        </div>
+      </div>
+
+      <div class="cost-summary">
+        <div class="cost-summary-top">
+          <div class="cost-summary-label">rough total</div>
+          <div class="cost-summary-est">estimates only · not bookings</div>
+        </div>
+        <div class="cost-summary-total">~$4,070<span class="unit">/person</span></div>
+        <div class="cost-breakdown">
+          <div class="headliner-line"><span>🏁 paddock club pass</span><span>$1,850</span></div>
+          <div><span>the spot</span><span>$1,240</span></div>
+          <div><span>transportation</span><span>$180</span></div>
+          <div><span>other activities</span><span>$350</span></div>
+          <div><span>food + drink</span><span>$450</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── GOLF ─────────── -->
+  <div class="frame theme-golf toggle-hide" data-frame="golf">
+    <div class="frame-label">sketch · golf trip</div>
+    <div class="marquee-bar">★ bandon '26 · links and longnecks ★ bandon '26 ★</div>
+    <div class="form-surface">
+      <div class="header-row">
+        <div class="wordmark">rally<span class="bang">!</span></div>
+        <span class="phase-chip">sketch</span>
+      </div>
+      <div class="eyebrow">sketching a trip</div>
+      <div class="trip-title">bandon '26</div>
+      <div class="trip-tagline">links, longnecks, and maybe some rain gear</div>
+
+      <div class="meta-row">
+        <div class="meta-pill">
+          <div class="meta-label">when</div>
+          <div class="meta-value">jun 7–11 '26</div>
+        </div>
+        <div class="meta-pill">
+          <div class="meta-label">where</div>
+          <div class="meta-value">bandon, or</div>
+        </div>
+      </div>
+
+      <div class="headliner">
+        <div class="headliner-eyebrow">the headliner</div>
+        <div class="headliner-og og-golf">
+          <div class="headliner-og-domain">bandondunesgolf.com</div>
+        </div>
+        <div class="headliner-title">4 rounds at bandon dunes resort</div>
+        <div class="headliner-row">
+          <span class="cost-pill"><span class="dollar">$</span>1,280</span>
+          <span class="cost-sub">/ person · rough estimate</span>
+        </div>
+        <div class="estimate-note">pulled from bandondunesgolf.com · edit anytime.</div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">the spot</div>
+          <div class="module-count">1 option · ⌄</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🏡</div>
+          <div class="mini-info">
+            <div class="mini-name">lily pond cottages</div>
+            <div class="mini-cost">~$3,200 total · $800/pp</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">transportation</div>
+          <div class="module-count">1 item · ⌄</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🚙</div>
+          <div class="mini-info">
+            <div class="mini-name">suv rental from pdx</div>
+            <div class="mini-cost">~$520 total · $130/pp</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">other activities</div>
+          <div class="module-count">estimate</div>
+        </div>
+        <div class="estimate-field">
+          <div class="estimate-label">driving range + caddies + side bets</div>
+          <div class="estimate-value">$220<span class="dim">/pp</span></div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">food + drink</div>
+          <div class="module-count">estimate</div>
+        </div>
+        <div class="estimate-field">
+          <div class="estimate-label">groceries + restaurants</div>
+          <div class="estimate-value">$300<span class="dim">/pp</span></div>
+        </div>
+      </div>
+
+      <div class="cost-summary">
+        <div class="cost-summary-top">
+          <div class="cost-summary-label">rough total</div>
+          <div class="cost-summary-est">estimates only · not bookings</div>
+        </div>
+        <div class="cost-summary-total">~$2,730<span class="unit">/person</span></div>
+        <div class="cost-breakdown">
+          <div class="headliner-line"><span>⛳️ 4 rounds bandon</span><span>$1,280</span></div>
+          <div><span>the spot</span><span>$800</span></div>
+          <div><span>transportation</span><span>$130</span></div>
+          <div><span>other activities</span><span>$220</span></div>
+          <div><span>food + drink</span><span>$300</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── RETREAT ─────────── -->
+  <div class="frame theme-retreat toggle-hide" data-frame="retreat">
+    <div class="frame-label">sketch · retreat</div>
+    <div class="marquee-bar">★ ubud reset · breathwork + no wifi rule ★ ubud reset ★</div>
+    <div class="form-surface">
+      <div class="header-row">
+        <div class="wordmark">rally<span class="bang">!</span></div>
+        <span class="phase-chip">sketch</span>
+      </div>
+      <div class="eyebrow">sketching a trip</div>
+      <div class="trip-title">ubud reset</div>
+      <div class="trip-tagline">breathwork, mats, and a firm no-wifi rule</div>
+
+      <div class="meta-row">
+        <div class="meta-pill">
+          <div class="meta-label">when</div>
+          <div class="meta-value">sep 12–18 '26</div>
+        </div>
+        <div class="meta-pill">
+          <div class="meta-label">where</div>
+          <div class="meta-value">ubud, bali</div>
+        </div>
+      </div>
+
+      <div class="headliner">
+        <div class="headliner-eyebrow">the headliner</div>
+        <div class="headliner-og og-retreat">
+          <div class="headliner-og-domain">comohotels.com</div>
+        </div>
+        <div class="headliner-title">7-day vinyasa intensive · como shambhala estate</div>
+        <div class="headliner-row">
+          <span class="cost-pill"><span class="dollar">$</span>2,400</span>
+          <span class="cost-sub">/ person · rough estimate · incl. lodging</span>
+        </div>
+        <div class="estimate-note">pulled from comohotels.com · retreat bundles lodging.</div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">the spot</div>
+          <div class="module-count">included in headliner</div>
+        </div>
+        <div class="module-empty">lodging bundled with the retreat — nothing to add.</div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">transportation</div>
+          <div class="module-count">1 item · ⌄</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🚐</div>
+          <div class="mini-info">
+            <div class="mini-name">private transfer dps → ubud</div>
+            <div class="mini-cost">~$240 total · $40/pp</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">other activities</div>
+          <div class="module-count">estimate</div>
+        </div>
+        <div class="estimate-field">
+          <div class="estimate-label">temple visits, massages, off-mat stuff</div>
+          <div class="estimate-value">$180<span class="dim">/pp</span></div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">food + drink</div>
+          <div class="module-count">estimate</div>
+        </div>
+        <div class="estimate-field">
+          <div class="estimate-label">most meals included in retreat</div>
+          <div class="estimate-value">$120<span class="dim">/pp</span></div>
+        </div>
+      </div>
+
+      <div class="cost-summary">
+        <div class="cost-summary-top">
+          <div class="cost-summary-label">rough total</div>
+          <div class="cost-summary-est">estimates only · not bookings</div>
+        </div>
+        <div class="cost-summary-total">~$2,740<span class="unit">/person</span></div>
+        <div class="cost-breakdown">
+          <div class="headliner-line"><span>🧘 retreat + lodging</span><span>$2,400</span></div>
+          <div><span>transportation</span><span>$40</span></div>
+          <div><span>other activities</span><span>$180</span></div>
+          <div><span>food + drink</span><span>$120</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── BEACH (NO HEADLINER) ─────────── -->
+  <div class="frame theme-beach toggle-hide" data-frame="beach">
+    <div class="frame-label">sketch · destination (no headliner)</div>
+    <div class="marquee-bar">★ tulum slow week · beach + mezcal + bikes ★ tulum slow week ★</div>
+    <div class="form-surface">
+      <div class="header-row">
+        <div class="wordmark">rally<span class="bang">!</span></div>
+        <span class="phase-chip">sketch</span>
+      </div>
+      <div class="eyebrow">sketching a trip</div>
+      <div class="trip-title">tulum slow week</div>
+      <div class="trip-tagline">beach, mezcal, and a suspicious number of bikes</div>
+
+      <div class="meta-row">
+        <div class="meta-pill">
+          <div class="meta-label">when</div>
+          <div class="meta-value">mar 14–21 '26</div>
+        </div>
+        <div class="meta-pill">
+          <div class="meta-label">where</div>
+          <div class="meta-value">tulum, mx</div>
+        </div>
+      </div>
+
+      <!-- NULL STATE — subtle "+ add the headliner" affordance -->
+      <div class="add-headliner">
+        <div class="add-headliner-left">
+          <div class="add-headliner-label">+ the headliner</div>
+          <div class="add-headliner-hint">for trips with a main event — festival pass, race tickets, tee times, retreat booking.</div>
+        </div>
+        <div class="add-headliner-plus">+</div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">the spot</div>
+          <div class="module-count">3 options · ⌄</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🏖</div>
+          <div class="mini-info">
+            <div class="mini-name">beachfront palapa · casa malca</div>
+            <div class="mini-cost">~$4,200 total · $700/pp</div>
+          </div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🌴</div>
+          <div class="mini-info">
+            <div class="mini-name">jungle villa · azulik</div>
+            <div class="mini-cost">~$5,100 total · $850/pp</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">transportation</div>
+          <div class="module-count">1 item · ⌄</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-icon">🚐</div>
+          <div class="mini-info">
+            <div class="mini-name">cun → tulum group transfer</div>
+            <div class="mini-cost">~$360 total · $60/pp</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">activities</div>
+          <div class="module-count">estimate</div>
+        </div>
+        <div class="estimate-field">
+          <div class="estimate-label">cenote dives, bike rentals, ruins day</div>
+          <div class="estimate-value">$200<span class="dim">/pp</span></div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-head">
+          <div class="module-label">food + drink</div>
+          <div class="module-count">estimate</div>
+        </div>
+        <div class="estimate-field">
+          <div class="estimate-label">groceries + restaurants</div>
+          <div class="estimate-value">$420<span class="dim">/pp</span></div>
+        </div>
+      </div>
+
+      <div class="cost-summary">
+        <div class="cost-summary-top">
+          <div class="cost-summary-label">rough total</div>
+          <div class="cost-summary-est">estimates only · not bookings</div>
+        </div>
+        <div class="cost-summary-total">~$1,455<span class="unit">/person</span></div>
+        <div class="cost-breakdown">
+          <div><span>the spot (avg)</span><span>$775</span></div>
+          <div><span>transportation</span><span>$60</span></div>
+          <div><span>activities</span><span>$200</span></div>
+          <div><span>food + drink</span><span>$420</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="variant-notes" id="note-slot">
+  <strong>coachella weekend 2</strong> · organizer pastes coachella.com url → og image auto-fills the hero, title pre-fills. cost entered manually as $619/pp rough estimate.
+</div>
+
+<div class="legend">
+  <h3>design notes</h3>
+  <ul>
+    <li><strong style="color:#ffd84d">placement:</strong> headliner sits directly under the trip title + meta row. above all cost modules. always the first expense in the cost summary.</li>
+    <li><strong style="color:#ffd84d">null state (see tulum):</strong> a subtle dashed "+ the headliner (optional)" affordance. non-intrusive. doesn't visually compete with modules. organizers ignore it on destination trips.</li>
+    <li><strong style="color:#ffd84d">data shape:</strong> description (req) · estimated cost (req) · per-person vs. total flag (req) · optional link. one headliner per trip max.</li>
+    <li><strong style="color:#ffd84d">retreat edge case:</strong> when the headliner <em>bundles lodging</em> (como, yoga retreats, cruises), the spot module renders as "included in headliner" and skips its own input. worth confirming if this lives in 8j or deferred.</li>
+    <li><strong style="color:#ffd84d">activities module:</strong> simplified to a single per-person estimate field. no more line items in sketch. matches the provisions shape. full activity line-items + voting move to sell/lock (session 11ish).</li>
+    <li><strong style="color:#ffd84d">cost summary:</strong> headliner pulls to the top with its own icon + emphasis. reinforces "this is what the trip is about."</li>
+  </ul>
+</div>
+
+<script>
+  const buttons = document.querySelectorAll('.pick-btn');
+  const frames = document.querySelectorAll('.frame');
+  const noteSlot = document.getElementById('note-slot');
+  const notes = {
+    festival: '<strong>coachella weekend 2</strong> · organizer pastes coachella.com url → og image auto-fills the hero, title pre-fills. cost entered manually as $619/pp rough estimate.',
+    race: '<strong>miami gp</strong> · pasted f1.com url pulls the event hero. $1,850/pp paddock club pass dominates the cost summary.',
+    golf: '<strong>bandon dunes</strong> · bandondunesgolf.com url enriches the tile. 4 rounds at $1,280/pp is the trip\'s whole reason.',
+    retreat: '<strong>ubud reset</strong> · como shambhala url fills the hero. retreat bundles lodging — the spot module collapses to "included in headliner." worth confirming this edge case stays in 8j scope.',
+    beach: '<strong>tulum</strong> · no headliner. just the dashed "+ the headliner" affordance with option-2 copy: "for trips with a main event — festival pass, race tickets, tee times, retreat booking." easy to ignore.'
+  };
+
+  buttons.forEach(b => {
+    b.addEventListener('click', () => {
+      const v = b.dataset.variant;
+      buttons.forEach(x => x.classList.toggle('active', x === b));
+      frames.forEach(f => f.classList.toggle('toggle-hide', f.dataset.frame !== v));
+      noteSlot.innerHTML = notes[v];
+    });
+  });
+</script>
+
+</body>
+</html>

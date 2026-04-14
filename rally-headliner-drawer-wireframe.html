@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — the headliner drawer (8J)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1a1a1a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 32px 16px 64px;
+  }
+
+  .doc-header { max-width: 820px; margin: 0 auto 16px; text-align: center; }
+  .doc-kicker {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .18em;
+    color: #ffd84d; font-weight: 700; margin-bottom: 8px;
+  }
+  .doc-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 28px; color: #faf8f5; margin-bottom: 6px;
+  }
+  .doc-sub { font-size: 13px; color: #888; line-height: 1.5; max-width: 640px; margin: 0 auto; }
+
+  .supersedes {
+    max-width: 820px; margin: 16px auto 32px; padding: 12px 16px;
+    background: rgba(255,216,77,.06); border: 1px solid rgba(255,216,77,.3);
+    border-radius: 8px; font-size: 12px; color: #e8e4de; line-height: 1.6;
+  }
+  .supersedes strong { color: #ffd84d; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 375px));
+    gap: 24px;
+    justify-content: center;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  .frame-wrap { display: flex; flex-direction: column; align-items: center; }
+
+  .frame-label {
+    background: #000; color: #ffd84d; padding: 6px 12px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    font-weight: 700; text-align: center; width: 100%;
+    border-radius: 8px 8px 0 0;
+  }
+  .frame-caption {
+    width: 100%; max-width: 375px; padding: 8px 14px;
+    background: rgba(255,255,255,.04); color: #a8a29a;
+    font-size: 11px; line-height: 1.5;
+    border-radius: 0 0 8px 8px;
+    margin-bottom: 14px;
+  }
+
+  /* ── Phone-ish scaffold that contains the drawer ── */
+  .frame {
+    width: 375px;
+    min-height: 640px;
+    background: #1a1a1a;
+    color: #faf8f5;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,.08);
+    /* page peeking behind drawer */
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --accent: #ffd84d;
+    --muted: #8a8680;
+    --surface: #fff;
+    --border: #1a1a1a;
+  }
+
+  /* Backdrop for drawer */
+  .backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,.5);
+  }
+
+  /* Drawer */
+  .drawer {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 20px 20px 0 0;
+    padding: 12px 18px 24px;
+    max-height: 90%;
+    overflow-y: auto;
+    box-shadow: 0 -20px 40px rgba(0,0,0,.4);
+  }
+  .drawer-handle {
+    width: 40px; height: 4px; background: rgba(26,26,26,.25);
+    border-radius: 2px; margin: 0 auto 14px;
+  }
+  .drawer-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 20px; margin-bottom: 18px;
+  }
+
+  /* Form fields */
+  .field { margin-bottom: 16px; }
+  .field-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--muted); font-weight: 700; margin-bottom: 6px;
+  }
+  .input {
+    width: 100%; padding: 11px 14px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-size: 14px; background: var(--surface);
+    color: var(--ink); font-family: inherit;
+  }
+  .input::placeholder { color: rgba(26,26,26,.35); }
+  .input.focused {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,216,77,.25);
+  }
+  .input.dim { color: var(--muted); background: rgba(26,26,26,.04); }
+
+  /* Enrichment hero preview */
+  .enrich-hero {
+    height: 120px; border-radius: 10px; margin-bottom: 10px;
+    background: linear-gradient(135deg, #d94aa3 0%, #f27d5f 60%, #fcd15c 100%);
+    border: 1.5px solid var(--border);
+    position: relative;
+  }
+  .enrich-hero .dom-chip {
+    position: absolute; left: 10px; bottom: 10px;
+    background: rgba(0,0,0,.75); color: #fff;
+    padding: 3px 8px; border-radius: 999px;
+    font-size: 10px; font-weight: 600;
+  }
+  .enrich-hero.loading {
+    background: repeating-linear-gradient(135deg,
+      rgba(26,26,26,.08) 0 10px,
+      rgba(26,26,26,.02) 10px 20px);
+    animation: shimmer 1.2s linear infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 0 0; }
+    100% { background-position: 28px 0; }
+  }
+
+  .spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(26,26,26,.2);
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text {
+    font-size: 12px; color: var(--muted); margin-top: 4px;
+    display: flex; align-items: center;
+  }
+
+  /* Cost row with unit toggle */
+  .cost-row { display: flex; gap: 10px; }
+  .cost-input { flex: 1; }
+  .unit-toggle {
+    display: flex;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    overflow: hidden; flex-shrink: 0;
+  }
+  .unit-toggle button {
+    padding: 0 12px; background: var(--surface); color: var(--ink);
+    border: none; font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: inherit; white-space: nowrap;
+  }
+  .unit-toggle button.active {
+    background: var(--ink); color: var(--bg);
+  }
+  .unit-toggle button:first-child { border-right: 1.5px solid var(--border); }
+
+  /* Buttons */
+  .drawer-actions {
+    display: flex; flex-direction: column; gap: 10px; margin-top: 18px;
+  }
+  .btn {
+    width: 100%; padding: 14px; border-radius: 12px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    font-family: inherit; border: none;
+  }
+  .btn-primary { background: var(--ink); color: var(--bg); }
+  .btn-primary:disabled { opacity: .35; }
+  .btn-danger {
+    background: transparent; color: #c0392b;
+    border: 1.5px solid rgba(192,57,43,.35);
+  }
+  .btn-danger.confirm { background: #c0392b; color: #fff; border-color: #c0392b; }
+
+  .confirm-bar {
+    margin-top: 10px; padding: 12px;
+    background: rgba(192,57,43,.08);
+    border: 1px solid rgba(192,57,43,.3);
+    border-radius: 10px;
+    font-size: 12px; color: #8a2b22;
+    text-align: center;
+  }
+  .confirm-bar strong { color: #c0392b; }
+
+  .meta-note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  /* Annotations */
+  .annotation {
+    max-width: 1200px; margin: 40px auto 0;
+    background: rgba(255,216,77,.05); border: 1px solid rgba(255,216,77,.25);
+    border-radius: 10px; padding: 24px 28px;
+    font-size: 13px; color: #d8d4cf; line-height: 1.65;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 17px; color: var(--accent); margin-bottom: 10px;
+  }
+  .annotation h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--accent); margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    background: rgba(0,0,0,.4); padding: 1px 6px; border-radius: 4px;
+    font-size: 12px; color: #ffd84d;
+  }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div class="doc-kicker">session 8J · headliner drawer</div>
+  <h1 class="doc-title">the headliner drawer — four states</h1>
+  <p class="doc-sub">
+    Add / enriching / ready / edit. Reference for the <code>BottomDrawer</code>
+    content when tapping "+ the headliner" or tapping a populated headliner.
+    Reuses the 8F BottomDrawer primitive + 8A/8B/8H <code>/api/enrich</code>
+    pattern. Field order, cost unit toggle UI, and remove-with-confirm flow
+    are the non-obvious pieces.
+  </p>
+</header>
+
+<div class="supersedes">
+  <strong>Paired with:</strong>
+  <code>rally-headliner-mockup.html</code> (component variants across themes)
+  and <code>rally-sketch-modules-v2-mockup.html</code> (module order in
+  context). This wireframe focuses ONLY on the drawer internals.
+</div>
+
+<div class="stage">
+
+  <!-- ═══════════ STATE 1 — Add empty ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">state 1 · add · empty</div>
+    <div class="frame">
+      <div class="backdrop"></div>
+      <div class="drawer">
+        <div class="drawer-handle"></div>
+        <div class="drawer-title">the headliner</div>
+
+        <div class="field">
+          <div class="field-label">link</div>
+          <input class="input focused" type="text" placeholder="paste a url" />
+          <div class="meta-note">optional — we'll auto-fill details from the page</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">description</div>
+          <input class="input" type="text" placeholder="what's the headliner?" />
+        </div>
+
+        <div class="field">
+          <div class="field-label">estimated cost</div>
+          <div class="cost-row">
+            <input class="input cost-input" type="text" placeholder="$" inputmode="decimal" />
+            <div class="unit-toggle">
+              <button class="active">/ person</button>
+              <button>/ total</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="btn btn-primary" disabled>save the headliner</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      Drawer opens with focus on <code>link</code> (top). Description + cost
+      empty. Save disabled until description + cost are filled. Unit toggle
+      defaults to <code>/ person</code>.
+    </div>
+  </div>
+
+  <!-- ═══════════ STATE 2 — Enriching ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">state 2 · add · enriching</div>
+    <div class="frame">
+      <div class="backdrop"></div>
+      <div class="drawer">
+        <div class="drawer-handle"></div>
+        <div class="drawer-title">the headliner</div>
+
+        <div class="field">
+          <div class="field-label">link</div>
+          <input class="input" type="text" value="https://www.coachella.com/passes" />
+          <div class="loading-text"><span class="spinner"></span>pulling details…</div>
+        </div>
+
+        <div class="enrich-hero loading">
+          <div class="dom-chip">↗ coachella.com</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">description</div>
+          <input class="input dim" type="text" value="Coachella weekend 1 pass" />
+          <div class="meta-note">auto-filled — tap to edit</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">estimated cost</div>
+          <div class="cost-row">
+            <input class="input cost-input" type="text" placeholder="$" inputmode="decimal" />
+            <div class="unit-toggle">
+              <button class="active">/ person</button>
+              <button>/ total</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="btn btn-primary" disabled>save the headliner</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      URL pasted → <code>/api/enrich</code> fires. Spinner under link field.
+      Hero placeholder shimmers where the OG image will render. Description
+      auto-fills when response lands. Form stays interactive — user can fill
+      cost without waiting.
+    </div>
+  </div>
+
+  <!-- ═══════════ STATE 3 — Ready to save ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">state 3 · add · ready</div>
+    <div class="frame">
+      <div class="backdrop"></div>
+      <div class="drawer">
+        <div class="drawer-handle"></div>
+        <div class="drawer-title">the headliner</div>
+
+        <div class="field">
+          <div class="field-label">link</div>
+          <input class="input" type="text" value="https://www.coachella.com/passes" />
+        </div>
+
+        <div class="enrich-hero">
+          <div class="dom-chip">↗ coachella.com</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">description</div>
+          <input class="input" type="text" value="Coachella weekend 1 pass" />
+        </div>
+
+        <div class="field">
+          <div class="field-label">estimated cost</div>
+          <div class="cost-row">
+            <input class="input cost-input" type="text" value="619" inputmode="decimal" />
+            <div class="unit-toggle">
+              <button class="active">/ person</button>
+              <button>/ total</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="btn btn-primary">save the headliner</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      Enrichment done. Image + description populated. Cost entered. Unit
+      stays <code>/ person</code> (default). Save button active. Tap save →
+      persists 6 columns on <code>trips</code>, drawer closes, populated
+      component renders.
+    </div>
+  </div>
+
+  <!-- ═══════════ STATE 4 — Edit / remove ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">state 4 · edit · with remove</div>
+    <div class="frame">
+      <div class="backdrop"></div>
+      <div class="drawer">
+        <div class="drawer-handle"></div>
+        <div class="drawer-title">edit the headliner</div>
+
+        <div class="field">
+          <div class="field-label">link</div>
+          <input class="input" type="text" value="https://www.coachella.com/passes" />
+        </div>
+
+        <div class="enrich-hero">
+          <div class="dom-chip">↗ coachella.com</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">description</div>
+          <input class="input" type="text" value="Coachella weekend 1 pass" />
+        </div>
+
+        <div class="field">
+          <div class="field-label">estimated cost</div>
+          <div class="cost-row">
+            <input class="input cost-input" type="text" value="619" inputmode="decimal" />
+            <div class="unit-toggle">
+              <button class="active">/ person</button>
+              <button>/ total</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="btn btn-primary">update</button>
+          <button class="btn btn-danger">remove</button>
+        </div>
+
+        <div class="confirm-bar">
+          <strong>remove the headliner?</strong> &nbsp;·&nbsp; tap remove again to confirm
+        </div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      Tapping a populated headliner opens this state — drawer title becomes
+      "edit the headliner," fields prefilled, <code>remove</code> button
+      below <code>update</code>. First tap on remove shows the confirm bar;
+      second tap clears all 6 columns → component returns to null state.
+    </div>
+  </div>
+
+</div>
+
+<div class="annotation">
+  <h3>design notes — drawer behaviors CC needs to get right</h3>
+
+  <h4>field order (unusual)</h4>
+  <ul>
+    <li><strong>Link is first</strong>, not description. Intentional: most
+      users paste a URL and let enrichment fill the rest.</li>
+    <li>Description is editable even after enrichment — auto-fill is a
+      starting point, not a commitment.</li>
+  </ul>
+
+  <h4>enrichment flow</h4>
+  <ul>
+    <li>Fires on paste OR blur of the link field. Debounce ~250ms on paste.</li>
+    <li>Non-blocking: form stays usable during the fetch. User can type in
+      the cost field while enrichment is pending.</li>
+    <li>Shimmer placeholder for the image while loading. Inline "pulling
+      details…" text under the link field.</li>
+    <li>On failure: silent. Description stays empty, user types manually.
+      No error toast.</li>
+    <li>Reuses the lodging enrichment pattern — <code>/api/enrich</code>
+      endpoint, same response shape. DO NOT rebuild.</li>
+  </ul>
+
+  <h4>cost unit toggle</h4>
+  <ul>
+    <li>Segmented control — two options: <code>/ person</code> and
+      <code>/ total</code>.</li>
+    <li>Default: <code>/ person</code> (matches the common cases — tickets,
+      tee times, retreat passes are almost always per-person priced).</li>
+    <li>Stored as <code>headliner_cost_unit</code> enum on the
+      <code>trips</code> row.</li>
+    <li>Affects cost summary math: <code>per_person</code> adds directly,
+      <code>total</code> divides by <code>in_crew_count</code>.</li>
+  </ul>
+
+  <h4>save / update / remove</h4>
+  <ul>
+    <li>Primary CTA copy: "save the headliner" (add) / "update" (edit).</li>
+    <li>Save disabled until description + cost are both present.</li>
+    <li>Remove in edit mode only. Destructive — requires a second tap to
+      confirm (confirm bar appears below the remove button).</li>
+    <li>Remove clears all 6 headliner columns — does NOT delete the trip.</li>
+  </ul>
+
+  <h4>what this wireframe is NOT showing</h4>
+  <ul>
+    <li>Drawer mechanics (drag handle behavior, backdrop dismiss, Esc key,
+      body scroll lock) — those are 8F primitives, already built.</li>
+    <li>Component rendering on the trip page — see
+      <code>rally-sketch-modules-v2-mockup.html</code>.</li>
+    <li>Per-theme accent color variations — same drawer shape across every
+      theme, only accent color changes.</li>
+  </ul>
+</div>
+
+</body>
+</html>

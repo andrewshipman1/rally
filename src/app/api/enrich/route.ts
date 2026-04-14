@@ -82,31 +82,63 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Session 8K — decode HTML entities from OG captures so strings like
+// "Coachella Valley Music &amp; Arts Festival" persist as plain text.
+// Handles named entities, numeric decimal (&#NNN;), and hex (&#xHH;).
+// No heavyweight library — the OG surface only needs the common set.
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+};
+
+function decodeHtmlEntities(input: string): string {
+  return input.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, body: string) => {
+    if (body[0] === '#') {
+      const isHex = body[1] === 'x' || body[1] === 'X';
+      const code = parseInt(isHex ? body.slice(2) : body.slice(1), isHex ? 16 : 10);
+      if (Number.isFinite(code) && code > 0 && code <= 0x10ffff) {
+        try {
+          return String.fromCodePoint(code);
+        } catch {
+          return match;
+        }
+      }
+      return match;
+    }
+    const named = NAMED_ENTITIES[body.toLowerCase()];
+    return named !== undefined ? named : match;
+  });
+}
+
 function extractMeta(html: string, property: string): string | null {
   const ogMatch = html.match(
     new RegExp(`<meta[^>]+property=["']${property}["'][^>]+content=["']([^"']+)["']`, 'i')
   );
-  if (ogMatch) return ogMatch[1];
+  if (ogMatch) return decodeHtmlEntities(ogMatch[1]);
 
   const ogMatch2 = html.match(
     new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']${property}["']`, 'i')
   );
-  if (ogMatch2) return ogMatch2[1];
+  if (ogMatch2) return decodeHtmlEntities(ogMatch2[1]);
 
   const nameMatch = html.match(
     new RegExp(`<meta[^>]+name=["']${property}["'][^>]+content=["']([^"']+)["']`, 'i')
   );
-  if (nameMatch) return nameMatch[1];
+  if (nameMatch) return decodeHtmlEntities(nameMatch[1]);
 
   const nameMatch2 = html.match(
     new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+name=["']${property}["']`, 'i')
   );
-  if (nameMatch2) return nameMatch2[1];
+  if (nameMatch2) return decodeHtmlEntities(nameMatch2[1]);
 
   return null;
 }
 
 function extractTitle(html: string): string | null {
   const match = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  return match ? match[1].trim() : null;
+  return match ? decodeHtmlEntities(match[1].trim()) : null;
 }

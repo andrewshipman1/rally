@@ -11,6 +11,7 @@ import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
 import type { Lodging } from '@/types';
 import { addLodgingOption, updateLodgingOption } from '@/app/actions/sketch-modules';
+import { enrichUrl, type OgData } from '@/lib/enrich-url';
 
 type AccommodationType = 'home_rental' | 'hotel' | 'other';
 
@@ -23,12 +24,6 @@ type Props = {
   onDone: () => void;
   editingSpot?: Lodging | null;
   crewCount?: number;
-};
-
-type OgData = {
-  title: string | null;
-  description: string | null;
-  image: string | null;
 };
 
 function computeNights(dateStart: string | null, dateEnd: string | null): number | null {
@@ -72,29 +67,18 @@ export function LodgingAddForm({ themeId, tripId, slug, dateStart, dateEnd, onDo
     onDone();
   }, [onDone]);
 
-  // Fire enrichment on link paste/change
+  // Fire enrichment on link paste/change. Uses shared enrichUrl helper
+  // (src/lib/enrich-url.ts) — same path the headliner drawer uses.
   const handleLinkChange = useCallback(async (value: string) => {
     setLink(value);
-    // Only enrich if it looks like a URL
-    if (!value.match(/^https?:\/\/.+/)) return;
+    if (!/^https?:\/\/.+/.test(value)) return;
     setEnriching(true);
-    try {
-      const res = await fetch('/api/enrich', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: value }),
-      });
-      const og: OgData = await res.json();
+    const og = await enrichUrl(value);
+    if (og) {
       setOgData(og);
-      // Auto-fill title if empty
-      if (og.title && !title) {
-        setTitle(og.title);
-      }
-    } catch {
-      // Enrichment failed — no-op, organizer fills manually
-    } finally {
-      setEnriching(false);
+      if (og.title && !title) setTitle(og.title);
     }
+    setEnriching(false);
   }, [title]);
 
   const handleSubmit = useCallback(async () => {

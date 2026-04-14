@@ -76,3 +76,150 @@ export async function updateTripSketch(
   revalidatePath(`/trip/${slug}`);
   return { ok: true };
 }
+
+// ─── Session 8J — headliner updates ────────────────────────────────
+// The headliner is stored as six nullable columns on trips (singular
+// per trip). Updates mirror updateTripSketch's auth + phase guard, but
+// write a different whitelist.
+
+export type HeadlinerPatch = {
+  description: string;
+  costCents: number;
+  costUnit: 'per_person' | 'total';
+  linkUrl: string | null;
+  imageUrl: string | null;
+  sourceTitle: string | null;
+};
+
+const HEADLINER_DESCRIPTION_MAX = 80;
+const URL_PATTERN = /^https?:\/\/.+/;
+
+export async function updateHeadliner(
+  tripId: string,
+  slug: string,
+  patch: HeadlinerPatch,
+): Promise<Result> {
+  // Validation — mirror the drawer's client-side rules so the server
+  // is the source of truth.
+  const description = (patch.description ?? '').trim();
+  if (description.length < 1 || description.length > HEADLINER_DESCRIPTION_MAX) {
+    return { ok: false, error: 'invalid-description' };
+  }
+  if (!Number.isInteger(patch.costCents) || patch.costCents <= 0) {
+    return { ok: false, error: 'invalid-cost' };
+  }
+  if (patch.costUnit !== 'per_person' && patch.costUnit !== 'total') {
+    return { ok: false, error: 'invalid-cost-unit' };
+  }
+  if (patch.linkUrl != null && patch.linkUrl !== '' && !URL_PATTERN.test(patch.linkUrl)) {
+    return { ok: false, error: 'invalid-link' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'not-authenticated' };
+
+  const { data: trip, error: fetchError } = await supabase
+    .from('trips')
+    .select('organizer_id, phase')
+    .eq('id', tripId)
+    .single();
+  if (fetchError || !trip) return { ok: false, error: 'trip-not-found' };
+  if (trip.organizer_id !== user.id) return { ok: false, error: 'not-organizer' };
+
+  const { error: updateError } = await supabase
+    .from('trips')
+    .update({
+      headliner_description: description,
+      headliner_cost_cents: patch.costCents,
+      headliner_cost_unit: patch.costUnit,
+      headliner_link_url: patch.linkUrl || null,
+      headliner_image_url: patch.imageUrl || null,
+      headliner_source_title: patch.sourceTitle || null,
+    })
+    .eq('id', tripId);
+  if (updateError) return { ok: false, error: updateError.message };
+
+  revalidatePath(`/trip/${slug}`);
+  return { ok: true };
+}
+
+// ─── Session 8K — activities estimate ─────────────────────────────
+// Sketch-phase activities collapses to a single per-person estimate
+// stored on `trips`. Not phase-gated (matches headliner behavior); the
+// value is sketch-only data but editable in adjacent phases without
+// surprising 403s. Pass `null` to clear.
+
+export async function setActivitiesEstimate(
+  tripId: string,
+  slug: string,
+  dollars: number | null,
+): Promise<Result> {
+  if (dollars != null) {
+    if (!Number.isFinite(dollars) || dollars < 0 || !Number.isInteger(dollars)) {
+      return { ok: false, error: 'invalid-activities-estimate' };
+    }
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'not-authenticated' };
+
+  const { data: trip, error: fetchError } = await supabase
+    .from('trips')
+    .select('organizer_id')
+    .eq('id', tripId)
+    .single();
+  if (fetchError || !trip) return { ok: false, error: 'trip-not-found' };
+  if (trip.organizer_id !== user.id) return { ok: false, error: 'not-organizer' };
+
+  const { error: updateError } = await supabase
+    .from('trips')
+    .update({
+      activities_estimate_per_person_cents: dollars != null ? dollars * 100 : null,
+    })
+    .eq('id', tripId);
+  if (updateError) return { ok: false, error: updateError.message };
+
+  revalidatePath(`/trip/${slug}`);
+  return { ok: true };
+}
+
+export async function removeHeadliner(
+  tripId: string,
+  slug: string,
+): Promise<Result> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'not-authenticated' };
+
+  const { data: trip, error: fetchError } = await supabase
+    .from('trips')
+    .select('organizer_id')
+    .eq('id', tripId)
+    .single();
+  if (fetchError || !trip) return { ok: false, error: 'trip-not-found' };
+  if (trip.organizer_id !== user.id) return { ok: false, error: 'not-organizer' };
+
+  const { error: updateError } = await supabase
+    .from('trips')
+    .update({
+      headliner_description: null,
+      headliner_cost_cents: null,
+      headliner_cost_unit: null,
+      headliner_link_url: null,
+      headliner_image_url: null,
+      headliner_source_title: null,
+    })
+    .eq('id', tripId);
+  if (updateError) return { ok: false, error: updateError.message };
+
+  revalidatePath(`/trip/${slug}`);
+  return { ok: true };
+}

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — sketch modules v2 (8I / 8J / 8K)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1a1a1a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 32px 16px 64px;
+  }
+
+  .doc-header { max-width: 820px; margin: 0 auto 28px; text-align: center; }
+  .doc-kicker {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .18em;
+    color: #ffd84d; font-weight: 700; margin-bottom: 8px;
+  }
+  .doc-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 28px; color: #faf8f5; margin-bottom: 6px;
+  }
+  .doc-sub { font-size: 13px; color: #888; line-height: 1.5; max-width: 640px; margin: 0 auto; }
+
+  .supersedes {
+    max-width: 820px; margin: 16px auto 32px; padding: 12px 16px;
+    background: rgba(255, 80, 80, .08); border: 1px solid rgba(255, 80, 80, .4);
+    border-radius: 8px; font-size: 12px; color: #ffb3b3; line-height: 1.6;
+  }
+  .supersedes strong { color: #ff6b6b; }
+
+  .stage {
+    display: flex; justify-content: center; gap: 32px;
+    flex-wrap: wrap; max-width: 1200px; margin: 0 auto;
+  }
+
+  /* ── Mobile frame ── */
+  .frame {
+    width: 375px; background: var(--bg); color: var(--ink);
+    border-radius: 20px; overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,.5);
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --accent: #ffd84d;
+    --hot: #ff4d4d;
+    --muted: #888;
+    --surface: #fff;
+    --border: #1a1a1a;
+  }
+  .frame-label {
+    background: #000; color: #ffd84d; padding: 6px 12px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    font-weight: 700; text-align: center;
+  }
+
+  /* ── Marquee ── */
+  .marquee {
+    background: var(--accent); color: var(--ink); padding: 6px 0;
+    font-size: 11px; font-weight: 700; text-align: center;
+    letter-spacing: .08em; text-transform: lowercase;
+    border-bottom: 2px solid var(--border);
+  }
+
+  /* ── Header / hero ── */
+  .trip-hero { padding: 20px 16px 18px; border-bottom: 2px solid var(--border); }
+  .trip-eyebrow {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    color: var(--muted); margin-bottom: 4px;
+  }
+  .trip-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 26px; line-height: 1.08; margin-bottom: 6px;
+  }
+  .trip-meta { font-size: 12px; color: var(--muted); }
+
+  /* ── Section wrapper ── */
+  .section {
+    padding: 18px 16px; border-bottom: 1px solid rgba(26,26,26,.12);
+  }
+  .section:last-child { border-bottom: none; }
+  .section-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-size: 11px; text-transform: lowercase; letter-spacing: .12em;
+    font-weight: 700; color: var(--ink);
+  }
+  .section-count {
+    font-size: 11px; color: var(--muted); font-weight: 600;
+  }
+
+  /* ── Getting here slot ── */
+  .getting-here { padding: 14px 16px; background: rgba(26,26,26,.03); border-bottom: 1px solid rgba(26,26,26,.12); }
+  .gh-title {
+    font-size: 11px; text-transform: lowercase; letter-spacing: .12em;
+    font-weight: 700; color: var(--ink); margin-bottom: 6px;
+  }
+  .gh-hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ── Headliner ── */
+  .headliner {
+    background: var(--surface); border: 2.5px solid var(--border); border-radius: 12px;
+    overflow: hidden; margin-bottom: 4px;
+  }
+  .headliner-eyebrow {
+    padding: 10px 14px 0;
+    font-size: 10px; text-transform: lowercase; letter-spacing: .14em;
+    color: var(--muted); font-weight: 700;
+  }
+  .headliner-og {
+    height: 140px; margin: 8px 14px 0;
+    background: linear-gradient(135deg, #d94aa3 0%, #f27d5f 60%, #fcd15c 100%);
+    border: 1.5px solid var(--border); border-radius: 10px;
+    position: relative;
+  }
+  .headliner-og::after {
+    content: ''; position: absolute; inset: auto 0 0 0; height: 55%;
+    background: linear-gradient(to top, rgba(0,0,0,.55), transparent);
+    border-radius: 0 0 9px 9px;
+  }
+  .headliner-og-domain {
+    position: absolute; left: 10px; bottom: 10px; z-index: 2;
+    background: rgba(0,0,0,.75); color: #fff;
+    padding: 3px 8px; border-radius: 999px;
+    font-size: 10px; font-weight: 600;
+  }
+  .headliner-body { padding: 10px 14px 14px; }
+  .headliner-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 20px; line-height: 1.2; margin-bottom: 10px;
+  }
+  .cost-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--border); color: #faf8f5;
+    padding: 6px 12px; border-radius: 999px;
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 13px;
+  }
+  .cost-pill .dollar { color: var(--accent); font-size: 15px; }
+  .estimate-note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+  .add-headliner {
+    margin-bottom: 4px;
+    padding: 18px 14px;
+    background: transparent;
+    border: 2px dashed rgba(26,26,26,.28);
+    border-radius: 12px;
+    text-align: center;
+    cursor: pointer;
+  }
+  .add-headliner-label {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 15px; color: var(--ink); margin-bottom: 4px;
+  }
+  .add-headliner-hint { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  /* ── Cards (lodging, transport) ── */
+  .card {
+    background: var(--surface); border: 2.5px solid var(--border);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .card-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: rgba(26,26,26,.08);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .card-body { flex: 1; min-width: 0; }
+  .card-title {
+    font-size: 13px; font-weight: 700; margin-bottom: 2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .card-meta { font-size: 11px; color: var(--muted); }
+  .card-meta .unit { color: var(--muted); }
+
+  /* ── Add button ── */
+  .add-btn {
+    width: 100%; padding: 12px; background: transparent;
+    border: 2px dashed rgba(26,26,26,.28); border-radius: 10px;
+    font-size: 13px; font-weight: 600; color: var(--ink);
+    cursor: pointer; text-align: center;
+  }
+
+  /* ── Activities / provisions single-estimate ── */
+  .estimate-row {
+    background: var(--surface); border: 2.5px solid var(--border);
+    border-radius: 12px; padding: 14px;
+  }
+  .estimate-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .estimate-value {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 22px;
+  }
+  .estimate-value .dim { color: var(--muted); font-size: 14px; font-weight: 400; font-style: normal; font-family: inherit; margin-left: 4px; }
+  .estimate-hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  /* ── Cost summary ── */
+  .cost-summary {
+    background: var(--border); color: #faf8f5;
+    padding: 18px 16px;
+  }
+  .cs-title {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    font-weight: 700; color: var(--accent); margin-bottom: 10px;
+  }
+  .cs-row {
+    display: flex; justify-content: space-between; padding: 6px 0;
+    font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .cs-row.headliner-row { font-weight: 700; color: var(--accent); }
+  .cs-row:last-of-type { border-bottom: none; }
+  .cs-total {
+    margin-top: 10px; padding-top: 10px; border-top: 1.5px solid rgba(255,255,255,.3);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .cs-total-label { font-size: 11px; color: rgba(255,255,255,.7); }
+  .cs-total-value {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 22px; color: var(--accent);
+  }
+  .cs-caveat { font-size: 10px; color: rgba(255,255,255,.5); margin-top: 6px; font-style: italic; }
+
+  /* ── Annotations ── */
+  .annotation {
+    max-width: 820px; margin: 40px auto 0;
+    background: rgba(255,216,77,.05); border: 1px solid rgba(255,216,77,.25);
+    border-radius: 10px; padding: 20px 24px;
+    font-size: 13px; color: #d8d4cf; line-height: 1.65;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 17px; color: var(--accent); margin-bottom: 10px;
+  }
+  .annotation h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--accent); margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    background: rgba(0,0,0,.4); padding: 1px 6px; border-radius: 4px;
+    font-size: 12px; color: #ffd84d;
+  }
+
+  @media (max-width: 820px) {
+    .stage { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div class="doc-kicker">sessions 8I · 8J · 8K</div>
+  <h1 class="doc-title">sketch modules v2</h1>
+  <p class="doc-sub">
+    The canonical module order and shape for the sketch trip page after
+    8I (transportation rebuild + "getting here" slot) · 8J (the headliner) ·
+    8K (activities simplification). Single source of truth for Claude Code.
+  </p>
+</header>
+
+<div class="supersedes">
+  <strong>⚠ Supersedes prior wireframes.</strong>
+  This mockup is the ONLY authoritative reference for sketch-page module
+  order, shape, and cost-unit behavior. The following files are
+  pre-8I and MUST NOT be used to infer module order, module boundaries,
+  or cost-summary math:
+  <code>rally-sketch-form-wireframe.html</code>,
+  <code>rally-phase-4-builder.html</code>,
+  <code>rally-trip-page-wireframe.html</code> (sketch sections only).
+</div>
+
+<div class="stage">
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- FRAME 1 — POPULATED (Coachella · core single-dest)  -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div>
+    <div class="frame-label">populated · coachella · core case</div>
+    <div class="frame">
+      <div class="marquee">★ send it ★ lock it in by mar 15 ★ crew's watching ★</div>
+
+      <!-- Hero -->
+      <div class="trip-hero">
+        <div class="trip-eyebrow">sketch</div>
+        <div class="trip-title">coachella w1</div>
+        <div class="trip-meta">apr 11 → apr 14 · indio, ca · 6 in crew</div>
+      </div>
+
+      <!-- Getting here slot -->
+      <div class="getting-here">
+        <div class="gh-title">getting here</div>
+        <div class="gh-hint">each crew will pull their own arrival estimate in sell — however they're getting here.</div>
+      </div>
+
+      <!-- Headliner (populated) -->
+      <div class="section">
+        <div class="headliner">
+          <div class="headliner-eyebrow">the headliner</div>
+          <div class="headliner-og">
+            <div class="headliner-og-domain">↗ coachella.com</div>
+          </div>
+          <div class="headliner-body">
+            <div class="headliner-title">Coachella weekend 1 pass</div>
+            <div class="cost-pill"><span class="dollar">$</span>619 / person · rough estimate</div>
+            <div class="estimate-note">pulled from coachella.com · edit anytime</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- The spot (lodging) -->
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">the spot</div>
+          <div class="section-count">1</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🏠</div>
+          <div class="card-body">
+            <div class="card-title">airbnb · la quinta</div>
+            <div class="card-meta">$4,200 / total · 3 nights</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transportation (single group line) -->
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">transportation</div>
+          <div class="section-count">1 · estimate</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🚗</div>
+          <div class="card-body">
+            <div class="card-title">van rental · lax → indio</div>
+            <div class="card-meta">$240 <span class="unit">/ total · rental</span></div>
+          </div>
+        </div>
+        <button class="add-btn">+ add transportation</button>
+      </div>
+
+      <!-- Activities (single estimate) -->
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">activities</div>
+          <div class="section-count">estimate</div>
+        </div>
+        <div class="estimate-row">
+          <div class="estimate-label">rough per-person budget</div>
+          <div class="estimate-value">$150<span class="dim">/ person</span></div>
+          <div class="estimate-hint">rough per-person budget for the stuff you book ahead</div>
+        </div>
+      </div>
+
+      <!-- Provisions -->
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">provisions</div>
+          <div class="section-count">estimate</div>
+        </div>
+        <div class="estimate-row">
+          <div class="estimate-label">groceries / snacks / drinks</div>
+          <div class="estimate-value">$60<span class="dim">/ person</span></div>
+        </div>
+      </div>
+
+      <!-- Cost summary -->
+      <div class="cost-summary">
+        <div class="cs-title">rough total per person</div>
+        <div class="cs-row headliner-row"><span>the headliner · coachella pass</span><span>$619</span></div>
+        <div class="cs-row"><span>the spot · la quinta airbnb (÷6)</span><span>$700</span></div>
+        <div class="cs-row"><span>rental · van to indio (÷6)</span><span>$40</span></div>
+        <div class="cs-row"><span>activities</span><span>$150</span></div>
+        <div class="cs-row"><span>provisions</span><span>$60</span></div>
+        <div class="cs-total">
+          <span class="cs-total-label">sketch estimate</span>
+          <span class="cs-total-value">~$1,569</span>
+        </div>
+        <div class="cs-caveat">excludes arrival — each crew estimates in sell.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- FRAME 2 — NULL STATE (fresh trip)                   -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div>
+    <div class="frame-label">null state · fresh sketch</div>
+    <div class="frame">
+      <div class="marquee">★ send it ★ tap to name ★ set the dates ★ invite the crew ★</div>
+
+      <div class="trip-hero">
+        <div class="trip-eyebrow">sketch</div>
+        <div class="trip-title">a trip in the making</div>
+        <div class="trip-meta">add dates · add crew</div>
+      </div>
+
+      <div class="getting-here">
+        <div class="gh-title">getting here</div>
+        <div class="gh-hint">each crew will pull their own arrival estimate in sell — however they're getting here.</div>
+      </div>
+
+      <div class="section">
+        <div class="add-headliner">
+          <div class="add-headliner-label">+ the headliner</div>
+          <div class="add-headliner-hint">for trips with a main event — festival pass, race tickets, tee times, retreat booking.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">the spot</div>
+          <div class="section-count">0</div>
+        </div>
+        <button class="add-btn">+ add the spot</button>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">transportation</div>
+          <div class="section-count">0</div>
+        </div>
+        <button class="add-btn">+ add transportation</button>
+        <div class="estimate-hint" style="margin-top:8px;">add the stuff you book ahead — rentals, trains, intra-trip flights.</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">activities</div>
+          <div class="section-count">estimate</div>
+        </div>
+        <div class="estimate-row">
+          <div class="estimate-label">rough per-person budget</div>
+          <div class="estimate-value" style="color:var(--muted);">$—<span class="dim">/ person</span></div>
+          <div class="estimate-hint">rough per-person budget for the stuff you book ahead</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">provisions</div>
+          <div class="section-count">estimate</div>
+        </div>
+        <div class="estimate-row">
+          <div class="estimate-label">groceries / snacks / wine</div>
+          <div class="estimate-value" style="color:var(--muted);">$—<span class="dim">/ person</span></div>
+        </div>
+      </div>
+
+      <div class="cost-summary">
+        <div class="cs-title">rough total per person</div>
+        <div class="cs-row" style="opacity:.6;"><span>add modules to see estimate</span><span>—</span></div>
+        <div class="cs-total">
+          <span class="cs-total-label">sketch estimate</span>
+          <span class="cs-total-value">—</span>
+        </div>
+        <div class="cs-caveat">excludes arrival — each crew estimates in sell.</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="annotation">
+  <h3>design notes — what's canonical here</h3>
+
+  <h4>module order (top → bottom)</h4>
+  <ol style="margin-left:18px;">
+    <li>marquee strip</li>
+    <li>trip hero (title · dates · crew count)</li>
+    <li><strong>getting here</strong> (helper text only at sketch — 8I)</li>
+    <li><strong>the headliner</strong> (optional, singular trip-level — 8J)</li>
+    <li>the spot (lodging)</li>
+    <li><strong>transportation</strong> (rebuilt with flight-as-type + multi-leg — 8I)</li>
+    <li><strong>activities</strong> (single per-person estimate, matches provisions — 8K)</li>
+    <li>provisions (single per-person estimate)</li>
+    <li>cost summary</li>
+  </ol>
+
+  <h4>getting here (8I)</h4>
+  <ul>
+    <li>Helper text only at sketch — no input, no card, no drawer, no cost contribution.</li>
+    <li>Copy: <code>"each crew will pull their own arrival estimate in sell — however they're getting here."</code></li>
+    <li>Sell-phase arrival estimator (per-crew, Google Flights deep-link for flyers, different prompts for drivers/train/etc.) is deferred to Session 9+.</li>
+  </ul>
+
+  <h4>transportation (8I)</h4>
+  <ul>
+    <li>One module. Flight is a <code>type_tag</code>, NOT its own module.</li>
+    <li>Each line: <code>description</code>, <code>cost_cents</code>, <code>cost_unit</code> (<code>per_person</code> | <code>total</code>), <code>type_tag</code> (optional), <code>link_url</code> (optional, plain text — no enrichment).</li>
+    <li>Type tags (7): flight · rental · train · van-bus · ferry · charter · other.</li>
+    <li>Default cost_unit: <code>per_person</code> for flight & train; <code>total</code> for rental / charter / van-bus / ferry / other. Organizer can override.</li>
+    <li>Multi-leg handled natively: multiple line items, one per leg.</li>
+    <li><code>flights</code> table is NOT dropped — retained for sell-phase work.</li>
+  </ul>
+
+  <h4>the headliner (8J)</h4>
+  <ul>
+    <li>Optional, singular trip-level component (columns on <code>trips</code>, not a related table).</li>
+    <li>URL paste → <code>/api/enrich</code> → OG image + title auto-fill. Reuse lodging pattern, don't fork.</li>
+    <li>Cost unit toggle (per_person / total) stored on the record.</li>
+    <li>Renders FIRST in cost summary breakdown with visual emphasis.</li>
+    <li>Theme-agnostic component — accent color only variation, no per-theme copy / icons.</li>
+  </ul>
+
+  <h4>activities (8K)</h4>
+  <ul>
+    <li>Single per-person estimate field. No line items, no drawer, no cards.</li>
+    <li>Matches the provisions module shape exactly.</li>
+    <li>Column: <code>activities_estimate_per_person_cents</code> on <code>trips</code>.</li>
+    <li><code>activities</code> table is NOT dropped — retained for sell/lock activity mechanic later.</li>
+  </ul>
+
+  <h4>cost summary math</h4>
+  <ul>
+    <li>Per line: <code>per_person</code> → adds <code>cost_cents</code> directly. <code>total</code> → adds <code>cost_cents / in_crew_count</code>.</li>
+    <li>Headliner line renders first. Transportation lines list individually (not aggregated). Activities + provisions as single per-person figures.</li>
+    <li>All math in one helper (<code>lib/cost-summary.ts</code>). No duplication across components.</li>
+    <li>Caveat line in the summary: <em>"excludes arrival — each crew estimates in sell."</em></li>
+  </ul>
+
+  <h4>multi-leg edge case — capability, not primary shape</h4>
+  <p style="margin-bottom:8px;">
+    The Coachella populated frame above represents the <strong>core single-
+    destination case</strong> (~14 of 17 themes). The transportation module
+    <em>also</em> supports multi-leg trips (Euro Summer shape) via multiple
+    line items with mixed cost units — but this is an edge case the module
+    flexes to handle, not the primary reference shape. Do NOT design the
+    module around multi-leg; design it around the core case and verify it
+    still handles multi-leg as a consequence.
+  </p>
+  <p style="margin-bottom:8px;">
+    Example edge-case transport list (for reference — do NOT mock this in
+    the UI):
+  </p>
+  <ul>
+    <li><code>flight · rome → barcelona · $120 / person</code></li>
+    <li><code>train · barcelona → paris (tgv) · $90 / person</code></li>
+    <li><code>rental · tuscany week · $480 / total</code></li>
+  </ul>
+  <p>
+    Each line contributes to the per-person summary independently based on
+    its unit. Multi-leg lodging ("the spot" across 3 cities) is NOT
+    supported — see multi-leg deferral note in <code>rally-fix-plan-v1.md</code>.
+  </p>
+
+  <h4>what's OUT of scope for 8I / 8J / 8K</h4>
+  <ul>
+    <li>Sell-phase per-crew arrival estimator (Session 9+).</li>
+    <li>Google Flights deep-link or any flight pricing API/integration.</li>
+    <li>Multi-leg lodging (the spot stays singular — see multi-leg deferral note in fix plan).</li>
+    <li>Dates / assignees / "who's on this" on transportation lines.</li>
+    <li>Per-line cost-split UI beyond the per_person/total toggle.</li>
+    <li>URL enrichment on transportation (confirmation pages don't have useful OG data).</li>
+  </ul>
+</div>
+
+</body>
+</html>

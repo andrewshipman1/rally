@@ -22,6 +22,26 @@ export function TripForm({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Session 8L — auto-correct: picking a start after the current end
+  // snaps end to match; picking an end before the current start snaps
+  // start to match. Silent — no toast, no inline error.
+  const handleDateStartChange = (v: string) => {
+    if (v && dateEnd && v > dateEnd) {
+      setDateStart(v);
+      setDateEnd(v);
+    } else {
+      setDateStart(v);
+    }
+  };
+  const handleDateEndChange = (v: string) => {
+    if (v && dateStart && v < dateStart) {
+      setDateStart(v);
+      setDateEnd(v);
+    } else {
+      setDateEnd(v);
+    }
+  };
+
   const create = async () => {
     if (!name.trim()) return;
     setLoading(true);
@@ -164,11 +184,21 @@ export function TripForm({ userId }: { userId: string }) {
         <div style={{ display: 'flex', gap: 12, marginTop: 0 }}>
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>{getCopy('just-because', 'createTrip.startDateLabel')}</label>
-            <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} style={inputStyle} />
+            <input
+              type="date"
+              value={dateStart}
+              onChange={(e) => handleDateStartChange(e.target.value)}
+              style={inputStyle}
+            />
           </div>
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>{getCopy('just-because', 'createTrip.endDateLabel')}</label>
-            <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} style={inputStyle} />
+            <input
+              type="date"
+              value={dateEnd}
+              onChange={(e) => handleDateEndChange(e.target.value)}
+              style={inputStyle}
+            />
           </div>
         </div>
 

@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — the transportation module + drawer (8M)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1a1a1a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 32px 16px 64px;
+  }
+
+  .doc-header { max-width: 820px; margin: 0 auto 16px; text-align: center; }
+  .doc-kicker {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .18em;
+    color: #ffd84d; font-weight: 700; margin-bottom: 8px;
+  }
+  .doc-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 28px; color: #faf8f5; margin-bottom: 6px;
+  }
+  .doc-sub {
+    font-size: 13px; color: #888; line-height: 1.5;
+    max-width: 640px; margin: 0 auto;
+  }
+
+  .supersedes {
+    max-width: 820px; margin: 16px auto 32px; padding: 12px 16px;
+    background: rgba(255,216,77,.06); border: 1px solid rgba(255,216,77,.3);
+    border-radius: 8px; font-size: 12px; color: #e8e4de; line-height: 1.6;
+  }
+  .supersedes strong { color: #ffd84d; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 375px));
+    gap: 24px;
+    justify-content: center;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  .frame-wrap { display: flex; flex-direction: column; align-items: center; }
+
+  .frame-label {
+    background: #000; color: #ffd84d; padding: 6px 12px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    font-weight: 700; text-align: center; width: 100%;
+    border-radius: 8px 8px 0 0;
+  }
+  .frame-caption {
+    width: 100%; max-width: 375px; padding: 8px 14px;
+    background: rgba(255,255,255,.04); color: #a8a29a;
+    font-size: 11px; line-height: 1.5;
+    border-radius: 0 0 8px 8px;
+    margin-bottom: 14px;
+  }
+
+  /* ── Phone scaffold ── */
+  .frame {
+    width: 375px;
+    min-height: 640px;
+    background: #faf8f5;
+    color: #1a1a1a;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,.08);
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --accent: #ffd84d;
+    --muted: #8a8680;
+    --surface: #fff;
+    --border: #1a1a1a;
+  }
+
+  /* Sketch-page-in-context frames */
+  .page-stack { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  .gh-slot {
+    padding: 10px 14px;
+    border-left: 2px solid rgba(26,26,26,.2);
+  }
+  .gh-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .14em;
+    font-weight: 700; color: var(--muted); margin-bottom: 4px;
+  }
+  .gh-hint {
+    font-size: 12px; color: #4a463f; line-height: 1.45;
+  }
+  .gh-hint em {
+    font-style: normal; background: rgba(255,216,77,.35);
+    padding: 0 3px; border-radius: 2px;
+  }
+
+  .section {
+    border: 2.5px solid var(--ink);
+    border-radius: 12px;
+    padding: 14px;
+    background: var(--surface);
+  }
+  .section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 18px;
+  }
+  .section-meta {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--muted); font-weight: 600;
+  }
+  .section-count {
+    background: var(--ink); color: var(--bg);
+    font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    font-weight: 700;
+  }
+
+  /* Compact card — critical shape. Single-line, no hero image. */
+  .card {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1.5px solid rgba(26,26,26,.15);
+    border-radius: 10px;
+    background: #fff;
+    margin-bottom: 6px;
+  }
+  .card-icon {
+    font-size: 18px;
+    text-align: center;
+  }
+  .card-body { min-width: 0; }
+  .card-title {
+    font-size: 13px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .card-meta {
+    font-size: 11px; color: var(--muted); margin-top: 2px;
+  }
+  .card-meta .split {
+    text-transform: lowercase;
+  }
+  .card-link-chip {
+    font-size: 10px; color: var(--muted);
+    padding: 2px 6px; border: 1px solid rgba(26,26,26,.2);
+    border-radius: 6px; white-space: nowrap;
+  }
+
+  .add-btn {
+    width: 100%; padding: 10px;
+    border: 1.5px dashed rgba(26,26,26,.35);
+    border-radius: 10px;
+    background: transparent; color: var(--ink);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    font-family: inherit;
+    margin-top: 4px;
+  }
+
+  .empty-hint {
+    font-size: 12px; color: var(--muted);
+    line-height: 1.45; padding: 2px 4px 8px;
+  }
+
+  /* Scroll-context: fake neighboring modules */
+  .neighbor {
+    padding: 14px;
+    border: 2.5px solid rgba(26,26,26,.12);
+    border-radius: 12px;
+    background: rgba(26,26,26,.02);
+    color: rgba(26,26,26,.35);
+    font-family: Georgia, serif; font-style: italic;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  /* ── Drawer frames ── */
+  .backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,.5);
+  }
+  .drawer {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 20px 20px 0 0;
+    padding: 12px 18px 24px;
+    max-height: 92%;
+    overflow-y: auto;
+    box-shadow: 0 -20px 40px rgba(0,0,0,.4);
+  }
+  .drawer-handle {
+    width: 40px; height: 4px; background: rgba(26,26,26,.25);
+    border-radius: 2px; margin: 0 auto 12px;
+  }
+  .drawer-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 20px; margin-bottom: 6px;
+  }
+  .drawer-framing {
+    font-size: 11px; color: var(--muted); line-height: 1.5;
+    margin-bottom: 16px; padding: 8px 10px;
+    background: rgba(26,26,26,.04);
+    border-left: 2px solid var(--ink);
+    border-radius: 0 6px 6px 0;
+  }
+  .drawer-framing strong { color: var(--ink); }
+
+  /* Form fields */
+  .field { margin-bottom: 14px; }
+  .field-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--muted); font-weight: 700; margin-bottom: 6px;
+  }
+  .field-label .req { color: #c0392b; margin-left: 2px; }
+  .input {
+    width: 100%; padding: 11px 14px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-size: 14px; background: var(--surface);
+    color: var(--ink); font-family: inherit;
+  }
+  .input::placeholder { color: rgba(26,26,26,.35); }
+  .input.focused {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,216,77,.25);
+  }
+  .input.dim { color: var(--muted); background: rgba(26,26,26,.04); }
+
+  /* Tag chips */
+  .chip-group {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .chip {
+    padding: 7px 12px;
+    border: 1.5px solid rgba(26,26,26,.2);
+    background: var(--surface);
+    border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .chip.selected {
+    background: var(--ink); color: var(--bg); border-color: var(--ink);
+  }
+  .tag-definition {
+    margin-top: 8px; padding: 8px 10px;
+    background: rgba(255,216,77,.18);
+    border-radius: 6px;
+    font-size: 11px; color: #4a463f; line-height: 1.5;
+  }
+  .tag-definition strong { color: var(--ink); }
+
+  /* Cost row + split toggle */
+  .cost-row { display: flex; gap: 10px; }
+  .cost-input { flex: 1; }
+  .split-toggle {
+    display: flex;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    overflow: hidden; flex-shrink: 0;
+  }
+  .split-toggle button {
+    padding: 0 12px; background: var(--surface); color: var(--ink);
+    border: none; font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: inherit; white-space: nowrap;
+  }
+  .split-toggle button.active {
+    background: var(--ink); color: var(--bg);
+  }
+  .split-toggle button:first-child { border-right: 1.5px solid var(--border); }
+  .default-hint {
+    font-size: 10px; color: var(--muted); margin-top: 4px;
+  }
+
+  /* Enrichment preview inside the drawer (DRAWER-ONLY per spec) */
+  .enrich-preview {
+    margin-top: 10px;
+    border: 1.5px solid rgba(26,26,26,.15);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .enrich-hero {
+    height: 110px;
+    background: linear-gradient(135deg, #2d7ea8 0%, #4da8c4 50%, #f4e3b2 100%);
+    position: relative;
+  }
+  .enrich-hero.loading {
+    background: repeating-linear-gradient(135deg,
+      rgba(26,26,26,.08) 0 10px,
+      rgba(26,26,26,.02) 10px 20px);
+    animation: shimmer 1.2s linear infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 0 0; }
+    100% { background-position: 28px 0; }
+  }
+  .enrich-hero .dom-chip {
+    position: absolute; left: 10px; bottom: 10px;
+    background: rgba(0,0,0,.75); color: #fff;
+    padding: 3px 8px; border-radius: 999px;
+    font-size: 10px; font-weight: 600;
+  }
+  .enrich-body {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .enrich-title { font-weight: 700; color: var(--ink); }
+  .enrich-hostname { color: var(--muted); font-size: 10px; margin-top: 2px; }
+
+  .spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(26,26,26,.2);
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text {
+    font-size: 11px; color: var(--muted); margin-top: 6px;
+    display: flex; align-items: center;
+  }
+
+  /* Drawer buttons */
+  .drawer-actions {
+    display: flex; flex-direction: column; gap: 10px; margin-top: 18px;
+  }
+  .btn {
+    width: 100%; padding: 14px; border-radius: 12px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    font-family: inherit; border: none;
+  }
+  .btn-primary { background: var(--ink); color: var(--bg); }
+  .btn-primary:disabled { opacity: .35; }
+  .btn-danger {
+    background: transparent; color: #c0392b;
+    border: 1.5px solid rgba(192,57,43,.35);
+  }
+  .meta-note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  /* Annotations */
+  .annotation {
+    max-width: 1200px; margin: 40px auto 0;
+    background: rgba(255,216,77,.05); border: 1px solid rgba(255,216,77,.25);
+    border-radius: 10px; padding: 24px 28px;
+    font-size: 13px; color: #d8d4cf; line-height: 1.65;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 17px; color: #ffd84d; margin-bottom: 10px;
+  }
+  .annotation h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+    color: #ffd84d; margin: 16px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    background: rgba(0,0,0,.4); padding: 1px 6px; border-radius: 4px;
+    font-size: 12px; color: #ffd84d;
+  }
+  .annotation table {
+    width: 100%; border-collapse: collapse; margin: 8px 0 12px;
+    font-size: 12px;
+  }
+  .annotation th, .annotation td {
+    text-align: left; padding: 6px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .annotation th { color: #ffd84d; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div class="doc-kicker">session 8m · transportation wireframe</div>
+  <h1 class="doc-title">the transportation module + drawer</h1>
+  <p class="doc-sub">
+    Replaces the 8I implementation. Canonical reference for module shape,
+    card composition, drawer form, tag definitions, split-toggle behavior,
+    and link enrichment (drawer-only). Pair with
+    <code>rally-sketch-modules-v2-mockup.html</code> for module order
+    context.
+  </p>
+</header>
+
+<div class="supersedes">
+  <strong>Supersedes:</strong>
+  8I's inline implementation in <code>SketchModules.tsx</code>. This
+  wireframe is the contract. Claude Code builds to <em>this</em>, not to
+  memory of what 8I did. When 8I and this wireframe disagree, the
+  wireframe wins.<br /><br />
+  <strong>Non-negotiables baked in:</strong>
+  compact single-line cards (no hero image on card), drawer-only
+  enrichment, 7 tags with sharpened names, required tag picker (chips),
+  split toggle renamed to <code>individual</code> / <code>group split</code>.
+</div>
+
+<div class="stage">
+
+  <!-- ═══════════ FRAME 1 — Module null/empty ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">1 · module · empty</div>
+    <div class="frame">
+      <div class="page-stack">
+        <div class="neighbor">… the spot · lodging module …</div>
+
+        <div class="gh-slot">
+          <div class="gh-title">getting here</div>
+          <div class="gh-hint">
+            each crew will pull their own arrival estimate in sell —
+            however they're getting here.
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title">transportation</div>
+            <div class="section-count">0</div>
+          </div>
+          <div class="empty-hint">
+            add the stuff the crew books together on the trip — rentals,
+            charters, intra-trip flights or trains.
+          </div>
+          <button class="add-btn">+ add transportation</button>
+        </div>
+
+        <div class="neighbor">… activities module …</div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      Empty state. Count badge reads <code>0</code>. Empty-hint framing
+      makes clear this is group-shared, on-trip transport — not the home
+      leg (which is handled by the "getting here" slot above).
+    </div>
+  </div>
+
+  <!-- ═══════════ FRAME 2 — Module with one entry ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">2 · module · one entry</div>
+    <div class="frame">
+      <div class="page-stack">
+        <div class="neighbor">… the spot · lodging module …</div>
+
+        <div class="gh-slot">
+          <div class="gh-title">getting here</div>
+          <div class="gh-hint">
+            each crew will pull their own arrival estimate in sell —
+            however they're getting here.
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title">transportation</div>
+            <div class="section-count">1</div>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">🚐</div>
+            <div class="card-body">
+              <div class="card-title">van rental · lax → indio</div>
+              <div class="card-meta">
+                $240 · <span class="split">group split</span> · rental car/van
+              </div>
+            </div>
+            <div class="card-link-chip">↗</div>
+          </div>
+
+          <button class="add-btn">+ add transportation</button>
+        </div>
+
+        <div class="neighbor">… activities module …</div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      Single card. Compact, single-line. <strong>No hero image on the
+      card</strong> — enrichment stays in the drawer. Link-chip (↗) shows
+      only when a URL is attached.
+    </div>
+  </div>
+
+  <!-- ═══════════ FRAME 3 — Multi-leg ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">3 · module · multi-leg</div>
+    <div class="frame">
+      <div class="page-stack">
+        <div class="neighbor">… the spot · lodging module …</div>
+
+        <div class="gh-slot">
+          <div class="gh-title">getting here</div>
+          <div class="gh-hint">
+            each crew will pull their own arrival estimate in sell —
+            however they're getting here.
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title">transportation</div>
+            <div class="section-count">4</div>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">✈️</div>
+            <div class="card-body">
+              <div class="card-title">rome → barcelona</div>
+              <div class="card-meta">
+                $120 · <span class="split">individual</span> · flight
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">🚆</div>
+            <div class="card-body">
+              <div class="card-title">barcelona → paris (tgv)</div>
+              <div class="card-meta">
+                $90 · <span class="split">individual</span> · train
+              </div>
+            </div>
+            <div class="card-link-chip">↗</div>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">🚗</div>
+            <div class="card-body">
+              <div class="card-title">tuscany week rental</div>
+              <div class="card-meta">
+                $480 · <span class="split">group split</span> · rental car/van
+              </div>
+            </div>
+            <div class="card-link-chip">↗</div>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">⛵</div>
+            <div class="card-body">
+              <div class="card-title">amalfi day charter</div>
+              <div class="card-meta">
+                $800 · <span class="split">group split</span> · charter boat
+              </div>
+            </div>
+            <div class="card-link-chip">↗</div>
+          </div>
+
+          <button class="add-btn">+ add transportation</button>
+        </div>
+
+        <div class="neighbor">… activities module …</div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      Multi-leg stresses the compact card shape. Four lines read cleanly;
+      imagine this with four hero images — it would be a scroll disaster.
+      That's why enrichment is drawer-only.
+    </div>
+  </div>
+
+  <!-- ═══════════ FRAME 4 — Drawer · add · empty ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">4 · drawer · add · empty</div>
+    <div class="frame">
+      <div class="backdrop"></div>
+      <div class="drawer">
+        <div class="drawer-handle"></div>
+        <div class="drawer-title">add transportation</div>
+        <div class="drawer-framing">
+          <strong>for what the crew books together on the trip</strong> —
+          not how you're getting to the meetup. (the home → meetup leg
+          lives under "getting here.")
+        </div>
+
+        <div class="field">
+          <div class="field-label">description <span class="req">*</span></div>
+          <input class="input focused" type="text" placeholder="e.g. rome → barcelona" />
+        </div>
+
+        <div class="field">
+          <div class="field-label">type <span class="req">*</span></div>
+          <div class="chip-group">
+            <button class="chip">✈️ flight</button>
+            <button class="chip">🚆 train</button>
+            <button class="chip">🚗 rental car/van</button>
+            <button class="chip">🚐 charter van/bus</button>
+            <button class="chip">⛵ charter boat</button>
+            <button class="chip">⛴ ferry</button>
+            <button class="chip">· other</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">estimated cost <span class="req">*</span></div>
+          <div class="cost-row">
+            <input class="input cost-input dim" type="text" placeholder="$" inputmode="decimal" />
+            <div class="split-toggle">
+              <button>individual</button>
+              <button>group split</button>
+            </div>
+          </div>
+          <div class="default-hint">
+            split fills in once you pick a type. you can override it.
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">link</div>
+          <input class="input" type="text" placeholder="paste a url (optional)" />
+          <div class="meta-note">
+            optional — we'll pull a preview in here. doesn't render on
+            the card.
+          </div>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="btn btn-primary" disabled>save</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      Empty add state. Description is focused. Type chips are un-selected,
+      so the split toggle is un-toggled and the save button is disabled.
+      Framing line above fields pins the boundary to "getting here."
+    </div>
+  </div>
+
+  <!-- ═══════════ FRAME 5 — Drawer · type selected ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">5 · drawer · type selected</div>
+    <div class="frame">
+      <div class="backdrop"></div>
+      <div class="drawer">
+        <div class="drawer-handle"></div>
+        <div class="drawer-title">add transportation</div>
+        <div class="drawer-framing">
+          <strong>for what the crew books together on the trip</strong> —
+          not how you're getting to the meetup. (the home → meetup leg
+          lives under "getting here.")
+        </div>
+
+        <div class="field">
+          <div class="field-label">description <span class="req">*</span></div>
+          <input class="input" type="text" value="tuscany week rental" />
+        </div>
+
+        <div class="field">
+          <div class="field-label">type <span class="req">*</span></div>
+          <div class="chip-group">
+            <button class="chip">✈️ flight</button>
+            <button class="chip">🚆 train</button>
+            <button class="chip selected">🚗 rental car/van</button>
+            <button class="chip">🚐 charter van/bus</button>
+            <button class="chip">⛵ charter boat</button>
+            <button class="chip">⛴ ferry</button>
+            <button class="chip">· other</button>
+          </div>
+          <div class="tag-definition">
+            <strong>rental car/van</strong> — car, suv, van, or rv the
+            crew drives on the trip.
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">estimated cost <span class="req">*</span></div>
+          <div class="cost-row">
+            <input class="input cost-input" type="text" value="$480" inputmode="decimal" />
+            <div class="split-toggle">
+              <button>individual</button>
+              <button class="active">group split</button>
+            </div>
+          </div>
+          <div class="default-hint">
+            default for rental car/van — tap to override.
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">link</div>
+          <input class="input" type="text" placeholder="paste a url (optional)" />
+          <div class="meta-note">
+            optional — we'll pull a preview in here. doesn't render on
+            the card.
+          </div>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="btn btn-primary">save</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      Type selected → definition appears beneath the chip row → split
+      toggle snaps to the tag's default (<code>group split</code> for
+      rental car/van) → save enables. Changing the chip updates the
+      definition AND the default split (unless organizer has already
+      manually overridden it).
+    </div>
+  </div>
+
+  <!-- ═══════════ FRAME 6 — Drawer · link enriched ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">6 · drawer · link enriched</div>
+    <div class="frame">
+      <div class="backdrop"></div>
+      <div class="drawer">
+        <div class="drawer-handle"></div>
+        <div class="drawer-title">add transportation</div>
+        <div class="drawer-framing">
+          <strong>for what the crew books together on the trip</strong> —
+          not how you're getting to the meetup.
+        </div>
+
+        <div class="field">
+          <div class="field-label">description <span class="req">*</span></div>
+          <input class="input" type="text" value="amalfi day charter" />
+        </div>
+
+        <div class="field">
+          <div class="field-label">type <span class="req">*</span></div>
+          <div class="chip-group">
+            <button class="chip">✈️ flight</button>
+            <button class="chip">🚆 train</button>
+            <button class="chip">🚗 rental car/van</button>
+            <button class="chip">🚐 charter van/bus</button>
+            <button class="chip selected">⛵ charter boat</button>
+            <button class="chip">⛴ ferry</button>
+            <button class="chip">· other</button>
+          </div>
+          <div class="tag-definition">
+            <strong>charter boat</strong> — boat, yacht, or fishing
+            charter the crew takes together.
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">estimated cost <span class="req">*</span></div>
+          <div class="cost-row">
+            <input class="input cost-input" type="text" value="$800" inputmode="decimal" />
+            <div class="split-toggle">
+              <button>individual</button>
+              <button class="active">group split</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">link</div>
+          <input class="input" type="text" value="amalficharters.com/day-trips/positano" />
+          <div class="enrich-preview">
+            <div class="enrich-hero">
+              <div class="dom-chip">amalficharters.com</div>
+            </div>
+            <div class="enrich-body">
+              <div class="enrich-title">Amalfi Coast Private Day Charter — Positano</div>
+              <div class="enrich-hostname">amalficharters.com</div>
+            </div>
+          </div>
+          <div class="meta-note">
+            this preview is drawer-only — the card stays compact.
+          </div>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="btn btn-primary">save</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      Link pasted → enrichment runs → preview renders inside the drawer.
+      "Is it a cool boat?" moment lives here. If OG scrape returns
+      nothing useful, the preview block is hidden entirely (no empty
+      card, no broken image). Loading state: <code>.enrich-hero.loading</code>
+      shimmer with "fetching preview…" text.
+    </div>
+  </div>
+
+  <!-- ═══════════ FRAME 7 — Drawer · edit + remove ═══════════ -->
+  <div class="frame-wrap">
+    <div class="frame-label">7 · drawer · edit</div>
+    <div class="frame">
+      <div class="backdrop"></div>
+      <div class="drawer">
+        <div class="drawer-handle"></div>
+        <div class="drawer-title">edit transportation</div>
+        <div class="drawer-framing">
+          <strong>for what the crew books together on the trip</strong> —
+          not how you're getting to the meetup.
+        </div>
+
+        <div class="field">
+          <div class="field-label">description <span class="req">*</span></div>
+          <input class="input" type="text" value="van rental · lax → indio" />
+        </div>
+
+        <div class="field">
+          <div class="field-label">type <span class="req">*</span></div>
+          <div class="chip-group">
+            <button class="chip">✈️ flight</button>
+            <button class="chip">🚆 train</button>
+            <button class="chip selected">🚗 rental car/van</button>
+            <button class="chip">🚐 charter van/bus</button>
+            <button class="chip">⛵ charter boat</button>
+            <button class="chip">⛴ ferry</button>
+            <button class="chip">· other</button>
+          </div>
+          <div class="tag-definition">
+            <strong>rental car/van</strong> — car, suv, van, or rv the
+            crew drives on the trip.
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">estimated cost <span class="req">*</span></div>
+          <div class="cost-row">
+            <input class="input cost-input" type="text" value="$240" inputmode="decimal" />
+            <div class="split-toggle">
+              <button>individual</button>
+              <button class="active">group split</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">link</div>
+          <input class="input" type="text" value="turo.com/us/en/suv-rental/…" />
+          <div class="meta-note">
+            (no preview available from this page — saved as plain link.)
+          </div>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="btn btn-primary">save changes</button>
+          <button class="btn btn-danger">remove</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-caption">
+      Edit mode — existing entry opens with values prefilled. Remove
+      affordance available at the bottom (confirm-inline pattern follows
+      the headliner drawer). Title reads "edit transportation" instead of
+      "add."
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════ ANNOTATIONS ═══════════ -->
+<div class="annotation">
+  <h3>design rules baked into this wireframe</h3>
+
+  <h4>tag list (7, final)</h4>
+  <table>
+    <tr>
+      <th>tag</th>
+      <th>definition shown in drawer</th>
+      <th>default split</th>
+    </tr>
+    <tr>
+      <td><code>flight</code></td>
+      <td>intra-trip flight — rome → barcelona, small charter. not your flight to the meetup.</td>
+      <td>individual</td>
+    </tr>
+    <tr>
+      <td><code>train</code></td>
+      <td>intra-trip train ticket — amtrak, tgv. not your train in.</td>
+      <td>individual</td>
+    </tr>
+    <tr>
+      <td><code>rental car/van</code></td>
+      <td>car, suv, van, or rv the crew drives on the trip.</td>
+      <td>group split</td>
+    </tr>
+    <tr>
+      <td><code>charter van/bus</code></td>
+      <td>hired van, shuttle, or bus the crew rides together.</td>
+      <td>group split</td>
+    </tr>
+    <tr>
+      <td><code>charter boat</code></td>
+      <td>boat, yacht, or fishing charter the crew takes together.</td>
+      <td>group split</td>
+    </tr>
+    <tr>
+      <td><code>ferry</code></td>
+      <td>scheduled ferry crossing during the trip.</td>
+      <td>individual <em>(override to group split if driving on)</em></td>
+    </tr>
+    <tr>
+      <td><code>other</code></td>
+      <td>anything else pre-booked. pick the split that fits.</td>
+      <td>group split</td>
+    </tr>
+  </table>
+
+  <h4>form contract</h4>
+  <ul>
+    <li><strong>description</strong> — required, free text. No character limit (soft UI truncation with ellipsis on the card).</li>
+    <li><strong>type</strong> — required, chip picker. Exactly one selected. No multi-select, no blank.</li>
+    <li><strong>estimated cost</strong> — required, integer USD. <code>$</code> prefix is decoration only.</li>
+    <li><strong>split</strong> — required, toggle. Default set by tag; freely overridable. Once organizer overrides, <em>don't</em> auto-reset on tag change.</li>
+    <li><strong>link</strong> — optional, free text. Enrichment runs on paste/blur via existing <code>/api/enrich</code>. Preview is drawer-only. If enrichment returns nothing, preview block is hidden.</li>
+  </ul>
+
+  <h4>card contract</h4>
+  <ul>
+    <li>Grid: <code>28px icon · 1fr body · auto link-chip</code>. Single line.</li>
+    <li>Title = description. Meta = <code>$X · {split} · {tag name}</code>.</li>
+    <li>No hero image. No description preview. No enrichment thumbnail.</li>
+    <li>Link chip (<code>↗</code>) renders only when a URL is present.</li>
+    <li>Tap card → opens drawer in edit mode.</li>
+  </ul>
+
+  <h4>drawer framing (copy contract)</h4>
+  <ul>
+    <li>Always-visible line above fields: <em>"for what the crew books together on the trip — not how you're getting to the meetup. (the home → meetup leg lives under 'getting here.')"</em></li>
+    <li>Empty-state hint in collapsed section: <em>"add the stuff the crew books together on the trip — rentals, charters, intra-trip flights or trains."</em></li>
+    <li>All strings via <code>getCopy</code>. Register new keys in <code>rally-microcopy-lexicon-v0.md</code> §5.29 (transportation).</li>
+  </ul>
+
+  <h4>split semantics (cost summary)</h4>
+  <ul>
+    <li><code>individual</code> → contributes <code>cost</code> directly to per-person total.</li>
+    <li><code>group split</code> → contributes <code>cost / in_crew_count</code> to per-person total.</li>
+    <li>Sketch does <strong>not</strong> model "which subset of the crew is in on this line." That's a sell/go problem. Current behavior: everyone in-crew is assumed to split.</li>
+  </ul>
+
+  <h4>what this wireframe does NOT mock</h4>
+  <ul>
+    <li>Loading state of the enrichment preview — implement with the existing <code>.loading</code> shimmer pattern from the headliner drawer.</li>
+    <li>Remove-with-confirm flow — reuse the headliner drawer's confirm-bar pattern (red-tint inline confirmation on tap).</li>
+    <li>The "getting here" slot beyond its helper text. That slot is already shipped in 8I and untouched here.</li>
+    <li>Cost summary surface. 8M wires the math; rendering lives elsewhere and is not this wireframe's concern.</li>
+  </ul>
+
+  <h4>explicit non-goals for 8M (same as 8I + additions)</h4>
+  <ul>
+    <li>No hero image on the card.</li>
+    <li>No "who's on this" / subset split UI.</li>
+    <li>No dates or assignees on line items.</li>
+    <li>No Google Flights deep-link or flight pricing API.</li>
+    <li>No multi-leg lodging work.</li>
+    <li>No changes to the "getting here" slot.</li>
+    <li>No changes to any other module.</li>
+  </ul>
+</div>
+
+</body>
+</html>

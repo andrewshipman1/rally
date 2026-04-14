@@ -146,6 +146,35 @@ export const builderState: Record<string, Templated> = {
   'shareLinkCopyAction':   'copy the invite link ↗',
   'shareLinkCopiedToast':  'link copied. drop it in the chat.',
 
+  // ─── Headliner module (Session 8J) ──────────────────────────────
+  'headliner.eyebrow':              'the headliner',
+  'headliner.addLabel':             '+ the headliner',
+  'headliner.addHint':              'for trips with a main event — festival pass, race tickets, tee times, retreat booking.',
+  'headliner.drawerTitleAdd':       'the headliner',
+  'headliner.drawerTitleEdit':      'edit the headliner',
+  'headliner.linkLabel':            'link',
+  'headliner.linkPlaceholder':      'paste a url',
+  'headliner.linkHint':             "optional — we'll auto-fill details from the page",
+  'headliner.descriptionLabel':     'description',
+  'headliner.descriptionPlaceholder': "what's the headliner?",
+  'headliner.costLabel':            'estimated cost',
+  'headliner.costUnitPerPerson':    '/ person',
+  'headliner.costUnitTotal':        '/ total',
+  'headliner.saveAdd':              'save the headliner',
+  'headliner.saveEdit':             'update',
+  'headliner.remove':               'remove',
+  'headliner.removeConfirm':        'remove the headliner?',
+  'headliner.removeConfirmHint':    'tap remove again to confirm',
+  'headliner.estimateCaption':      'rough estimate',
+  'headliner.pulledFrom':           'pulled from {domain} · edit anytime',
+  'headliner.enrichingIndicator':   'pulling details…',
+  'headliner.saveError':            "couldn't save — try again",
+
+  // ─── Activities module (Session 8K — single per-person estimate) ─
+  'activitiesModuleLabel':          'activities',
+  'activitiesEstimateHint':         'rough per-person budget for the stuff you book ahead',
+  'activitiesEstimatePlaceholder':  '$ / person',
+
   // ─── Collapse / drawer (Session 8F) ─────────────────────────────
   'crewDrawerTitle':         'invite someone',
   'lodgingDrawerTitle':      'add a spot',
