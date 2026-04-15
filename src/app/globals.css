@@ -1396,6 +1396,12 @@ button:active {
     opacity: 1 !important;
     transform: none !important;
   }
+  /* Session 8Q — freeze the aux equalizer; hold bars at mid-height
+     so the decoration is still visible but not constantly pulsing. */
+  .chassis .aux-eq-bar {
+    animation: none !important;
+    transform: none !important;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -4037,7 +4043,7 @@ button:active {
   border-radius: 18px 18px 0 0;
   border: 2.5px solid var(--ink, #1a1a1a);
   border-bottom: none;
-  padding: 12px 20px 36px;
+  padding: 12px 20px calc(20px + env(safe-area-inset-bottom, 16px));
   transform: translateY(100%);
   transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
   max-height: 85vh;
@@ -4106,7 +4112,8 @@ button:active {
   opacity: 0;
 }
 
-/* Invite modal rendered inline inside drawer — strip its own overlay */
+/* Invite modal rendered inline inside drawer — strip its own chrome and
+   re-skin inputs/buttons to match lodging/transport drawer density (8R). */
 .bottom-drawer-body .invite-modal {
   border: none;
   border-radius: 0;
@@ -4114,15 +4121,127 @@ button:active {
   padding: 0;
   max-width: none;
   width: 100%;
+  background: transparent;
+  max-height: none;
+  overflow: visible;
+  animation: none;
 }
 .bottom-drawer-body .invite-header {
   display: none;
 }
 .bottom-drawer-body .invite-tabs {
-  display: none;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.bottom-drawer-body .invite-tab {
+  padding: 8px 0;
+  border: 1.5px solid var(--ink);
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+}
+.bottom-drawer-body .invite-tab.active {
+  background: var(--accent);
+  color: var(--on-accent, var(--bg));
+  border-color: var(--accent);
 }
 .bottom-drawer-body .invite-body {
   padding: 0;
+  gap: 10px;
+}
+
+/* Email + name inputs — match .transport-form-input density */
+.bottom-drawer-body .invite-input {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  font-size: 14px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+}
+.bottom-drawer-body .invite-input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.bottom-drawer-body .invite-input::placeholder {
+  color: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+
+/* Send CTA — match .lodging-form-submit pill */
+.bottom-drawer-body .invite-send-btn {
+  all: unset;
+  cursor: pointer;
+  align-self: flex-start;
+  padding: 10px 24px;
+  margin-top: 2px;
+  background: var(--accent);
+  color: var(--on-accent, var(--bg));
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 30px;
+  box-shadow: 3px 3px 0 var(--stroke);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.bottom-drawer-body .invite-send-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 1px 1px 0 var(--stroke);
+}
+.bottom-drawer-body .invite-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Share-tab link row — input + copy button paired at same density */
+.bottom-drawer-body .invite-link-row {
+  gap: 8px;
+}
+.bottom-drawer-body .invite-link-input {
+  all: unset;
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  border-radius: 10px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+}
+.bottom-drawer-body .invite-copy-btn {
+  padding: 10px 16px;
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.bottom-drawer-body .invite-share-btn {
+  padding: 10px 14px;
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+.bottom-drawer-body .invite-toast {
+  font-size: 12px;
+  padding: 2px 0;
 }
 
 /* Lodging form inside drawer — strip outer border since drawer provides it */
@@ -4659,3 +4778,276 @@ button:active {
   transform: translateY(1px);
   box-shadow: 0 0 0 var(--stroke);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Session 8Q — "the aux" playlist module.
+   Adopts the 8N .module-section frame; adds personality inside:
+   equalizer bars in the header, hero card with OG art, fallback tile.
+   All colors via existing theme vars (--ink, --bg, --accent, --surface).
+   ══════════════════════════════════════════════════════════════════════ */
+
+.chassis .aux-section {
+  position: relative;
+  /* Match .sketch-modules inset so aux aligns with lodging/transport/etc.
+     ExtrasSections renders outside the .sketch-modules flex wrapper, so
+     the horizontal margin has to live on the section itself. */
+  margin: 0 36px 16px;
+}
+
+.chassis .aux-header {
+  /* 8N header is already flex row between; add space between title-group
+     (title + equalizer) and the handwritten caption. */
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.chassis .aux-title-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.chassis .aux-caption {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--ink);
+  opacity: 0.55;
+}
+
+/* Equalizer — 4 bars bouncing with staggered delays. Motion disabled
+   in the reduced-motion block below. */
+.chassis .aux-eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+  width: 22px;
+}
+.chassis .aux-eq-bar {
+  width: 3px;
+  background: var(--ink);
+  border-radius: 1px;
+  opacity: 0.7;
+  transform-origin: bottom center;
+  animation: aux-eq-bounce 1.2s ease-in-out infinite;
+}
+.chassis .aux-eq-bar:nth-child(1) { height: 40%; animation-delay: 0s; }
+.chassis .aux-eq-bar:nth-child(2) { height: 70%; animation-delay: 0.15s; }
+.chassis .aux-eq-bar:nth-child(3) { height: 50%; animation-delay: 0.3s; }
+.chassis .aux-eq-bar:nth-child(4) { height: 85%; animation-delay: 0.45s; }
+@keyframes aux-eq-bounce {
+  0%, 100% { transform: scaleY(0.4); }
+  50%      { transform: scaleY(1); }
+}
+
+/* Empty state — single-line input + "+" submit inside a white card. */
+.chassis .aux-empty-card {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 2px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  border-radius: 12px;
+}
+.chassis .aux-empty-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--ink);
+  font-family: inherit;
+  min-width: 0;
+}
+.chassis .aux-empty-input::placeholder {
+  color: var(--ink);
+  opacity: 0.4;
+}
+.chassis .aux-submit {
+  all: unset;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.chassis .aux-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.chassis .aux-hype-hint {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 15px;
+  color: var(--ink);
+  opacity: 0.5;
+  text-align: center;
+  margin: 4px 0 0;
+  line-height: 1.3;
+}
+
+/* Saved + enriched — hero card with OG art as the background. Whole
+   card is the <a>, "swap" pill floats top-right. */
+.chassis .aux-saved {
+  position: relative;
+  display: block;
+  width: 100%;
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  text-decoration: none;
+  transition: transform 0.12s ease;
+}
+.chassis .aux-saved:active {
+  transform: translateY(1px);
+}
+.chassis .aux-hero {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 140px;
+  background-color: color-mix(in srgb, var(--ink) 12%, transparent);
+  background-position: center;
+  background-size: cover;
+}
+.chassis .aux-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 55%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
+  pointer-events: none;
+}
+.chassis .aux-swap {
+  all: unset;
+  cursor: pointer;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+.chassis .aux-swap:disabled { opacity: 0.5; cursor: not-allowed; }
+.chassis .aux-body {
+  padding: 12px 14px 14px;
+}
+.chassis .aux-title {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--ink);
+  margin-bottom: 6px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.chassis .aux-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.7;
+}
+.chassis .aux-domain-chip {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chassis .aux-byline {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 14px;
+  color: var(--ink);
+  opacity: 0.55;
+  margin-top: 8px;
+}
+.chassis .aux-open-hint {
+  font-size: 10px;
+  color: var(--ink);
+  opacity: 0.45;
+  text-align: center;
+  margin: 8px 0 0;
+  font-style: italic;
+}
+
+/* Saved + fallback (enrich failed) — compact tile with ♫ glyph. Still
+   a tappable <a>; swap pill inline on the right. */
+.chassis .aux-fallback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  text-decoration: none;
+  position: relative;
+}
+.chassis .aux-fallback-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.chassis .aux-fallback-body {
+  flex: 1;
+  min-width: 0;
+}
+.chassis .aux-fallback-domain {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chassis .aux-fallback-byline {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 13px;
+  color: var(--ink);
+  opacity: 0.55;
+  margin-top: 2px;
+}
+.chassis .aux-fallback-swap {
+  all: unset;
+  cursor: pointer;
+  padding: 5px 10px;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.chassis .aux-fallback-swap:disabled { opacity: 0.35; cursor: not-allowed; }

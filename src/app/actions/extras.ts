@@ -36,6 +36,20 @@ const SetUrlSchema = z.object({
   ),
 });
 
+// Session 8Q — playlist save accepts optional OG enrichment from the
+// client-side /api/enrich call. Enrichment is never required; empty
+// values mean "enrich failed, fall back to domain chip."
+const SetPlaylistSchema = z.object({
+  tripId: z.string().uuid(),
+  slug: z.string().min(1),
+  url: z.string().url().refine(
+    (u) => u.startsWith('https://') || u.startsWith('http://'),
+    { message: 'Only http/https URLs allowed' },
+  ),
+  ogImage: z.string().url().nullable().optional(),
+  ogTitle: z.string().max(300).nullable().optional(),
+});
+
 const SetHouseRulesSchema = z.object({
   tripId: z.string().uuid(),
   slug: z.string().min(1),
@@ -134,17 +148,40 @@ export async function setPlaylistUrl(
   tripId: string,
   slug: string,
   url: string,
+  og?: { ogImage?: string | null; ogTitle?: string | null },
 ): Promise<Result> {
-  const parsed = SetUrlSchema.safeParse({ tripId, slug, url });
+  const parsed = SetPlaylistSchema.safeParse({
+    tripId,
+    slug,
+    url,
+    ogImage: og?.ogImage ?? null,
+    ogTitle: og?.ogTitle ?? null,
+  });
   if (!parsed.success) return { ok: false, error: 'invalid-input' };
 
   const pre = await organizerPrelude(tripId);
   if (!pre.ok) return { ok: false, error: pre.error };
   const { supabase, user } = pre;
 
+  // Session 8Q — denormalize curator first-name at save time so the
+  // byline stays stable even if the user later renames themselves.
+  const { data: profile } = await supabase
+    .from('users')
+    .select('display_name')
+    .eq('id', user.id)
+    .single();
+  const firstName =
+    (profile?.display_name ?? '').trim().split(/\s+/)[0] || null;
+
   const { error: updateError } = await supabase
     .from('trips')
-    .update({ playlist_url: parsed.data.url })
+    .update({
+      playlist_url: parsed.data.url,
+      playlist_og_image: parsed.data.ogImage ?? null,
+      playlist_og_title: parsed.data.ogTitle ?? null,
+      playlist_set_by_name: firstName,
+      playlist_set_at: new Date().toISOString(),
+    })
     .eq('id', tripId);
   if (updateError) return { ok: false, error: updateError.message };
 
@@ -153,6 +190,33 @@ export async function setPlaylistUrl(
       metadata: { extra_type: 'playlist' },
     });
   } catch {}
+
+  revalidatePath(`/trip/${slug}`);
+  return { ok: true };
+}
+
+// Session 8Q — clear the playlist (and its OG/curator fields) so the
+// empty state returns. Used by the "swap it" flow when the organizer
+// wants to drop a new link.
+export async function clearPlaylistUrl(
+  tripId: string,
+  slug: string,
+): Promise<Result> {
+  const pre = await organizerPrelude(tripId);
+  if (!pre.ok) return { ok: false, error: pre.error };
+  const { supabase } = pre;
+
+  const { error: updateError } = await supabase
+    .from('trips')
+    .update({
+      playlist_url: null,
+      playlist_og_image: null,
+      playlist_og_title: null,
+      playlist_set_by_name: null,
+      playlist_set_at: null,
+    })
+    .eq('id', tripId);
+  if (updateError) return { ok: false, error: updateError.message };
 
   revalidatePath(`/trip/${slug}`);
   return { ok: true };

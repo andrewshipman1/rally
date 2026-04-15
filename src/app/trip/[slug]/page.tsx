@@ -190,8 +190,13 @@ export default async function TripPage({ params }: Props) {
         groceries={groceries}
         packingList={trip.packing_list || []}
         playlistUrl={trip.playlist_url}
+        playlistOgImage={trip.playlist_og_image}
+        playlistOgTitle={trip.playlist_og_title}
+        playlistSetByName={trip.playlist_set_by_name}
+        playlistSetAt={trip.playlist_set_at}
         houseRules={trip.house_rules}
         photoAlbumUrl={trip.photo_album_url}
+        phase={trip.phase}
         headliner={{
           description: trip.headliner_description,
           costCents: trip.headliner_cost_cents,
@@ -490,8 +495,13 @@ export default async function TripPage({ params }: Props) {
         {/* Extras — packing list, playlist, house rules, photo album */}
         <Reveal delay={0.45}>
           <ExtrasSections
+            phase={trip.phase}
             packingList={trip.packing_list || []}
             playlistUrl={trip.playlist_url}
+            playlistOgImage={trip.playlist_og_image}
+            playlistOgTitle={trip.playlist_og_title}
+            playlistSetByName={trip.playlist_set_by_name}
+            playlistSetAt={trip.playlist_set_at}
             houseRules={trip.house_rules}
             photoAlbumUrl={trip.photo_album_url}
             isOrganizer={isOrganizer}

@@ -28,7 +28,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
 
-import type { Lodging, Transport, Grocery, PackingItem } from '@/types';
+import type { Lodging, Transport, Grocery, PackingItem, TripPhase } from '@/types';
 import type { HeadlinerData } from './Headliner';
 import { PostcardHero } from '@/components/trip/PostcardHero';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
@@ -56,8 +56,16 @@ type Props = {
   groceries: Grocery[];
   packingList: PackingItem[];
   playlistUrl: string | null;
+  /** Session 8Q — OG enrichment + curator for "the aux" saved state. */
+  playlistOgImage: string | null;
+  playlistOgTitle: string | null;
+  playlistSetByName: string | null;
+  playlistSetAt: string | null;
   houseRules: string | null;
   photoAlbumUrl: string | null;
+  /** Session 8Q — extras phase-gate. Sketch shell is always `sketch`, but
+   * ExtrasSections needs the phase to decide which sections render. */
+  phase: TripPhase;
   /** Session 8J — "the headliner" (optional, singular trip-level). */
   headliner: HeadlinerData;
   /** Session 8K — sketch-phase activities per-person estimate (whole dollars). */
@@ -85,8 +93,13 @@ export function SketchTripShell({
   groceries,
   packingList,
   playlistUrl,
+  playlistOgImage,
+  playlistOgTitle,
+  playlistSetByName,
+  playlistSetAt,
   houseRules,
   photoAlbumUrl,
+  phase,
   headliner,
   activitiesEstimate,
   initial,
@@ -239,8 +252,13 @@ export function SketchTripShell({
       />
 
       <ExtrasSections
+        phase={phase}
         packingList={packingList}
         playlistUrl={playlistUrl}
+        playlistOgImage={playlistOgImage}
+        playlistOgTitle={playlistOgTitle}
+        playlistSetByName={playlistSetByName}
+        playlistSetAt={playlistSetAt}
         houseRules={houseRules}
         photoAlbumUrl={photoAlbumUrl}
         isOrganizer

@@ -4246,10 +4246,10 @@ This is a design-consistency session with a functional removal. No new features.
 7. Typecheck: `npx tsc --noEmit`
 
 **Parked items re-labeled (previous 8M/8N/8O now renumbered):**
-- Lodging null-state + cost display fixes → **8O (parked)**
-- Estimate-field polish (number spinners, inline errors for provisions/activities) → **8P (parked)**
+- Lodging null-state + cost display fixes → **8O (parked)** → ✅ resolved in-flight (verified visually post-8P, 2026-04-15). No explicit session; likely absorbed by 8M/8N/8P-era refactors. Re-open if it regresses.
+- Estimate-field polish (number spinners, inline errors for provisions/activities) → **8P (parked)** → ✅ resolved (8P shipped the number formatting; spinner / inline-error item confirmed fine on front-end, 2026-04-15). Error-swallow behavior still exists at the handler level but is not user-visible — leave alone unless it surfaces.
 - Transport/flights line-item styling [obsolete — subsumed into 8N; strike] ✖
-- Lodging date-ordering validation → **8O (parked)**
+- Lodging date-ordering validation → **8O (parked)** → ✅ resolved visually (2026-04-15). No known broken-date repro currently.
 
 #### Session 8N — Release Notes
 
@@ -4549,6 +4549,200 @@ Never pair `--surface` with `--ink` — that's the bug this fix eliminated.
 **Cowork fixes:** none.
 
 **Lexicon cleanup candidates for a future pass:** `activitiesModuleLabel`, `activitiesEstimateHint`, `activitiesEstimatePlaceholder` — unreferenced after 8P.
+
+---
+
+### Session 8Q: "The Aux — Playlist Fun Pass + Phase-Gate Other Extras"
+
+**Intent:** Music is the one extra that adds *real* hype at sketch/sell — adding a song is zero-commitment and lights up the group chat. Rebuild the playlist module to feel like turning on the speaker, not filling in a form. Everything else (packing / house rules / photo album) gets hidden until lock phase — those are post-commit logistics, not vibe-builders. Playlist stays in its current position in the extras block; we're not moving it. We're making it fun.
+
+**Design decisions (locked in before this brief):**
+- **Phase gating:** playlist renders in **sketch + sell** phases. Packing, house rules, photo album hidden in sketch + sell; appear at **lock / go / done** (unchanged post-commit behavior).
+- **Playlist position unchanged.** Stays in the extras block where it lives today — no repositioning on the trip page. (Session 8 sketch page buildout can handle module order later if needed.)
+- **OG enrichment is the star.** Paste a Spotify/Apple Music link → reuse `/api/enrich` (same pipeline as lodging/headliner) → pull cover art + playlist title + curator. Saved state becomes a hero card with real album art, not a generic music icon.
+- **Visual system:** adopt 8N `.module-section` (cream page, white surface, 2.5px ink border, Georgia italic lowercase title) for consistency. Inside, the playlist card can get more personality than the module frame itself.
+- **Voice: playful / funny.** "the aux" not "the playlist." "aux cord secured" not "the vibe is set." Lean in.
+- **Equalizer animation.** Three or four CSS-animated bars in the header next to the caption. Always moving. Small motion = alive.
+- **Byline.** "set by sarah · 3d" under the saved card. Uses existing auth / profile context. Makes it feel like a chat drop.
+- **Whole-card tap-to-open.** Saved state — entire card is the link. Small "swap it" pill in the corner for replacing.
+- **Copy deferrals.** No per-crew song submissions, no embedded players, no song count features. Single URL field.
+
+**Copy draft (playful voice — single pass, reuse across wireframe + brief):**
+- Title: **"the aux"**
+- Empty caption: **"who's on?"**
+- Empty placeholder: **"drop the link · spotify or apple music"**
+- Empty submit button: **"+"** (no label change)
+- Empty hype hint (below input): **"real fun starts when the crew piles on"**
+- Saved caption: **"aux cord secured"**
+- Saved byline: **"set by {name} · {relativeTime}"**
+- Swap affordance: **"swap it"**
+- Opens-in-new-tab hint: **"tap the card to open · add songs from anywhere"** (small, below saved card)
+- Fallback when OG enrich fails: show raw domain chip (`↗ open.spotify.com`) + generic "♫" icon — still saved, still tappable. Fun copy still applies.
+
+**Scope (numbered):**
+
+1. **Phase-gate extras.** In `ExtrasSections.tsx` — accept a `phase` prop and conditionally render `PackingSection` / `HouseRulesSection` / `PhotoAlbumSection` only when `phase ∈ {'lock', 'go', 'done'}`. Playlist always renders (all phases). Thread `phase` from call sites: `SketchTripShell.tsx` (sketch + sell), `src/app/trip/[slug]/page.tsx` (lock + go + done render paths).
+2. **Reuse `/api/enrich` for playlist URLs.** When a URL is saved, call the existing enrichment endpoint. Store returned OG image URL + OG title on the playlist record (new columns on trips table or JSON blob — Claude Code's call, document choice; prefer JSON blob if `playlist_og` doesn't already exist, or add two nullable columns `playlist_og_image`, `playlist_og_title` via migration — FLAG IT before building). If enrich fails, save URL alone; fallback UI handles gracefully.
+3. **Playlist visual rebuild.** Replace dark inverted card with:
+   - `.module-section` wrapper (white surface, 2.5px ink border)
+   - Header: Georgia italic lowercase "the aux" + handwritten caption ("who's on?" empty / "aux cord secured" saved) with **CSS equalizer bars** animated next to the caption
+   - Empty state: input field + `+` submit, playful hint below
+   - Saved state: hero card with OG album art as the background/left tile, OG title as primary text, domain chip + byline as meta; whole card is the anchor; small "swap it" pill top-right
+4. **Equalizer animation (pure CSS).** Three or four vertical bars (~3px wide, varying heights), `@keyframes` pulsing with staggered delays. 1.2s ease-in-out infinite. Color: muted ink. Place in the header near the caption. Reduced-motion media query disables animation.
+5. **Drop legacy styling.** Remove the `🎵` prefix and "TRIP PLAYLIST" small-caps treatment. Old dark inverted card CSS gone.
+6. **Lexicon adds/updates** in `src/lib/copy/surfaces/`:
+   - `playlist.title` → "the aux"
+   - `playlist.captionEmpty` → "who's on?"
+   - `playlist.captionSaved` → "aux cord secured"
+   - `playlist.placeholder` → "drop the link · spotify or apple music"
+   - `playlist.hypeHint` → "real fun starts when the crew piles on"
+   - `playlist.openHint` → "tap the card to open · add songs from anywhere"
+   - `playlist.byline` → "set by {name} · {relativeTime}" (interpolated)
+   - `playlist.swap` → "swap it"
+   - Verify no hardcoded playlist strings remain in JSX.
+7. **Regression guard.** In lock/go/done render paths, all four extras sections must render as they do today (playlist + packing + rules + album). No behavioral change post-commit beyond the playlist's visual refresh.
+
+**Hard constraints:**
+- DO NOT delete `PackingSection`, `HouseRulesSection`, or `PhotoAlbumSection` components or their server actions.
+- DO NOT add per-crew contribution UI, song embeds, song previews, or playlist sharing features.
+- DO NOT touch the sketch page layout or module order (playlist stays where it is).
+- DO NOT introduce new color tokens. Reuse 8N `.module-section` primitives.
+- If you need a migration for OG columns: **stop and flag to Andrew** before writing one (escalation trigger).
+- Enrichment failures must not block save — store URL alone, show fallback UI.
+- Mobile-first at 375px. Reduced-motion disables equalizer.
+- All user-facing copy via `getCopy` + lexicon.
+- `rm -rf .next && npm run dev` before QA.
+- `npx tsc --noEmit` clean before release notes.
+
+**Acceptance criteria:**
+- [ ] Sketch page: playlist renders, packing/rules/album hidden
+- [ ] Sell phase: same as sketch (playlist only)
+- [ ] Lock/go/done: all four extras render (regression gate)
+- [ ] Playlist header reads "the aux" (Georgia italic lowercase) + animated equalizer bars + caption ("who's on?" empty / "aux cord secured" saved)
+- [ ] Empty state: input + `+` submit; hype hint below reads "real fun starts when the crew piles on"
+- [ ] Saving a Spotify/Apple Music link calls `/api/enrich` and the saved state shows OG cover art + title + domain chip + byline
+- [ ] Enrich failure falls back to URL + generic music icon — still saves, still tappable
+- [ ] Saved state: whole card tappable, opens URL in new tab; "swap it" pill returns to input state
+- [ ] Byline reads "set by {firstName} · {relativeTime}"
+- [ ] Reduced-motion: equalizer bars static
+- [ ] Both themes (default + cream) legible at 375px; spot-check one playful theme
+- [ ] Lexicon spot-check: `playlist.title` = "the aux"; `playlist.captionEmpty` = "who's on?"; `playlist.placeholder` correct
+- [ ] `npx tsc --noEmit` clean
+
+**Files to read first:**
+- `.claude/skills/rally-session-guard/SKILL.md` (Part 1 rules)
+- `rally-fix-plan-v1.md` → this brief + 8N/8P release notes + 8H/8I release notes (for `/api/enrich` pattern used by lodging/headliner)
+- `src/components/trip/ExtrasSections.tsx` (extras root — phase gating + playlist rebuild happens here or in a new `PlaylistCard.tsx`)
+- `src/components/trip/builder/SketchTripShell.tsx` (passes `phase` prop)
+- `src/app/trip/[slug]/page.tsx` (lock/go/done render paths — pass `phase` prop + regression gate)
+- `src/app/api/enrich/route.ts` (enrichment endpoint — reuse shape)
+- `src/components/trip/builder/LinkPasteInput.tsx` and `Headliner.tsx` (OG display patterns — reference)
+- `src/app/globals.css` (8N `.module-section` primitives)
+- `src/lib/copy/surfaces/` (pick the right surface for playlist strings)
+- `rally-playlist-wireframe.html` (**canonical wireframe for this brief**)
+
+**How to QA solo:**
+1. `rm -rf .next && npm run dev`
+2. Load a sketch trip → confirm playlist visible, packing/rules/album hidden
+3. Drop a Spotify playlist URL → confirm enrichment hits; saved state shows OG art + title
+4. Tap saved card → opens URL in new tab
+5. Tap "swap it" → returns to input state
+6. Drop an invalid/enrich-failing URL → confirm fallback UI (domain chip + generic icon) + save still works
+7. Advance trip to `sell` phase → confirm playlist still visible, others still hidden
+8. Advance trip to `lock` phase → confirm all four extras render
+9. Toggle OS reduced-motion → equalizer bars freeze
+10. Cycle default + cream + bachelorette themes at 375px
+11. Regression: other modules (lodging, transport, headliner, everything-else, cost summary) unchanged
+
+**Scope boundary reminders:**
+- If you find yourself building per-crew song contributions — stop. Wrong session.
+- If you find yourself repositioning the extras block or touching other sketch modules — stop.
+- If you find yourself needing a migration — flag to Andrew before touching `supabase/migrations/`. This is an escalation trigger.
+- If enrichment is flaky or slow — don't block the save. URL alone is valid.
+
+#### Session 8Q — Release Notes
+
+**What was built:**
+1. Migration `020_playlist_og.sql` — adds four nullable columns to `trips`: `playlist_og_image`, `playlist_og_title`, `playlist_set_by_name`, `playlist_set_at`. (Escalation was raised in plan mode; Andrew deferred to Claude Code's call — went with explicit columns over jsonb for queryability, and denormalized the curator name at save time instead of FK+join so the byline stays stable if someone renames themselves later.) — `supabase/migrations/020_playlist_og.sql`
+2. Trip type extended with the four new optional fields — `src/types/index.ts`
+3. Server action rewrite: `setPlaylistUrl(tripId, slug, url, { ogImage?, ogTitle? })` — new Zod schema `SetPlaylistSchema`; denormalizes first name from `users.display_name` at write time; stamps `playlist_set_at = now()`. New companion action `clearPlaylistUrl(tripId, slug)` nulls all five playlist columns for the "swap it" flow. — `src/app/actions/extras.ts`
+4. New `PlaylistCard` component — three states (empty / saved+enriched / saved+fallback), client-side fetch to `/api/enrich` wrapped in try/catch so enrich failures fall through to the fallback tile, whole-card `<a target="_blank">`, "swap it" pill, CSS equalizer via the `Equalizer` subcomponent. — `src/components/trip/PlaylistCard.tsx`
+5. Phase-gate in `ExtrasSections` — accepts `phase: TripPhase`; wraps `PackingSection` / `RulesSection` / `AlbumSection` in `phase !== 'sketch' && phase !== 'sell'`. Playlist always renders. Legacy inline `PlaylistSection` deleted (replaced by `PlaylistCard`). — `src/components/trip/ExtrasSections.tsx`
+6. Phase + playlist OG props threaded through both render paths — `src/components/trip/builder/SketchTripShell.tsx` (new required props `phase`, `playlistOgImage`, `playlistOgTitle`, `playlistSetByName`, `playlistSetAt`) and both `<ExtrasSections>` call sites in `src/app/trip/[slug]/page.tsx` (sketch + lock/go).
+7. Lexicon overhaul in `src/lib/copy/surfaces/extras.ts` — removed `playlist.empty`, `playlist.openCta`, `playlist.meta`, `playlist.label`, `playlist.openCta.short`; added `playlist.captionEmpty`, `playlist.captionSaved`, `playlist.placeholder`, `playlist.hypeHint`, `playlist.openHint`, `playlist.byline` (templated `{name, when}`), `playlist.swap`. `playlist.title` value flipped from "the soundtrack" → "the aux".
+8. CSS — new `.aux-section`, `.aux-header`, `.aux-title-group`, `.aux-caption`, `.aux-eq` + `.aux-eq-bar` with `@keyframes aux-eq-bounce` (4 bars, staggered 0/0.15/0.3/0.45s, 1.2s ease-in-out infinite), `.aux-empty-card/.aux-empty-input/.aux-submit/.aux-hype-hint`, `.aux-saved/.aux-hero/.aux-swap/.aux-body/.aux-title/.aux-meta/.aux-domain-chip/.aux-byline/.aux-open-hint`, `.aux-fallback*`. All colors via existing theme vars (`--ink`, `--bg`, `--accent`) — no new tokens. Reduced-motion block extended to freeze `.aux-eq-bar`. — `src/app/globals.css`
+
+**What changed from the brief:**
+- Brief hinted at either "new columns" or "jsonb blob"; chose explicit columns (migration cleaner; no json path operators needed at read time).
+- Brief said "3 or 4" equalizer bars; wireframe spec had 4, so shipped 4.
+- Byline uses `formatDistanceToNow(..., { addSuffix: false })` — outputs "3 days", "about 1 hour", etc., letting the lexicon template control the separator (` · `). No `addSuffix: true` because the lexicon already prefixes with "set by {name} · ".
+- Brief said "set by {firstName}"; `setPlaylistUrl` denormalizes the first space-split token of `display_name` so the byline stays consistent even if the saver later changes their name. Stored as `playlist_set_by_name text`.
+- Brief said migration is an escalation trigger; it was raised in plan mode, Andrew replied "[No preference]", so Claude Code proceeded per the brief's allowance to make the call + document it.
+- Empty-state placeholder was originally going to be inside a `.module-section-empty` dashed frame; shipped with a flat `.aux-empty-card` (2px solid border, not dashed) to match the wireframe exactly — 8N dashed empties are for "add your first X" type affordances, but here the empty state is the input itself.
+
+**What to test:**
+- [ ] **Apply the migration.** This was not auto-applied. Run `supabase migration up` (or apply `020_playlist_og.sql` in Supabase Studio) before QA — without it, reads of `trip.playlist_og_image` etc. will return `undefined` and the saved-enriched state will never render.
+- [ ] Sketch phase: playlist visible, packing/rules/album hidden
+- [ ] Sell phase: playlist visible, packing/rules/album hidden (regression if any appear)
+- [ ] Lock/go phase: all four extras render
+- [ ] Playlist header reads "the aux" (Georgia italic lowercase) + 4 animated equalizer bars + caption ("who's on?" empty, "aux cord secured" saved)
+- [ ] Empty state: input + "+" submit + "real fun starts when the crew piles on" hype hint below the card
+- [ ] Paste a real Spotify playlist URL → `/api/enrich` hits → saved-enriched card shows OG cover art as hero background + `ogTitle` + domain chip + byline "set by {firstName} · {relativeTime}"
+- [ ] Tap saved card → opens URL in new tab (`target="_blank"`, `rel="noopener noreferrer"`)
+- [ ] Tap "swap it" pill on saved card → clears playlist (calls `clearPlaylistUrl`) → returns to empty state
+- [ ] Paste a URL that enrich fails on (e.g., a blog post without OG tags, or a random 404) → fallback tile renders: `♫` glyph on accent background + `↗ {domain}` + byline + small "swap" pill on the right. Still saves, still opens in new tab.
+- [ ] macOS Reduce Motion ON → `.aux-eq-bar` animation frozen (bars stay at their declared height, no pulsing)
+- [ ] 375px viewport → hero card legible, no overflow, domain chip ellipsis behavior works for long domains
+- [ ] Cycle themes (default just-because, bachelorette, couples-trip) → aux card adapts via `var(--ink)` / `var(--bg)` / `var(--accent)`
+- [ ] Lexicon spot-check: `playlist.title` = "the aux", `playlist.captionEmpty` = "who's on?", `playlist.placeholder` = "drop the link · spotify or apple music"
+- [ ] Regression: headliner, lodging, transport, everything-else, cost summary render unchanged in sketch + lock
+- [ ] `npx tsc --noEmit` clean (verified during session)
+
+**Known issues:**
+- **Migration requires manual apply.** `020_playlist_og.sql` was written but not run. Until applied, the DB lacks `playlist_og_image` / `playlist_og_title` / `playlist_set_by_name` / `playlist_set_at`; Supabase's `select *` will omit those keys, React will treat them as `undefined`, and the component will fall through to the fallback state (or empty state, if URL is also null). Run `supabase migration up` before QA.
+- **Interactive QA blocked for Claude Code.** Dev server boots cleanly, TypeScript is clean, `/` redirects to `/auth` and `/auth` returns 200. Could not sign in from the harness — the visual verification workflow (snapshot, screenshot, clicking through sketch → save URL → lock) must happen in Cowork. Flagging this so it doesn't get mistaken for "verified passing".
+- **`href` + `preventDefault` on "swap it"** — clicking the pill calls `e.preventDefault()` + `e.stopPropagation()` on its parent `<a>`, then runs `clearPlaylistUrl`. Should prevent the link navigation, but worth confirming the ordering works in Safari iOS (touch vs click event timing).
+
+**8Q Actuals (QA'd 2026-04-15):** All ACs passed. One Cowork fix applied post-QA:
+- **Aux module width misaligned with other sketch modules.** `ExtrasSections` renders as a sibling of `SketchModules` in `SketchTripShell.tsx`, so `.aux-section` sat outside the `.sketch-modules` flex wrapper that applies `margin: 0 36px 16px` to lodging/transport/headliner/everything-else. Added matching horizontal inset directly to `.chassis .aux-section` in `globals.css` (single-file CSS, no logic change). Aux now aligns with the stack above it.
+
+**Follow-ups parked:** iOS Safari touch-event ordering on the "swap it" pill (CC flagged uncertainty — not observed failing, just untested on device).
+
+---
+
+#### Session 8R — Release Notes
+
+**What was built:**
+1. Invite drawer re-skinned to match lodging/transport drawer density. Base `.invite-*` styles (used by the standalone overlay in `CrewInviteButton.tsx`) were **not** touched — all changes are scoped under `.bottom-drawer-body .invite-*` so only the drawer-embedded invite gets the new density. — `src/app/globals.css`
+2. `.bottom-drawer-body .invite-input` rebuilt on the `.transport-form-input` pattern: `all: unset`, 1.5px solid `var(--ink)` border, 10px radius, 14px font, transparent background, 44px min-height, `color-mix(var(--ink) 40%)` placeholder, accent-ring focus state. This fixes the couples-trip "input blends into drawer bg" bug — the transparent-with-ink-border treatment contrasts on every theme.
+3. `.bottom-drawer-body .invite-send-btn` rebuilt on the `.lodging-form-submit` pattern: `all: unset`, 10px 24px, 30px radius, `var(--accent)` bg, body font 14px/700, `3px 3px 0 var(--stroke)` press shadow, `align-self: flex-start` so it no longer stretches full-width like a display pill. Drops the Shrikhand display font and 100px oversize radius.
+4. `.bottom-drawer-body .invite-tabs` — changed from `display: none` (dead code; `InviteModal` already guards with `!hideShareTab`) to a proper drawer-density render: 8px gap, 12px margin-bottom, slimmer 1.5px border pills with 8px vertical padding + 13px font. Active state uses accent fill. This preps the share tab for drawer use without changing any component code.
+5. `.bottom-drawer-body .invite-link-row` — link input rebuilt as transparent `all: unset` field with 1.5px `color-mix(--ink 30%)` border (read-only feel), 13px font, 44px min-height. Copy button now a matching 1.5px-ink-bordered 10px-radius transparent chip — no more yellow `--sticker-bg` fill that looked like a different component.
+6. `.bottom-drawer-body .invite-share-btn` — same 1.5px ink bordered chip treatment as copy, so the share-tab CTAs read as a pair and not two random buttons.
+7. `.bottom-drawer-body .invite-toast` — tightened to 12px / 2px padding so error + success toasts don't push the send button down the viewport.
+8. `.bottom-drawer-panel` bottom padding switched from a fixed `36px` to `calc(20px + env(safe-area-inset-bottom, 16px))` — respects the iOS home-indicator area without eating 36px on devices that don't need it. Fallback to 16px on browsers without the env var.
+
+**What changed from the brief:**
+- Brief listed `.bottom-drawer-body .invite-tabs { display: none }` as a candidate override point; kept the class active and restyled it instead of deleting, because `InviteModal` already gates tab rendering on `hideShareTab`. The CSS `display: none` was redundant and would have suppressed the share tab in any future drawer use (e.g., if `CrewInviteButton` ever migrates to the drawer shell). Cost of keeping it: zero — the sketch path still passes `hideShareTab`, so tabs stay hidden there today.
+- Chose the `.transport-form-input` pattern (1.5px full border, 10px radius, transparent bg) over `.lodging-form-field` (bottom-border underline only). Underline fields work for free-form prose inside a framed card; invite inputs pair with a visible CTA and a link+copy row, and the box treatment gives them edge definition without a surrounding frame.
+- Did not touch `InviteModal.tsx` at all — no prop changes, no copy changes, no JSX changes. Brief said "do NOT touch the drawer animation, backdrop, or open/close logic" and kept the scope tight to CSS only.
+
+**What to test:**
+- [ ] At 375px, open crew drawer → "+ invite" → drawer opens. Email and name inputs read as bordered pills; borders are visible on default, bachelorette, **and couples-trip** themes (was the regression).
+- [ ] "send invite" CTA is a compact accent pill that sits left-aligned, not a full-width display-font slab. Press state translates Y+1 and collapses the offset shadow.
+- [ ] Disabled state (empty email) → `.invite-send-btn` at 40% opacity with no shadow.
+- [ ] At 428px (iPhone Pro Max simulator) → drawer doesn't swallow viewport; bottom padding accommodates home indicator without eating excess space.
+- [ ] Toggle `hideShareTab={false}` locally (or verify via `CrewInviteButton` if migrated) → share tab renders at the same drawer density: tab pills slim, link input transparent with faint ink border, copy button matches it.
+- [ ] Input focus state → accent border + 3px accent-30% halo ring (same treatment as transport form inputs).
+- [ ] Toast messages appear at 12px, don't push the CTA around.
+- [ ] Regression: standalone `InviteModal` from `CrewInviteButton` (post-sketch crew section, non-drawer) still renders with its old overlay styles (`.invite-modal` base rules unchanged) — chunky Shrikhand send button and inverted link input still present there.
+- [ ] `npx tsc --noEmit` clean (verified during session).
+- [ ] Dev server boots with no errors after `rm -rf .next && npm run dev` (verified during session).
+
+**Known issues:**
+- **Interactive QA blocked for Claude Code.** Same harness constraint as 8Q — the drawer is gated behind auth + a sketch trip's crew module "+" button, which requires a signed-in session. Visual verification (screenshots, theme cycling, 375/428px density sweep) must happen in Cowork.
+- **`on-accent` var fallback.** Used `color: var(--on-accent, var(--bg))` on `.invite-send-btn` and `.invite-tab.active`. `--on-accent` is defined in the theme tokens but the fallback to `--bg` keeps the button readable if a future theme ever forgets to declare it. Not a bug; just noting the belt-and-suspenders.
+- **No preview-snapshot proof in these notes** — preview server booted cleanly (error-level log filter empty), but the drawer sits behind auth so there's no screenshot to include.
 
 ---
 

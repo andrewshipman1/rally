@@ -20,11 +20,16 @@ export const extras: Record<string, Templated> = {
   'packing.placeholder':   'what to bring...',
   'packing.checked':       'got it',
 
-  // Playlist
-  'playlist.title':        'the soundtrack',
-  'playlist.empty':        'drop a spotify or apple music link',
-  'playlist.openCta':      'open in spotify →',
-  'playlist.meta':         ({ n, name }: ThemeVars) => `${n ?? 0} tracks · by ${name ?? '?'}`,
+  // Playlist — Session 8Q "the aux" rebuild
+  'playlist.title':         'the aux',
+  'playlist.captionEmpty':  "who's on?",
+  'playlist.captionSaved':  'aux cord secured',
+  'playlist.placeholder':   'drop the link · spotify or apple music',
+  'playlist.hypeHint':      'real fun starts when the crew piles on',
+  'playlist.openHint':      'tap the card to open · add songs from anywhere',
+  'playlist.byline':        ({ name, when }: ThemeVars) =>
+    `set by ${name ?? 'the crew'} · ${when ?? 'just now'}`,
+  'playlist.swap':          'swap it',
 
   // House rules
   'rules.title':           'the vibe',
@@ -46,11 +51,9 @@ export const extras: Record<string, Templated> = {
 
   // Section heading labels (used by ExtrasSections)
   'packing.label':         'packing list',
-  'playlist.label':        'trip playlist',
   'rules.label':           'house rules',
   'album.label':           'shared photo album',
   'album.openCta.short':   'open in browser',
-  'playlist.openCta.short': 'open playlist',
 
   // ExtrasSections decorative icons
   'collapse.icon':       '\u2304',

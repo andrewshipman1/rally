@@ -75,6 +75,11 @@ export interface Trip {
   header_images: HeaderImage[];
   packing_list: PackingItem[];
   playlist_url: string | null;
+  // Session 8Q — "the aux" OG enrichment + curator byline
+  playlist_og_image: string | null;
+  playlist_og_title: string | null;
+  playlist_set_by_name: string | null;
+  playlist_set_at: string | null;
   house_rules: string | null;
   rsvp_emojis: RsvpEmojis;
   chassis_theme_id: string | null;

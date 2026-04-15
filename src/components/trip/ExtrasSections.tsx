@@ -2,22 +2,27 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import type { PackingItem } from '@/types';
+import type { PackingItem, TripPhase } from '@/types';
 import type { ThemeId } from '@/lib/themes/types';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { getCopy } from '@/lib/copy/get-copy';
+import { PlaylistCard } from '@/components/trip/PlaylistCard';
 import {
   addPackingItem,
   removePackingItem,
-  setPlaylistUrl,
   setHouseRules,
   setAlbumUrl,
 } from '@/app/actions/extras';
 
 type Props = {
+  phase: TripPhase;
   packingList: PackingItem[];
   playlistUrl: string | null;
+  playlistOgImage: string | null;
+  playlistOgTitle: string | null;
+  playlistSetByName: string | null;
+  playlistSetAt: string | null;
   houseRules: string | null;
   photoAlbumUrl: string | null;
   isOrganizer?: boolean;
@@ -27,8 +32,13 @@ type Props = {
 };
 
 export function ExtrasSections({
+  phase,
   packingList,
   playlistUrl,
+  playlistOgImage,
+  playlistOgTitle,
+  playlistSetByName,
+  playlistSetAt,
   houseRules,
   photoAlbumUrl,
   isOrganizer,
@@ -40,7 +50,12 @@ export function ExtrasSections({
   const t: ThemeId = themeId ?? 'just-because';
   const items: React.ReactNode[] = [];
 
-  if (packingList.length > 0 || canEdit) {
+  // Session 8Q — phase gate: packing / house rules / shared album are
+  // post-commit logistics. Hide them in sketch + sell; only playlist
+  // ("the aux") renders in those phases. Lock / go / done show all four.
+  const showPostCommitExtras = phase !== 'sketch' && phase !== 'sell';
+
+  if (showPostCommitExtras && (packingList.length > 0 || canEdit)) {
     items.push(
       <PackingSection
         key="packing"
@@ -52,11 +67,16 @@ export function ExtrasSections({
       />,
     );
   }
+  // Playlist always renders (all phases) — see brief 8Q.
   if (playlistUrl || canEdit) {
     items.push(
-      <PlaylistSection
+      <PlaylistCard
         key="playlist"
         url={playlistUrl}
+        ogImage={playlistOgImage}
+        ogTitle={playlistOgTitle}
+        setByName={playlistSetByName}
+        setAt={playlistSetAt}
         canEdit={!!canEdit}
         tripId={tripId!}
         slug={slug!}
@@ -64,7 +84,7 @@ export function ExtrasSections({
       />,
     );
   }
-  if (houseRules || canEdit) {
+  if (showPostCommitExtras && (houseRules || canEdit)) {
     items.push(
       <RulesSection
         key="rules"
@@ -76,7 +96,7 @@ export function ExtrasSections({
       />,
     );
   }
-  if (photoAlbumUrl || canEdit) {
+  if (showPostCommitExtras && (photoAlbumUrl || canEdit)) {
     items.push(
       <AlbumSection
         key="album"
@@ -304,109 +324,7 @@ function PackingSection({
   );
 }
 
-// ─── Playlist ─────────────────────────────────────────────────────
-
-function PlaylistSection({
-  url,
-  canEdit,
-  tripId,
-  slug,
-  themeId,
-}: {
-  url: string | null;
-  canEdit: boolean;
-  tripId: string;
-  slug: string;
-  themeId: ThemeId;
-}) {
-  const [open, setOpen] = useState(!url && canEdit);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(url ?? '');
-  const [pending, startTransition] = useTransition();
-  const router = useRouter();
-
-  const handleSave = () => {
-    const trimmed = draft.trim();
-    if (!trimmed || trimmed === url) {
-      setEditing(false);
-      return;
-    }
-    startTransition(async () => {
-      const res = await setPlaylistUrl(tripId, slug, trimmed);
-      if (res.ok) {
-        setEditing(false);
-        router.refresh();
-      }
-    });
-  };
-
-  return (
-    <GlassCard>
-      <CollapsibleHeader
-        emoji="🎵"
-        text={getCopy(themeId, 'extras.playlist.label')}
-        open={open}
-        onToggle={() => setOpen((v) => !v)}
-      />
-      {open && (
-        <>
-          {url && !editing && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  flex: 1,
-                  display: 'block',
-                  padding: 12,
-                  background: 'var(--bg)',
-                  borderRadius: 10,
-                  color: 'var(--ink)',
-                  fontSize: 12,
-                  textDecoration: 'none',
-                  border: '2px solid var(--stroke)',
-                  wordBreak: 'break-all',
-                }}
-              >
-                {getCopy(themeId, 'extras.playlist.openCta.short')} →
-              </a>
-              {canEdit && (
-                <button
-                  onClick={() => { setDraft(url); setEditing(true); }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--on-surface)',
-                    opacity: 0.6,
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  {getCopy(themeId, 'extras.menu.edit')}
-                </button>
-              )}
-            </div>
-          )}
-          {(editing || (!url && canEdit)) && (
-            <input
-              type="url"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={handleSave}
-              onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-              placeholder={getCopy(themeId, 'extras.playlist.empty')}
-              disabled={pending}
-              autoFocus
-              style={inputStyle}
-            />
-          )}
-        </>
-      )}
-    </GlassCard>
-  );
-}
+// ─── Playlist — Session 8Q: extracted to PlaylistCard.tsx ─────────
 
 // ─── House rules ──────────────────────────────────────────────────
 
