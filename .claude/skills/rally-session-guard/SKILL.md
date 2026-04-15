@@ -52,8 +52,7 @@ marquee strip → trip header / hero → countdown
 MODULE: the headliner (optional, singular trip-level premise — 8J)
 MODULE: lodging ("the spot")
 MODULE: transportation (flight-as-type, multi-leg, per-line cost unit — 8I)
-MODULE: activities (single per-person estimate — 8K)
-MODULE: provisions (single per-person estimate)
+MODULE: everything else (activities + provisions + other — single per-person estimates each — 8P)
 cost summary (aggregates all modules → per-person estimate)
 (sell+ only) per-crew arrival estimator — branches by mode (flight / drive /
   train / other); flight uses Google Flights deep-link, passport-aware

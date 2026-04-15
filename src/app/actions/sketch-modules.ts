@@ -82,6 +82,14 @@ const SetProvisionsSchema = z.object({
   estimatedTotal: z.number().min(0),
 });
 
+// Session 8P — "other" row in the merged everything-else module. Same
+// shape as provisions; upsert-by-name against the shared groceries table.
+const SetOtherSchema = z.object({
+  tripId: z.string().uuid(),
+  slug: z.string().min(1),
+  estimatedTotal: z.number().min(0),
+});
+
 // ─── Lodging ──────────────────────────────────────────────────────
 
 export async function addLodgingOption(
@@ -411,6 +419,52 @@ export async function setProvisionsEstimate(
       .insert({
         trip_id: tripId,
         name: 'Provisions',
+        estimated_total: estimatedTotal,
+        cost_type: 'shared',
+      });
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath(`/trip/${slug}`);
+  return { ok: true };
+}
+
+// ─── Other (Session 8P) ───────────────────────────────────────────
+// Mirrors setProvisionsEstimate exactly — upsert by name on the shared
+// groceries table. calculateTripCost sums every shared grocery row, so
+// this contributes to per-person cost via the same divisor math as
+// provisions. No migration needed.
+
+export async function setOtherEstimate(
+  tripId: string,
+  slug: string,
+  estimatedTotal: number,
+): Promise<Result> {
+  const parsed = SetOtherSchema.safeParse({ tripId, slug, estimatedTotal });
+  if (!parsed.success) return { ok: false, error: 'invalid-input' };
+
+  const pre = await organizerPrelude(tripId);
+  if (!pre.ok) return { ok: false, error: pre.error };
+
+  const { data: existing } = await pre.supabase
+    .from('groceries')
+    .select('id')
+    .eq('trip_id', tripId)
+    .eq('name', 'Other')
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await pre.supabase
+      .from('groceries')
+      .update({ estimated_total: estimatedTotal })
+      .eq('id', existing.id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await pre.supabase
+      .from('groceries')
+      .insert({
+        trip_id: tripId,
+        name: 'Other',
         estimated_total: estimatedTotal,
         cost_type: 'shared',
       });

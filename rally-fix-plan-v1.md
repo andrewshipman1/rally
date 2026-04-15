@@ -4350,6 +4350,25 @@ Never pair `--surface` with `--ink` — that's the bug this fix eliminated.
 **Known issues:**
 - **Browser QA blocked.** Preview MCP couldn't start (your local `next dev` on port 3000 holds Next's duplicate-instance guard). Typecheck passed (`npx tsc --noEmit` exit 0). Manual browser QA deferred to you.
 - If the doubled-border (section + card) reads as too heavy visually, log as 8P item: either strip `.module-card`'s border OR unwrap headliner from `.module-section`.
+
+#### Session 8O — Actuals (Cowork QA, 2026-04-15)
+
+**Status:** ✅ complete. All 8 ACs passed in browser QA.
+
+**AC results:**
+- ✅ Headliner price renders in accent color, handwritten font, no pill background
+- ✅ `view site →` CTA appears, opens source URL in new tab, does not trigger edit drawer
+- ✅ Title/hero/meta tap still opens edit drawer
+- ✅ Keyboard Enter/Space on focused card opens drawer
+- ✅ Card has 2.5px ink border nested inside section border — doubled border reads fine, not too heavy
+- ✅ Default + cream themes at 375px; bachelorette + boys-trip accent legible
+- ✅ Regression gate: lodging/spot renders identically to pre-8O
+- ✅ Headliner null state unchanged
+
+**Bugs escalated:** none.
+
+**Cowork fixes:** none.
+
 6. **Lexicon deprecation** — `moduleFlights`, `moduleFlightsEmpty`, `moduleFlightsName`, `moduleFlightsCost` comment-marked in `src/lib/copy/surfaces/builder-state.ts` (not deleted — namespace reserved for sell-phase arrival estimator).
 7. **SKILL.md** — removed the "SLOT: getting here" line from the module order. Added hard-rule line: *"CSS changes to `globals.css` require clearing `.next` before QA — stale Turbopack chunks bit us in 8M."*
 
@@ -4374,6 +4393,162 @@ Never pair `--surface` with `--ink` — that's the bug this fix eliminated.
 **Known issues:**
 - **Browser QA was not performed by Claude Code** — the Preview MCP couldn't start a dev server because Andrew's local `next dev` (PID 73158 on port 3000) is running and Next.js's duplicate-instance guard rejected the preview server even with `autoPort: true`. Typecheck (`npx tsc --noEmit`) passed cleanly. Browser verification deferred to Andrew.
 - Transport module's CSS now shares the same frame as lodging — if any rallying/stacking issue surfaces with `.chassis .sketch-module` legacy flex rules coexisting with `.module-section`, strip the `sketch-module` class from the wrappers. Current markup keeps them separate (sketch-module only on activities/provisions blocks).
+
+---
+
+### Session 8P: "Everything Else — Merge Activities + Provisions + Other"
+
+**Intent:** Activities and provisions currently render as two standalone `.sketch-module` blocks with the old uppercase small-caps label style — visually orphaned from the 8N `.module-section` treatment used by lodging/transport/headliner. Merge them into a single "everything else" module-section containing three optional per-person estimate rows: **activities**, **provisions**, and a new **other** row. All three stay single per-person numbers (no line items, no drawers — sketch phase stays rough). Visual parity with 8N primitives.
+
+**Design decisions (locked in before this brief):**
+- Three rows, all optional, all per-person estimates (input × crew in cost summary — unchanged math for activities + provisions).
+- `other` is a third optional slot for long-tail pre-booked costs (group gifts, welcome bags, decorations, entry fees). NOT a free-form list — one number.
+- Rename user-facing label from "food & drink" to **"provisions"** (matches internal naming; more flexible — food, liquor, etc.).
+- Data: `activities` stays on its own column (current). `provisions` stays as the named `Groceries.name = 'Provisions'` row (current pattern). `other` follows the provisions pattern — a new named row `Groceries.name = 'Other'`. NO migration required; reuses existing groceries table.
+- Visual shell: single `.module-section` containing one Georgia italic lowercase title ("everything else"), one handwritten "rough estimate" eyebrow, then three stacked estimate rows.
+- Number formatting: comma thousands separators in the display (`~$50,000` not `~$ 50000`). Input stays numeric, formatting on blur/display only.
+
+**Scope (numbered):**
+
+1. **New "everything else" module-section** — in `SketchModules.tsx`, replace the two existing `.sketch-module` blocks (activities + provisions, ~L350–L372) with a single `.module-section` block. Structure mirrors 8N headliner/lodging: section frame (2.5px ink border, 16px radius) + header row (`.module-section-title` Georgia italic lowercase + `.module-section-eyebrow` handwritten "rough estimate") + body with three stacked `EstimateInput` rows.
+2. **Add `other` estimate row** — third `EstimateInput` below provisions. Wire to a new named groceries record (`name: 'Other'`) following the existing provisions pattern in the save handler. Add a matching `handleOtherChange` mirroring `handleProvisionsChange` (including save-on-change + inline error treatment if provisions has one).
+3. **Relabel "food & drink" → "provisions"** user-facing — update `builderState.moduleProvisions` lexicon string from "food & drink" to "provisions" in `src/lib/copy/surfaces/builder-state.ts`. Verify no other surface depends on the old string.
+4. **Number formatting** — `EstimateInput.tsx` displays value with `toLocaleString()` (or equivalent) on the formatted number. Input element itself stays bare numeric. Affects all three rows uniformly.
+5. **Module label + helper copy** — add three new lexicon keys under `builderState`:
+   - `everythingElse.title: "everything else"`
+   - `everythingElse.eyebrow: "rough estimate"`
+   - `everythingElse.otherLabel: "other"`
+   - `everythingElse.otherPlaceholder: "~$0"` (match existing provisions/activities placeholder shape)
+   - `everythingElse.otherHint: "anything else you're covering ahead of the trip — gifts, decor, entry fees"`
+   - Keep `activitiesEstimateHint` but move the old "rough per-person budget for the stuff you book ahead" copy to a section-level hint (single line under the eyebrow, applies to all three rows). Or drop individual hints if the section eyebrow is enough — Claude Code's call, document choice.
+6. **Cost summary wiring** — `calculateTripCost` must include the new `other` amount in the same per-person multiplication as activities + provisions. Confirm activities + provisions math unchanged.
+7. **Remove legacy `.sketch-module` class** from activities/provisions markup (now inside the merged module-section). If nothing else still uses `.sketch-module`, delete the CSS rule. If other modules depend on it, leave it.
+8. **SKILL.md update** — collapse module-order entries. Replace:
+   ```
+   MODULE: activities (single per-person estimate — 8K)
+   MODULE: provisions (single per-person estimate)
+   ```
+   with:
+   ```
+   MODULE: everything else (activities + provisions + other — single per-person estimates each — 8P)
+   ```
+
+**Hard constraints:**
+- Single-module session: touches the activities+provisions markup + `EstimateInput` formatting + lexicon + cost summary. DO NOT modify lodging, transport, headliner, crew, buzz, extras, countdown, marquee, sticky bar, hero, or any trip-level field.
+- DO NOT introduce line items, drawers, or per-item split logic. Three single-number inputs, period.
+- DO NOT change the math semantics of activities or provisions (still per-person × crew).
+- DO NOT create a new route or a new top-level component.
+- DO NOT add a migration. Use existing `Groceries` table for the `Other` row.
+- All new user-facing copy via `getCopy` + lexicon — no hardcoded strings in JSX.
+- Mobile-first at 375px. Three rows stacked vertically.
+- `rm -rf .next && npm run dev` before QA (8M rule).
+
+**Acceptance criteria:**
+- [ ] One `.module-section` labeled "everything else" (Georgia italic lowercase) with handwritten "rough estimate" eyebrow replaces the old two orphan `.sketch-module` blocks
+- [ ] Three stacked rows inside: activities, provisions, other — all optional, all save-on-change
+- [ ] "provisions" label shown user-facing (not "food & drink")
+- [ ] Numbers display with comma thousands separators (`~$50,000`, `~$1,200`)
+- [ ] Entering a value in `other` persists to the `Groceries` table as `name: 'Other'` and contributes to cost summary via per-person × crew math
+- [ ] Activities + provisions math unchanged (regression gate — cost summary totals match pre-8P with same inputs)
+- [ ] Both themes (default + cream) legible at 375px; spot-check one playful theme (bachelorette or boys-trip)
+- [ ] Null state: when all three are empty, section renders cleanly with helper/hint only (no broken spacing)
+- [ ] `npx tsc --noEmit` clean
+- [ ] Lexicon spot-check: `builderState.everythingElse.title`, `everythingElse.otherLabel`, `moduleProvisions` (now "provisions")
+
+**Files to read first:**
+- `.claude/skills/rally-session-guard/SKILL.md` (Part 1 rules)
+- `rally-fix-plan-v1.md` → this brief + 8K Actuals (to understand the activities simplification context) + 8N/8O release notes (for `.module-section` primitive shape)
+- `src/components/trip/builder/SketchModules.tsx` (L350–L372 is the target block; also check `handleProvisionsChange`, `handleActivitiesChange`, and the save pipeline)
+- `src/components/trip/builder/EstimateInput.tsx` (add number formatting here)
+- `src/app/globals.css` (8N `.module-section`, `.module-section-title`, `.module-section-eyebrow` primitives)
+- `src/lib/copy/surfaces/builder-state.ts` (add `everythingElse` keys; update `moduleProvisions`)
+- `src/lib/cost/calculateTripCost.ts` (or wherever cost summary lives — add `other` contribution)
+- `rally-sketch-modules-v2-mockup.html` (visual reference — overall sketch page)
+- `rally-everything-else-wireframe.html` (**canonical wireframe for this brief** — before/after, empty state, number-formatting demo, structural notes)
+
+**How to QA solo:**
+1. `rm -rf .next && npm run dev`
+2. Load a sketch trip. Scroll to the bottom modules — confirm the merged "everything else" frame replaces the old pair.
+3. Enter $200 in activities, $150 in provisions, $50 in other. Confirm cost summary per-person total equals pre-8P activities + provisions + 50 (× crew).
+4. Clear all three — confirm no broken spacing and no `$NaN` in summary.
+5. Enter `50000` — confirm display reads `~$50,000`.
+6. Cycle default + cream + bachelorette themes at 375px.
+7. Regression spot-check: lodging, transport, headliner all render identically.
+8. `npx tsc --noEmit`.
+
+**Scope boundary reminders:**
+- If you find yourself touching a drawer, split toggle, line-item array, or the transport CSS — stop. Wrong session.
+- If you find yourself adding a migration — stop. Use the groceries-named-row pattern.
+- If the "rough estimate" / hint copy decision feels unclear — pick one, document in release notes, move on. Andrew will adjust in QA.
+- The doubled-border flag from 8O (section + card) doesn't apply here — "everything else" has no nested cards, just bare input rows.
+
+---
+
+#### Session 8P — Release Notes
+
+**What to test (read this first):**
+- **`rm -rf .next && npm run dev` before QA** — `globals.css` changed (new `.everything-else-rows`, `.estimate-display`, `.estimate-input-hint` rules; `.sketch-module*` descendants removed). Stale Turbopack chunks will mislead (8M rule).
+
+**What was built:**
+1. **Merged "everything else" module** — replaces the two orphaned `.sketch-module` blocks with one `.module-section` containing three stacked `EstimateInput` rows: activities, provisions, other. — `src/components/trip/builder/SketchModules.tsx`
+2. **`setOtherEstimate` server action** — mirrors `setProvisionsEstimate`; upserts by `name='Other'` on the shared `groceries` table with `cost_type='shared'`. No migration. — `src/app/actions/sketch-modules.ts`
+3. **"Other" state + handler** — `otherRecord`/`otherValue` + `handleOtherChange` in SketchModules follow the provisions pattern (save-on-change; `v > 0` guard). — `src/components/trip/builder/SketchModules.tsx`
+4. **Number formatting via `toLocaleString()`** — `EstimateInput` now swaps to a readonly `.estimate-display` span when blurred-but-filled, so `50000` renders as `50,000` (full display `~$50,000`). Input stays bare numeric while focused. — `src/components/trip/builder/EstimateInput.tsx`
+5. **`hint` prop on `EstimateInput`** — optional helper copy rendered below the row via `.estimate-input-hint`. Used by provisions + other rows. — `src/components/trip/builder/EstimateInput.tsx`
+6. **Lexicon adds** — `builderState.everythingElse.{title, eyebrow, activitiesLabel, provisionsLabel, provisionsHint, otherLabel, otherHint, placeholder}`. `moduleProvisions` value updated `"food & drink"` → `"provisions"`. — `src/lib/copy/surfaces/builder-state.ts`
+7. **CSS cleanup** — `.sketch-module` (singular) + all its descendants (`-items`, `-card*`, `-row*`, `-hint`) deleted from `globals.css`; only `.sketch-modules` (plural container) retained. Added `.everything-else-rows`, `.estimate-display`, `.estimate-input-hint` rules. — `src/app/globals.css`
+8. **SKILL.md module order** — two lines collapsed into one `MODULE: everything else (activities + provisions + other — single per-person estimates each — 8P)`. — `.claude/skills/rally-session-guard/SKILL.md`
+9. **Cost summary** — no code change. `calculateTripCost` already sums all shared groceries; the new `'Other'` row with `cost_type='shared'` folds in automatically alongside `'Provisions'`. Activities math (trip-level column) unchanged. — verified in `src/types/index.ts:457–460`
+
+**What changed from the brief:**
+- **Eyebrow primitive:** the brief called for `.module-section-eyebrow`, but that class does not exist in `globals.css`. The 8N precedent (headliner module) uses `.module-section-count` with the handwritten Caveat treatment for the "rough estimate" caption. I followed the existing primitive — same visual intent, existing class — rather than introducing a new CSS class.
+- **Section hint:** the brief gave latitude on per-row vs. section-level hints. Chose **per-row hints on provisions + other only** (activities label is self-explanatory); no section-level hint. The handwritten "rough estimate" count carries global framing. Activities' old hint copy (`activitiesEstimateHint`: "rough per-person budget for the stuff you book ahead") is no longer rendered — the key is retained in the lexicon in case sell+ wants it later, but no JSX references it.
+- **Placeholder:** added one shared `everythingElse.placeholder: "$ / person"` used by all three rows (matches the existing `activitiesEstimatePlaceholder` value) rather than per-row placeholders. The brief's `"~$0"` shape wasn't adopted because `~$` is already rendered as a separate prefix by `EstimateInput`, so the inner placeholder reads "$ / person" to preserve the per-person signal.
+- **Old activities lexicon keys retained:** `activitiesModuleLabel`, `activitiesEstimateHint`, `activitiesEstimatePlaceholder` are no longer referenced in JSX but left in the lexicon (no cleanup was required by the brief). Safe to prune in a future pass.
+
+**What to test:**
+- [ ] `rm -rf .next && npm run dev`, load a sketch trip at 375px.
+- [ ] Scroll to below transport — confirm one `.module-section` frame with Georgia italic "everything else" title + handwritten "rough estimate" caption replaces the old two orphaned blocks.
+- [ ] Three stacked rows inside: **activities** (no hint), **provisions** (hint: "groceries, snacks, drinks — the stuff you stock up on"), **other** (hint: "gifts, decor, entry fees — whatever else").
+- [ ] Enter 200 / 150 / 50 (activities / provisions / other). Confirm cost summary per-person equals `pre-8P (activities + provisions) + 50`, × crew.
+- [ ] Clear all three → no broken spacing, no `$NaN` in summary.
+- [ ] Enter `50000` in any row, tab/blur → display reads `~$50,000` (comma separator).
+- [ ] Focus a filled row → input swaps back to raw numeric (`50000`), editable.
+- [ ] Cycle themes: default + cream + bachelorette (or boys-trip). All legible at 375px.
+- [ ] Regression: lodging, transport, headliner render unchanged.
+- [ ] Lexicon spot-check: `everythingElse.title` = "everything else"; `everythingElse.otherLabel` = "other"; `moduleProvisions` now reads "provisions".
+- [ ] `npx tsc --noEmit` clean (confirmed by Claude Code pre-release).
+
+**Known issues:**
+- **End-to-end browser verification was not possible in this session** — `/trip/[slug]` requires an authenticated magic-link session. Claude Code verified the dev server compiles cleanly with zero errors and `tsc --noEmit` is clean; the rendered behavior will be validated in Cowork QA.
+- **Error-swallow behavior preserved** — `handleOtherChange` mirrors `handleProvisionsChange`/`handleActivitiesChange` and does not surface `{ok: false}` Result errors. This was the existing pattern (parked from 8N); not addressed in 8P.
+- **Duplicate "rough estimate" framing possible** — the handwritten section caption and the default `EstimateInput` placeholder (`"rough estimate"` when no placeholder override is given) both exist. I overrode with `"$ / person"` for all three rows so there's no duplication in practice, but the default fallback behavior still exists for any future caller.
+
+#### Session 8P — Actuals (Cowork QA, 2026-04-15)
+
+**Status:** ✅ complete. All 9 ACs passed in browser QA.
+
+**AC results:**
+- ✅ One merged `.module-section` labeled "everything else" with handwritten "rough estimate" caption
+- ✅ Three stacked rows: activities (no hint), provisions (hint), other (hint)
+- ✅ "provisions" shown user-facing (not "food & drink")
+- ✅ Number formatting: `50000` → `~$50,000` on blur; bare numeric on focus
+- ✅ Cost math: activities + provisions + other × crew; pre-8P regression intact
+- ✅ Null state: no broken spacing, no `$NaN`
+- ✅ Themes: default + cream + bachelorette legible at 375px
+- ✅ Regression: lodging, transport, headliner unchanged
+- ✅ Lexicon: `everythingElse.title`, `otherLabel`, `moduleProvisions` all correct
+
+**Brief deviations accepted:**
+- `.module-section-count` used instead of `.module-section-eyebrow` (class didn't exist; 8N precedent honored) — OK
+- Activities row has no hint; `activitiesEstimateHint` lexicon key retained unused — OK
+- Shared placeholder "$ / person" across all three rows — OK
+
+**Bugs escalated:** none.
+
+**Cowork fixes:** none.
+
+**Lexicon cleanup candidates for a future pass:** `activitiesModuleLabel`, `activitiesEstimateHint`, `activitiesEstimatePlaceholder` — unreferenced after 8P.
 
 ---
 

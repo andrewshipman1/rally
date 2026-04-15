@@ -1820,6 +1820,24 @@ button:active {
   opacity: 0.4;
   cursor: pointer;
 }
+/* Session 8P — formatted readonly display shown when the input is
+   blurred but filled. Matches the live input's size/weight so the
+   swap is visually invisible; toLocaleString() adds thousands
+   separators (e.g. "~$50,000"). */
+.chassis .estimate-input .estimate-display {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+.chassis .estimate-input .estimate-input-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink);
+  opacity: 0.55;
+}
 
 /* ─── Shared Input: LinkPasteInput ─────────────────────────────── */
 .chassis .link-paste-input {
@@ -1933,67 +1951,15 @@ button:active {
   gap: 12px;
   margin: 0 36px 16px;
 }
-.chassis .sketch-module {
+/* Session 8P — legacy .sketch-module descendant rules removed. The
+   activities + provisions orphans were merged into the .module-section
+   "everything else" frame and no other consumers remained. */
+
+/* Session 8P — "everything else" row stack inside the module-section. */
+.chassis .everything-else-rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-.chassis .sketch-module-items {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0 4px;
-}
-.chassis .sketch-module-card {
-  display: flex;
-  align-items: center;
   gap: 10px;
-  padding: 8px 10px;
-  border: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
-  border-radius: 12px;
-}
-.chassis .sketch-module-card-img {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-.chassis .sketch-module-card-body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.chassis .sketch-module-card-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.chassis .sketch-module-card-price {
-  font-size: 12px;
-  color: var(--ink);
-  opacity: 0.6;
-}
-.chassis .sketch-module-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
-}
-.chassis .sketch-module-row:last-child { border-bottom: none; }
-.chassis .sketch-module-row-name {
-  font-size: 14px;
-  color: var(--ink);
-  font-weight: 500;
-}
-.chassis .sketch-module-row-cost {
-  font-size: 13px;
-  color: var(--ink);
-  opacity: 0.6;
 }
 
 /* ── Headliner (Session 8J) ────────────────────────────────────── */
@@ -2257,13 +2223,8 @@ button:active {
   text-align: center;
 }
 
-/* Session 8K — activities/provisions hint copy under the estimate field. */
-.chassis .sketch-module-hint {
-  margin: 4px 0 0;
-  font-size: 12px;
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--ink) 55%, transparent);
-}
+/* Session 8P — .sketch-module-hint retired. Row-level hints now render
+   via the `.estimate-input-hint` rule co-located with EstimateInput. */
 
 /* Sticky builder bar — 4 buttons: ← 🎨 save-draft publish */
 .chassis .sticky .sticky-icon {

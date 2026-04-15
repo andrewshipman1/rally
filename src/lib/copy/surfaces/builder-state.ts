@@ -170,8 +170,22 @@ export const builderState: Record<string, Templated> = {
   'moduleActivitiesEmpty':   'any must-dos?',
   'moduleActivitiesName':    'activity name',
   'moduleActivitiesCost':    '$ per person',
-  'moduleProvisions':        'food & drink',
+  'moduleProvisions':        'provisions',
   'moduleProvisionsEmpty':   'rough grocery/food budget?',
+
+  // ─── Everything else module (Session 8P — merged activities +
+  //     provisions + other, all per-person × crew). Shell uses the 8N
+  //     primitives: Georgia italic title + handwritten count as "rough
+  //     estimate" caption. Row placeholder "$ / person" reused from
+  //     activities for per-person signaling.
+  'everythingElse.title':              'everything else',
+  'everythingElse.eyebrow':            'rough estimate',
+  'everythingElse.activitiesLabel':    'activities',
+  'everythingElse.provisionsLabel':    'provisions',
+  'everythingElse.provisionsHint':     'groceries, snacks, drinks — the stuff you stock up on',
+  'everythingElse.otherLabel':         'other',
+  'everythingElse.otherHint':          'gifts, decor, entry fees — whatever else',
+  'everythingElse.placeholder':        '$ / person',
 
   // ─── Scaffolding marquee (sketch state only) ────────────────────
   'marqueeScaffolding':    'tap to name · set the dates · invite the crew · send it',

@@ -20,7 +20,7 @@ import { HeadlinerDrawerForm } from './HeadlinerDrawerForm';
 import { TransportAddForm } from './TransportAddForm';
 import { TransportCard as SketchTransportCard } from './TransportCard';
 
-import { setProvisionsEstimate } from '@/app/actions/sketch-modules';
+import { setProvisionsEstimate, setOtherEstimate } from '@/app/actions/sketch-modules';
 import { setActivitiesEstimate } from '@/app/actions/update-trip-sketch';
 
 type Props = {
@@ -60,6 +60,11 @@ export function SketchModules({
   // Session 8K — single per-person estimate, same shape as provisions.
   const [activitiesValue, setActivitiesValue] = useState<number | null>(
     activitiesEstimate ?? null,
+  );
+  // Session 8P — "other" per-person estimate, groceries.name='Other'.
+  const otherRecord = groceries.find((g) => g.name === 'Other');
+  const [otherValue, setOtherValue] = useState<number | null>(
+    otherRecord?.estimated_total ?? null,
   );
   const [lodgingDrawerOpen, setLodgingDrawerOpen] = useState(false);
   const [editingSpot, setEditingSpot] = useState<Lodging | null>(null);
@@ -117,6 +122,14 @@ export function SketchModules({
     setProvisionsValue(v);
     if (v !== null && v > 0) {
       await setProvisionsEstimate(tripId, slug, v);
+      router.refresh();
+    }
+  }
+
+  async function handleOtherChange(v: number | null) {
+    setOtherValue(v);
+    if (v !== null && v > 0) {
+      await setOtherEstimate(tripId, slug, v);
       router.refresh();
     }
   }
@@ -347,28 +360,41 @@ export function SketchModules({
         </BottomDrawer>
       </div>
 
-      {/* ─── Activities (8K — single per-person estimate) ────── */}
-      <div className="sketch-module">
-        <EstimateInput
-          themeId={themeId}
-          label={getCopy(themeId, 'builderState.activitiesModuleLabel')}
-          value={activitiesValue}
-          onChange={handleActivitiesChange}
-          placeholder={getCopy(themeId, 'builderState.activitiesEstimatePlaceholder')}
-        />
-        <p className="sketch-module-hint">
-          {getCopy(themeId, 'builderState.activitiesEstimateHint')}
-        </p>
-      </div>
-
-      {/* ─── Provisions ──────────────────────────────────────── */}
-      <div className="sketch-module">
-        <EstimateInput
-          themeId={themeId}
-          label={getCopy(themeId, 'builderState.moduleProvisions')}
-          value={provisionsValue}
-          onChange={handleProvisionsChange}
-        />
+      {/* ─── Everything else (Session 8P — merged activities + provisions + other) ─── */}
+      <div className="module-section everything-else-module">
+        <div className="module-section-header">
+          <span className="module-section-title">
+            {getCopy(themeId, 'builderState.everythingElse.title')}
+          </span>
+          <span className="module-section-count">
+            {getCopy(themeId, 'builderState.everythingElse.eyebrow')}
+          </span>
+        </div>
+        <div className="everything-else-rows">
+          <EstimateInput
+            themeId={themeId}
+            label={getCopy(themeId, 'builderState.everythingElse.activitiesLabel')}
+            value={activitiesValue}
+            onChange={handleActivitiesChange}
+            placeholder={getCopy(themeId, 'builderState.everythingElse.placeholder')}
+          />
+          <EstimateInput
+            themeId={themeId}
+            label={getCopy(themeId, 'builderState.everythingElse.provisionsLabel')}
+            value={provisionsValue}
+            onChange={handleProvisionsChange}
+            placeholder={getCopy(themeId, 'builderState.everythingElse.placeholder')}
+            hint={getCopy(themeId, 'builderState.everythingElse.provisionsHint')}
+          />
+          <EstimateInput
+            themeId={themeId}
+            label={getCopy(themeId, 'builderState.everythingElse.otherLabel')}
+            value={otherValue}
+            onChange={handleOtherChange}
+            placeholder={getCopy(themeId, 'builderState.everythingElse.placeholder')}
+            hint={getCopy(themeId, 'builderState.everythingElse.otherHint')}
+          />
+        </div>
       </div>
     </div>
   );
