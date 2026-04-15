@@ -65,10 +65,18 @@ export function Headliner({ themeId, headliner, onOpen }: Props) {
     : getCopy(themeId, 'builderState.headliner.costUnitPerPerson');
 
   return (
-    <button
-      type="button"
+    <div
       className="module-card headliner"
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      aria-label={getCopy(themeId, 'builderState.headliner.drawerTitleEdit')}
     >
       {headliner.imageUrl && (
         <span
@@ -80,7 +88,7 @@ export function Headliner({ themeId, headliner, onOpen }: Props) {
           )}
         </span>
       )}
-      <span className="module-card-body">
+      <div className="module-card-body">
         <span className="module-card-title">{headliner.description}</span>
         <span className="module-card-meta">
           <span className="headliner-cost-pill">
@@ -95,7 +103,18 @@ export function Headliner({ themeId, headliner, onOpen }: Props) {
             </span>
           )}
         </span>
-      </span>
-    </button>
+        {headliner.linkUrl && (
+          <a
+            className="module-card-pill headliner-cta"
+            href={headliner.linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {getCopy(themeId, 'builderState.headliner.viewLink')}
+          </a>
+        )}
+      </div>
+    </div>
   );
 }

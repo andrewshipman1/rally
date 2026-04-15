@@ -4259,6 +4259,97 @@ This is a design-consistency session with a functional removal. No new features.
 3. **Transport refactor** — section frame + header adopt primitives. Count pill flipped from inked badge to handwritten-muted count (`$N lines/line`). Compact Frame-2 card shape preserved (NOT using hero primitives). Empty state now has dashed frame + pill CTA (matches lodging shape). Populated state shows cards + dashed outline "+ add transportation" below.
 4. **Headliner refactor** — now wrapped in `.module-section` with a section header ("the headliner" title + handwritten "rough estimate" caption on the right). Populated state uses `.module-card` + `.module-card-hero` + `.module-card-body` + `.module-card-title` + `.module-card-meta`. Null state uses `.module-section-empty` with add-hint + pill CTA instead of the bespoke dashed affordance. Legacy `.headliner`/`.headliner-eyebrow`/`.headliner-og`/`.headliner-body`/`.headliner-title`/`.headliner-add*` rules deleted.
 5. **"Getting there" removed** — the `<LineItemAddInput>` flights block + `handleFlightAdd` + `flights` prop deleted from `SketchModules.tsx`. Plumbing updated: `flights` removed from `SketchTripShell` props and `page.tsx` sketch render call. `Flight` type import removed from both. The `flights` table, `addFlight` server action, `Flight` type, and non-sketch rendering in `page.tsx` (line ~393) + `InviteeShell` → `LockedPlan` are **untouched**.
+
+#### Session 8N — Contrast Addendum (Cowork-applied)
+
+**Problem:** After 8N shipped, headliner/buzz/banners/transport-drawer fields rendered dark-on-dark across multiple themes (bachelorette burgundy was the worst). Root cause: `var(--surface)` is a theme token *designed* as an inverse-bg contrast block paired with `--on-surface` (used correctly by the marquee and countdown). Seven rules had wrongly used `--surface` as card/input/banner backing with `--ink` text — in every one of the 17 themes, that pairing is dark-on-dark.
+
+**Fix (applied in Cowork):**
+1. Added new `--field` token at `:root` in `globals.css`: `color-mix(in srgb, var(--bg) 92%, var(--ink) 8%)`. Derives a subtle tint of the page surface toward ink — always legible with `var(--ink)` text regardless of theme.
+2. Migrated 7 rules from `var(--surface)` → `var(--field)`:
+   - `.deadline-banner`, `.lock-banner` (~L617, L633)
+   - `.headliner-form-input`, `.headliner-form-unit` (~L2067, L2151)
+   - `.buzz-bubble`, `.buzz-rx` (~L2814, L2860)
+   - `.passport-drawer-social` (~L4008)
+3. 8N primitives (`.module-section`, `.module-card`) had already been patched to `background: transparent` (they nest inside section frames that already have `--bg`).
+
+**Token pairing rule (document in SKILL.md next session):**
+- `--surface` + `--on-surface` → dark/contrast block, light text (marquee, countdown)
+- `--field` + `--ink` → light field, dark text (cards, inputs, banners, bubbles)
+- `--bg` + `--ink` → page surfaces (sections, frames)
+
+Never pair `--surface` with `--ink` — that's the bug this fix eliminated.
+
+---
+
+### Session 8O: "Headliner Visual Parity with Lodging"
+
+**Intent:** 8N extracted shared primitives, but headliner's inner content (price chip, CTA, card weight) still reads as a weaker, muted variant of the spot module. Bring it to visual parity: hot-pink accent price, pink CTA button, heavier card frame. Single-file visual pass; no logic changes.
+
+**Scope (numbered):**
+
+1. **Price treatment.** Currently `.headliner-cost-pill` renders a dark rounded pill with muted dollar-sign and price inside. Change to accent-colored text (`color: var(--accent)`) with no pill background, matching `.lodging-card-meta`'s treatment of `$1000/night × 6 nights…`. Use the same font (`var(--font-hand)`) and size. Drop `.headliner-cost-pill` background/border/padding — keep only typography.
+2. **Add a CTA button.** Below the caption line in the headliner card, add `.module-card-pill` (reuse the 8N primitive) labeled from lexicon key `builderState.headliner.viewLink` → `"view site →"`. Links to `transport.source_url` or the headliner's canonical URL (whatever field currently drives the `↗ coachella.com` chip). Keep the existing `.headliner-og-domain` chip — don't remove it.
+3. **Heavier card frame.** Apply the `.module-card` 2px black border + field background treatment (same as spot). Currently the headliner card has no border of its own — it sits inside the section frame only. Give it its own `.module-card` outline so it reads as the same visual weight as a spot card.
+4. **Lexicon add.** Add `builderState.headliner.viewLink: "view site →"` to `src/lib/copy/surfaces/builder-state.ts`. Follow the existing all-lowercase tone.
+
+**Hard constraints:**
+- CSS + one JSX addition (CTA button) + one lexicon key. Nothing else.
+- DO NOT touch server actions, data shape, or the OG enrichment pipeline.
+- DO NOT modify the spot module (regression gate — lodging must render identically).
+- DO NOT introduce new theme variables; use `--accent` and existing primitives only.
+- Cost-row edit behavior (tap to edit inline) must continue to work — verify the click target still triggers the existing handler after restyle.
+
+**Acceptance criteria:**
+- [ ] Headliner price renders in accent color, no pill background, handwritten font
+- [ ] `view site →` pill CTA appears in the headliner card and opens the source URL
+- [ ] Headliner card has 2px ink border matching spot-card weight
+- [ ] Both themes (default + cream) + at least bachelorette + boys-trip render legibly at 375px
+- [ ] Spot module renders pixel-identical to before (regression gate)
+- [ ] Cost-row inline edit still functional
+- [ ] `npx tsc --noEmit` clean
+
+**Files to read:**
+- `src/components/trip/builder/Headliner.tsx` (card structure + edit handler)
+- `src/components/trip/builder/LodgingCard.tsx` (visual target)
+- `src/app/globals.css` (L2002+ headliner rules; L760+ lodging rules; 8N primitives)
+- `src/lib/copy/surfaces/builder-state.ts` (lexicon)
+
+**How to QA solo:**
+1. `rm -rf .next && npm run dev`
+2. Load a sketch trip with a headliner set (Coachella test case). Compare headliner + spot side-by-side visually.
+3. Cycle 4 themes: default, cream, bachelorette, boys-trip. Confirm legibility + consistency.
+4. Tap the price — inline edit still works.
+5. Tap the new CTA — opens source URL in a new tab.
+6. Regression: lodging renders identically.
+
+#### Session 8O — Release Notes
+
+**What was built:**
+1. **Headliner price restyled** — `.headliner-cost-pill` now renders as inline accent-colored handwritten text (size 17px, `var(--accent)`, `var(--font-hand)`), dropping the inked pill background/padding/border. `.headliner-cost-dollar` kept accent-colored for continuity. `.headliner-caption` retuned to handwritten muted 15px (matches lodging-card-meta treatment). — `src/app/globals.css`
+2. **"view site →" CTA added** — new anchor rendered inside the card body using the 8N `.module-card-pill` primitive + a local `.headliner-cta` positioning helper (`align-self: flex-start; margin-top: 10px;`). Opens `headliner.linkUrl` in a new tab; click `stopPropagation` so the card tap-to-edit doesn't fire simultaneously. CTA only renders when a link is present. — `src/components/trip/builder/Headliner.tsx`
+3. **Card frame** — already applied via 8N's `.module-card` primitive (2.5px ink border, 16px radius, surface background). Verified in place; no CSS change needed for AC #3. Outer element restructured (see below).
+4. **Lexicon key added** — `builderState.headliner.viewLink: 'view site →'` at the end of the headliner block in `src/lib/copy/surfaces/builder-state.ts`.
+
+**What changed from the brief:**
+- **Outer element flipped from `<button>` to `<div role="button">`.** Adding an `<a>` CTA inside a `<button>` is invalid HTML (no interactive-in-interactive). Restructure: the card is a div with `role="button"`, `tabIndex={0}`, `onClick`/`onKeyDown` → `onOpen`; the `<a>` sits inside the body as a sibling and stops propagation. Card-wide tap-to-edit preserved; keyboard Enter/Space also opens drawer now (small a11y win).
+- **Card border doubling note.** `.module-card` has a 2.5px border AND the headliner sits inside `.module-section` (which also has a 2.5px border). Per the brief's literal ask ("give it its own `.module-card` outline") this is intentional — the card stands out from the section frame. If this reads as too heavy in QA, it's a one-line CSS override to either drop `.module-card`'s border or the section wrapper — flag it for 8P.
+
+**What to test:**
+- [ ] **Required:** `rm -rf .next && npm run dev` before QA.
+- [ ] Headliner price renders in accent color (hot-pink on default) with handwritten font; NO pill background.
+- [ ] `view site →` pill appears below the meta line; tapping opens the source URL in a new tab; tapping does NOT open the edit drawer.
+- [ ] Tapping the title/hero/meta area still opens the edit drawer.
+- [ ] Keyboard: focus the card, press Enter or Space → drawer opens.
+- [ ] Card has 2.5px ink border (module-card primitive) nested inside the section's 2.5px border.
+- [ ] Both themes (default + cream) at 375px; spot-check bachelorette + boys-trip for accent legibility.
+- [ ] **Regression gate** — spot/lodging module renders identically to pre-8O.
+- [ ] Headliner null state still shows dashed empty + add-pill (unchanged from 8N).
+- [ ] Lexicon: verify the CTA string reads "view site →" (no underline, handwritten NOT applied — CTA uses accent-filled pill).
+
+**Known issues:**
+- **Browser QA blocked.** Preview MCP couldn't start (your local `next dev` on port 3000 holds Next's duplicate-instance guard). Typecheck passed (`npx tsc --noEmit` exit 0). Manual browser QA deferred to you.
+- If the doubled-border (section + card) reads as too heavy visually, log as 8P item: either strip `.module-card`'s border OR unwrap headliner from `.module-section`.
 6. **Lexicon deprecation** — `moduleFlights`, `moduleFlightsEmpty`, `moduleFlightsName`, `moduleFlightsCost` comment-marked in `src/lib/copy/surfaces/builder-state.ts` (not deleted — namespace reserved for sell-phase arrival estimator).
 7. **SKILL.md** — removed the "SLOT: getting here" line from the module order. Added hard-rule line: *"CSS changes to `globals.css` require clearing `.next` before QA — stale Turbopack chunks bit us in 8M."*
 

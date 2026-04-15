@@ -213,6 +213,8 @@ export const builderState: Record<string, Templated> = {
   'headliner.pulledFrom':           'pulled from {domain} · edit anytime',
   'headliner.enrichingIndicator':   'pulling details…',
   'headliner.saveError':            "couldn't save — try again",
+  // Session 8O — "view site →" CTA inside the headliner card.
+  'headliner.viewLink':             'view site →',
 
   // ─── Activities module (Session 8K — single per-person estimate) ─
   'activitiesModuleLabel':          'activities',
