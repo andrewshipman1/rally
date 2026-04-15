@@ -10,6 +10,15 @@ export type PollType = 'date_range' | 'option_vote';
 export type PollStatus = 'open' | 'closed';
 export type SplitType = 'equal' | 'custom' | 'specific';
 export type TransportSubtype = 'car_rental' | 'taxi' | 'public_transit';
+// Session 8M — 7-value tag replacing the legacy subtype enum for sketch entry.
+export type TransportTypeTag =
+  | 'flight'
+  | 'train'
+  | 'rental_car_van'
+  | 'charter_van_bus'
+  | 'charter_boat'
+  | 'ferry'
+  | 'other';
 export type ExpenseCategory = 'food' | 'transport' | 'activities' | 'groceries' | 'misc';
 
 // ─── Core Entities ───
@@ -165,22 +174,24 @@ export interface Flight {
 export interface Transport {
   id: string;
   trip_id: string;
-  // Required (Sketch)
-  subtype: TransportSubtype;
+  // Session 8M — sketch-phase canonical fields.
+  type_tag: TransportTypeTag;
+  description: string;
   estimated_total: number | null;
-  // Optional (Lock)
-  provider: string | null;
-  vehicle_type: string | null;
-  daily_rate: number | null;
-  num_days: number | null;
-  per_ride_cost: number | null;
-  route: string | null;
-  pickup_location: string | null;
-  pickup_time: string | null;
-  dropoff_location: string | null;
+  cost_type: 'shared' | 'individual';
   booking_link: string | null;
   og_image_url: string | null;
-  cost_type: 'shared' | 'individual';
+  // Legacy (pre-8M). Retained for backward-compat reads and silent deprecation.
+  subtype?: TransportSubtype | null;
+  provider?: string | null;
+  vehicle_type?: string | null;
+  daily_rate?: number | null;
+  num_days?: number | null;
+  per_ride_cost?: number | null;
+  route?: string | null;
+  pickup_location?: string | null;
+  pickup_time?: string | null;
+  dropoff_location?: string | null;
   status: ComponentStatus;
   booked_by: string | null;
   notes: string | null;

@@ -37,6 +37,15 @@
   --on-surface:  #fafafa;
   --on-accent:   #fff;
 
+  /* --field: subtle tint of --bg toward --ink. Use as background for
+     cards, inputs, and banners that carry --ink text. NEVER put --ink
+     on --surface — that pairing is dark-on-dark in every theme.
+     Rule of thumb:
+       --surface + --on-surface  → dark block, light text (marquee, countdown)
+       --field   + --ink         → light field, dark text (cards, inputs)
+       --bg      + --ink         → page surfaces (sections, frames) */
+  --field: color-mix(in srgb, var(--bg) 92%, var(--ink) 8%);
+
   /* ─── Global (non-theme) tokens ─── */
   /* Wordmark "bang" color — locked per brand brief */
   --bang-light:  #ff2e7e;
@@ -614,7 +623,7 @@ button:active {
 .chassis .deadline-banner {
   margin: 8px 18px;
   padding: 12px 16px;
-  background: var(--surface);
+  background: var(--field);
   color: var(--ink);
   border: 1px solid var(--stroke);
   border-radius: 12px;
@@ -630,7 +639,7 @@ button:active {
 .chassis .lock-banner {
   margin: 8px 18px;
   padding: 14px 18px;
-  background: var(--surface);
+  background: var(--field);
   color: var(--ink);
   border: 1px solid var(--accent);
   border-radius: 12px;
@@ -759,54 +768,9 @@ button:active {
 
 /* ─── Lodging module (Session 8A) ─────────────────────────────── */
 
-.chassis .lodging-module {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 18px 24px;
-  border: 2.5px solid var(--ink);
-  border-radius: 16px;
-}
-
-.chassis .lodging-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2px;
-}
-.chassis .lodging-count {
-  font-family: var(--font-hand), 'Caveat', cursive;
-  font-size: 16px;
-  color: var(--ink);
-  opacity: 0.5;
-}
-
-.chassis .lodging-empty {
-  padding: 20px 16px;
-  border: 2.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
-  border-radius: 16px;
-  text-align: center;
-}
-.chassis .lodging-empty-text {
-  font-family: var(--font-hand), 'Caveat', cursive;
-  font-size: 17px;
-  color: var(--ink);
-  opacity: 0.5;
-  margin: 0 0 12px;
-}
-.chassis .lodging-add-btn {
-  all: unset;
-  cursor: pointer;
-  display: inline-block;
-  padding: 10px 24px;
-  background: var(--accent);
-  color: var(--bg);
-  font-size: 14px;
-  font-weight: 700;
-  border-radius: 30px;
-  box-shadow: 3px 3px 0 var(--stroke);
-}
-.chassis .lodging-add-btn:active { transform: translateY(1px); box-shadow: 1px 1px 0 var(--stroke); }
+/* Session 8N — lodging frame + header + empty + add-btn moved to
+   module-section primitives. Lodging-specific inner rules (cards,
+   type-picker, form, link-pill) remain below. */
 
 .chassis .lodging-cards { display: flex; flex-direction: column; gap: 14px; }
 
@@ -879,23 +843,8 @@ button:active {
 .chassis .lodging-module .collapsible-body .lodging-cards {
   width: 100%;
 }
-.chassis .lodging-add-another {
-  all: unset;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 16px;
-  padding: 8px 20px;
-  text-align: center;
-  border: 1.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-  opacity: 0.6;
-}
-.chassis .lodging-add-another:hover { opacity: 0.8; }
+/* Session 8N — lodging-add-another styles merged into
+   .module-section-add-outline primitive. */
 
 /* Type picker */
 .chassis .lodging-type-picker {
@@ -2048,52 +1997,14 @@ button:active {
 }
 
 /* ── Headliner (Session 8J) ────────────────────────────────────── */
-.chassis .headliner-module { gap: 0; }
+/* Session 8N — headliner now lives inside a .module-section wrapper
+   (SketchModules) and uses .module-card + hero primitives. Legacy
+   .headliner / .headliner-eyebrow / .headliner-og / .headliner-add-*
+   rules removed. */
 
-/* Populated state */
-.chassis .headliner {
-  all: unset;
-  display: block;
-  cursor: pointer;
-  background: var(--surface, color-mix(in srgb, var(--bg) 94%, var(--ink) 6%));
-  border: 2.5px solid var(--ink);
-  border-radius: 12px;
-  overflow: hidden;
-  width: 100%;
-}
 .chassis .headliner:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-}
-.chassis .headliner-eyebrow {
-  display: block;
-  padding: 10px 14px 0;
-  font-size: 10px;
-  text-transform: lowercase;
-  letter-spacing: 0.14em;
-  color: color-mix(in srgb, var(--ink) 55%, transparent);
-  font-weight: 700;
-}
-.chassis .headliner-og {
-  display: block;
-  position: relative;
-  height: 140px;
-  margin: 8px 14px 0;
-  background-color: color-mix(in srgb, var(--ink) 10%, transparent);
-  background-position: center;
-  background-size: cover;
-  border: 1.5px solid var(--ink);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.chassis .headliner-og::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 55%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
-  border-radius: 0 0 9px 9px;
-  pointer-events: none;
 }
 .chassis .headliner-og-domain {
   position: absolute;
@@ -2110,20 +2021,6 @@ button:active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.chassis .headliner-body {
-  display: block;
-  padding: 10px 14px 14px;
-}
-.chassis .headliner-title {
-  display: block;
-  font-family: Georgia, serif;
-  font-style: italic;
-  font-weight: 700;
-  font-size: 20px;
-  line-height: 1.2;
-  margin-bottom: 10px;
-  color: var(--ink);
 }
 .chassis .headliner-cost-pill {
   display: inline-flex;
@@ -2143,45 +2040,11 @@ button:active {
   font-size: 15px;
 }
 .chassis .headliner-caption {
-  display: block;
   font-size: 11px;
   color: color-mix(in srgb, var(--ink) 55%, transparent);
-  margin-top: 8px;
 }
 
-/* Null state — dashed affordance */
-.chassis .headliner-add {
-  all: unset;
-  box-sizing: border-box;
-  display: block;
-  width: 100%;
-  min-height: 44px;
-  padding: 18px 14px;
-  background: transparent;
-  border: 2px dashed color-mix(in srgb, var(--ink) 30%, transparent);
-  border-radius: 12px;
-  text-align: center;
-  cursor: pointer;
-}
-.chassis .headliner-add:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.chassis .headliner-add-label {
-  display: block;
-  font-family: Georgia, serif;
-  font-style: italic;
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--ink);
-  margin-bottom: 4px;
-}
-.chassis .headliner-add-hint {
-  display: block;
-  font-size: 11px;
-  color: color-mix(in srgb, var(--ink) 55%, transparent);
-  line-height: 1.5;
-}
+/* Session 8N — null state now uses .module-section-empty primitive. */
 
 /* ── Headliner drawer form ────────────────────────────────────── */
 .chassis .headliner-form {
@@ -2210,7 +2073,7 @@ button:active {
   border: 1.5px solid var(--ink);
   border-radius: 10px;
   font-size: 14px;
-  background: var(--surface, #fff);
+  background: var(--field);
   color: var(--ink);
   font-family: inherit;
 }
@@ -2294,7 +2157,7 @@ button:active {
   box-sizing: border-box;
   min-height: 44px;
   padding: 0 12px;
-  background: var(--surface, #fff);
+  background: var(--field);
   color: var(--ink);
   font-size: 12px;
   font-weight: 600;
@@ -2957,7 +2820,7 @@ button:active {
   display: inline-block;
   padding: 8px 14px;
   border-radius: 14px 14px 14px 4px;
-  background: var(--surface);
+  background: var(--field);
   border: 2px solid var(--ink);
   max-width: 85%;
 }
@@ -3003,7 +2866,7 @@ button:active {
   padding: 2px 8px;
   border: 1.5px solid var(--ink);
   border-radius: 999px;
-  background: var(--surface);
+  background: var(--field);
   display: flex;
   align-items: center;
   gap: 3px;
@@ -4149,7 +4012,7 @@ button:active {
   padding: 10px 14px;
   border: 2px solid var(--ink, #1a1a1a);
   border-radius: 12px;
-  background: var(--surface, rgba(255,255,255,0.5));
+  background: var(--field);
   text-decoration: none;
   color: var(--ink, #1a1a1a);
   font-family: var(--font-body), 'DM Sans', sans-serif;
@@ -4292,4 +4155,529 @@ button:active {
 .bottom-drawer-body .lodging-form {
   border: none;
   padding: 0;
+}
+
+/* ── Transportation module (Session 8M — compact single-line cards;
+      8N — header/empty/add now on .module-section primitives). */
+.chassis .transport-module-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Compact single-line card — wireframe Frame 2 grid */
+.chassis .transport-card {
+  all: unset;
+  cursor: pointer;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+  border-radius: 10px;
+  background: transparent;
+}
+.chassis .transport-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.chassis .transport-card-icon {
+  font-size: 18px;
+  text-align: center;
+}
+.chassis .transport-card-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chassis .transport-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chassis .transport-card-meta {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chassis .transport-card-link-chip {
+  font-size: 10px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* ── Transport drawer form ───────────────────────────────────── */
+.chassis .transport-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.chassis .transport-form-framing {
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border-left: 2px solid var(--ink);
+  border-radius: 0 6px 6px 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.chassis .transport-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.chassis .transport-form-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  font-weight: 700;
+}
+.chassis .transport-form-req {
+  color: #c0392b;
+  margin-left: 3px;
+}
+.chassis .transport-form-input {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  font-size: 14px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+}
+.chassis .transport-form-input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.chassis .transport-form-input::placeholder {
+  color: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+.chassis .transport-form-hint {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  line-height: 1.4;
+}
+
+/* Chips */
+.chassis .transport-form-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chassis .transport-form-chip {
+  all: unset;
+  cursor: pointer;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  background: transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  font-family: inherit;
+}
+.chassis .transport-form-chip--selected {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+.chassis .transport-form-chip-emoji {
+  font-size: 14px;
+}
+.chassis .transport-form-definition {
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-radius: 6px;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+  line-height: 1.5;
+}
+.chassis .transport-form-definition strong {
+  color: var(--ink);
+}
+
+/* Cost row + split toggle */
+.chassis .transport-form-cost-row {
+  display: flex;
+  gap: 10px;
+}
+.chassis .transport-form-cost-input {
+  flex: 1;
+  min-width: 0;
+}
+.chassis .transport-form-split {
+  display: flex;
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.chassis .transport-form-split-btn {
+  all: unset;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  font-family: inherit;
+}
+.chassis .transport-form-split-btn:first-child {
+  border-right: 1.5px solid var(--ink);
+}
+.chassis .transport-form-split-btn--active {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* Enrichment preview — drawer only */
+.chassis .transport-form-enrich {
+  margin-top: 4px;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.chassis .transport-form-enrich-hero {
+  position: relative;
+  height: 110px;
+  background-color: color-mix(in srgb, var(--ink) 10%, transparent);
+  background-position: center;
+  background-size: cover;
+}
+.chassis .transport-form-enrich--loading .transport-form-enrich-hero {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ink) 10%, transparent) 0 10px,
+    color-mix(in srgb, var(--ink) 4%, transparent) 10px 20px
+  );
+  animation: transport-shimmer 1.2s linear infinite;
+}
+@keyframes transport-shimmer {
+  0% { background-position: 0 0; }
+  100% { background-position: 28px 0; }
+}
+.chassis .transport-form-enrich-domain {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.chassis .transport-form-enrich-body {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+}
+.chassis .transport-form-enrich-title {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* Error (8J/8K pattern) */
+.chassis .transport-form-error {
+  padding: 10px 12px;
+  background: color-mix(in srgb, #c0392b 8%, transparent);
+  border: 1px solid color-mix(in srgb, #c0392b 30%, transparent);
+  border-radius: 10px;
+  font-size: 12px;
+  color: #8a2b22;
+  text-align: center;
+}
+
+/* Action buttons */
+.chassis .transport-form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.chassis .transport-form-submit {
+  all: unset;
+  cursor: pointer;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  font-family: inherit;
+}
+.chassis .transport-form-submit:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.chassis .transport-form-remove {
+  all: unset;
+  cursor: pointer;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1.5px solid color-mix(in srgb, #c0392b 35%, transparent);
+  background: transparent;
+  color: #c0392b;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  font-family: inherit;
+}
+.chassis .transport-form-remove--confirm {
+  background: #c0392b;
+  color: #fff;
+  border-color: #c0392b;
+}
+.chassis .transport-form-confirm-bar {
+  margin-top: 8px;
+  padding: 12px;
+  background: color-mix(in srgb, #c0392b 8%, transparent);
+  border: 1px solid color-mix(in srgb, #c0392b 30%, transparent);
+  border-radius: 10px;
+  font-size: 12px;
+  color: #8a2b22;
+  text-align: center;
+}
+.chassis .transport-form-confirm-bar strong { color: #c0392b; }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Session 8N — Module design-system primitives.
+
+   Shared section-frame + header + empty-state + card primitives used by
+   lodging, transport, and headliner. Values lifted from lodging (8A) so
+   lodging's visual footprint is preserved; transport + headliner adopt
+   the same frame/header treatment. Transport keeps its compact card
+   shape (wireframe Frame 2) — it uses the section primitives but NOT
+   the hero-card body primitives.
+   ───────────────────────────────────────────────────────────────────── */
+
+.chassis .module-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 24px;
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+  /* No background — inherit page --bg so --ink text stays readable across themes.
+     (8N regression: var(--surface) is dark in some themes while --ink is also
+     dark; dark text on dark surface is unreadable.) */
+}
+
+.chassis .module-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.chassis .module-section-title {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.1;
+  color: var(--ink);
+  text-transform: lowercase;
+}
+
+.chassis .module-section-count {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--ink);
+  opacity: 0.5;
+}
+
+.chassis .module-section-empty {
+  padding: 20px 16px;
+  border: 2.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+  border-radius: 16px;
+  text-align: center;
+}
+.chassis .module-section-empty-text {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 17px;
+  color: var(--ink);
+  opacity: 0.5;
+  margin: 0 0 12px;
+}
+
+.chassis .module-section-add {
+  all: unset;
+  cursor: pointer;
+  display: inline-block;
+  padding: 10px 24px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 30px;
+  box-shadow: 3px 3px 0 var(--stroke);
+}
+.chassis .module-section-add:active {
+  transform: translateY(1px);
+  box-shadow: 1px 1px 0 var(--stroke);
+}
+
+.chassis .module-section-add-outline {
+  all: unset;
+  cursor: pointer;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  padding: 8px 20px;
+  text-align: center;
+  border: 1.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.6;
+  min-height: 44px;
+}
+.chassis .module-section-add-outline:hover { opacity: 0.8; }
+
+/* Card primitives (hero + meta + remove). Transport opts OUT of these
+   and keeps its compact grid card. */
+.chassis .module-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+  /* No background — same reason as .module-section. */
+  overflow: hidden;
+}
+
+.chassis .module-card-hero {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 160px;
+  background-color: color-mix(in srgb, var(--ink) 10%, transparent);
+  background-position: center;
+  background-size: cover;
+}
+.chassis .module-card-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 55%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
+  pointer-events: none;
+}
+
+.chassis .module-card-type-chip {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(4px);
+}
+
+.chassis .module-card-remove {
+  all: unset;
+  cursor: pointer;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 1;
+  backdrop-filter: blur(4px);
+}
+.chassis .module-card-remove:active { background: rgba(0, 0, 0, 0.7); }
+
+.chassis .module-card-body {
+  display: block;
+  padding: 12px 16px 14px;
+}
+
+.chassis .module-card-title {
+  display: block;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.chassis .module-card-meta {
+  display: block;
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 15px;
+  color: var(--ink);
+  opacity: 0.5;
+  margin-top: 2px;
+}
+
+.chassis .module-card-pill {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 18px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 30px;
+  text-decoration: none;
+  box-shadow: 2px 2px 0 var(--stroke);
+}
+.chassis .module-card-pill:active {
+  transform: translateY(1px);
+  box-shadow: 0 0 0 var(--stroke);
 }

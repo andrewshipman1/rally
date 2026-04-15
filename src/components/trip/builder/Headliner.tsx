@@ -42,19 +42,19 @@ export function Headliner({ themeId, headliner, onOpen }: Props) {
 
   if (!isSet) {
     return (
-      <button
-        type="button"
-        className="headliner-add"
-        onClick={onOpen}
-        aria-label={getCopy(themeId, 'builderState.headliner.addLabel')}
-      >
-        <span className="headliner-add-label">
-          {getCopy(themeId, 'builderState.headliner.addLabel')}
-        </span>
-        <span className="headliner-add-hint">
+      <div className="module-section-empty headliner-empty">
+        <p className="module-section-empty-text">
           {getCopy(themeId, 'builderState.headliner.addHint')}
-        </span>
-      </button>
+        </p>
+        <button
+          type="button"
+          className="module-section-add"
+          onClick={onOpen}
+          aria-label={getCopy(themeId, 'builderState.headliner.addLabel')}
+        >
+          {getCopy(themeId, 'builderState.headliner.addLabel')}
+        </button>
+      </div>
     );
   }
 
@@ -67,15 +67,12 @@ export function Headliner({ themeId, headliner, onOpen }: Props) {
   return (
     <button
       type="button"
-      className="headliner"
+      className="module-card headliner"
       onClick={onOpen}
     >
-      <span className="headliner-eyebrow">
-        {getCopy(themeId, 'builderState.headliner.eyebrow')}
-      </span>
       {headliner.imageUrl && (
         <span
-          className="headliner-og"
+          className="module-card-hero"
           style={{ backgroundImage: `url(${headliner.imageUrl})` }}
         >
           {domain && (
@@ -83,20 +80,21 @@ export function Headliner({ themeId, headliner, onOpen }: Props) {
           )}
         </span>
       )}
-      <span className="headliner-body">
-        <span className="headliner-title">{headliner.description}</span>
-        <span className="headliner-cost-pill">
-          <span className="headliner-cost-dollar">$</span>
-          {dollars.toLocaleString('en-US')}
-          {' '}{unitLabel}
-          {' · '}
-          {getCopy(themeId, 'builderState.headliner.estimateCaption')}
-        </span>
-        {domain && (
-          <span className="headliner-caption">
-            {getCopy(themeId, 'builderState.headliner.pulledFrom', { domain })}
+      <span className="module-card-body">
+        <span className="module-card-title">{headliner.description}</span>
+        <span className="module-card-meta">
+          <span className="headliner-cost-pill">
+            <span className="headliner-cost-dollar">$</span>
+            {dollars.toLocaleString('en-US')}
+            {' '}{unitLabel}
           </span>
-        )}
+          {domain && (
+            <span className="headliner-caption">
+              {' · '}
+              {getCopy(themeId, 'builderState.headliner.pulledFrom', { domain })}
+            </span>
+          )}
+        </span>
       </span>
     </button>
   );

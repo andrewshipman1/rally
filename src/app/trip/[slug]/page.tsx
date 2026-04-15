@@ -186,7 +186,6 @@ export default async function TripPage({ params }: Props) {
         coverImageUrl={trip.cover_image_url}
         members={members}
         lodging={lodging}
-        flights={flights}
         transport={transport}
         groceries={groceries}
         packingList={trip.packing_list || []}

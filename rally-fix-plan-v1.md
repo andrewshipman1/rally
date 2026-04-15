@@ -4101,6 +4101,189 @@ STOP and ask Andrew before expanding if any of these come up:
 - Introducing a new route or sub-page
 - Adding any user-facing copy not in §5.29
 
+#### Session 8M — Release Notes
+
+**What was built:**
+1. **Types** — `TransportTypeTag` union (7 values) added in [src/types/index.ts](src/types/index.ts). `Transport` interface extended with required `type_tag` + `description` + `cost_type` + `booking_link` + `og_image_url`; every legacy field (`subtype`, `provider`, `vehicle_type`, `daily_rate`, `num_days`, `per_ride_cost`, `route`, `pickup_*`, `dropoff_*`) is now optional on the interface for silent deprecation.
+2. **Server actions** — [src/app/actions/sketch-modules.ts](src/app/actions/sketch-modules.ts): `addTransport` rewritten to take a `TransportPayload` (no more `subtype: 'car_rental'` stub); added `updateTransport` and `removeTransport`; zod schema `TransportPayloadSchema` shared across all three; follows the lodging `{ok,error}` contract.
+3. **TransportAddForm** (new) — [src/components/trip/builder/TransportAddForm.tsx](src/components/trip/builder/TransportAddForm.tsx): drawer body with framing line, required description, 7-chip required type picker, inline tag-definition reveal, cost + split toggle with default-per-tag + override-sticks logic, optional link with drawer-only OG enrichment via `enrichUrl`, inline save-error surface (8J/8K pattern), and edit-mode prefill + confirm-bar remove.
+4. **Builder TransportCard** (new) — [src/components/trip/builder/TransportCard.tsx](src/components/trip/builder/TransportCard.tsx): compact single-line card per wireframe Frame 2 (`28px icon · 1fr body · auto link-chip`). No hero image. Whole card is the tap target → opens drawer in edit mode. Legacy sell/lock `TransportCard` at [src/components/trip/TransportCard.tsx](src/components/trip/TransportCard.tsx) left in place (used by `/trip/[slug]/page.tsx`).
+5. **SketchModules integration** — [src/components/trip/builder/SketchModules.tsx](src/components/trip/builder/SketchModules.tsx): replaced the `LineItemAddInput` block with a collapsible section matching wireframe Frame 1 (header + count badge + collapse toggle), empty-hint copy, card list, `+ add transportation` button, and a `BottomDrawer` wrapping `TransportAddForm`. `handleTransportAdd` removed.
+6. **Lexicon** — registered §5.29 Transportation Module keys under `builderState.transport.*` in [src/lib/copy/surfaces/builder-state.ts](src/lib/copy/surfaces/builder-state.ts) (42 keys: labels + placeholders + 7 tag labels + 7 tag definitions + error + confirm). Legacy `moduleTransport*` keys retired. Section 5.29 appended to [rally-microcopy-lexicon-v0.md](rally-microcopy-lexicon-v0.md) with the tag/definition/default-split table and framing-vs-definition note.
+7. **Styling** — appended `.transport-card`, `.transport-form-*`, chip, split-toggle, enrichment-preview, error, and confirm-bar styles to [src/app/globals.css](src/app/globals.css). All themed via CSS variables; no hardcoded colors inside `[data-theme]`; tap targets ≥ 44px. Yellow-tint only on the tag-definition block, neutral tint on the framing line (per wireframe line 208-214 vs 253-259).
+
+**What changed from the brief:**
+- **Migration 019 was already committed and applied** (pre-brief) — I did NOT re-run or modify it. Confirmed against [supabase/migrations/019_transport_type_tag.sql](supabase/migrations/019_transport_type_tag.sql).
+- **Legacy `TransportCard` at `src/components/trip/TransportCard.tsx` kept in place, not deleted.** The plan originally said "delete the old one" but discovery showed `app/trip/[slug]/page.tsx:414` renders it for sell/lock/go phases. Dropping it would regress those phases (out of scope). The NEW builder card lives at `src/components/trip/builder/TransportCard.tsx` and is only imported by `SketchModules.tsx`. One minor patch to the legacy card: `SUBTYPE_LABELS[transport.subtype ?? '']` (subtype is now optional). No other changes to the legacy card.
+- **Cost summary** already used `cost_type`-only aggregation for transport in `calculateTripCost` and `CostBreakdown` — no formula changes required. No sell+ phase gate added (none exists on 8J/8K either — brief's "sell+ caveat" inherits the same not-yet-gated behavior).
+- **Edit mode treats split as "overridden"** so re-tapping the saved chip doesn't clobber the saved split value. Adds a small safety net the brief didn't spell out.
+
+**What to test:**
+- [ ] Empty state renders per Frame 1 (section + count 0 + empty-hint + dashed "+ add transportation")
+- [ ] Drawer opens on add; framing line visible; save disabled until description + type + cost all present
+- [ ] All 7 chips render with correct emoji + label; selected chip flips to filled style
+- [ ] Selecting a chip reveals the tag definition (yellow tint) and snaps split toggle to its default
+- [ ] Manual split override sticks across subsequent chip changes (add flow only; edit flow respects the saved value)
+- [ ] Link paste/blur triggers enrichment; preview renders in drawer only; 404 / auth-walled links hide preview cleanly
+- [ ] No thumbnail on the card, ever
+- [ ] Multi-leg (4+ mixed cards) reads cleanly, no orphan text, compact shape holds
+- [ ] Tap card → drawer opens in edit mode, prefilled, title = "edit transportation"
+- [ ] Remove button present in edit mode → confirm bar on first tap, delete on second
+- [ ] Silent-save guard: simulate save failure → inline error appears near save, drawer stays open
+- [ ] Cost summary: individual contributes directly, group-split contributes `amount / in_crew_count`
+- [ ] 375px viewport clean, tap targets ≥ 44px
+- [ ] Regression: lodging, activities, provisions, headliner, crew, extras, RSVP, date inputs, "getting here" slot, cost summary all untouched
+
+**Known issues:**
+- **Browser QA not yet run.** A pre-existing `next dev` server at `PID 69367` (Andrew's session) was holding port 3000, so the Preview MCP could not attach to drive automated QA. Typecheck is green (`tsc --noEmit` exit 0). Ready for Andrew to walk the QA steps above.
+- **Enrichment preview title/hostname display** relies on `OgData.title`; when enrichment returns only an image, the body block hides but the hero still shows. Intentional — matches wireframe Frame 6 where hero alone is enough to confirm "right page."
+
+#### Session 8M — Actuals (QA 2026-04-14)
+
+**What was built:** matches the release notes above — code integrated, typecheck green, transport module renders on sketch page with new types + server actions + drawer form + compact cards + lexicon keys.
+
+**What changed from the brief:** none material beyond the release-notes "What changed" section.
+
+**AC results:**
+- ⏸ **Functional ACs not yet verified.** Andrew paused functional QA because the visual state across modules (transport, headliner, lodging, crew) is inconsistent enough that he cannot reliably sight-check the new component. Functional QA deferred until 8N ships the design-system standardization.
+
+**Root-caused during QA:**
+1. **CSS stale-cache gotcha (not a code bug).** On first load, transport renders fully unstyled — no frame, no grid, no pill badge, no dashed add button, cost missing `$` and ` · ` separators. Confirmed via Chrome DOM inspection: served `__[hash]._.css` contained 727 rules ending at the lodging-drawer-reset block; zero `.transport-*` rules present despite `globals.css` on disk containing all 358 lines. Next.js dev-server CSS chunk was not rebuilt when Claude Code appended the rules. Fix: `rm -rf .next && npm run dev` → chunk rebuilt, 18 transport rules loaded, card computes `display: grid`, visuals render correctly. **Action item:** note this failure mode in `AGENTS.md` / session-guard so future CSS appends include a cache-clear step in the QA instructions.
+
+**Cowork fixes (CSS/copy only):** none applied — 8M code is correct as shipped.
+
+**Escalated to 8N:**
+- Cross-module visual inconsistency (lodging = canonical; transport + headliner diverge)
+- Removal of sketch-phase "getting there" slot (was the `LineItemAddInput` flights block at `SketchModules.tsx:263-284`)
+- All functional 8M ACs re-run once visuals standardize (single QA pass covers both)
+
+---
+
+### Session 8N: "Module Design-System Pass + Remove Getting-There"
+
+**Intent:** Three sketch-phase modules render with wildly different visual treatments. Lodging has the right shape (bordered section frame, Georgia italic title, hero card with type-chip overlay, handwritten accent text, pill CTAs). Transport and Headliner are bespoke. Pull lodging's visuals into shared primitives and apply them to the other two. Also: remove the sketch-phase "getting there" (flights) input — per-crew arrival estimator is a sell-phase auto-populated feature, sketch-phase does not model it.
+
+This is a design-consistency session with a functional removal. No new features. No data-model changes. No new modules.
+
+**Canonical visual contract (lodging, as shipped):**
+- Section: `2.5px solid var(--ink)` border, `16px` radius, `18px 24px` padding, theme-surface background, vertical stack with `12px` gap
+- Header: flex row, title left (Georgia italic lowercase — e.g. "the spot"), count/action right (handwritten-style, `opacity: 0.5`)
+- Empty state: dashed inner frame, handwritten hint, accent-filled pill CTA
+- Cards: hero image top (bleeds to frame edges via radius), title (Georgia italic), meta (handwritten-accent), pill button
+- Remove affordance: circular `×` top-right of card, `rgba(0,0,0,0.5)` fill, blurred backdrop
+
+**Scope (numbered, file-specific):**
+
+1. **Extract shared primitives.** In `src/app/globals.css`, define a new "Module section" block with classes `.module-section`, `.module-section-header`, `.module-section-title`, `.module-section-count`, `.module-section-empty`, `.module-section-empty-text`, `.module-section-add` (pill CTA), `.module-section-add-outline` (dashed variant for already-populated sections), and card primitives `.module-card`, `.module-card-hero`, `.module-card-type-chip`, `.module-card-remove`, `.module-card-title`, `.module-card-meta`, `.module-card-pill`. Mirror lodging's rules one-for-one; do NOT invent new values. All rules use theme CSS variables (`--ink`, `--bg`, `--accent`, `--surface`, `--stroke`, `--font-hand`). Prefix every rule with `.chassis` per the existing convention.
+
+2. **Refactor lodging onto the primitives (regression gate).** Replace `.lodging-module` → `.module-section`, `.lodging-header` → `.module-section-header`, `.lodging-card` wrapper → `.module-card`, etc. KEEP the lodging-specific classes that do structural work the primitives don't cover (type-picker, form fields, link-pill, etc.) — only replace the classes that have a primitive equivalent. The visual output must be **pixel-identical to before**. Any deviation is a bug.
+
+3. **Refactor transport onto the primitives.**
+   - Wrap the transport module in `.module-section`
+   - Replace `.transport-module-header` → `.module-section-header`
+   - Move `field-label` small-caps title → `.module-section-title` (Georgia italic "transportation")
+   - Replace the count pill with `.module-section-count` (handwritten script, muted)
+   - Replace `.transport-module-empty` with `.module-section-empty` block (dashed frame + hint + pill CTA)
+   - Replace `.transport-module-add` → `.module-section-add-outline` (dashed pill)
+   - **Keep transport cards compact** — the compact shape is intentional per the 8M wireframe (no hero image, no OG thumbnail on cards). The primitive cardinal rule here is: transport uses the **section frame + header treatment** but NOT the hero-card body. Card itself stays as compact `28px icon · 1fr body · auto link-chip`. This is the one documented deviation — note it in the skill.
+
+4. **Refactor headliner onto the primitives.**
+   - Wrap headliner in `.module-section`
+   - Adopt header + title treatment
+   - Card body uses full primitive (`.module-card` + `.module-card-hero` + `.module-card-title` + `.module-card-meta`)
+   - Confirm headliner's existing data shape maps cleanly; if any field is missing, STOP and escalate
+
+5. **Remove "getting there" from sketch.**
+   - Delete the `<LineItemAddInput ...moduleFlights... />` block at `src/components/trip/builder/SketchModules.tsx:263-284` including its surrounding `<div className="sketch-module">`
+   - Remove `handleFlightAdd`, flights state/props, and any unused imports in `SketchModules.tsx`
+   - Deprecate `builderState.moduleFlights`, `moduleFlightsEmpty`, `moduleFlightsName`, `moduleFlightsCost` in `src/lib/copy/surfaces/builder-state.ts` — comment-mark rather than delete (sell-phase estimator may reuse the namespace)
+   - Do NOT drop the `flights` table, the `addFlight` server action, or the `Flight` type — they remain for the sell-phase per-crew arrival estimator
+   - Do NOT modify the non-sketch `/trip/[slug]/page.tsx` flight rendering
+
+6. **Update `.claude/skills/rally-session-guard/SKILL.md`:**
+   - Remove the "SLOT: getting here (helper text only at sketch; per-crew estimator at sell+)" line from the trip-page module order
+   - Keep the "per-crew arrival estimator" bullet further down (that's the sell-phase feature)
+   - Add a sentence under Hard Rules: **"CSS changes to `globals.css` require clearing `.next` before QA"** — prevents the 8M stale-chunk trap from recurring
+
+**Hard Constraints (what NOT to do):**
+- DO NOT create new routes. Three screens. That's it.
+- DO NOT touch server actions for transport, lodging, or headliner (pure presentational pass)
+- DO NOT change the transport card shape (compact stays compact — wireframe Frame 2 governs)
+- DO NOT rename any DB columns, enum values, or lexicon keys beyond the flights deprecation
+- DO NOT drop the `flights` table or the legacy `/trip/[slug]/page.tsx` flight rendering
+- DO NOT introduce new theme variables. Use existing ones only.
+- DO NOT fix the parked 8M/8O lodging/transport styling polish items unless they surface naturally from the primitive extraction. Log them for a later session.
+- DO NOT modify Activities, Provisions, Crew, Buzz, Extras, Cost Summary, RSVP, or the header/hero/marquee/countdown.
+
+**Acceptance Criteria:**
+- [ ] `.module-section` + `.module-card` primitives exist in globals.css and are the only rules defining section-frame/header-row/hero-card visuals
+- [ ] Lodging module renders pixel-identical to pre-8N (diff-gate)
+- [ ] Transport module renders with `2.5px solid var(--ink)` section frame, Georgia italic "transportation" title, handwritten count, dashed "+ add transportation" pill
+- [ ] Headliner module renders with section frame + header + hero-card treatment matching lodging's shape
+- [ ] All three modules render correctly across both themes (default + cream) at 375px
+- [ ] "Getting there" section is gone from the sketch page — no label, no input, no route field, no `$ per person` input
+- [ ] `builderState.moduleFlights*` keys are commented-deprecated in the lexicon (not deleted)
+- [ ] `flights` table, `addFlight` server action, and the non-sketch flight rendering at `/trip/[slug]/page.tsx` are untouched
+- [ ] SKILL.md updated: "getting here" removed from module order; CSS/cache note added under Hard Rules
+- [ ] Functional regression sweep passes for transport (add → edit → remove → 7 tags → split toggle → enrichment → cost summary), lodging, headliner
+
+**Files to Read:**
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` (this session's scope + 8A lodging notes + 8I/8J/8K/8M notes)
+- `rally-microcopy-lexicon-v0.md` (current flights keys)
+- `src/app/globals.css` — existing `.lodging-*` rules (lines ~760-900) are the source-of-truth template
+- `src/components/trip/builder/SketchModules.tsx` — integration points
+- `src/components/trip/builder/Headliner.tsx` — current headliner structure
+- `src/components/trip/builder/LodgingCard.tsx` — canonical card shape
+
+**How to QA Solo:**
+1. `rm -rf .next && npm run dev` (required after any `globals.css` append this session)
+2. Load a sketch trip in both themes. Confirm lodging renders identically to before.
+3. Confirm transport has a section frame and header matching lodging's visual weight
+4. Confirm headliner has a hero-card that looks like a lodging card
+5. Confirm "getting there" is completely gone
+6. Hit all 7 transport tags + edit + remove — functional behavior unchanged
+7. Typecheck: `npx tsc --noEmit`
+
+**Parked items re-labeled (previous 8M/8N/8O now renumbered):**
+- Lodging null-state + cost display fixes → **8O (parked)**
+- Estimate-field polish (number spinners, inline errors for provisions/activities) → **8P (parked)**
+- Transport/flights line-item styling [obsolete — subsumed into 8N; strike] ✖
+- Lodging date-ordering validation → **8O (parked)**
+
+#### Session 8N — Release Notes
+
+**What was built:**
+1. **Module primitives** — new `.module-section`, `.module-section-header`, `.module-section-title`, `.module-section-count`, `.module-section-empty`, `.module-section-empty-text`, `.module-section-add`, `.module-section-add-outline`, `.module-card`, `.module-card-hero`, `.module-card-type-chip`, `.module-card-remove`, `.module-card-body`, `.module-card-title`, `.module-card-meta`, `.module-card-pill` rules appended to `src/app/globals.css`. All values lifted from lodging. Theme vars only.
+2. **Lodging refactor** — outer wrapper now `.module-section`, header uses `.module-section-header` + `.module-section-title` + `.module-section-count`, empty state uses `.module-section-empty` + `.module-section-empty-text` + `.module-section-add`, "add another" uses `.module-section-add-outline`. Lodging-specific `-module`/`-header`/`-count`/`-empty`/`-empty-text`/`-add-btn`/`-add-another` CSS rules deleted from `globals.css`.
+3. **Transport refactor** — section frame + header adopt primitives. Count pill flipped from inked badge to handwritten-muted count (`$N lines/line`). Compact Frame-2 card shape preserved (NOT using hero primitives). Empty state now has dashed frame + pill CTA (matches lodging shape). Populated state shows cards + dashed outline "+ add transportation" below.
+4. **Headliner refactor** — now wrapped in `.module-section` with a section header ("the headliner" title + handwritten "rough estimate" caption on the right). Populated state uses `.module-card` + `.module-card-hero` + `.module-card-body` + `.module-card-title` + `.module-card-meta`. Null state uses `.module-section-empty` with add-hint + pill CTA instead of the bespoke dashed affordance. Legacy `.headliner`/`.headliner-eyebrow`/`.headliner-og`/`.headliner-body`/`.headliner-title`/`.headliner-add*` rules deleted.
+5. **"Getting there" removed** — the `<LineItemAddInput>` flights block + `handleFlightAdd` + `flights` prop deleted from `SketchModules.tsx`. Plumbing updated: `flights` removed from `SketchTripShell` props and `page.tsx` sketch render call. `Flight` type import removed from both. The `flights` table, `addFlight` server action, `Flight` type, and non-sketch rendering in `page.tsx` (line ~393) + `InviteeShell` → `LockedPlan` are **untouched**.
+6. **Lexicon deprecation** — `moduleFlights`, `moduleFlightsEmpty`, `moduleFlightsName`, `moduleFlightsCost` comment-marked in `src/lib/copy/surfaces/builder-state.ts` (not deleted — namespace reserved for sell-phase arrival estimator).
+7. **SKILL.md** — removed the "SLOT: getting here" line from the module order. Added hard-rule line: *"CSS changes to `globals.css` require clearing `.next` before QA — stale Turbopack chunks bit us in 8M."*
+
+**What changed from the brief:**
+- **Title treatment is a documented deviation from "pixel-identical."** Before 8N, lodging's section title used `.field-label` (9px uppercase small-caps). The brief's canonical visual contract specified *Georgia italic lowercase* for titles across all three modules — so `.module-section-title` is Georgia italic 18px lowercase. Lodging now inherits that treatment. This aligns with the brief's stated unified target at the cost of strict pre-8N pixel-identity for lodging's title line specifically. All other lodging visuals (frame, border, padding, empty state, cards, pill CTA) are unchanged.
+- **Legacy `src/components/trip/TransportCard.tsx` still exists.** Not touched in 8N. The builder-colocated version at `src/components/trip/builder/TransportCard.tsx` is what refactored.
+- **Cost summary wiring** — unchanged. Brief mentioned "no formula change expected"; verified. Headliner/transport cost contributions still flow through the existing `calculateTripCost`.
+
+**What to test (manual, in Cowork):**
+- [ ] **Required:** clear cache before QA — `rm -rf .next && npm run dev`
+- [ ] **Section frame** — lodging, transport, and headliner all render with the same 2.5px ink border, 16px radius, 18×24px padding
+- [ ] **Titles** — all three headers read in Georgia italic lowercase
+- [ ] **Lodging** — empty state (dashed frame + hint + pill) looks the same shape as before; populated cards render identically (pixel-identical test: screenshot before/after if in doubt); "+ add another spot" is the small dashed pill
+- [ ] **Transport** — count reads "$N lines"/"1 line" in handwritten script (not inked pill); compact cards are unchanged (no hero, no regression to 8M shape); empty state now has dashed frame + pill CTA; populated state shows cards + outline "+ add transportation" below
+- [ ] **Headliner** — section frame + header row with "the headliner" + handwritten "rough estimate"; null state shows dashed empty with add-hint + "+ the headliner" pill; populated state shows hero + Georgia italic title + meta (cost pill + pulled-from caption)
+- [ ] **"Getting there" is gone** — no label, no input, no route field, no `$ per person` between headliner and transport
+- [ ] **Both themes** (default + cream) at 375px
+- [ ] **Regression sweep** — transport full flow (add → edit → remove → 7 tags → split toggle → enrichment → save-error); lodging full flow; headliner full flow; activities/provisions/crew/extras/RSVP/cost summary untouched
+- [ ] **Lexicon** — spot-check 5 strings: `builderState.moduleLodging`, `builderState.transport.moduleTitle`, `builderState.headliner.eyebrow`, `builderState.headliner.addHint`, `builderState.transport.addButton`
+- [ ] **Lint smoke** — confirm `flights` import/prop isn't referenced anywhere still wired to the sketch shell
+
+**Known issues:**
+- **Browser QA was not performed by Claude Code** — the Preview MCP couldn't start a dev server because Andrew's local `next dev` (PID 73158 on port 3000) is running and Next.js's duplicate-instance guard rejected the preview server even with `autoPort: true`. Typecheck (`npx tsc --noEmit`) passed cleanly. Browser verification deferred to Andrew.
+- Transport module's CSS now shares the same frame as lodging — if any rallying/stacking issue surfaces with `.chassis .sketch-module` legacy flex rules coexisting with `.module-section`, strip the `sketch-module` class from the wrappers. Current markup keeps them separate (sketch-module only on activities/provisions blocks).
+
 ---
 
 ### Session 8 — Approach

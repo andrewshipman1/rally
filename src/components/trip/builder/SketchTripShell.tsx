@@ -28,7 +28,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
 
-import type { Lodging, Flight, Transport, Grocery, PackingItem } from '@/types';
+import type { Lodging, Transport, Grocery, PackingItem } from '@/types';
 import type { HeadlinerData } from './Headliner';
 import { PostcardHero } from '@/components/trip/PostcardHero';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
@@ -52,7 +52,6 @@ type Props = {
   coverImageUrl: string | null;
   members: { id: string; user_id: string; role: string; user: { display_name: string | null; email: string | null; phone: string } | null }[];
   lodging: Lodging[];
-  flights: Flight[];
   transport: Transport[];
   groceries: Grocery[];
   packingList: PackingItem[];
@@ -82,7 +81,6 @@ export function SketchTripShell({
   coverImageUrl,
   members,
   lodging,
-  flights,
   transport,
   groceries,
   packingList,
@@ -233,7 +231,6 @@ export function SketchTripShell({
         dateStart={dateStart}
         dateEnd={dateEnd}
         lodging={lodging}
-        flights={flights}
         transport={transport}
         groceries={groceries}
         crewCount={members.length}

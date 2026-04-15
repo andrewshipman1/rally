@@ -9,21 +9,18 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
-import type { Lodging, Flight, Transport, Grocery } from '@/types';
+import type { Lodging, Transport, Grocery } from '@/types';
 
 import { LodgingAddForm } from './LodgingAddForm';
 import { LodgingCard } from './LodgingCard';
-import { LineItemAddInput } from './LineItemAddInput';
 import { EstimateInput } from './EstimateInput';
 import { BottomDrawer } from '@/components/trip/BottomDrawer';
 import { Headliner, type HeadlinerData } from './Headliner';
 import { HeadlinerDrawerForm } from './HeadlinerDrawerForm';
+import { TransportAddForm } from './TransportAddForm';
+import { TransportCard as SketchTransportCard } from './TransportCard';
 
-import {
-  addFlight,
-  addTransport,
-  setProvisionsEstimate,
-} from '@/app/actions/sketch-modules';
+import { setProvisionsEstimate } from '@/app/actions/sketch-modules';
 import { setActivitiesEstimate } from '@/app/actions/update-trip-sketch';
 
 type Props = {
@@ -33,7 +30,6 @@ type Props = {
   dateStart: string | null;
   dateEnd: string | null;
   lodging: Lodging[];
-  flights: Flight[];
   transport: Transport[];
   groceries: Grocery[];
   crewCount: number;
@@ -50,7 +46,6 @@ export function SketchModules({
   dateStart,
   dateEnd,
   lodging,
-  flights,
   transport,
   groceries,
   crewCount,
@@ -70,6 +65,10 @@ export function SketchModules({
   const [editingSpot, setEditingSpot] = useState<Lodging | null>(null);
   const [lodgingCollapsed, setLodgingCollapsed] = useState(false);
   const [headlinerDrawerOpen, setHeadlinerDrawerOpen] = useState(false);
+  // Session 8M — transportation drawer state.
+  const [transportDrawerOpen, setTransportDrawerOpen] = useState(false);
+  const [editingTransport, setEditingTransport] = useState<Transport | null>(null);
+  const [transportCollapsed, setTransportCollapsed] = useState(false);
 
   function handleEditLodging(spot: Lodging) {
     setEditingSpot(spot);
@@ -87,14 +86,20 @@ export function SketchModules({
     setLodgingCollapsed(false); // auto-expand on add
   }
 
-  async function handleFlightAdd(item: { name: string; cost?: number }) {
-    await addFlight(tripId, slug, item.name, item.cost);
-    router.refresh();
+  function handleOpenTransportAdd() {
+    setEditingTransport(null);
+    setTransportDrawerOpen(true);
   }
 
-  async function handleTransportAdd(item: { name: string; cost?: number }) {
-    await addTransport(tripId, slug, item.name, item.cost);
-    router.refresh();
+  function handleEditTransport(t: Transport) {
+    setEditingTransport(t);
+    setTransportDrawerOpen(true);
+  }
+
+  function handleTransportDone() {
+    setTransportDrawerOpen(false);
+    setEditingTransport(null);
+    setTransportCollapsed(false);
   }
 
   async function handleActivitiesChange(v: number | null) {
@@ -127,8 +132,18 @@ export function SketchModules({
 
   return (
     <div className="sketch-modules">
-      {/* ─── Headliner (8J) ──────────────────────────────────── */}
-      <div className="sketch-module headliner-module">
+      {/* ─── Headliner (8J — refactored onto primitives 8N) ──── */}
+      <div className="module-section headliner-module">
+        <div className="module-section-header">
+          <span className="module-section-title">
+            {getCopy(themeId, 'builderState.headliner.eyebrow')}
+          </span>
+          {headlinerIsSet && (
+            <span className="module-section-count">
+              {getCopy(themeId, 'builderState.headliner.estimateCaption')}
+            </span>
+          )}
+        </div>
         <Headliner
           themeId={themeId}
           headliner={headliner}
@@ -153,14 +168,14 @@ export function SketchModules({
       </BottomDrawer>
 
       {/* ─── Lodging ─────────────────────────────────────────── */}
-      <div className="sketch-module lodging-module">
-        <div className="lodging-header">
-          <span className="field-label">
+      <div className="module-section lodging-module">
+        <div className="module-section-header lodging-header">
+          <span className="module-section-title">
             {getCopy(themeId, 'builderState.moduleLodging')}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {lodging.length > 0 && (
-              <span className="lodging-count">
+              <span className="module-section-count lodging-count">
                 {lodging.length} {getCopy(themeId, lodging.length === 1 ? 'builderState.lodging.countSuffixSingular' : 'builderState.lodging.countSuffix')}
               </span>
             )}
@@ -178,12 +193,12 @@ export function SketchModules({
         <div className={`collapsible-body${lodgingCollapsed ? ' collapsible-body--collapsed' : ''}`}>
           {/* Empty state */}
           {lodging.length === 0 && (
-            <div className="lodging-empty">
-              <p className="lodging-empty-text">
+            <div className="module-section-empty lodging-empty">
+              <p className="module-section-empty-text">
                 {getCopy(themeId, 'builderState.lodging.emptyState')}
               </p>
               <button
-                className="lodging-add-btn"
+                className="module-section-add lodging-add-btn"
                 onClick={handleOpenLodgingAdd}
                 type="button"
               >
@@ -214,7 +229,7 @@ export function SketchModules({
           {/* Add another button (when cards exist) */}
           {lodging.length > 0 && (
             <button
-              className="lodging-add-another"
+              className="module-section-add-outline lodging-add-another"
               onClick={handleOpenLodgingAdd}
               type="button"
             >
@@ -244,50 +259,92 @@ export function SketchModules({
         </BottomDrawer>
       </div>
 
-      {/* ─── Flights ─────────────────────────────────────────── */}
-      <div className="sketch-module">
-        <LineItemAddInput
-          themeId={themeId}
-          label={getCopy(themeId, 'builderState.moduleFlights')}
-          onAdd={handleFlightAdd}
-          namePlaceholder={getCopy(themeId, 'builderState.moduleFlightsName')}
-          costPlaceholder={getCopy(themeId, 'builderState.moduleFlightsCost')}
-        />
-        {flights.length > 0 && (
-          <div className="sketch-module-items">
-            {flights.map((f) => (
-              <div key={f.id} className="sketch-module-row">
-                <span className="sketch-module-row-name">{f.departure_airport}</span>
-                {f.estimated_price != null && (
-                  <span className="sketch-module-row-cost">~${f.estimated_price}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Session 8N — "getting there" (flights) removed from sketch.
+          The per-crew arrival estimator lives at sell+ (see plan). The
+          flights table, addFlight action, and legacy rendering on the
+          non-sketch trip page are preserved. */}
 
-      {/* ─── Transportation ──────────────────────────────────── */}
-      <div className="sketch-module">
-        <LineItemAddInput
-          themeId={themeId}
-          label={getCopy(themeId, 'builderState.moduleTransport')}
-          onAdd={handleTransportAdd}
-          namePlaceholder={getCopy(themeId, 'builderState.moduleTransportName')}
-          costPlaceholder={getCopy(themeId, 'builderState.moduleTransportCost')}
-        />
-        {transport.length > 0 && (
-          <div className="sketch-module-items">
-            {transport.map((t) => (
-              <div key={t.id} className="sketch-module-row">
-                <span className="sketch-module-row-name">{t.route}</span>
-                {t.estimated_total != null && (
-                  <span className="sketch-module-row-cost">~${t.estimated_total}</span>
-                )}
-              </div>
-            ))}
+      {/* ─── Transportation (Session 8M, refactored 8N) ──────── */}
+      <div className="module-section transport-module">
+        <div className="module-section-header transport-module-header">
+          <span className="module-section-title">
+            {getCopy(themeId, 'builderState.transport.moduleTitle')}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {transport.length > 0 && (
+              <span className="module-section-count">
+                {transport.length} {getCopy(themeId, transport.length === 1 ? 'builderState.transport.countSuffixSingular' : 'builderState.transport.countSuffix')}
+              </span>
+            )}
+            <button
+              type="button"
+              className={`collapse-toggle${transportCollapsed ? ' collapse-toggle--collapsed' : ''}`}
+              onClick={() => setTransportCollapsed(!transportCollapsed)}
+              aria-label={getCopy(themeId, 'builderState.transport.collapseLabel')}
+            >
+              &#x25BE;
+            </button>
           </div>
-        )}
+        </div>
+
+        <div className={`collapsible-body${transportCollapsed ? ' collapsible-body--collapsed' : ''}`}>
+          {transport.length === 0 && (
+            <div className="module-section-empty transport-module-empty">
+              <p className="module-section-empty-text">
+                {getCopy(themeId, 'builderState.transport.emptyHint')}
+              </p>
+              <button
+                type="button"
+                className="module-section-add"
+                onClick={handleOpenTransportAdd}
+              >
+                {getCopy(themeId, 'builderState.transport.addButton')}
+              </button>
+            </div>
+          )}
+
+          {transport.length > 0 && (
+            <>
+              <div className="transport-module-cards">
+                {transport.map((t) => (
+                  <SketchTransportCard
+                    key={t.id}
+                    transport={t}
+                    themeId={themeId}
+                    onEdit={handleEditTransport}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                className="module-section-add-outline"
+                onClick={handleOpenTransportAdd}
+              >
+                {getCopy(themeId, 'builderState.transport.addButton')}
+              </button>
+            </>
+          )}
+        </div>
+
+        <BottomDrawer
+          open={transportDrawerOpen}
+          onClose={() => { setTransportDrawerOpen(false); setEditingTransport(null); }}
+          title={
+            editingTransport
+              ? getCopy(themeId, 'builderState.transport.drawerTitleEdit')
+              : getCopy(themeId, 'builderState.transport.drawerTitleAdd')
+          }
+          themeId={themeId}
+        >
+          <TransportAddForm
+            key={editingTransport?.id ?? 'new'}
+            themeId={themeId}
+            tripId={tripId}
+            slug={slug}
+            editing={editingTransport}
+            onDone={handleTransportDone}
+          />
+        </BottomDrawer>
       </div>
 
       {/* ─── Activities (8K — single per-person estimate) ────── */}

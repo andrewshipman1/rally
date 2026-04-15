@@ -937,6 +937,88 @@ mechanic in a later session.
 
 ---
 
+### 5.29 Transportation module (Session 8M)
+
+Rebuilt from the 8I stub to match `rally-transportation-wireframe.html`.
+The module captures what the crew books **together for the trip** —
+rentals, charters, intra-trip flights, trains, ferries — NOT the home →
+meetup leg (that lives under "getting here" above). Entry is via a
+BottomDrawer with a chip-based required type picker; cards are compact,
+single-line, no hero image. Enrichment runs on link paste/blur and
+renders **only** inside the drawer.
+
+All strings registered under `builderState.transport.*`.
+
+| Key | String |
+|---|---|
+| `transport.moduleTitle` | transportation |
+| `transport.emptyHint` | add the stuff the crew books together on the trip — rentals, charters, intra-trip flights or trains. |
+| `transport.addButton` | + add transportation |
+| `transport.drawerTitleAdd` | add transportation |
+| `transport.drawerTitleEdit` | edit transportation |
+| `transport.drawerFraming` | for what the crew books together on the trip — not how you're getting to the meetup. (the home → meetup leg lives under 'getting here.') |
+| `transport.descriptionLabel` | description |
+| `transport.descriptionPlaceholder` | e.g. rome → barcelona |
+| `transport.typeLabel` | type |
+| `transport.costLabel` | estimated cost |
+| `transport.costPlaceholder` | $ |
+| `transport.splitIndividual` | individual |
+| `transport.splitGroup` | group split |
+| `transport.splitDefaultHintPre` | split fills in once you pick a type. you can override it. |
+| `transport.splitDefaultHintPost` | default for {tag} — tap to override. |
+| `transport.linkLabel` | link |
+| `transport.linkPlaceholder` | paste a url (optional) |
+| `transport.linkHelper` | optional — we'll pull a preview in here. doesn't render on the card. |
+| `transport.enrichingIndicator` | fetching preview… |
+| `transport.saveAdd` | save |
+| `transport.saveEdit` | save changes |
+| `transport.remove` | remove |
+| `transport.removeConfirm` | remove this? |
+| `transport.removeConfirmHint` | tap remove again to confirm |
+| `transport.saveError` | couldn't save — try again. |
+| `transport.countSuffix` | lines |
+| `transport.countSuffixSingular` | line |
+| `transport.collapseLabel` | toggle transportation |
+
+**Tag labels + definitions + default split** (7 tags, `transport.tagLabel.*`
+and `transport.tagDefinition.*`):
+
+| Tag | Label | Definition | Default split |
+|---|---|---|---|
+| `flight` | flight | intra-trip flight — rome → barcelona, small charter. not your flight to the meetup. | individual |
+| `train` | train | intra-trip train ticket — amtrak, tgv. not your train in. | individual |
+| `rental_car_van` | rental car/van | car, suv, van, or rv the crew drives on the trip. | group split |
+| `charter_van_bus` | charter van/bus | hired van, shuttle, or bus the crew rides together. | group split |
+| `charter_boat` | charter boat | boat, yacht, or fishing charter the crew takes together. | group split |
+| `ferry` | ferry | scheduled ferry crossing during the trip. | individual |
+| `other` | other | anything else pre-booked. pick the split that fits. | group split |
+
+**Framing vs definition:** the drawer has two copy blocks that look
+similar but serve different purposes. The **framing line** (`drawerFraming`)
+sits at the top of the drawer, is always visible, and pins the boundary
+between transportation (what 8M captures) and the "getting here" slot
+(home leg). It uses a neutral background. The **tag definition**
+(`tagDefinition.*`) appears below the chip row only after a chip is
+selected, reminds the organizer what counts as that type, and uses a
+yellow-tint background so it reads as a reveal, not chrome.
+
+**Behavior:**
+- Default split is applied on chip tap unless the organizer has already
+  manually toggled the split; once overridden, subsequent chip changes
+  do NOT re-apply the default.
+- Toggle labels are UI-only — `cost_type` in the DB stays as
+  `'individual'` / `'shared'`. The render layer maps `'shared'` →
+  "group split."
+- Enrichment preview renders inside the drawer only. If `/api/enrich`
+  returns no useful fields, the preview block is hidden entirely — no
+  broken-image placeholder.
+- Save surfaces `transport.saveError` inline on `{ok:false}` (8J/8K
+  pattern) rather than failing silently.
+- Cost summary: `individual` lines contribute the full amount per
+  person; `shared` lines contribute `amount / in_crew_count`.
+
+---
+
 ## 6. Theme microcopy library
 
 Each theme has its own FOMO flag word, sticky CTA emoji, and signature countdown phrase. These get plugged into the templated strings above.

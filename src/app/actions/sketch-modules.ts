@@ -225,15 +225,58 @@ export async function addFlight(
   return { ok: true };
 }
 
-// ─── Transportation ───────────────────────────────────────────────
+// ─── Transportation (Session 8M) ──────────────────────────────────
+// Rebuilt against rally-transportation-wireframe.html. Writes the new
+// 7-value type_tag + canonical description column. Legacy `subtype`
+// column is left NULL on new rows (it stays nullable; old rows keep
+// their backfilled value from migration 019).
+
+const TransportTypeTagSchema = z.enum([
+  'flight',
+  'train',
+  'rental_car_van',
+  'charter_van_bus',
+  'charter_boat',
+  'ferry',
+  'other',
+]);
+
+const TransportPayloadSchema = z.object({
+  type_tag: TransportTypeTagSchema,
+  description: z.string().min(1).max(200),
+  estimated_total: z.number().min(0),
+  cost_type: z.enum(['individual', 'shared']),
+  booking_link: z.string().max(2000).optional().nullable(),
+  og_image_url: z.string().max(2000).optional().nullable(),
+});
+
+const AddTransportSchema = z.object({
+  tripId: z.string().uuid(),
+  slug: z.string().min(1),
+  payload: TransportPayloadSchema,
+});
+
+const UpdateTransportSchema = z.object({
+  tripId: z.string().uuid(),
+  slug: z.string().min(1),
+  transportId: z.string().uuid(),
+  payload: TransportPayloadSchema,
+});
+
+const RemoveTransportSchema = z.object({
+  tripId: z.string().uuid(),
+  slug: z.string().min(1),
+  transportId: z.string().uuid(),
+});
+
+export type TransportPayload = z.infer<typeof TransportPayloadSchema>;
 
 export async function addTransport(
   tripId: string,
   slug: string,
-  name: string,
-  cost?: number,
+  payload: TransportPayload,
 ): Promise<Result> {
-  const parsed = AddLineItemSchema.safeParse({ tripId, slug, name, cost });
+  const parsed = AddTransportSchema.safeParse({ tripId, slug, payload });
   if (!parsed.success) return { ok: false, error: 'invalid-input' };
 
   const pre = await organizerPrelude(tripId);
@@ -243,10 +286,65 @@ export async function addTransport(
     .from('transport')
     .insert({
       trip_id: tripId,
-      route: name,
-      subtype: 'car_rental',
-      estimated_total: cost ?? null,
+      type_tag: payload.type_tag,
+      description: payload.description,
+      estimated_total: payload.estimated_total,
+      cost_type: payload.cost_type,
+      booking_link: payload.booking_link || null,
+      og_image_url: payload.og_image_url || null,
     });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/trip/${slug}`);
+  return { ok: true };
+}
+
+export async function updateTransport(
+  tripId: string,
+  slug: string,
+  transportId: string,
+  payload: TransportPayload,
+): Promise<Result> {
+  const parsed = UpdateTransportSchema.safeParse({ tripId, slug, transportId, payload });
+  if (!parsed.success) return { ok: false, error: 'invalid-input' };
+
+  const pre = await organizerPrelude(tripId);
+  if (!pre.ok) return { ok: false, error: pre.error };
+
+  const { error } = await pre.supabase
+    .from('transport')
+    .update({
+      type_tag: payload.type_tag,
+      description: payload.description,
+      estimated_total: payload.estimated_total,
+      cost_type: payload.cost_type,
+      booking_link: payload.booking_link || null,
+      og_image_url: payload.og_image_url || null,
+    })
+    .eq('id', transportId)
+    .eq('trip_id', tripId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/trip/${slug}`);
+  return { ok: true };
+}
+
+export async function removeTransport(
+  tripId: string,
+  slug: string,
+  transportId: string,
+): Promise<Result> {
+  const parsed = RemoveTransportSchema.safeParse({ tripId, slug, transportId });
+  if (!parsed.success) return { ok: false, error: 'invalid-input' };
+
+  const pre = await organizerPrelude(tripId);
+  if (!pre.ok) return { ok: false, error: pre.error };
+
+  const { error } = await pre.supabase
+    .from('transport')
+    .delete()
+    .eq('id', transportId)
+    .eq('trip_id', tripId);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/trip/${slug}`);

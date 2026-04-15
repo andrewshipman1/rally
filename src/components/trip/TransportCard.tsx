@@ -20,7 +20,7 @@ export function TransportCard({
   memberCount?: number;
   themeId: ThemeId;
 }) {
-  const meta = SUBTYPE_LABELS[transport.subtype] || { label: 'Transport', emoji: '🚗' };
+  const meta = SUBTYPE_LABELS[transport.subtype ?? ''] || { label: 'Transport', emoji: '🚗' };
   const costType = transport.cost_type;
   const splitWays = Math.max(memberCount, 1);
   const total = transport.estimated_total;

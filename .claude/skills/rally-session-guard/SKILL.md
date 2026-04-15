@@ -49,7 +49,6 @@ When complete, the trip page scrolls through these sections top to bottom:
 
 ```
 marquee strip → trip header / hero → countdown
-SLOT: getting here (helper text only at sketch; per-crew estimator at sell+)
 MODULE: the headliner (optional, singular trip-level premise — 8J)
 MODULE: lodging ("the spot")
 MODULE: transportation (flight-as-type, multi-leg, per-line cost unit — 8I)
@@ -90,6 +89,7 @@ targets `date_start`.
 - **Copy style:** lowercase default, sentence fragments, verbs over nouns, one
   emoji max per string. Rally never refers to itself on trip pages.
 - **Test in the browser before declaring done.**
+- **CSS changes to `globals.css` require clearing `.next` before QA** (`rm -rf .next && npm run dev`). Stale Turbopack chunks bit us in 8M — always flush.
 - **Pre-booked costs only in sketch/sell.** Modules capture expenses that get
   booked ahead of the trip (rental car, train ticket, lodging deposit, prepaid
   tour). Costs incurred during the trip (gas at the pump, day-of rideshare,
