@@ -98,6 +98,16 @@ targets `date_start`.
   must be framed as "estimated." Never present a number as a commitment or
   binding total. Use "estimated cost," "rough total," "per-person estimate"
   style copy — never "cost" or "total" alone.
+- **Design ROI principle (project-wide, ruling).** Optimize for the highest
+  return on visual impact and customer experience per unit of development
+  cost and complexity. When a choice is between two paths that reach the
+  same user outcome, pick the one with lower implementation cost. When a
+  feature adds complexity without materially improving perceived quality
+  or conversion, cut it. This rule overrides "completeness" — shipping a
+  polished, narrow surface beats shipping a wide, mediocre one. Applies
+  to every session, every module, every decision. If a brief adds
+  complexity not justified by visual/experiential return, push back
+  before building.
 - **Single-module discipline.** Each session touches ONE module (plus its
   data layer + cost-summary wiring, if relevant). NEVER modify trip-level
   fields (trip name, start/end dates, destination, meetup location,

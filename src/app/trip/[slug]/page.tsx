@@ -32,17 +32,14 @@ import { getBuzzFeed } from '@/lib/buzz';
 import { OrganizerCard } from '@/components/trip/OrganizerCard';
 import { Description } from '@/components/trip/Description';
 import { ExtrasSections } from '@/components/trip/ExtrasSections';
-import { FlightCard } from '@/components/trip/FlightCard';
 import { TransportCard } from '@/components/trip/TransportCard';
-// RestaurantCard removed — not in v1 module order
-import { ActivityCard } from '@/components/trip/ActivityCard';
-import { GroceriesCard } from '@/components/trip/GroceriesCard';
+import { SellHeadliner } from '@/components/trip/SellHeadliner';
+import { PlaylistCard } from '@/components/trip/PlaylistCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
 import { AddToCalendarButton } from '@/components/trip/AddToCalendarButton';
 import { Reveal } from '@/components/ui/Reveal';
 import { PassportProvider } from '@/components/trip/PassportContext';
-import { CrewAvatarTap } from '@/components/trip/CrewAvatarTap';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -113,11 +110,24 @@ export default async function TripPage({ params }: Props) {
   const theme = getTheme(themeId);
 
   const lodging = trip.lodging || [];
-  const flights = trip.flights || [];
   const transport = trip.transport || [];
-  // restaurants removed from v1 module order
-  const activities = trip.activities || [];
   const groceries = trip.groceries || [];
+
+  // Session 9A — "everything else" read-only rows on sell. Values come from
+  // the same columns sketch writes to (8P). Rows omit individually if null/
+  // zero; the whole module omits if all three are unset.
+  const activitiesDollars =
+    trip.activities_estimate_per_person_cents != null
+      ? Math.round(trip.activities_estimate_per_person_cents / 100)
+      : null;
+  const provisionsDollars =
+    groceries.find((g) => g.name === 'Provisions')?.estimated_total ?? null;
+  const otherDollars =
+    groceries.find((g) => g.name === 'Other')?.estimated_total ?? null;
+  const hasEverythingElse =
+    (activitiesDollars ?? 0) > 0 ||
+    (provisionsDollars ?? 0) > 0 ||
+    (otherDollars ?? 0) > 0;
   const members = trip.members || [];
   const organizer = trip.organizer;
   const polls = trip.polls || [];
@@ -307,34 +317,8 @@ export default async function TripPage({ params }: Props) {
         </div>
       )}
 
-      {/* Going row — going-label + avatar cascade */}
-      <div className="going">
-        <div className="going-label">
-          {getCopy(themeId, 'tripPageShared.going.label')}
-        </div>
-        <div className="avatars">
-          {goingMembers.slice(0, 6).map((m) => {
-            const initial = (m.user?.display_name ?? '?').slice(0, 1).toUpperCase();
-            const photoUrl = m.user?.profile_photo_url;
-            return m.user ? (
-              <CrewAvatarTap key={m.id} user={m.user}>
-                <div
-                  className="av"
-                  style={photoUrl ? {
-                    background: `url(${photoUrl}) center/cover`,
-                  } : { background: 'var(--sticker-bg)' }}
-                >
-                  {!photoUrl && initial}
-                </div>
-              </CrewAvatarTap>
-            ) : (
-              <div key={m.id} className="av" style={{ background: 'var(--sticker-bg)' }}>
-                {initial}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {/* Session 9A — hero-adjacent going row removed. <CrewSection> below
+          is the single crew surface on sell / lock / go. */}
 
       <div style={{ padding: '0 18px' }}>
         {/* Share link — sell+ only */}
@@ -344,7 +328,7 @@ export default async function TripPage({ params }: Props) {
           </div>
         </Reveal>
 
-        {/* Add-to-calendar — secondary action under going row */}
+        {/* Add-to-calendar — secondary action */}
         <Reveal delay={0}>
           <div style={{ textAlign: 'center', marginTop: 12 }}>
             <AddToCalendarButton trip={trip} themeId={themeId} />
@@ -367,10 +351,33 @@ export default async function TripPage({ params }: Props) {
         )}
       </div>
 
-      {/* ─── Module sections in correct order ─────────────────────── */}
+      {/* ─── Module sections — Session 9A canonical order ─────────────
+          headliner → spot → (Getting Here 9B) → transportation →
+          everything-else → crew → cost → buzz → aux → extras(lock/go) */}
 
-      {/* Lodging — "the spot" */}
-      <Reveal delay={0}>
+      {/* 1 · Headliner — lifted from sketch (8J/8O). Renders only when set.
+             Sell-phase onOpen is noop (no edit drawer in 9A); the embedded
+             source-link <a> inside the card still works. */}
+      {trip.headliner_description && (
+        <Reveal delay={0}>
+          <div style={{ padding: '0 18px', marginTop: 14 }}>
+            <SellHeadliner
+              themeId={themeId}
+              headliner={{
+                description: trip.headliner_description,
+                costCents: trip.headliner_cost_cents,
+                costUnit: trip.headliner_cost_unit,
+                linkUrl: trip.headliner_link_url,
+                imageUrl: trip.headliner_image_url,
+                sourceTitle: trip.headliner_source_title,
+              }}
+            />
+          </div>
+        </Reveal>
+      )}
+
+      {/* 2 · Spot (lodging) */}
+      <Reveal delay={0.05}>
         {lodging.length > 0 ? (
           <LodgingGallery
             themeId={themeId}
@@ -390,23 +397,10 @@ export default async function TripPage({ params }: Props) {
         )}
       </Reveal>
 
-      <div style={{ padding: '0 18px' }}>
-        {/* Flights */}
-        <Reveal delay={0.05}>
-          <ModuleSlot
-            title={getCopy(themeId, 'tripPageShared.flights.h2')}
-            emptyText={getCopy(themeId, 'emptyStates.flights')}
-            hasContent={flights.length > 0}
-          >
-            {flights.map((flight) => (
-              <div key={flight.id} style={{ marginTop: 12 }}>
-                <FlightCard flight={flight} themeId={themeId} />
-              </div>
-            ))}
-          </ModuleSlot>
-        </Reveal>
+      {/* 3 · Getting Here — Session 9B */}
 
-        {/* Transport — "getting around" */}
+      <div style={{ padding: '0 18px' }}>
+        {/* 4 · Transportation — "getting around" */}
         <Reveal delay={0.1}>
           <ModuleSlot
             title={getCopy(themeId, 'tripPageShared.transport.h2')}
@@ -421,55 +415,78 @@ export default async function TripPage({ params }: Props) {
           </ModuleSlot>
         </Reveal>
 
-        {/* Activities — "what's happening" */}
-        <Reveal delay={0.15}>
-          <ModuleSlot
-            title={getCopy(themeId, 'tripPageShared.activity.h2')}
-            emptyText={getCopy(themeId, 'emptyStates.activities')}
-            hasContent={activities.length > 0}
-          >
-            {activities.map((a) => (
-              <div key={a.id} style={{ marginTop: 12 }}>
-                <ActivityCard activity={a} themeId={themeId} />
+        {/* 5 · Everything else — inline read-only mirror of sketch 8P shape.
+               Uses existing CSS primitives + lexicon keys; no new component. */}
+        {hasEverythingElse && (
+          <Reveal delay={0.15}>
+            <div className="module-section everything-else-module" style={{ marginTop: 14 }}>
+              <div className="module-section-header">
+                <span className="module-section-title">
+                  {getCopy(themeId, 'builderState.everythingElse.title')}
+                </span>
+                <span className="module-section-count">
+                  {getCopy(themeId, 'builderState.everythingElse.eyebrow')}
+                </span>
               </div>
-            ))}
-          </ModuleSlot>
-        </Reveal>
-
-        {/* Groceries */}
-        <Reveal delay={0.2}>
-          <ModuleSlot
-            title={getCopy(themeId, 'tripPageShared.groceries.h2')}
-            emptyText={getCopy(themeId, 'emptyStates.groceries')}
-            hasContent={groceries.length > 0}
-          >
-            {groceries.map((g) => (
-              <div key={g.id} style={{ marginTop: 12 }}>
-                <GroceriesCard grocery={g} />
+              <div className="everything-else-rows">
+                {(activitiesDollars ?? 0) > 0 && (
+                  <div className="estimate-input filled">
+                    <div className="field-label">
+                      {getCopy(themeId, 'builderState.everythingElse.activitiesLabel')}
+                    </div>
+                    <div className="estimate-input-row">
+                      <span className="estimate-prefix">
+                        {getCopy(themeId, 'builderState.estimatePrefix')}
+                      </span>
+                      <span className="estimate-display">
+                        {(activitiesDollars ?? 0).toLocaleString('en-US')}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {(provisionsDollars ?? 0) > 0 && (
+                  <div className="estimate-input filled">
+                    <div className="field-label">
+                      {getCopy(themeId, 'builderState.everythingElse.provisionsLabel')}
+                    </div>
+                    <div className="estimate-input-row">
+                      <span className="estimate-prefix">
+                        {getCopy(themeId, 'builderState.estimatePrefix')}
+                      </span>
+                      <span className="estimate-display">
+                        {(provisionsDollars ?? 0).toLocaleString('en-US')}
+                      </span>
+                    </div>
+                    <p className="estimate-input-hint">
+                      {getCopy(themeId, 'builderState.everythingElse.provisionsHint')}
+                    </p>
+                  </div>
+                )}
+                {(otherDollars ?? 0) > 0 && (
+                  <div className="estimate-input filled">
+                    <div className="field-label">
+                      {getCopy(themeId, 'builderState.everythingElse.otherLabel')}
+                    </div>
+                    <div className="estimate-input-row">
+                      <span className="estimate-prefix">
+                        {getCopy(themeId, 'builderState.estimatePrefix')}
+                      </span>
+                      <span className="estimate-display">
+                        {(otherDollars ?? 0).toLocaleString('en-US')}
+                      </span>
+                    </div>
+                    <p className="estimate-input-hint">
+                      {getCopy(themeId, 'builderState.everythingElse.otherHint')}
+                    </p>
+                  </div>
+                )}
               </div>
-            ))}
-          </ModuleSlot>
-        </Reveal>
-
-        {/* Cost breakdown */}
-        <Reveal delay={0.25}>
-          <div style={{ marginTop: 14 }}>
-            <CostBreakdown trip={trip} cost={cost} themeId={themeId} dateStr={trip.date_start && trip.date_end
-              ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
-              : ''} />
-          </div>
-        </Reveal>
-
-        {polls.length > 0 && (
-          <Reveal delay={0.3}>
-            <div style={{ marginTop: 14 }}>
-              <DatePoll poll={polls[0]} currentUserId={currentUserId} />
             </div>
           </Reveal>
         )}
 
-        {/* Crew — inline section */}
-        <Reveal delay={0.35}>
+        {/* 6 · Crew — single crew surface on sell / lock / go */}
+        <Reveal delay={0.2}>
           <CrewSection
             members={members as any}
             organizerId={organizer.id}
@@ -481,8 +498,25 @@ export default async function TripPage({ params }: Props) {
           />
         </Reveal>
 
-        {/* Buzz — inline activity feed */}
-        <Reveal delay={0.4}>
+        {/* 7 · Cost breakdown — moved below crew in 9A */}
+        <Reveal delay={0.25}>
+          <div style={{ marginTop: 14 }}>
+            <CostBreakdown trip={trip} cost={cost} themeId={themeId} dateStr={trip.date_start && trip.date_end
+              ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
+              : ''} />
+          </div>
+        </Reveal>
+
+        {polls.length > 0 && (
+          <Reveal delay={0.28}>
+            <div style={{ marginTop: 14 }}>
+              <DatePoll poll={polls[0]} currentUserId={currentUserId} />
+            </div>
+          </Reveal>
+        )}
+
+        {/* 8 · Buzz — inline activity feed */}
+        <Reveal delay={0.3}>
           <BuzzSection
             buzzDays={buzzDays}
             currentUserId={currentUserId}
@@ -492,24 +526,55 @@ export default async function TripPage({ params }: Props) {
           />
         </Reveal>
 
-        {/* Extras — packing list, playlist, house rules, photo album */}
-        <Reveal delay={0.45}>
-          <ExtrasSections
-            phase={trip.phase}
-            packingList={trip.packing_list || []}
-            playlistUrl={trip.playlist_url}
-            playlistOgImage={trip.playlist_og_image}
-            playlistOgTitle={trip.playlist_og_title}
-            playlistSetByName={trip.playlist_set_by_name}
-            playlistSetAt={trip.playlist_set_at}
-            houseRules={trip.house_rules}
-            photoAlbumUrl={trip.photo_album_url}
-            isOrganizer={isOrganizer}
-            tripId={trip.id}
-            slug={slug}
-            themeId={themeId}
-          />
-        </Reveal>
+        {/* 9 · Aux (PlaylistCard) — promoted out of ExtrasSections on sell.
+               Scoped to sell only: on lock / go / done, <ExtrasSections>
+               still renders <PlaylistCard> internally (per 8Q), and
+               rendering a standalone one here would duplicate it. Moving
+               the promotion up the phase ladder would require modifying
+               <ExtrasSections>, which the 9A brief prohibits — flagged as
+               a follow-up for the lock-phase depth work. */}
+        {trip.phase === 'sell' && (
+          <Reveal delay={0.35}>
+            <div style={{ marginTop: 14 }}>
+              <PlaylistCard
+                url={trip.playlist_url}
+                ogImage={trip.playlist_og_image}
+                ogTitle={trip.playlist_og_title}
+                setByName={trip.playlist_set_by_name}
+                setAt={trip.playlist_set_at}
+                canEdit={isOrganizer}
+                tripId={trip.id}
+                slug={slug}
+                themeId={themeId}
+              />
+            </div>
+          </Reveal>
+        )}
+
+        {/* Extras — packing list, house rules, photo album (+ playlist on
+            lock/go/done). Skipped on sell entirely: 8Q already phase-gates
+            packing / rules / album hidden on sell, and playlist now
+            renders as a standalone aux slot above. Lock / go / done
+            render <ExtrasSections> normally (aux stays inside it there). */}
+        {trip.phase !== 'sell' && (
+          <Reveal delay={0.4}>
+            <ExtrasSections
+              phase={trip.phase}
+              packingList={trip.packing_list || []}
+              playlistUrl={trip.playlist_url}
+              playlistOgImage={trip.playlist_og_image}
+              playlistOgTitle={trip.playlist_og_title}
+              playlistSetByName={trip.playlist_set_by_name}
+              playlistSetAt={trip.playlist_set_at}
+              houseRules={trip.house_rules}
+              photoAlbumUrl={trip.photo_album_url}
+              isOrganizer={isOrganizer}
+              tripId={trip.id}
+              slug={slug}
+              themeId={themeId}
+            />
+          </Reveal>
+        )}
       </div>
 
       <PoeticFooter themeId={themeId} />

@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9C: Top chrome (marquee + hero, sell) mockup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9C SCOPE — read this first
+
+     IN SCOPE (this mockup):
+     - marquee strip (sell-specific dynamic content + scroll animation)
+     - hero: called-up pill, tilted sticker, eyebrow, live-dot row,
+       lowercase trip title, date + destination meta row, theme
+       postcard block
+
+     OUT OF SCOPE:
+     - countdown scoreboard          → 9D
+     - T-3 / T-0 deadline banner     → 9D
+     - share link / add-to-calendar  → 9D or later
+     - organizer card / description  → 9D or later
+     - headliner + every module      → 9E onward
+     - teaser view (view 1)          → Session 10
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg: #f5f1ea;          /* cream page */
+    --ink: #1a2a33;         /* primary text + borders */
+    --surface: #ffffff;     /* module card */
+    --accent: #ffd84d;      /* yellow */
+    --hot: #e63946;         /* logo, called-up pill */
+    --stroke: #1a2a33;      /* press-shadow */
+    --muted: #7a8a90;       /* meta text */
+    --live: #2ecc71;        /* live-dot green */
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #2a2a2a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+
+  .doc-header {
+    max-width: 620px;
+    margin: 0 auto 20px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: #faf8f5;
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.5;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .stage {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+  }
+
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 0 0 40px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+    overflow: hidden;
+  }
+  .frame-label {
+    position: absolute;
+    top: -24px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #888;
+    font-weight: 700;
+  }
+
+  /* ═══ MARQUEE ═══ */
+  .marquee {
+    background: var(--ink);
+    color: #faf8f5;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 10px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+  }
+  .marquee-track {
+    display: inline-flex;
+    animation: marquee-scroll 28s linear infinite;
+  }
+  .marquee-content {
+    display: inline-flex;
+    gap: 24px;
+    padding-right: 24px;
+    align-items: center;
+  }
+  .marquee-content .star {
+    color: var(--accent);
+    font-size: 10px;
+  }
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track { animation: none; }
+  }
+
+  /* ═══ HERO ═══ */
+  .hero {
+    padding: 18px 18px 12px;
+  }
+  .hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .hero-top-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: var(--hot);
+    letter-spacing: -.02em;
+  }
+  .called-up-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    border: 1.5px solid var(--ink);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .called-up-pill .star { font-size: 8px; }
+
+  /* Tilted called-up sticker — content varies by view */
+  .sticker {
+    background: var(--accent);
+    border: 2px solid var(--ink);
+    border-radius: 22px;
+    padding: 6px 12px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    transform: rotate(-3deg);
+    box-shadow: 2px 2px 0 var(--stroke);
+    white-space: nowrap;
+  }
+
+  /* Eyebrow */
+  .hero-eyebrow {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    letter-spacing: .02em;
+  }
+
+  /* Live-dot row */
+  .hero-live {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--live);
+    animation: live-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes live-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: .55; transform: scale(1.15); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .live-dot { animation: none; }
+  }
+
+  /* Trip title — lowercase via CSS */
+  .hero-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 34px;
+    line-height: 1.05;
+    color: var(--ink);
+    margin-bottom: 6px;
+    text-transform: lowercase;   /* ← 9C: force-lowercase, data stays as-typed */
+    letter-spacing: -.01em;
+  }
+
+  /* Date + destination meta */
+  .hero-meta {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* Theme postcard block */
+  .postcard {
+    position: relative;
+    height: 90px;
+    border-radius: 12px;
+    border: 2.5px solid var(--ink);
+    overflow: hidden;
+    background-image:
+      linear-gradient(135deg, rgba(230,57,70,.35), rgba(255,216,77,.45)),
+      linear-gradient(180deg, #ff8c42, #e63946);
+    margin-bottom: 4px;
+  }
+  .postcard-stamp {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255,255,255,.9);
+    border: 1.5px solid var(--ink);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--ink);
+    transform: rotate(3deg);
+  }
+
+  /* Stubbed below-hero — NOT 9C scope */
+  .context-stub {
+    opacity: .25;
+    pointer-events: none;
+    padding: 12px 18px 0;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-top: 1px dashed rgba(26,42,51,.3);
+    margin-top: 12px;
+  }
+
+  /* Annotations */
+  .annotation {
+    max-width: 620px;
+    margin: 40px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 18px 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: #faf8f5;
+    margin: 0 0 10px;
+  }
+  .annotation h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9c · sell · top chrome</div>
+  <div class="doc-title">marquee + hero — sell state</div>
+  <div class="doc-sub">
+    Above-the-countdown chrome on the sell trip page. Countdown, deadline
+    banner, share link, organizer card, and every module are out of scope.
+  </div>
+</div>
+
+<div class="stage">
+  <div class="frame">
+    <div class="frame-label">sell · 375px · view 2 (signed-in, pre-rsvp)</div>
+
+    <!-- ═══ MARQUEE ═══ -->
+    <div class="marquee">
+      <div class="marquee-track">
+        <!-- duplicated content for seamless loop -->
+        <span class="marquee-content">
+          <span class="star">★</span>
+          <span>andrew shipman called you up</span>
+          <span class="star">★</span>
+          <span>lock it in by mar 15</span>
+          <span class="star">★</span>
+          <span>3 already in</span>
+        </span>
+        <span class="marquee-content">
+          <span class="star">★</span>
+          <span>andrew shipman called you up</span>
+          <span class="star">★</span>
+          <span>lock it in by mar 15</span>
+          <span class="star">★</span>
+          <span>3 already in</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- ═══ HERO ═══ -->
+    <div class="hero">
+      <div class="hero-top">
+        <div class="hero-top-left">
+          <div class="logo">rally!</div>
+          <span class="called-up-pill">
+            <span class="star">★</span> Andrew Shipman is calling
+          </span>
+        </div>
+        <div class="sticker">51 days 🌴</div>
+      </div>
+
+      <div class="hero-eyebrow">sell · 6-night trip</div>
+
+      <div class="hero-live">
+        <span class="live-dot"></span>
+        <span>trip is live</span>
+      </div>
+
+      <div class="hero-title">coachella 2026!!!</div>
+
+      <div class="hero-meta">nov 20 → 26 · tortola, bvi</div>
+
+      <div class="postcard">
+        <div class="postcard-stamp">tortola · bvi</div>
+      </div>
+    </div>
+
+    <!-- Stubbed: countdowns (9D), banner (9D), share + calendar, organizer, modules -->
+    <div class="context-stub">▼ countdowns · banner · share · organizer · modules (not 9C scope)</div>
+  </div>
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+  <h3>9C — what to change</h3>
+
+  <h4>1 · Marquee — sell-specific dynamic content</h4>
+  <ul>
+    <li>
+      Current: sketch theme content baked in ("★ usual suspects ★ throwback
+      weekend ★ ..."). On sell, drive content from trip state.
+    </li>
+    <li>
+      Template: <code>"★ {organizer.display_name} called you up ★ lock it in
+      by {cutoffShort} ★ {inCount} already in ★"</code>.
+    </li>
+    <li>
+      <code>cutoffShort</code> = short date format (e.g., "mar 15"). Use
+      date-fns.
+    </li>
+    <li>
+      If <code>inCount === 0</code>: omit the count segment. Don't render
+      "0 already in".
+    </li>
+    <li>
+      All three segments separated by yellow stars (<code>--accent</code>).
+    </li>
+  </ul>
+
+  <h4>2 · Marquee — scroll animation (CSS-only)</h4>
+  <ul>
+    <li>
+      Infinite horizontal scroll via <code>@keyframes</code>. Duplicate the
+      content track for seamless loop.
+    </li>
+    <li>
+      Animation duration 25–35s (tune for readability).
+    </li>
+    <li>
+      <code>@media (prefers-reduced-motion: reduce)</code> → pause
+      animation. Content stays in place, legible.
+    </li>
+    <li>No JS. No Intersection Observer. Pure CSS.</li>
+  </ul>
+
+  <h4>3 · Hero eyebrow</h4>
+  <ul>
+    <li>
+      New small italic eyebrow above the trip title.
+    </li>
+    <li>
+      Format: <code>"sell · {nights}-night trip"</code> (e.g., "sell ·
+      6-night trip"). If dates aren't set: <code>"sell"</code>.
+    </li>
+    <li>
+      Style: Georgia italic, 11px, <code>var(--muted)</code>.
+    </li>
+    <li>
+      Copy via <code>getCopy</code> + lexicon. Escalate if surface needs
+      new entry.
+    </li>
+  </ul>
+
+  <h4>4 · Hero live-dot row</h4>
+  <ul>
+    <li>
+      New row below eyebrow: pulsing green dot + text.
+    </li>
+    <li>
+      Copy (sell, signed-in pre-RSVP): <code>"trip is live"</code>.
+    </li>
+    <li>
+      Dot: 7px green (<code>--live</code>), 1.8s ease-in-out pulse loop,
+      frozen on reduced-motion.
+    </li>
+    <li>
+      Style: 11px, muted color, bold, slight letter-spacing.
+    </li>
+  </ul>
+
+  <h4>5 · Called-up sticker content</h4>
+  <ul>
+    <li>
+      Current live: "still doing it 🥂" (or similar).
+    </li>
+    <li>
+      Sell (view 2+): <code>"{daysToTrip} {themeEmoji}"</code> format
+      (e.g., "51 days 🌴").
+    </li>
+    <li>
+      <code>themeEmoji</code> pulls from theme tokens (palm for tropical,
+      bride for bachelorette, etc.).
+    </li>
+    <li>
+      <strong>Escalation trigger:</strong> if sticker is a shared component
+      used in multiple phases / views (teaser, view 2, organizer), flag
+      options before overwriting. Don't silently break existing behavior.
+    </li>
+  </ul>
+
+  <h4>6 · Trip title lowercase</h4>
+  <ul>
+    <li>
+      Apply <code>text-transform: lowercase</code> to the hero title
+      class.
+    </li>
+    <li>
+      Data stays as typed. Organizer-entered "Coachella 2026!!!" displays
+      as "coachella 2026!!!".
+    </li>
+    <li>
+      CSS-only. Do NOT mutate <code>trip.name</code>. Do NOT lowercase at
+      input time.
+    </li>
+    <li>
+      Font stays Georgia italic 900.
+    </li>
+  </ul>
+
+  <h4>7 · Date + destination meta row</h4>
+  <ul>
+    <li>
+      Below title: <code>"{date_start_short} → {date_end_short} ·
+      {destination}"</code> (e.g., "nov 20 → 26 · tortola, bvi").
+    </li>
+    <li>
+      13px, <code>var(--muted)</code>, 12px bottom margin.
+    </li>
+    <li>
+      Hide the row entirely if dates OR destination are unset.
+    </li>
+  </ul>
+
+  <h4>8 · Theme postcard block</h4>
+  <ul>
+    <li>
+      Horizontal rectangle below the meta row.
+    </li>
+    <li>
+      Theme-colored gradient (pull theme tokens — don't hardcode colors).
+    </li>
+    <li>
+      2.5px ink border, 12px radius, 90px tall.
+    </li>
+    <li>
+      Destination stamp pill in top-right corner (white bg, 1.5px ink
+      border, Georgia italic, slight rotation).
+    </li>
+    <li>
+      v0: static gradient — no real image, no Unsplash.
+    </li>
+    <li>
+      Hide the block if <code>trip.destination</code> is unset.
+    </li>
+  </ul>
+
+  <div class="callout">
+    <strong>Escalation triggers to flag (per item 5 above):</strong> sticker
+    component sharing, new lexicon entries needed for eyebrow / live-dot /
+    marquee strings, and theme emoji source (theme token, theme-strings
+    file, etc.).
+  </div>
+
+  <h3>Out of scope (keep hands off)</h3>
+  <ul>
+    <li>Countdown scoreboard — 9D.</li>
+    <li>T-3 / T-0 deadline banner — 9D.</li>
+    <li>Share link / add-to-calendar CTAs — 9D or later.</li>
+    <li>Organizer card + description — 9D or later.</li>
+    <li>Headliner and every subsequent module — 9E onward.</li>
+    <li>Sketch hero / <code>SketchTripShell</code> — sell-only this session.</li>
+    <li><code>InviteeShell</code> teaser view — Session 10.</li>
+  </ul>
+
+  <h3>Files likely touched in 9C</h3>
+  <ul>
+    <li><code>src/components/trip/PostcardHero.tsx</code> — hero polish</li>
+    <li>Some marquee component / surface (name TBD — CC should identify)</li>
+    <li><code>src/app/trip/[slug]/page.tsx</code> — wire phase-aware props into hero + marquee</li>
+    <li><code>src/lib/copy/surfaces/*</code> — new lexicon entries (escalate)</li>
+    <li><code>src/app/globals.css</code> — scoped rules for marquee scroll, live-dot pulse, sticker tilt, postcard, meta row</li>
+    <li><code>src/lib/themes/*</code> — theme-emoji lookup (escalate if surface change needed)</li>
+  </ul>
+</div>
+
+</body>
+</html>

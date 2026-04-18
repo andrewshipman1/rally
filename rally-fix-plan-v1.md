@@ -4772,61 +4772,1241 @@ QA → update plan), and we don't move to Session 9 until the sketch page is don
 **Up next:**
 - **8L (proposed):** Calendar/date input rules (tight scope — logic only, no styling/polish work). Enforces valid date ranges at input time so downstream surfaces (lodging nights, countdowns, cost summary) can trust the data.
 
-**Parked follow-ups (future sessions, not in 8L):**
-- **8M (parked):** Lodging null-state + cost display fixes — hide computation line when `nights` is null/invalid, fix "? nights" preview in edit drawer, subtle "set trip dates to see total" hint. Single-module (lodging).
-- **8N (parked):** Estimate-field polish — number-input spinner suppression + propagate 8J inline-error treatment to `handleProvisionsChange` and `handleActivitiesChange` (both silently swallow `{ok:false}`). Affects provisions + activities.
-- **8O (parked):** Transport/flights line-item styling — container for existing line items, inline delete affordance. Single-module (transport).
-- **Wireframe alignment pass:** Deferred. Will emerge naturally as each per-module polish session runs with `rally-sketch-modules-v2-mockup.html` in hand. Not a standalone session.
+**Status (2026-04-15):** Sketch page is functionally complete through 8R. Remaining items moved to the **Bug Backlog** section; sketch-page work is paused so sell-phase spec work can begin. See exit-criteria note below.
 
-**Open bugs (triaged 2026-04-14, destination TBD):**
-- **Lodging cost total: missing date-ordering validation + ugly null fallback.** `LodgingCard` and the edit drawer rendered `"$1000/night × ? nights"` (literal question marks) because the trip dates were inverted (`Apr 19 → Apr 17`). `computeNights` in `LodgingCard.tsx` (line 31) returns null whenever `diff <= 0`, falling through to a malformed preview string. Diagnosis confirmed 2026-04-14 — re-entering valid dates fixed the display. **Fixes needed (8L or lodging-polish session):** (a) the sketch date-range input must validate that `date_end >= date_start`; reject or auto-correct inverted ranges at input time; (b) on `LodgingCard` + `LodgingAddForm` preview, hide the computation line when `nights` is null/invalid and show a subtle hint ("set trip dates to see total") rather than "? nights"; (c) treat any other `nights === null` surface the same way.
+**Parked follow-ups — deferred to Bug Backlog:**
+- Lodging null-state + cost display fixes (inverted-date bug, "? nights" preview) — now backlog item 1.
+- Full sketch page copy/lexicon audit — now backlog item 2.
+- Estimate-field polish (number-input spinners, inline-error propagation in provisions + activities) — not yet logged; add to backlog if/when re-surfaced.
+- Transport/flights line-item styling — not yet logged; add to backlog if/when re-surfaced.
+- Wireframe alignment pass — remains ambient; emerges naturally in per-module polish. Not a standalone session.
 
 **Canonical design reference for 8I/8J/8K:** `rally-sketch-modules-v2-mockup.html`.
 Pre-8I wireframes (`rally-sketch-form-wireframe.html`,
 `rally-phase-4-builder.html`, sketch sections of `rally-trip-page-wireframe.html`)
 are banner-deprecated and must not be used for module order.
 
-**Remaining sketch page modules (briefs TBD):**
-- Food & drink / provisions — confirm shape (already "single estimate")
-- Cost summary — aggregates all modules into per-person estimate
-- Extras polish — packing list, playlist, house rules, photo album
-- Full sketch page QA + copy/lexicon audit across all modules
+Sub-session letters may shift as we learn what's needed. No more sketch-page sessions are planned at this time; the loop will resume only if a bug bash session is scheduled or a new module need surfaces.
 
-Sub-session letters may shift as we learn what's needed. The rule is: we keep
-looping until Andrew says the sketch page is done.
-
-**Exit criteria for Session 8 (all must be true):**
-- Every module on the sketch trip page is functional and styled
-- All strings go through getCopy across every module
-- No dead-end interactions at 375px
-- Full between-session QA checklist passes
-- Andrew signs off
+**Exit criteria for Session 8 — WAIVED (2026-04-15):**
+Original gate required "every module functional and styled," "all strings go through getCopy," "no dead-end interactions at 375px," "full between-session QA checklist passes," and "Andrew signs off." Andrew waived formal sign-off 2026-04-15 to unblock sell-phase spec work. The two remaining gaps (lodging null-state/date-ordering, full lexicon audit) are logged in the Bug Backlog and will be addressed in a future bug bash session, not as a blocker to Phase C.
 
 ---
 
-### Between Session 8 and Session 9: Revisit the wireframe
+### Between Session 8 and Session 9: Sell Page Product Strategy
 
-Before starting sell+ work: revisit `rally-trip-page-wireframe.html` with Andrew.
-The interactive wireframe covers all phases — use it to review and refine the sell
-phase design. Create a `rally-sell-phase-spec.md` for Claude Code before writing
-Session 9+ briefs.
+Aligned 2026-04-15 between Andrew + Cowork. This block is the directional
+guardrail for every sell-phase session that follows. Before Claude Code writes
+any Session 9+ code, a companion wireframe (`rally-sell-phase-wireframe.html`)
+captures the intended shape; this block captures the *why* and the
+*non-negotiables*. When Session 9+ briefs are written, they must align with this
+direction or explicitly argue for a deviation.
+
+#### The job sell is doing
+
+Sell is the **pitch page**. Its primary job is driving urgency and social
+coordination toward RSVP commitment. Every design decision is weighed against
+"does this increase conversion to yes?" Cost clarity is a supporting act, not
+the headliner. Depth features (arrival estimator, subset modeling, per-line
+split toggles, restaurants/groceries breakdown) are explicitly post-v0 — they
+serve cost transparency, not commitment pressure.
+
+Competitive bar: Partiful-level polish. Motion, micro-interactions, celebratory
+moments. The page must *feel alive*. Hard non-goal: not iMessage — no threaded
+replies, no rich media in buzz, no @mentions as first-class, no notification
+surfaces. Social proof yes, chat app no.
+
+#### The conversion funnel
+
+First touch is a logged-out invitee opening a shared link. The pattern
+(canonical reference: `rally-phase-5-invitee.html`):
+
+1. **Logged-out teaser.** Trip name, organizer face ("andrew called you up"),
+   date range, destination, theme aesthetic/postcard — all visible. Plan
+   detail (cost, crew list, lodging, modules) **blurred**, with a
+   curiosity-gap treatment. Primary CTA: **"see the plan →"** (login), NOT
+   "I'm in" (RSVP). The RSVP sticky bar is hidden at this stage.
+2. **Passwordless signup** (phone or email OTP, one tap). Converts anonymous
+   invitee into a signed-up user before they're asked to commit.
+3. **Reveal.** Plan unblurs in place with a motion transition. "You?" avatar
+   joins the crew row. 3-state RSVP sticky bar (in / holding / out) appears.
+4. **RSVP.** Tap → confetti + celebratory state change. Crew section updates.
+   Event row posts to buzz feed as social proof for the next invitee.
+
+This is the sell-phase conversion loop. Every design and copy choice on sell
+should reinforce one of these four moments.
+
+Why login precedes RSVP (not Partiful's one-tap): Rally's "yes" is a
+$500–$2000+ financial commitment and 3 days off work. Someone who RSVPs "in"
+before seeing cost will un-commit when price lands — worse than friction.
+Curiosity-gap teaser → login → full plan → informed RSVP is the model.
+Signing users up during the teaser also compounds growth: every shared link
+that gets clicked becomes a signup funnel even when the invitee ultimately
+bounces.
+
+#### Elevates / keeps / kills
+
+**Elevates (conversion-critical, invest here):**
+- Logged-out teaser view + blur treatment + login CTA
+- Passwordless signup flow + unblur reveal animation
+- RSVP sticky bar states + confetti + micro-interactions
+- Hero / countdown / postcard / sticker — the emotional hook
+- Lodging voting — the social-coordination engagement surface
+- Buzz feed as liveness / social proof (event rows, basic compose only)
+- "Called you up" invitee framing
+
+**Keeps (credible but not the star):**
+- Cost summary — rolled-up estimated total from sketch inputs (lodging +
+  transport + activities + provisions + headliner). Prominent, scannable.
+  No personalization, no subset modeling, no per-line split toggle.
+- Crew section — already shipped three-state bucketing; minor polish only.
+- Share link + "drop it in the group chat" — shipped; copy tighten at most.
+
+**Kills (out of v0 scope — complexity without conversion ROI):**
+- Per-crew arrival estimator with mode picker / Google Flights deep-link /
+  passport dependency → moved to lock phase, minimal shape (see below).
+- Subset cost modeling ("what if X leaves?").
+- Restaurants / groceries breakdown inside provisions.
+- Catering as a module or voting mechanic — not worth the complexity for v0.
+- Buzz reactions + @mentions as first-class features.
+- Voting nudges (72h auto-fire) — patch if they bite, don't design up front.
+- +1 guest support, per-person notes, last-active timestamps, contact reveal.
+- Per-line shared/individual cost-split toggle.
+
+#### What sell points forward to (lock phase — not in scope now)
+
+Documented here so sell decisions don't accidentally encroach. Do NOT build
+these in Session 9+ sell work:
+
+- **Personalized "your trip: $X" total.** After the organizer locks it in,
+  the trip moves from pitch to committed. Lock is where each crew member sees
+  their personal number including their own travel-to-meetup cost. Copy
+  shifts from "estimated" to "final as known."
+- **Single-field "your way in" input.** Lives in lock, not sell. One field
+  per crew member ("how much to get to the meetup? $___"). No mode picker,
+  no Google Flights integration, no passport dependency. Feeds the personal
+  total.
+- **Countdown pivots.** Sell countdown targets `commit_deadline` ("days to
+  lock it in"). Lock countdown pivots to `date_start` ("days until trip").
+- **Different celebration moment.** Sell = RSVP confetti. Lock = the
+  lock-in itself (organizer commits on behalf of the crew).
+
+#### Open questions (resolve before writing Session 9 brief)
+
+- **Login flow mechanics.** Passwordless OTP via phone, email, or both?
+  Magic link or inline code entry? Does the existing `/auth` route handle
+  this or do we need a sell-phase-specific flow?
+- **Blur scope.** Phase-5 mockup blurs the full "plan" section. Is the
+  elevated-above-blur set (trip name, organizer, dates, destination, theme)
+  the right cutline, or do we show even less pre-login to maximize
+  curiosity? Or more, to reduce the feeling of a walled garden?
+- **RSVP-to-confetti moment.** Shipped today but minimal. What's the
+  celebration bar we're pushing to? (Motion depth, copy, theme-aware
+  variants, sound/haptic, etc.)
+- **Logged-in-but-not-RSVP'd state duration.** If they sign in but don't
+  RSVP, what does the next visit look like? Still showing the 3-state
+  sticky bar? Nudge copy? Decay to a different state?
+- **Buzz feed compose UX.** Shipped event rows are passive (RSVP, vote,
+  lock). Does sell-phase buzz include a user-compose bar, or is it
+  event-feed only until lock/go?
+
+#### How Session 9+ briefs reference this block
+
+Every sell-phase brief must open by pointing back here. The session is valid
+only if it advances one of the elevate-list items or tightens a keep-list
+item. If a brief proposes work on a killed item, it's rejected unless the
+kill decision is being revisited with rationale.
+
+#### Wireframe v2 decisions (2026-04-15, post first-review pass)
+
+Locked in after first pass on `rally-sell-phase-wireframe.html`:
+
+- **Blur scope: conservative.** Crew row stays visible in the teaser — it's
+  the highest-converting social-proof element. The "plan" (cost, lodging,
+  modules, buzz) is what blurs. Aggressive variant retained in the
+  wireframe toggle as contrast-only, not the shipping default.
+- **Cost summary: bottom of page, not the visual spine.** Order of
+  operations on sell is: sell the fun first (hero → countdown → crew →
+  lodging → transport → headliner → activities → provisions → crew →
+  buzz → extras), then tally the cost. Cost is the closer, not the
+  opener. The CostBreakdown primitive keeps its dark-card / yellow-total
+  / Georgia-italic treatment; only its placement changes.
+- **Countdown becomes a scoreboard.** Replaces the static "51 days to
+  lock it in" line with a yellow-stickered countdown scoreboard showing
+  days : hours : minutes : seconds, Georgia italic tabular numerals, live
+  tick on the seconds tile, lock-emoji wobble. Creates urgency + hype
+  using existing tokens (2.5px ink border, press-shadow, yellow accent
+  fill) — no new primitives. Theme-adaptive variants (ski ornaments,
+  tropical motifs, etc.) are flagged as open question Q7 and parked for
+  a future polish pass.
+- **Sticky bar: per-view behavior confirmed.** Teaser → "see the plan."
+  Pre-RSVP → 3-state RSVP. Crew → quiet "you're in" confirmation.
+  Organizer → "lock it in" / "nudge the holdouts." Single primitive,
+  state-driven content.
+- **Module order matches the shipped sketch-page convention.** Sell
+  does not invent a new layout grammar — it loads the sketch grammar
+  with richer content. Canonical top-to-bottom order:
+  1. the crew
+  2. the headliner
+  3. the spot
+  4. getting here (per-crew, individual arrival — new sell-only module)
+  5. transportation (group)
+  6. everything else (activities + provisions)
+  7. the aux
+  8. cost summary (tally at the bottom — now personalized)
+
+  Rationale for placing "getting here" above "transportation": logical
+  grouping flows where we stay → how I get there (individual) → how we
+  move around once there (group). Accommodations + individual arrival
+  are both about "getting to the meetup"; group transportation is about
+  what happens after.
+
+  Buzz feed has no sketch-page parent (it's sell-only liveness). Current
+  placement is between "everything else" and "the aux"; final placement
+  parked as wireframe Q8. Any Session 9+ brief that touches module
+  sequencing must honor this order or explicitly argue for a deviation.
+
+- **Getting Here module is sell-phase, not lock-phase (SCOPE SHIFT).**
+  Superseding the earlier decision to defer travel-cost input to lock.
+  On sell, the module is **personal-only**: the viewer picks their mode
+  (✈️ flight / 🚗 drive / 🚆 train / other), clicks out to a
+  mode-appropriate reference (Google Flights for flight, Google Maps for
+  drive, Amtrak for train) as a ballpark tool, then manually enters an
+  approximate cost. That estimate rolls into a personalized "your total"
+  in the cost summary at the bottom. **This is an approximation, not a
+  booking** — Rally is not in the booking-flow business for v0. The
+  personalized total in sell replaces the group-estimate total
+  previously planned.
+
+  Sell explicitly does NOT show a roster of other crew members'
+  arrival methods or costs. Sell is "what's my cost"; the roster is
+  a lock-phase view.
+
+  Lock-phase features that emerge from this scope shift (to be formalized
+  in a dedicated lock-phase direction block once sell ships):
+  - **Full crew arrival roster** — read-only list of every attendee's
+    method + cost ("andrew · ✈️ flight · $420," "robert · 🚗 drive ·
+    $85"). This is the "how's everyone getting there" social view.
+  - **Flight times + arrival details** — once each attendee confirms
+    their booking, capture flight numbers, arrival times, train
+    schedules, drive ETAs. Roster extends to show "lands at 2:14pm,"
+    "arriving wednesday 6pm." Good for meetup coordination.
+  - **Firming estimates** from "estimated" → "confirmed" across every
+    module's cost line.
+  - **Final trip details** — meetup addresses, access codes, itinerary
+    polish.
+  - **Payment collection** if/when added.
+  - **The lock-in commit moment** itself (organizer action).
+
+  Parked as wireframe Q10.
 
 ---
 
-### Session 9+: "Sell+ Module Depth" (briefs TBD)
+### Session 9: "Sell page scaffolding — publish the sketch"
 
-These sessions deepen each module for sell/lock/go/done phases. Briefs will be
-written after Session 8 ships (sketch page complete), and the sell phase wireframe
-is reviewed with Andrew. Expected sessions:
+**Framing.** Session 9 is the **publishing moment**. The organizer's sketch
+inputs become the invitee's sell-page view. This is NOT a rebuild session —
+the modules are already built on sketch. Session 9 rewires the sell render
+path so the same modules render on sell in the right order, and introduces
+one net-new module (Getting Here) where the invitee contributes their own
+input. The result is a structurally correct sell page that Session 10
+(teaser / blur / login) and Session 11 (publish-triggered invite delivery)
+build on top of.
 
-- **Session 9:** Lodging voting + lock flow (sell → lock)
-- **Session 10:** Cost summary + provisions → restaurants/groceries breakdown
-- **Session 11:** Crew section depth (RSVP flow, +1, confetti)
-- **Session 12:** Buzz feed depth (compose, reactions, event rows)
-- **Session 13:** Extras depth + polish (all extra types, animations, copy/color audit)
-- **Session 14 (candidate):** Per-crew arrival estimator (sell phase) — flight / drive / train / other, Google Flights deep-link for flyers. See note below.
+**Session 9 split into sub-sessions** per single-module discipline. Each
+ships and is QA'd independently before the next starts. Sequencing
+evolved from the original 9A/9B pair to a top-down polish walk after 9A
++ 9A-fix shipped.
 
-These are placeholders. Exact scope depends on what we learn from the sketch page buildout.
+**Current sequence (2026-04-17):**
+
+- **9A — Publish the sketch.** ✅ Shipped + QA'd. Pure render-path rewire;
+  module order, obsolete renders deleted, headliner lifted, cost
+  repositioned, aux promoted, going row collapsed. See 9A release notes
+  + Actuals below.
+- **9A-fix — Headliner server→client wrapper.** ✅ Shipped + QA'd.
+  `SellHeadliner.tsx` wraps `<Headliner>` with a client-side noop
+  `onOpen`, resolving the Next.js 15 RSC "Event handlers cannot be
+  passed to Client Component props" error that blocked sell rendering.
+- **9C — Top chrome polish: lowercase title + marquee audit.**
+  ✅ Shipped + QA'd. Narrow scope per Andrew: only polish what renders
+  today, no new components, no new lexicon entries. CSS-only lowercase
+  transform on `.chassis .title`. Marquee delta escalated + parked
+  (no sell-phase marquee string exists today).
+- **9D — Countdown + deadline banner.** 🔜 On deck. Scope TBD — see
+  9D preview below.
+- **9E — Headliner module polish (sell readOnly + copy + layout).**
+  🔜 Queued. Full brief draft exists as 9E preview below (originally
+  drafted as 9C before the top-to-bottom walk reframe).
+- **9F — Spot / Lodging polish.** Queued — backlog item 1 (null-state
+  date-ordering) lives here.
+- **9B — Getting Here module.** Queued at its natural turn (after 9F /
+  before transportation polish). Net-new module, migration required,
+  new copy surface. Preview below.
+- **9G+ — Transportation, everything else, crew, cost, buzz, aux polish.**
+  Queued in top-to-bottom order.
+
+**Scope exception.** Getting Here (9B) remains the one module where the
+*invitee* (not the organizer) contributes input on sell. Intentional.
+
+**Views in scope across the 9-series.** Wireframe views 2 (signed-in
+pre-RSVP), 3 (RSVP'd in), and 4 (organizer). View 1 (teaser / blur /
+login) is Session 10.
+
+**Paused 2026-04-17 end of working session.** Pick up at 9D scope
+decision (narrow polish vs. scoreboard build) when resuming.
+
+---
+
+#### Session 9A: "Publish the sketch — render path rewire"
+
+**Intent.** Make the sell render path structurally correct by reordering
+and repositioning existing modules. Zero new components, zero new copy,
+zero new data, zero migrations. If 9A lands clean, Session 9B (Getting
+Here) drops into a reserved slot without touching the render stack again.
+
+**Scope (numbered):**
+
+1. **Rewire module order on the sell render path.** In
+   `src/app/trip/[slug]/page.tsx` sell/lock/go render block (lines ~243–530),
+   render modules in this order:
+   - Headliner (lifted from sketch — see #3)
+   - Spot (lodging — already renders; no change)
+   - Getting Here slot — **reserved empty with a comment marker**:
+     `{/* Getting Here — Session 9B */}`. No component, no visible
+     element. Just a placeholder in the JSX tree for 9B to fill.
+   - Transportation (already renders; no change)
+   - Everything Else (activities + provisions — mirror the sketch
+     everything-else shape; see #2)
+   - Crew (single merged section — see #7)
+   - Cost summary (moved down — see #5)
+   - Buzz
+   - Aux (PlaylistCard promoted out of ExtrasSections — see #6)
+   - Footer
+
+2. **Remove obsolete render calls on sell.** Delete from the sell render
+   block:
+   - `<FlightCard>` iteration (8I deprecated flights as a module)
+   - Standalone `<GroceriesCard>` iteration (8P consolidated into
+     everything-else on sketch; sell still renders it standalone)
+   - Standalone `<ActivityCard>` iteration (same reasoning)
+   - Do NOT delete the underlying components (other surfaces may still
+     reference them — orphaning is fine, removing now is scope creep).
+   - Do NOT touch the sketch render path.
+
+3. **Render the headliner module on sell.** The 8J/8O headliner today
+   renders only inside `SketchTripShell`. Lift the same rendering pattern
+   into the sell render path using the existing `trip.headliner_*` fields.
+   **Reuse sketch's component — do not rebuild.** If the existing
+   headliner component isn't directly reusable outside the sketch shell
+   (e.g., requires a sketch-only prop shape), escalate before forking a
+   sell-specific variant.
+
+4. *(Reserved — Getting Here ships in 9B.)*
+
+5. **Reposition cost summary below crew, above buzz.** `<CostBreakdown>`
+   is currently mid-page (line ~455). Move the render call down the tree.
+   No component changes. No new line items in 9A (the "your way in"
+   personal line ships in 9B alongside Getting Here).
+
+6. **Promote aux (PlaylistCard) out of ExtrasSections.** On the sell
+   render path, call `<PlaylistCard>` directly as its own module slot
+   between buzz and the footer. `<ExtrasSections>` on sell continues to
+   own packing / rules / album (already phase-gated hidden in sell per 8Q
+   — no change). DO NOT modify `PlaylistCard` or `ExtrasSections`
+   internals. DO NOT touch the sketch render path's extras handling.
+
+7. **Collapse "going" avatar row into CrewSection.** Delete the
+   hero-adjacent going row (`<div className="going">` + avatar cascade,
+   lines ~310–337 of `page.tsx`). The full `<CrewSection>` is the single
+   crew surface on sell, positioned per #1. Do NOT restyle `CrewSection`
+   — layout polish is a later 9-series sub-session.
+
+**Hard constraints:**
+
+- DO NOT build any new component
+- DO NOT write any migration
+- DO NOT add any new copy string (all strings continue from their current
+  lexicon entries)
+- DO NOT touch `InviteeShell`, blur / lock overlays, or login (Session 10)
+- DO NOT touch invite delivery / `transitionToSell` / `/api/invite`
+  (Session 11)
+- DO NOT build sticky bar variants beyond the existing pre-RSVP 3-state
+- DO NOT build the countdown scoreboard, called-up sticker, or marquee
+- DO NOT modify the sketch render path (`SketchTripShell` and its
+  children)
+- DO NOT polish any module's internal layout or copy — pixel polish
+  happens in later 9-series sub-sessions, module by module
+- DO NOT change the internals of `CostBreakdown`, `CrewSection`,
+  `PlaylistCard`, `ExtrasSections`, or the headliner component. Touch only
+  their call sites in `page.tsx`
+- Mobile-first at 375px
+- `rm -rf .next && npm run dev` before QA
+- `npx tsc --noEmit` clean before release notes
+
+**Acceptance criteria:**
+
+- [ ] Sell-phase trip page renders in this order: headliner → spot →
+      (Getting Here slot reserved with a JSX comment) → transportation →
+      everything-else → crew → cost → buzz → aux → footer
+- [ ] Flights module no longer renders on sell
+- [ ] Standalone groceries section no longer renders on sell
+- [ ] Standalone activities section no longer renders on sell
+- [ ] Everything Else renders on sell in the same shape as sketch
+      (activities + provisions consolidated)
+- [ ] Headliner renders on sell using `trip.headliner_*` data
+- [ ] `<PlaylistCard>` (aux) renders as its own slot between buzz and
+      footer — not nested inside `<ExtrasSections>`
+- [ ] `<ExtrasSections>` on sell continues to hide packing / rules /
+      album (regression gate from 8Q)
+- [ ] Hero-adjacent "going" avatar cascade is removed
+- [ ] `<CrewSection>` is the single crew surface on sell, positioned
+      between everything-else and cost
+- [ ] Cost summary is positioned below crew, above buzz
+- [ ] Getting Here slot exists as the JSX comment
+      `{/* Getting Here — Session 9B */}` at position #4 in the stack
+- [ ] Sketch phase renders unchanged (regression gate —
+      `SketchTripShell` untouched)
+- [ ] Lock/go phases render in the new order (sell/lock/go share the
+      render block; if lock/go legitimately require a different order,
+      escalate instead of forking)
+- [ ] `InviteeShell` (logged-out) renders unchanged (regression gate —
+      Session 10 territory)
+- [ ] `/api/invite` and `transitionToSell` behaviors unchanged
+      (regression gate — Session 11 territory)
+- [ ] No new components created
+- [ ] No new migrations
+- [ ] No new copy strings added
+- [ ] `npx tsc --noEmit` clean
+
+**Files to read first:**
+
+- `.claude/skills/rally-session-guard/SKILL.md` (Part 1 rules + Part 3
+  escalation triggers)
+- `rally-fix-plan-v1.md` → Session 9 parent block + this 9A brief + 9B
+  preview + "Between Session 8 and Session 9: Sell Page Product
+  Strategy" + 8P / 8Q / 8R release notes
+- `rally-sell-phase-wireframe.html` — canonical sell module order
+  (signed-in views 2 / 3 / 4)
+- `src/app/trip/[slug]/page.tsx` — the file this brief rewrites
+- `src/components/trip/builder/SketchTripShell.tsx` — reference for how
+  the sketch path renders headliner, everything-else, and aux (the
+  patterns 9A is lifting)
+- `src/components/trip/ExtrasSections.tsx` + `PlaylistCard.tsx` — how aux
+  is currently nested
+- `src/components/trip/CostBreakdown.tsx` — confirm call-site-only
+  changes; no internal edits
+- `src/components/trip/CrewSection.tsx` — confirm it renders cleanly
+  when called from the new position; no internal edits
+
+**How to QA solo:**
+
+1. `rm -rf .next && npm run dev`
+2. Open an existing sell-phase trip. Confirm module order matches AC #1.
+3. Confirm no flights / standalone groceries / standalone activities
+   render.
+4. Confirm aux (`<PlaylistCard>`) renders as its own slot between buzz
+   and footer.
+5. Confirm packing / rules / photo album are NOT visible (regression
+   gate from 8Q).
+6. Confirm the going-row avatar cascade is gone; `<CrewSection>` carries
+   the crew.
+7. View-source / inspect element → confirm
+   `{/* Getting Here — Session 9B */}` comment sits at position #4.
+8. Open a sketch-phase trip → confirm it renders exactly as before.
+9. Open a lock-phase trip → confirm it renders in the new order (same
+   block) with no regressions.
+10. Open the share link in incognito → confirm `InviteeShell` still
+    renders (regression gate).
+11. At 375px → confirm no layout breaks from the reordering.
+
+**Scope boundary reminders:**
+
+- If you find yourself modifying any component internals → STOP. The
+  only file being edited should be `page.tsx` (and possibly the
+  headliner's source if it can't be lifted without a prop/export change
+  — flag that).
+- If you find yourself writing a new component → STOP. 9A has none.
+- If you find yourself writing a migration → STOP. 9A has none.
+- If you find yourself adding copy → STOP. 9A has none.
+- If you find yourself restyling any module → STOP. Polish is later.
+- If the headliner component isn't directly reusable in sell → STOP and
+  escalate before duplicating.
+
+#### Session 9A — Release Notes
+
+**What was built:**
+
+1. **Render path rewired end-to-end** — `src/app/trip/[slug]/page.tsx` sell/
+   lock/go return block now renders the canonical 9A order:
+   headliner → spot → `{/* Getting Here — Session 9B */}` reserved slot →
+   transportation → everything-else → crew → cost → (DatePoll if present) →
+   buzz → aux (sell only) → extras (lock/go/done only) → footer.
+2. **Hero-adjacent "going" avatar row deleted** — the `<div className="going">`
+   + avatar cascade block (formerly lines 310–337) is gone. `<CrewSection>`
+   is the single crew surface on sell / lock / go. `CrewAvatarTap` import
+   removed (unused). `goingMembers` + `inCount` locals retained — still
+   consumed by `<InviteeShell>` and `<BuzzSection>`. —
+   `src/app/trip/[slug]/page.tsx`
+3. **Obsolete module iterations removed on sell/lock/go** — the `<FlightCard>`,
+   standalone `<ActivityCard>`, and standalone `<GroceriesCard>` `<Reveal>`
+   blocks are all deleted from the shared render block. Underlying
+   components (`FlightCard.tsx`, `ActivityCard.tsx`, `GroceriesCard.tsx`)
+   intentionally orphaned — files retained for 9A to stay scope-tight; a
+   follow-up cleanup session can prune them. Related imports dropped.
+4. **Headliner (8J/8O) lifted onto sell / lock / go** — renders from
+   `trip.headliner_*` fields, gated on `trip.headliner_description` so the
+   empty "+ the headliner" state never shows on sell. `onOpen={() => {}}`
+   noop (no edit drawer in 9A per Q1-A resolution). The embedded
+   `<a className="module-card-pill headliner-cta">` source-link inside the
+   card still works — clicks stop propagation through to the noop.
+   `Headliner` component **not modified** (no prop refactor; no
+   `readOnly` flag). Imported from
+   `@/components/trip/builder/Headliner`.
+5. **Everything Else — inline read-only 3-row module** — hand-written
+   directly in `page.tsx` (per Q2-A resolution) using the same CSS
+   primitives SketchModules uses (`.module-section.everything-else-module`,
+   `.everything-else-rows`, `.estimate-input.filled`, `.field-label`,
+   `.estimate-input-row`, `.estimate-prefix`, `.estimate-display`,
+   `.estimate-input-hint`). Rows read from
+   `trip.activities_estimate_per_person_cents`,
+   `trip.groceries[name='Provisions'].estimated_total`, and
+   `trip.groceries[name='Other'].estimated_total`. Rows omit individually
+   when null/zero; the whole module omits when all three are unset (no
+   empty frame on sell). Uses existing lexicon keys
+   (`builderState.everythingElse.{title, eyebrow, activitiesLabel,
+   provisionsLabel, provisionsHint, otherLabel, otherHint}`,
+   `builderState.estimatePrefix`) — no new copy.
+6. **Cost summary repositioned** — `<CostBreakdown>` moved from its
+   former mid-page slot (below groceries) to below `<CrewSection>`,
+   above `<BuzzSection>`. `<DatePoll>` (conditional) stays adjacent to
+   cost, now renders between cost and buzz. No changes to `CostBreakdown`
+   internals.
+7. **Aux promoted to its own slot on sell** — `<PlaylistCard>` called
+   directly between `<BuzzSection>` and the footer on sell-phase trips.
+   `ExtrasSections` is skipped entirely on sell (see #8). On lock / go /
+   done the standalone aux is **not** rendered (scope boundary call —
+   see "What changed from the brief" #2); `<ExtrasSections>` keeps
+   rendering `<PlaylistCard>` internally there, same as before 9A.
+   `PlaylistCard` component not modified.
+8. **`<ExtrasSections>` phase-gated to skip on sell** — wrapped with
+   `trip.phase !== 'sell' && ...` (per Q3-A resolution). Functionally
+   equivalent to what shipped before 9A on sell (8Q already hid
+   packing / rules / album on sell, and the formerly-internal playlist is
+   now the standalone aux slot above). Lock / go / done render
+   `<ExtrasSections>` normally with all four sections. No internal
+   changes to `ExtrasSections`.
+9. **Reveal delays resequenced** top to bottom to match the new order:
+   headliner 0 → lodging 0.05 → transportation 0.1 → everything-else
+   0.15 → crew 0.2 → cost 0.25 → date poll 0.28 → buzz 0.3 → aux 0.35 →
+   extras 0.4.
+
+**What changed from the brief:**
+
+1. **Three escalation points resolved pre-execution.** Plan mode surfaced
+   three contradictions between the brief's "zero new components" /
+   "don't touch sketch-path internals" constraints and reality. Resolved
+   with Andrew in plan mode via AskUserQuestion — all three chose the
+   recommended option (A/A/A). Resolutions captured in the plan file at
+   `~/.claude/plans/session-9a-kickoff-before-scalable-wilkes.md` and
+   summarized here:
+   - **Q1-A (Headliner):** noop `onOpen`, gate on `headliner_description`.
+     Embedded source-link `<a>` inside the card still works; the outer
+     card surface is a soft no-op click (logged as known issue below).
+   - **Q2-A (Everything Else):** inline read-only markup in `page.tsx`
+     using existing CSS classes + lexicon. No new component, no
+     `EstimateInput` refactor.
+   - **Q3-A (Aux vs ExtrasSections):** skip `<ExtrasSections>` on sell,
+     render standalone `<PlaylistCard>` between buzz and footer. On
+     lock / go / done keep ExtrasSections' internal playlist — see #2.
+2. **Standalone aux is sell-only, not sell/lock/go.** The brief says
+   "sell/lock/go share the render block" (AC: "Lock/go phases render
+   in the new order") but ExtrasSections on lock/go still renders
+   `<PlaylistCard>` internally (per 8Q, playlist is un-gated). Rendering
+   the standalone aux on lock/go would have duplicated the playlist
+   card. The brief prohibits modifying `ExtrasSections`, so the clean
+   path was to gate the standalone on `trip.phase === 'sell'`. On
+   lock/go the playlist stays where 8Q put it (inside ExtrasSections).
+   Flagged as a follow-up for lock-phase depth work — if the "aux as
+   its own slot" pattern should carry into lock/go, it needs an
+   `ExtrasSections` change (new `hidePlaylist` prop or extending the
+   playlist phase-gate). Did **not** fork the render block; added one
+   phase conditional inside the shared tree.
+3. **DatePoll placement.** The brief is silent on DatePoll's position
+   under the new order. It currently sits between cost and buzz (old
+   order had it between cost and crew). Kept as-is in the shared block.
+4. **No copy changes, no component-internal edits, no migrations**
+   (matches brief — noting explicitly).
+
+**What to test:**
+
+- [ ] **Pre-QA:** `rm -rf .next && npm run dev`. 8M rule — stale
+      Turbopack chunks will mislead.
+- [ ] **Module order — sell trip** at 375px, renders top-to-bottom:
+      hero → (sell countdown to cutoff) → (secondary countdown to trip
+      start) → deadline banner (if T-3 / T-0) → share + add-to-calendar
+      + organizer + description → headliner (only if set) → spot →
+      [nothing visible; Getting Here comment] → transportation →
+      everything-else (only if any value > 0) → crew → cost → (date
+      poll if present) → buzz → aux (PlaylistCard) → footer + sticky
+      bar. No hero-adjacent going avatar row.
+- [ ] **No flights / standalone activities / standalone groceries**
+      anywhere on sell.
+- [ ] **Headliner renders from `trip.headliner_*`** — OG image (if
+      present), description, cost pill, domain chip, "view link" CTA
+      all show. Tap the card body → nothing happens (expected noop).
+      Tap the CTA link → opens source URL in a new tab.
+- [ ] **Headliner unset** (no `headliner_description`) → module
+      omitted entirely. No empty "+ the headliner" affordance on sell.
+- [ ] **Everything Else rows** — only the rows with values render.
+      Numbers format with comma separators (`50,000`). `~$` prefix
+      present. Hints render under provisions + other. If all three are
+      unset, module omits.
+- [ ] **Cost summary sits between crew and (date-poll/)buzz** (was
+      mid-page). Numbers unchanged.
+- [ ] **Aux (PlaylistCard) renders once** between buzz and footer on
+      sell. Not nested inside ExtrasSections. Swap/save/open behavior
+      unchanged from 8Q.
+- [ ] **Packing / rules / photo album hidden on sell** (8Q regression
+      gate — sell should have *zero* `<ExtrasSections>` output).
+- [ ] **Sketch trip renders unchanged** (SketchTripShell untouched —
+      regression gate).
+- [ ] **Lock-phase trip** renders in the new shared order: headliner
+      → spot → (Getting Here comment) → transportation →
+      everything-else → crew → cost → (poll) → buzz → extras
+      (containing packing + playlist + rules + album). Post-lock
+      banner still renders between hero and content. No standalone aux
+      on lock (playlist lives inside extras on lock/go per scope
+      boundary call #2).
+- [ ] **Incognito share-link open** → `<InviteeShell>` renders
+      unchanged (regression gate — Session 10 territory).
+- [ ] **375px** — no clipped / overflowing elements; no horizontal
+      scrollbars; reveal cascade plays top-to-bottom.
+- [ ] **`npx tsc --noEmit` clean** (verified during session — exit 0,
+      no output).
+- [ ] **View source / inspect** — `{/* Getting Here — Session 9B */}`
+      JSX comment sits between the lodging section and the
+      transportation section (position #3 in the module stack).
+
+**Known issues:**
+
+- **Interactive QA blocked for Claude Code** — same harness constraint
+  as 8Q/8R. Dev server boots clean (`Ready in 200ms` via Turbopack),
+  `tsc --noEmit` is clean, `/` → 307 → `/auth` → 200, `/trip/<missing>`
+  → 404 (no compile errors). Sell / lock / go trip pages require a
+  Supabase-authenticated session, which can't be established from the
+  harness. Visual / click verification has to happen in Cowork.
+- **Headliner card is a soft dead-end on sell** — accepted tradeoff
+  from Q1-A. The card has `role="button"` + `onClick={onOpen}`, and
+  `onOpen` is a noop on sell. Invitee taps the card body → nothing
+  happens. Taps inside the card still work (the `<a>` source-link
+  stops propagation and opens in a new tab). Polish options for a
+  later sub-session: (a) add a `readOnly?: boolean` prop to
+  `Headliner.tsx` that drops the `role="button"` + `onClick` when
+  true; (b) redirect the outer card click to the source URL; (c)
+  leave the noop and accept the cosmetic gap. No fix in 9A per
+  scope.
+- **Aux is only promoted on sell, not lock/go/done** — see "What
+  changed from the brief" #2. Lock-phase depth session (Session 12+)
+  should decide whether the aux should be its own slot on lock/go too,
+  and what the ExtrasSections surgery looks like if so.
+- **Orphaned components** — `FlightCard.tsx`, `ActivityCard.tsx`,
+  `GroceriesCard.tsx` are no longer referenced from the sell/lock/go
+  render path. Files retained; broader audit + cleanup left for a
+  follow-up pass.
+
+**9A QA (2026-04-17) — blocking bug found:** `<Headliner>` receives
+`onOpen={() => {}}` passed from `page.tsx` (server component) to the
+client `Headliner` component. Next.js 15 RSC rejects functions as
+serializable props: *"Event handlers cannot be passed to Client Component
+props."* The sell trip page 500s as soon as the trip flips to sell phase.
+`transitionToSell` itself succeeds; the break is render-time. Root cause
+is the Q1-A plan-mode resolution (noop `onOpen`) — a noop still can't
+cross the server→client boundary. Escalated to Session 9A-fix below.
+
+---
+
+#### Session 9A-fix: "Headliner server→client boundary"
+
+**Intent.** Unblock sell-phase rendering. One-file, tight-scope hot fix.
+
+**Scope (numbered):**
+
+1. **Create `src/components/trip/SellHeadliner.tsx`** — new thin client
+   component (`'use client'`) that wraps `<Headliner>` and holds the
+   noop `onOpen` internally. Props: `{ themeId, headliner }`. Body
+   renders `<Headliner themeId={themeId} headliner={headliner}
+   onOpen={() => {}} />`. Re-exports nothing new; import `Headliner` +
+   `HeadlinerData` from `@/components/trip/builder/Headliner`.
+
+2. **Swap the sell-render call site in `src/app/trip/[slug]/page.tsx`.**
+   Replace the existing `<Headliner ... onOpen={() => {}} />` with
+   `<SellHeadliner ... />`. Drop the `Headliner` import, add the
+   `SellHeadliner` import. Nothing else changes.
+
+**Hard constraints:**
+
+- DO NOT modify `Headliner.tsx` (no prop shape change, no `readOnly`
+  flag — that's a later polish session)
+- DO NOT touch any other module or render-path ordering
+- DO NOT rename anything
+- DO NOT add new copy strings
+- DO NOT address the "soft dead-end" known issue — separate concern
+- Two files touched only: new `SellHeadliner.tsx` + edit to `page.tsx`
+- `rm -rf .next && npm run dev` before QA
+- `npx tsc --noEmit` clean before release notes
+
+**Acceptance criteria:**
+
+- [ ] `SellHeadliner.tsx` exists, is marked `'use client'`, and wraps
+      `<Headliner>` with a noop `onOpen`
+- [ ] `page.tsx` imports `SellHeadliner` and no longer imports
+      `Headliner` for the sell render
+- [ ] Sell-phase trip page renders without the
+      "Event handlers cannot be passed to Client Component props" error
+- [ ] Headliner visual output on sell is unchanged (OG image, description,
+      cost pill, domain chip, CTA link all still render)
+- [ ] Tapping the CTA link inside the headliner card still opens the
+      source URL in a new tab
+- [ ] Sketch phase renders unchanged (regression gate — still uses the
+      original `Headliner` via SketchTripShell)
+- [ ] Lock/go phases render unchanged (use the same sell render block;
+      verify the SellHeadliner wrapper renders there too without error)
+- [ ] `npx tsc --noEmit` clean
+
+**Files to read first:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` → Session 9A release notes + 9A QA bug note +
+  this 9A-fix brief
+- `src/app/trip/[slug]/page.tsx` — the one call site to swap
+- `src/components/trip/builder/Headliner.tsx` — prop shape reference
+  (do NOT modify)
+
+**How to QA solo:**
+
+1. `rm -rf .next && npm run dev`
+2. Load the previously-broken sell trip. Verify it renders — no
+   serialization error in the terminal or browser console.
+3. Confirm the headliner card displays as expected.
+4. Tap the CTA link inside the card → opens in new tab.
+5. Tap the card body → still a noop (deferred to a later polish
+   session; not fixed here).
+6. Regression: open a sketch trip → headliner still renders via
+   SketchTripShell (uses original `Headliner`, not the wrapper).
+7. `npx tsc --noEmit` clean.
+
+**Scope boundary reminders:**
+
+- If you find yourself modifying `Headliner.tsx` → STOP. Wrap it, don't
+  change it.
+- If you find yourself addressing the soft dead-end card → STOP.
+  Different session.
+- If you find yourself touching any other module → STOP. One bug, two
+  files.
+
+#### Session 9A-fix — Release Notes
+
+**What was built:**
+
+1. New `src/components/trip/SellHeadliner.tsx` — `'use client'` wrapper
+   around `<Headliner>` that owns the noop `onOpen` on the client side.
+2. `src/app/trip/[slug]/page.tsx` — swapped the sell-render call from
+   `<Headliner ... onOpen={() => {}} />` to `<SellHeadliner ... />`.
+   Dropped the `Headliner` import; added `SellHeadliner`.
+
+**What changed from the brief:** nothing.
+
+**What to test:**
+- [ ] Previously-broken sell trip renders (no
+      "Event handlers cannot be passed to Client Component props" error)
+- [ ] Headliner card visuals unchanged (OG image, description, cost pill,
+      domain chip, CTA link)
+- [ ] Tapping the CTA link opens the source URL in a new tab
+- [ ] Tapping the card body is still a noop (deferred polish, not this
+      session)
+- [ ] Sketch regression gate — sketch trip still uses original
+      `<Headliner>` via SketchTripShell, no change
+- [ ] `npx tsc --noEmit` clean (verified — exit 0, no output)
+
+**Known issues:** soft dead-end on card body click is unchanged from 9A's
+known-issues list; out of scope here by design.
+
+---
+
+#### Session 9A + 9A-fix — Actuals (QA'd 2026-04-17)
+
+**Status:** Complete. 9A scaffolding shipped; 9A-fix resolved the sell-render
+block. All in-scope ACs verified visually in Chrome against a sell-phase trip
+(`/trip/sjtIcYZB` → re-published as `/trip/k5PbSJff` after phase-flip
+experiments).
+
+**Acceptance criteria results:**
+
+- ✅ Sell-phase module order: headliner → spot → (Getting Here comment) →
+  transportation → everything-else → crew → cost → buzz → aux → footer
+- ✅ Flights / standalone groceries / standalone activities removed from sell
+- ✅ Everything Else inline markup renders all three rows (activities /
+  provisions / other) with hint copy, `~$` prefix, comma separators
+- ✅ Headliner renders on sell via `SellHeadliner` wrapper (9A-fix)
+- ✅ PlaylistCard (aux) standalone between buzz and footer
+- ✅ ExtrasSections hides packing / rules / album on sell (8Q regression gate)
+- ✅ Hero-adjacent "going" avatar cascade removed
+- ✅ Single `<CrewSection>` is the crew surface on sell
+- ✅ Cost summary sits between crew and buzz
+- ✅ Getting Here JSX comment at position #4 (verified via render output —
+  invisible by design; between spot and transportation)
+- ✅ Sketch phase render unchanged (spot-verified — Andrew still has sketch
+  trips in the system rendering via `SketchTripShell`)
+- ⚠️ Lock-phase regression — **untestable**; no lock-phase trips exist in
+  the system yet. Revisit once a lock trip is available.
+- ⏭ Incognito `InviteeShell` regression — skipped by decision (Andrew: "the
+  blurred pieces are Session 10 scope"). Risk is low — 9A didn't touch the
+  unauth short-circuit branch in `page.tsx` (lines 159-172). Revisit during
+  Session 10 prep.
+- ✅ `/api/invite` and `transitionToSell` unchanged (publish flow
+  exercised during QA — phase flipped correctly, email-on-publish still
+  deferred to Session 11)
+- ✅ No new components (other than `SellHeadliner` wrapper from 9A-fix,
+  which is strictly a server→client adapter)
+- ✅ No migrations
+- ✅ No new copy strings
+- ✅ `npx tsc --noEmit` clean (verified by CC during session)
+
+**9A QA — blocking bug found + resolved:**
+`<Headliner>` received a `() => {}` prop from the server-component
+`page.tsx`, triggering Next.js 15 RSC's
+"Event handlers cannot be passed to Client Component props." Sell trips
+500'd after publish. Fixed by Session 9A-fix via `SellHeadliner` client
+wrapper. Root cause was the Q1-A plan-mode resolution — noop functions
+still can't cross the server→client boundary.
+
+**Judgment calls — all accepted, deferred to later sessions:**
+1. **Headliner card body soft dead-end on sell** — accepted as known issue.
+   Polish option (readOnly prop or redirect to source URL) parked for a
+   later 9-series polish pass.
+2. **Everything Else inline markup in `page.tsx`** — accepted. Q2-A
+   tradeoff holds. Consider componentizing during a later polish pass if
+   the markup drifts or needs to be reused.
+3. **Aux standalone on sell only, not lock/go** — accepted. When lock-phase
+   direction is formalized, revisit whether aux should be its own slot on
+   lock/go too (would require an `ExtrasSections` change — new
+   `hidePlaylist` prop or phase-aware internal gate).
+4. **Orphaned `FlightCard` / `ActivityCard` / `GroceriesCard` files** —
+   accepted. Scheduled for a future cleanup pass (no session assigned yet;
+   low urgency).
+
+**Parked follow-ups (candidates for later 9-series polish sessions):**
+- `TransportCard` visual when `memberCount === 1` shows "Split 1 way ·
+  $X,XXX" which is mathematically correct but awkward. Polish call: either
+  suppress the split label when count is 1, or reword. Logged during QA.
+- Headliner card body click tap-target dead-end (see judgment call #1).
+- Sketch-page dev-env 8M-family cache issues keep recurring when the dev
+  server isn't killed cleanly before `rm -rf .next`. Add the
+  `pkill -f "next dev"; pkill -f "next-server"` step to the Rally skill's
+  pre-QA script as a durable fix.
+
+**Cowork fixes applied post-QA:** none. All issues either passed, were
+escalated to 9A-fix, or deferred.
+
+**Shipped in 9A-fix (sub-session):**
+- `src/components/trip/SellHeadliner.tsx` (new `'use client'` wrapper)
+- `src/app/trip/[slug]/page.tsx` (swap call site + imports)
+
+---
+
+#### Session 9B (preview): "Getting Here module"
+
+*Full brief TBD — drafted after 9A ships and QA'd. This preview exists as
+a focus point while 9A is in flight.*
+
+**Intent.** Build the one net-new module that sell adds on top of what
+sketch captured: a per-attendee "your way in" selector. Slots into the
+reserved position at #4 that 9A establishes — no further render-order
+changes needed.
+
+**High-level shape:**
+
+- New component `GettingHereSection` rendered only when
+  `phase ∈ {'sell', 'lock', 'go'}`
+- Mode picker chips: ✈️ flight · 🚗 drive · 🚆 train · 🧭 other / local
+- Mode-specific reference link (flight → Google Flights, drive → Google
+  Maps, train → Amtrak, other → no link). Reference only; not a booking
+  path
+- Estimated cost input (dollars), "estimated" framing per cost-framing rule
+- Persistence: new columns on `trip_members`
+  (`arrival_mode`, `arrival_cost_cents`, `arrival_updated_at`). Migration
+  required — **escalation trigger**
+- Personal display rule: viewer sees their own row only. No roster of
+  other attendees' arrivals (that's lock-phase per Q10)
+- Cost-summary wiring: `<CostBreakdown>` gets a new "your way in · {mode}"
+  personal line item below the shared-cost rows, styled per wireframe
+- New `gettingHere` copy surface (or extension of an existing one —
+  decide when drafting 9B)
+
+**Decisions to make before 9B starts:**
+
+- **Do we build a dedicated mini-wireframe for Getting Here?** The
+  existing sell-phase wireframe has a rough sketch (~lines 795–860) but
+  not enough density for a mobile-first 375px build of the mode picker
+  + per-mode helper copy. My current read: a short wireframe pass is
+  probably worth it.
+- **Migration shape.** Enum column vs. check constraint vs. separate
+  `member_arrivals` table. Rally rule says escalate before writing.
+- **Copy surface placement.** New `gettingHere.ts` vs. extending an
+  existing surface.
+- **RSVP gating (wireframe Q11).** Can someone RSVP "in" before
+  filling this out, or does the sticky bar disable RSVP until a mode +
+  cost are entered? Strategy block leans option (a) — no gating, lower
+  friction — but worth confirming with Andrew before building.
+
+---
+
+#### Session 9C: "Top chrome polish — marquee content + lowercase title"
+
+**Intent.** First sub-session in the top-down sell polish walk. Tightly
+scoped per Andrew (2026-04-17): *"just follow what's there. do not add
+new components or anything like that that can come later."* Only
+surfaces already rendering on the sell page are touched. No new
+components, no new lexicon entries, no new visual primitives. Two
+deltas ship.
+
+**Scope (numbered, narrow):**
+
+1. **Marquee — swap sketch content for sell-phase content.** Today the
+   marquee renders sketch-theme content ("★ usual suspects ★ throwback
+   weekend ★ ...") on every phase. On sell phase, wire phase-awareness
+   so the marquee pulls from the **existing** sell-phase string in the
+   copy surface / theme strings. Do NOT invent new strings.
+   - **Escalation trigger:** if no sell-phase marquee string exists in
+     the lexicon / theme files today, STOP and flag before inventing
+     one. Per Andrew: "keep copy consistent with what we have."
+2. **Trip title — CSS `text-transform: lowercase`.** The hero trip title
+   (organizer data, e.g., "Coachella 2026!!!") should display lowercase
+   per Rally voice. Apply CSS `text-transform: lowercase` to the title
+   class. Font stays Georgia italic 900. Data untouched — no input-time
+   lowercasing, no migration, no trip-name mutation.
+
+**Hard constraints:**
+
+- **DO NOT add any new component or element.** No live-dot row. No
+  eyebrow. No date/destination meta row. No theme postcard block. No
+  sticker rework. These are all deferred to later sessions.
+- **DO NOT add any new lexicon entry.** If the audit surfaces a gap,
+  escalate — don't invent.
+- **DO NOT change any data model, prop, or server action.**
+- **DO NOT modify the called-up sticker content or behavior** (current
+  render is the existing design — leave alone).
+- **DO NOT touch the countdown scoreboard, secondary countdown, or
+  deadline banner** — those are 9D.
+- **DO NOT touch the logo, called-up pill, share link, add-to-calendar,
+  organizer card, or description** — later sessions.
+- **DO NOT touch `SketchTripShell`** — sketch hero must render
+  unchanged. CSS-lowercase rule should apply to the sell hero title
+  class only (not the sketch form title).
+- **DO NOT touch any module (headliner onward).** Every module is a
+  later session.
+- **DO NOT touch `InviteeShell`** (Session 10).
+- Mobile-first at 375px.
+- `rm -rf .next && npm run dev` before QA (kill orphan `next dev` procs
+  first if the SST cache complains).
+- `npx tsc --noEmit` clean before release notes.
+
+**Acceptance criteria:**
+
+- [ ] Sell-phase marquee renders the existing sell-phase string (not
+      sketch content)
+- [ ] Sketch-phase marquee renders unchanged (regression gate)
+- [ ] Lock/go-phase marquee renders correctly (confirm current behavior
+      — if these phases share the sketch string today, the session does
+      NOT alter them; they remain as-is until a future session addresses
+      them)
+- [ ] Sell-phase hero trip title displays lowercase even when the
+      organizer typed it with uppercase/mixed case (e.g., "Coachella
+      2026!!!" → renders "coachella 2026!!!")
+- [ ] `trip.name` in the database is unchanged after render (no data
+      mutation)
+- [ ] Sketch-phase trip title is unaffected (regression gate — CSS rule
+      is sell-hero-scoped, not a global name-class rule)
+- [ ] No new components added
+- [ ] No new lexicon entries added
+- [ ] `InviteeShell` renders unchanged (regression gate)
+- [ ] Every existing hero element (logo, called-up pill, sticker,
+      tagline, countdowns, banner) renders unchanged
+- [ ] `npx tsc --noEmit` clean
+
+**Files likely touched:**
+
+- Marquee source component / call site (CC to locate — likely
+  `PostcardHero.tsx` or a sibling; the marquee string source is
+  either in `src/lib/copy/surfaces/` or `src/lib/themes/*`). CC's first
+  job is identifying the right files before editing.
+- `src/app/globals.css` — CSS rule for `text-transform: lowercase` on
+  the sell hero title class only. Scope narrowly — don't make it a
+  global `.trip-title` rule if the class is shared with sketch.
+
+**Files to read first:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` → 9A release notes + 9A-fix + 9A Actuals +
+  this 9C brief
+- `rally-sell-phase-wireframe.html` — reference for marquee content shape
+  on sell
+- `rally-9c-top-chrome-sell-mockup.html` — preview mockup.
+  **IMPORTANT:** only items #1 (marquee) and #6 (title lowercase) in
+  that mockup's annotation list are in 9C scope. Everything else in the
+  mockup (live-dot row, eyebrow, meta row, theme postcard, sticker
+  rework) is deferred to later sessions — it's rendered in the mockup
+  as a preview of future polish, not for 9C.
+- `src/components/trip/PostcardHero.tsx` — current hero
+- `src/app/trip/[slug]/page.tsx` — where the hero is called + phase flows
+- `src/lib/copy/surfaces/` — locate marquee string source
+- `src/lib/themes/*` — confirm whether marquee content is theme-scoped
+
+**How to QA solo:**
+
+1. `rm -rf .next && npm run dev`
+2. Load a sell trip. Marquee should show sell-phase content (no more
+   "usual suspects" etc.). Trip title should render lowercase.
+3. Load a sketch trip. Marquee and title unchanged from today.
+4. Incognito → `InviteeShell` renders unchanged.
+5. 375px at both sketch and sell.
+6. `npx tsc --noEmit`.
+
+**Scope boundary reminders:**
+
+- If you find yourself adding a new component → STOP. Not in 9C.
+- If you find yourself adding a new lexicon entry → STOP. Escalate.
+- If you find yourself touching the countdown, banner, sticker, or
+  anything below the title → STOP. Later session.
+- If you find yourself modifying a shared CSS class that affects sketch
+  → STOP. Scope the rule narrowly.
+- If the marquee string doesn't exist in lexicon/theme yet → STOP.
+  Escalate before inventing.
+
+#### Session 9C — Release Notes
+
+**What was built:**
+
+1. `text-transform: lowercase` added to `.chassis .title` in
+   `src/app/globals.css`. Scoped to the hero `<h1>` rendered by
+   `PostcardHero`'s non-sketch branch; sketch's inline title field
+   (`.field.field-title`) is a different class and is unaffected. Data
+   stays as typed (no `trip.name` mutation, no input-time lowercasing).
+   Font family / size / animation / color unchanged — CSS-only polish.
+
+**What changed from the brief:**
+
+- **Marquee delta #1 was no-op'd after pre-execution recon** — the brief's
+  premise that "today the marquee renders sketch-theme content on every
+  phase" is off. The marquee is already phase-aware in the code today:
+  sketch uses `builderState.marqueeScaffolding`
+  (`"tap to name · set the dates · invite the crew · send it"`); sell /
+  lock / go / invitee-shell all use `theme.strings.marquee` (5 themed
+  vibe phrases per theme, e.g. reunion-weekend:
+  `"the usual suspects"`, `"throwback weekend"`). No sell-specific
+  marquee string exists in any lexicon / copy surface / theme file —
+  grepped all 17 theme files and every `src/lib/copy/surfaces/*.ts`.
+  Per the brief's explicit escalation trigger ("if no sell-phase
+  marquee string exists in the lexicon / theme files today, STOP and
+  flag before inventing one"), paused and asked Andrew. Resolution:
+  ship only delta #2 (lowercase title) and note the finding here.
+- The mockup annotation #1's dynamic template
+  `"★ {organizer.display_name} called you up ★ lock it in by
+  {cutoffShort} ★ {inCount} already in ★"` requires new lexicon AND
+  new logic — both prohibited by the 9C brief. Parked for a follow-up
+  session (likely bundled with the 9D countdown/scoreboard work, or a
+  standalone marquee-depth session — Andrew's call).
+
+**What to test:**
+
+- [ ] Sell-phase trip title renders lowercase regardless of how the
+      organizer typed it (e.g., `"Coachella 2026!!!"` →
+      `"coachella 2026!!!"`).
+- [ ] Sketch-phase trip title is unaffected (regression gate — the
+      inline `.field.field-title` input remains whatever case was
+      typed). Verified via computed-style probe:
+      `.chassis .title` → `lowercase`; `.chassis .field.field-title`
+      + `.field-input` → `none`.
+- [ ] Lock / go phases — title lowercases too (same class). Confirm
+      this is the intended Rally-voice behavior on those phases; if
+      it isn't, scope the rule further with a sell-only selector.
+- [ ] `InviteeShell` — title lowercases (shares PostcardHero's
+      `.title`). The 9C brief's "InviteeShell renders unchanged"
+      regression gate was about structure / functionality, not
+      pixel-identical styling. Voice consistency says lowercase
+      applies there too. Flag if Andrew wants InviteeShell scoped out.
+- [ ] Marquee content on every phase matches what shipped before 9C
+      (no marquee code was touched).
+- [ ] `trip.name` in the DB is unchanged after render.
+- [ ] `npx tsc --noEmit` clean (verified — exit 0, no output).
+
+**Known issues:**
+
+- The marquee content gap noted in "What changed from the brief" is
+  unaddressed by design. When the follow-up session runs, the
+  dynamic-template option (per mockup annotation #1) is the most
+  likely path — that's when new lexicon + trip-state interpolation
+  lands together.
+
+#### Session 9C — Actuals (QA'd 2026-04-17)
+
+**Status:** Complete. Delta #2 (lowercase title) shipped and verified
+visually on sell trip. Delta #1 (marquee) correctly no-op'd via the
+brief's escalation trigger (no sell-phase marquee string exists in the
+lexicon / theme files today). First-load QA failed on stale Turbopack
+cache — resolved by full `pkill` + wipe sequence. Same dev-env pain
+point noted in 9A Actuals parked follow-ups.
+
+**Acceptance criteria results:**
+
+- ✅ Sell-phase trip title renders lowercase ("Coachella 2026!!!" →
+  "coachella 2026!!!") — verified on `/trip/sjtIcYZB`
+- ✅ No new components, no new lexicon entries, no data mutation
+- ⏭ Sketch title unchanged — not explicitly verified this pass but CC's
+  scoping analysis (`text-transform` on `.chassis .title` only; sketch
+  uses `.field.field-title` input) is sound. Log as "assumed pass per
+  scope analysis; spot-check in 9D QA."
+- ⏭ Marquee unchanged — not explicitly verified (no marquee code
+  touched per release notes; assumed pass).
+- ✅ `npx tsc --noEmit` clean
+
+**Judgment calls — accepted defaults:**
+
+- **Lock/go title lowercase.** Accepted. `.chassis .title` applies on
+  every phase PostcardHero renders — voice-consistent answer. No
+  sell-only scoping.
+- **InviteeShell title lowercase.** Accepted. Same class, same
+  treatment. Voice-consistent.
+
+**Parked for follow-up:**
+
+- Marquee sell-specific content (the "★ organizer called you up · lock
+  it in by X · N already in ★" dynamic template). Likely bundled with
+  9D (countdown scoreboard) or a standalone marquee-depth session.
+  Requires new lexicon + trip-state interpolation.
+
+**Dev-env pattern worth documenting:**
+
+- Clean-restart sequence that actually works when Turbopack cache
+  corrupts:
+  `pkill -f "next dev"; pkill -f "next-server"; pkill -f "node.*next"`
+  then verify `ps aux | grep next` is empty, then `rm -rf .next && npm
+  run dev`. Adding this to the Rally skill's pre-QA script is a durable
+  win (also noted in 9A Actuals).
+
+---
+
+#### Session 9D (preview): "Countdown + deadline banner polish"
+
+*Scope decision pending — resolve before drafting full brief.*
+
+**Intent.** Second sub-session in the top-down sell polish walk.
+Targets the three surfaces sitting between the hero and the module
+stack: primary countdown (to `commit_deadline`), secondary countdown
+(to `date_start`), T-3 / T-0 deadline banner.
+
+**Open scope decision for Andrew (2026-04-17):**
+
+- **(a) Narrow polish, 9C-style.** Copy audit against lexicon, tiny CSS
+  polish, leave the current "big yellow zero on dark pill" treatment
+  as-is. No new components. Fast. Keeps the cadence discipline from
+  9C. Leaves the countdown visually flat vs. the wireframe.
+- **(b) Scoreboard build.** Replace the two countdowns with the
+  wireframe's d:h:m:s tile treatment — yellow-stickered tiles, live-
+  ticking seconds, lock-emoji wobble. Real new component + live-tick
+  useEffect. Bigger session. Biggest single visual delta on the sell
+  page vs. the wireframe. Previously slotted to Session 14 motion
+  pass; pulling it forward means lifting that slot.
+
+Default if unresolved: (a), per the narrow-polish cadence we
+established in 9C. Revisit before drafting the 9D brief.
+
+**Also possibly folded into 9D:**
+
+- **Marquee sell-phase content** (parked from 9C). If 9D pulls in the
+  scoreboard, wrap the marquee work in too — both need new lexicon /
+  theme-string entries, so they share escalation overhead. If 9D is
+  narrow polish, the marquee stays parked for a standalone session.
+
+---
+
+#### Session 9E (preview): "Headliner module polish — sell readOnly + copy + layout"
+
+*Full brief preserved from the pre-reframe 9C draft. Queues after 9D.*
+
+**Intent.** First module in the top-down module-stack polish walk.
+Originally scoped as 9C before the top-to-bottom reframe pulled hero
+chrome forward. Makes the headliner pixel-perfect on sell and fixes
+the known **soft dead-end card-body click** left over from 9A-fix.
+
+**Scope (summary, full brief to be re-drafted at turn):**
+
+1. Add `readOnly?: boolean` to `Headliner.tsx` (default `false`).
+   When `true`: drop `role="button"` + `onClick` + hover/press on the
+   outer card. Embedded source-link CTA unchanged.
+2. `SellHeadliner.tsx` passes `readOnly={true}`, drops the noop
+   `onOpen`.
+3. Copy audit of the headliner module against
+   `rally-microcopy-lexicon-v0.md`.
+4. 375px layout pass against `rally-headliner-mockup.html`.
+5. 8N `.module-section` parity.
+
+**Existing artifacts to reuse at turn:**
+
+- `rally-9c-headliner-sell-mockup.html` — focused mockup for the
+  sell-phase readOnly headliner at 375px. Rename to
+  `rally-9e-headliner-sell-mockup.html` when 9E is drafted.
+- `claude-code-kickoff-9c-headliner-polish.md` — stale kickoff from the
+  pre-reframe 9C draft. Rename / update to `9e-headliner-polish` when
+  drafting 9E.
+
+**Decisions to make at draft time:**
+
+- Whether the "soft dead-end on the outer card body" fix is a
+  `readOnly?` prop (option A), making `onOpen` optional in
+  `Headliner.tsx` (option B), or a more comprehensive `readOnly`
+  refactor that also changes hover/press states (option C). The
+  pre-reframe draft recommended option A.
+- Whether the copy audit's gaps trigger new lexicon entries (escalation
+  trigger per session rule).
+
+---
+
+### Session 10+: "Sell+ Module Depth" (briefs TBD)
+
+These sessions deepen each module for sell/lock/go/done phases. Updated
+2026-04-17 after Session 9 scope was aligned with Andrew. Expected sequence:
+
+- **Session 10:** Teaser layer — upgrade `InviteeShell` to wireframe view 1
+  (blur veil, lock overlay, called-up sticker, passwordless signup CTA,
+  unblur reveal animation into view 2). Resolves wireframe Q1 (login
+  mechanics) and Q2 (blur cutline).
+- **Session 11:** Invite delivery on publish — `transitionToSell` currently
+  just flips the phase; it does NOT fire the queued invite emails for
+  sketch-captured roster entries (per `/api/invite` line 129). Session 11
+  wires up the delivery fan-out on phase transition. Also: phone-only
+  invitees currently have no delivery rail (Resend is email-only) —
+  decide SMS path or defer.
+- **Session 12:** RSVP sticky bar depth — per-view state machine (teaser /
+  pre-RSVP / crew-committed / organizer), confetti burst on RSVP, micro-
+  interactions, haptic where available.
+- **Session 13:** Buzz feed liveness — event row polish, live-dot refine,
+  scroll-into-view on new events, basic compose (gating per Q3). No
+  reactions, no @mentions.
+- **Session 14:** Motion pass — countdown scoreboard (d:h:m:s tiles with
+  live tick, lock-emoji wobble), called-up sticker variants, marquee
+  scroll animation. Uses existing tokens; no new primitives.
+- **Session 15+:** Per-module pixel-polish sub-sessions (9A-style) — one
+  sell module at a time, working through lexicon adherence, layout,
+  responsive edge cases.
+
+Lock-phase work (full crew arrival roster, firming estimates, meetup
+details, payment collection, the lock-in commit moment) gets its own
+direction block when sell ships.
+
+These are placeholders. Exact scope and sequencing depends on what we
+learn shipping Sessions 9–11.
 
 #### Per-crew arrival estimator — sell phase feature (deferred from Session 8 planning)
 
@@ -4937,6 +6117,23 @@ pre-PMF.
 
 **Out of scope until triggered.** Do NOT attempt to solve for multi-leg in
 any sketch or sell session before this note is explicitly revisited.
+
+---
+
+## Bug Backlog
+
+Low-severity issues that are real but not blocking. Log them here as they're discovered; address in periodic "bug bash" sessions rather than interrupting module work. **Not a dumping ground for undefined polish** — every item needs a file reference and a one-line repro or description so a future session can scope it without archaeology.
+
+**Triage rules:**
+- **High-severity bugs do NOT go here.** Anything that corrupts data, breaks auth, or blocks the core loop gets its own session brief.
+- **Items in this list are deferrable indefinitely** by design. If something starts feeling urgent, promote it out of the backlog into a session brief — don't escalate it in place.
+- **A bug bash session** pulls N items from this list, scopes them as a single brief, and follows the normal session loop. Items removed from the backlog when they ship.
+
+### Open items
+
+1. **Lodging cost display: null-state + date-ordering.** `LodgingCard.tsx:31` — `computeNights` returns `null` when `diff <= 0` (inverted trip dates), and the preview renders `"$1000/night × ? nights"` with literal question marks. Fix needs three pieces: (a) sketch date-range input validates `date_end >= date_start` and rejects or auto-corrects inverted ranges; (b) `LodgingCard` + `LodgingAddForm` preview hide the computation line when `nights` is null/invalid, show subtle hint ("set trip dates to see total") instead; (c) apply same null-guard to any other `nights`-dependent surface. Triaged 2026-04-14.
+
+2. **Full sketch page copy/lexicon audit.** Walk every sketch module (lodging, transport, headliner, everything-else, aux, crew, invite drawer, cost summary, sticky bar, hero, marquee) and verify: every user-facing string lives in `lib/copy/surfaces/*.ts` (no JSX literals), every string matches `rally-microcopy-lexicon-v0.md`, and the full between-session QA checklist passes clean. Originally a Session 8 exit criterion; deferred 2026-04-15 to unblock sell+ spec work.
 
 ---
 

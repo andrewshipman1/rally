@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — sell-phase wireframe (first pass)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1a1a1a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 32px 16px 64px;
+  }
+
+  /* ── Document header ── */
+  .doc-header { max-width: 900px; margin: 0 auto 20px; text-align: center; }
+  .doc-kicker {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .18em;
+    color: #ffd84d; font-weight: 700; margin-bottom: 8px;
+  }
+  .doc-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 28px; color: #faf8f5; margin-bottom: 6px;
+  }
+  .doc-sub { font-size: 13px; color: #888; line-height: 1.5; max-width: 680px; margin: 0 auto; }
+
+  .supersedes {
+    max-width: 900px; margin: 16px auto 24px; padding: 12px 16px;
+    background: rgba(255, 80, 80, .08); border: 1px solid rgba(255, 80, 80, .4);
+    border-radius: 8px; font-size: 12px; color: #ffb3b3; line-height: 1.6;
+  }
+  .supersedes strong { color: #ff6b6b; }
+
+  /* ── Control bars ── */
+  .controls {
+    max-width: 900px; margin: 0 auto 24px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .control-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px;
+    background: rgba(255,216,77,.04); border: 1px solid rgba(255,216,77,.2);
+    border-radius: 8px;
+  }
+  .control-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    color: #ffd84d; font-weight: 700; min-width: 90px;
+  }
+  .control-btn {
+    background: transparent; color: #ccc; border: 1px solid #555;
+    padding: 6px 12px; border-radius: 20px; font-size: 12px;
+    font-family: inherit; cursor: pointer; transition: all .15s;
+  }
+  .control-btn:hover { border-color: #999; color: #fff; }
+  .control-btn.active {
+    background: #ffd84d; color: #1a1a1a; border-color: #ffd84d; font-weight: 700;
+  }
+
+  /* ── Stage ── */
+  .stage {
+    display: flex; justify-content: center; gap: 32px;
+    flex-wrap: wrap; max-width: 1200px; margin: 0 auto;
+  }
+
+  /* ── Mobile frame (tokens from sketch-modules-v2) ── */
+  .frame {
+    width: 375px; background: var(--bg); color: var(--ink);
+    border-radius: 20px; overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,.5);
+    position: relative;
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --accent: #ffd84d;
+    --accent2: #ff4d4d;
+    --hot: #ff4d4d;
+    --muted: #888;
+    --surface: #fff;
+    --border: #1a1a1a;
+    --sticker-bg: #fff3cd;
+    --stroke: #1a1a1a;
+  }
+  .frame-label {
+    background: #000; color: #ffd84d; padding: 6px 12px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    font-weight: 700; text-align: center;
+  }
+  .frame-scroll { max-height: 780px; overflow-y: auto; padding-bottom: 80px; }
+
+  /* ── Marquee ── */
+  .marquee {
+    background: var(--accent); color: var(--ink); padding: 6px 0;
+    font-size: 11px; font-weight: 700; text-align: center;
+    letter-spacing: .08em; text-transform: lowercase;
+    border-bottom: 2px solid var(--border);
+  }
+
+  /* ── Hero ── */
+  .trip-hero { padding: 18px 16px 14px; border-bottom: 2px solid var(--border); position: relative; }
+  .trip-eyebrow {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    color: var(--muted); margin-bottom: 4px;
+  }
+  .trip-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 26px; line-height: 1.08; margin-bottom: 6px;
+  }
+  .trip-meta { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .live-row {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 600; color: var(--muted);
+    text-transform: lowercase; letter-spacing: .06em;
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #22c55e; animation: pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+
+  .sticker-called-up {
+    position: absolute; right: 12px; top: 12px;
+    background: var(--sticker-bg); color: var(--ink);
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 10px; font-weight: 700;
+    border: 1.5px solid var(--border);
+    transform: rotate(3deg);
+  }
+
+  .postcard {
+    margin: 10px 0 8px; height: 120px; border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: linear-gradient(135deg, #d94aa3 0%, #f27d5f 55%, #fcd15c 100%);
+    position: relative;
+  }
+  .postcard-stamp {
+    position: absolute; right: 10px; top: 10px;
+    background: rgba(255,255,255,.9); padding: 4px 8px;
+    border-radius: 6px; font-size: 10px; font-weight: 700;
+    border: 1px solid rgba(0,0,0,.15);
+  }
+
+  /* ── Countdown (scoreboard) ── */
+  .countdown {
+    margin: 14px 14px 0;
+    padding: 14px 12px 12px;
+    background: var(--accent);
+    border: 2.5px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 3px 3px 0 var(--ink);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .countdown::before,
+  .countdown::after {
+    content: "★"; position: absolute; top: 8px;
+    font-size: 14px; color: var(--ink); opacity: .6;
+  }
+  .countdown::before { left: 10px; }
+  .countdown::after { right: 10px; }
+  .countdown-kicker {
+    font-size: 10px; font-weight: 800; letter-spacing: .18em;
+    text-transform: lowercase; color: var(--ink); margin-bottom: 2px;
+  }
+  .countdown-date {
+    font-family: Georgia, serif; font-style: italic;
+    font-size: 13px; color: var(--ink); font-weight: 700;
+    margin-bottom: 10px; opacity: .85;
+  }
+  .tile-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 4px;
+  }
+  .tile {
+    flex: 1; min-width: 0;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 4px 6px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .tile-num {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 26px; line-height: 1; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    transition: transform .15s ease;
+  }
+  .tile-num.tick { transform: translateY(-2px); }
+  .tile-label {
+    font-size: 9px; text-transform: lowercase; letter-spacing: .1em;
+    color: var(--muted); margin-top: 4px; font-weight: 700;
+  }
+  .tile-sep {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 22px; color: var(--ink); opacity: .5;
+    padding: 0 1px; align-self: flex-start; margin-top: 6px;
+  }
+  .tile.secs .tile-num { animation: tileTick 1s infinite; }
+  @keyframes tileTick {
+    0%, 90% { transform: translateY(0); }
+    95% { transform: translateY(-1px); }
+    100% { transform: translateY(0); }
+  }
+  .countdown-hint {
+    font-size: 10px; color: var(--ink); opacity: .75;
+    margin-top: 8px; font-weight: 600;
+  }
+  .countdown-hint .lock-emoji { display: inline-block; animation: lockWobble 3s infinite; }
+  @keyframes lockWobble {
+    0%, 92%, 100% { transform: rotate(0); }
+    94% { transform: rotate(-8deg); }
+    96% { transform: rotate(8deg); }
+    98% { transform: rotate(-4deg); }
+  }
+
+  /* ── Section wrapper ── */
+  .section { padding: 16px 16px; border-bottom: 1px solid rgba(26,26,26,.12); }
+  .section:last-child { border-bottom: none; }
+  .section-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .section-title {
+    font-size: 11px; text-transform: lowercase; letter-spacing: .12em;
+    font-weight: 700; color: var(--ink);
+  }
+  .section-count { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .section-badge {
+    font-size: 10px; color: var(--accent2); font-weight: 700;
+    padding: 2px 8px; border: 1.5px solid var(--accent2); border-radius: 999px;
+    text-transform: lowercase; letter-spacing: .04em;
+  }
+
+  /* ── Crew (going) row ── */
+  .crew-row {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .av {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--ink); color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; border: 2px solid var(--surface);
+    margin-left: -6px;
+  }
+  .av:first-child { margin-left: 0; }
+  .av.empty { background: transparent; color: var(--muted); border: 2px dashed var(--muted); font-size: 10px; }
+  .av.you { background: var(--accent); color: var(--ink); border: 2px solid var(--ink); }
+  .crew-helper { font-size: 11px; color: var(--muted); margin-left: 8px; }
+
+  /* ── Lodging voting ── */
+  .lodging-card {
+    background: var(--surface); border: 2.5px solid var(--border);
+    border-radius: 12px; margin-bottom: 10px; overflow: hidden;
+    position: relative;
+  }
+  .lodging-img {
+    height: 120px;
+    background: linear-gradient(135deg, #c4a574 0%, #8b6f47 100%);
+    position: relative;
+  }
+  .lodging-img.alt {
+    background: linear-gradient(135deg, #b7d5e8 0%, #5a8fb5 100%);
+  }
+  .lodging-img-pill {
+    position: absolute; left: 10px; bottom: 10px;
+    background: rgba(0,0,0,.75); color: #fff;
+    padding: 3px 8px; border-radius: 999px;
+    font-size: 10px; font-weight: 600;
+  }
+  .lodging-body { padding: 12px 14px; }
+  .lodging-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .lodging-price { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+  .vote-bar {
+    height: 6px; background: rgba(26,26,26,.08);
+    border-radius: 4px; overflow: hidden; margin-bottom: 8px;
+  }
+  .vote-fill { height: 100%; background: var(--accent); transition: width .4s ease; }
+  .vote-btn {
+    width: 100%; padding: 8px 12px; background: transparent;
+    border: 1.5px solid var(--ink); border-radius: 20px;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    text-align: center;
+  }
+  .vote-btn.voted { background: var(--accent); border-color: var(--accent); }
+  .vote-btn.organizer-lock {
+    background: var(--ink); color: var(--bg);
+    margin-top: 6px;
+  }
+  .lock-stamp {
+    position: absolute; top: 8px; right: 8px; z-index: 2;
+    background: var(--accent); color: var(--ink);
+    padding: 4px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 700;
+    border: 1.5px solid var(--ink);
+    transform: rotate(5deg);
+  }
+
+  /* ── Cards (generic modules) ── */
+  .card {
+    background: var(--surface); border: 2.5px solid var(--border);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .card-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: rgba(26,26,26,.08);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .card-body { flex: 1; min-width: 0; }
+  .card-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .card-meta { font-size: 11px; color: var(--muted); }
+
+  /* ── Headliner ── */
+  .headliner {
+    background: var(--surface); border: 2.5px solid var(--border); border-radius: 12px;
+    overflow: hidden;
+  }
+  .headliner-eyebrow {
+    padding: 10px 14px 0;
+    font-size: 10px; text-transform: lowercase; letter-spacing: .14em;
+    color: var(--muted); font-weight: 700;
+  }
+  .headliner-og {
+    height: 120px; margin: 8px 14px 0;
+    background: linear-gradient(135deg, #d94aa3 0%, #f27d5f 60%, #fcd15c 100%);
+    border: 1.5px solid var(--border); border-radius: 10px;
+    position: relative;
+  }
+  .headliner-body { padding: 10px 14px 12px; }
+  .headliner-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 18px; line-height: 1.2; margin-bottom: 8px;
+  }
+  .cost-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--border); color: #faf8f5;
+    padding: 5px 10px; border-radius: 999px;
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 12px;
+  }
+  .cost-pill .dollar { color: var(--accent); font-size: 14px; }
+
+  /* ── Estimate row (activities/provisions) ── */
+  .estimate-row {
+    background: var(--surface); border: 2.5px solid var(--border);
+    border-radius: 12px; padding: 12px 14px;
+  }
+  .estimate-value {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 20px;
+  }
+  .estimate-value .dim {
+    color: var(--muted); font-size: 12px; font-weight: 400;
+    font-style: normal; font-family: inherit; margin-left: 4px;
+  }
+
+  /* ── Getting here (your arrival only) ── */
+  .gh-mode-picker {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 6px; margin-bottom: 10px;
+  }
+  .gh-mode-tile {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; padding: 10px 4px;
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: 10px; cursor: pointer;
+    box-shadow: 2px 2px 0 var(--ink);
+    transition: all .15s ease;
+    font-family: inherit;
+  }
+  .gh-mode-tile:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
+  .gh-mode-tile:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
+  .gh-mode-tile.active {
+    background: var(--ink); color: var(--accent);
+    box-shadow: 2px 2px 0 var(--accent);
+  }
+  .gh-mode-icon { font-size: 20px; line-height: 1; }
+  .gh-mode-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    text-transform: lowercase; color: inherit;
+  }
+
+  /* (legacy crew-row styles — kept in case we resurrect for organizer view) */
+  .gh-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 10px; background: var(--surface);
+    border: 2px solid var(--border); border-radius: 10px;
+    margin-bottom: 6px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .gh-row.you {
+    background: var(--sticker-bg);
+  }
+  .gh-row .av { margin: 0; width: 28px; height: 28px; font-size: 11px; flex-shrink: 0; }
+  .gh-name { font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .gh-you-tag {
+    font-size: 9px; font-weight: 700; background: var(--ink); color: var(--accent);
+    padding: 1px 6px; border-radius: 999px; letter-spacing: .08em;
+    text-transform: lowercase; margin-left: 2px;
+  }
+  .gh-mode-row {
+    display: flex; gap: 4px; margin-left: auto; align-items: center;
+  }
+  .gh-mode-chip {
+    font-size: 11px; font-weight: 700; padding: 4px 8px;
+    border: 1.5px solid var(--border); border-radius: 999px;
+    background: transparent; cursor: pointer; color: var(--muted);
+    transition: all .15s ease;
+  }
+  .gh-mode-chip.active {
+    background: var(--ink); color: var(--accent);
+    box-shadow: 2px 2px 0 var(--accent);
+  }
+  .gh-mode-chip.readonly { cursor: default; }
+  .gh-cost {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 14px; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    min-width: 48px; text-align: right;
+  }
+  .gh-cost.empty { color: var(--muted); font-style: normal; font-weight: 600; font-size: 11px; }
+  .gh-input-box {
+    padding: 10px; background: var(--bg);
+    border: 2px dashed var(--border); border-radius: 10px;
+    margin-top: 6px;
+  }
+  .gh-input-label {
+    font-size: 10px; font-weight: 700; text-transform: lowercase;
+    letter-spacing: .08em; color: var(--muted); margin-bottom: 6px;
+  }
+  .gh-input-field {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: 8px; padding: 6px 10px;
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 14px;
+  }
+  .gh-input-field .dollar { color: var(--muted); }
+  .gh-input-field input {
+    border: none; outline: none; background: transparent;
+    font: inherit; color: inherit; flex: 1; min-width: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .gh-link {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; font-weight: 700; color: var(--ink);
+    text-decoration: underline; text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px; margin-top: 8px;
+    font-family: inherit; font-style: normal;
+  }
+  .gh-link:hover { color: var(--accent2); }
+  .gh-roll-line {
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1.5px dashed rgba(26,26,26,.2);
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12px;
+  }
+  .gh-roll-line .val {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 16px; color: var(--ink);
+  }
+
+  /* ── Cost summary (HERO on sell page) ── */
+  .cost-summary {
+    background: var(--border); color: #faf8f5;
+    padding: 18px 16px; margin: 8px 12px; border-radius: 14px;
+    border: 2.5px solid var(--border);
+  }
+  .cs-kicker {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    font-weight: 700; color: var(--accent); margin-bottom: 4px;
+  }
+  .cs-headline {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 28px; color: var(--accent); line-height: 1.05; margin-bottom: 2px;
+  }
+  .cs-sub { font-size: 11px; color: rgba(255,255,255,.6); margin-bottom: 12px; }
+  .cs-row {
+    display: flex; justify-content: space-between; padding: 5px 0;
+    font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .cs-row:last-of-type { border-bottom: none; }
+  .cs-caveat {
+    font-size: 10px; color: rgba(255,255,255,.5); margin-top: 10px;
+    font-style: italic;
+  }
+
+  /* ── Buzz feed ── */
+  .buzz-event {
+    padding: 8px 12px; background: rgba(26,26,26,.04);
+    border-radius: 8px; margin-bottom: 6px;
+    font-size: 12px; color: var(--ink); line-height: 1.4;
+  }
+  .buzz-event .buzz-meta { color: var(--muted); font-size: 10px; }
+  .buzz-event .accent { color: var(--accent2); font-weight: 700; }
+  .buzz-compose {
+    padding: 10px 12px; background: transparent;
+    border: 2px dashed rgba(26,26,26,.28); border-radius: 10px;
+    font-size: 12px; color: var(--muted); text-align: center;
+    margin-bottom: 8px;
+  }
+
+  /* ── Extras ── */
+  .extra-card {
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .extra-icon { font-size: 16px; }
+  .extra-title { font-size: 12px; font-weight: 700; }
+  .extra-meta { font-size: 10px; color: var(--muted); margin-left: auto; }
+
+  /* ── Sticky bar ── */
+  .sticky {
+    position: sticky; bottom: 0;
+    background: var(--bg); border-top: 2px solid var(--border);
+    padding: 10px 12px; display: flex; gap: 8px;
+  }
+  .cta {
+    flex: 1; padding: 12px; border-radius: 30px;
+    font-size: 13px; font-weight: 700; text-align: center;
+    border: 2px solid var(--ink); cursor: pointer;
+    background: var(--surface); color: var(--ink);
+    transition: transform .08s, box-shadow .08s;
+  }
+  .cta.primary {
+    background: var(--ink); color: var(--bg);
+    box-shadow: 3px 3px 0 var(--accent);
+  }
+  .cta.primary:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--accent); }
+  .cta.rsvp-in { background: var(--accent); color: var(--ink); box-shadow: 3px 3px 0 var(--stroke); }
+  .cta.rsvp-hold { background: var(--sticker-bg); color: var(--ink); }
+  .cta.rsvp-out { background: transparent; color: var(--ink); }
+  .cta.ghost { background: transparent; border-color: rgba(26,26,26,.3); color: var(--muted); }
+
+  /* ── BLUR VEIL (logged-out teaser) ── */
+  .blurred {
+    filter: blur(5px); pointer-events: none; user-select: none;
+    transition: filter .6s ease;
+  }
+  .blurred-aggressive { filter: blur(7px); }
+  .lock-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom,
+      rgba(250,248,245,0) 0%,
+      rgba(250,248,245,.4) 40%,
+      rgba(250,248,245,.85) 100%);
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-end; padding-bottom: 80px;
+    pointer-events: none;
+  }
+  .lock-msg {
+    background: var(--ink); color: var(--bg);
+    padding: 12px 20px; border-radius: 30px;
+    font-size: 13px; font-weight: 700;
+    box-shadow: 3px 3px 0 var(--accent);
+    pointer-events: auto; cursor: pointer;
+  }
+  .lock-hint {
+    margin-top: 10px; font-size: 10px; color: var(--muted);
+    text-align: center; pointer-events: auto;
+  }
+
+  /* ── Confetti demo ── */
+  @keyframes confetti-fall {
+    0% { transform: translateY(-20px) rotate(0); opacity: 1; }
+    100% { transform: translateY(80px) rotate(360deg); opacity: 0; }
+  }
+  .confetti {
+    position: absolute; width: 6px; height: 10px;
+    background: var(--accent); top: 0;
+    animation: confetti-fall 1.2s ease-out forwards;
+  }
+
+  /* ── Reveal animation ── */
+  @keyframes reveal-blur-out {
+    0% { filter: blur(5px); opacity: 0.6; }
+    100% { filter: blur(0); opacity: 1; }
+  }
+  .revealing { animation: reveal-blur-out .8s ease-out forwards; }
+
+  /* ── Annotation block ── */
+  .annotation {
+    max-width: 900px; margin: 40px auto 0;
+    background: rgba(255,216,77,.05); border: 1px solid rgba(255,216,77,.25);
+    border-radius: 10px; padding: 20px 24px;
+    font-size: 13px; color: #d8d4cf; line-height: 1.65;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 17px; color: var(--accent, #ffd84d); margin-bottom: 10px;
+  }
+  .annotation h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+    color: #ffd84d; margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    background: rgba(0,0,0,.4); padding: 1px 6px; border-radius: 4px;
+    font-size: 12px; color: #ffd84d;
+  }
+  .open-q {
+    background: rgba(255,80,80,.06); border-left: 3px solid #ff6b6b;
+    padding: 8px 12px; margin: 6px 0; border-radius: 0 6px 6px 0;
+    font-size: 12px;
+  }
+  .open-q strong { color: #ff9999; }
+
+  @media (max-width: 820px) { .stage { flex-direction: column; align-items: center; } }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div class="doc-kicker">first pass · aligned 2026-04-15</div>
+  <h1 class="doc-title">sell-phase wireframe</h1>
+  <p class="doc-sub">
+    The pitch page. Goal: drive urgency + social coordination toward RSVP
+    commitment. Pulls design primitives from
+    <code style="color:#ffd84d">rally-sketch-modules-v2-mockup.html</code>.
+    Choice-points below are explicit variants for Andrew to react to, not
+    committed design. See "Between Session 8 and Session 9: Sell Page Product
+    Strategy" in <code style="color:#ffd84d">rally-fix-plan-v1.md</code>.
+  </p>
+</header>
+
+<div class="supersedes">
+  <strong>⚠ Supersedes sell/lock/go sections of
+  <code>rally-trip-page-wireframe.html</code>.</strong>
+  When this wireframe is accepted, the sell-phase sections of the trip-page
+  wireframe are deprecated. Lock/go/done sections of that file remain the
+  working reference until those phases are spec'd.
+</div>
+
+<div class="controls">
+  <div class="control-row">
+    <span class="control-label">view</span>
+    <button class="control-btn active" data-view="teaser">1 · logged-out teaser</button>
+    <button class="control-btn" data-view="revealed">2 · signed-in · pre-rsvp</button>
+    <button class="control-btn" data-view="crew">3 · crew (rsvp'd in)</button>
+    <button class="control-btn" data-view="organizer">4 · organizer</button>
+  </div>
+  <div class="control-row">
+    <span class="control-label">blur scope</span>
+    <button class="control-btn active" data-blur="conservative">conservative (hero visible, plan blurred)</button>
+    <button class="control-btn" data-blur="aggressive">aggressive (everything below hero blurred)</button>
+    <span style="font-size:10px;color:#888;margin-left:auto">
+      only applies to view 1
+    </span>
+  </div>
+  <div class="control-row">
+    <span class="control-label">demo</span>
+    <button class="control-btn" id="demoReveal">▶ demo the reveal (1 → 2)</button>
+    <button class="control-btn" id="demoConfetti">▶ demo the rsvp confetti (2 → 3)</button>
+  </div>
+</div>
+
+<div class="stage">
+  <div>
+    <div class="frame-label" id="frameLabel">view 1 · logged-out invitee (teaser)</div>
+    <div class="frame">
+      <div class="frame-scroll" id="frameScroll">
+
+        <!-- MARQUEE -->
+        <div class="marquee" id="marquee">
+          ★ andrew called you up ★ lock it in by mar 15 ★ 3 already in ★
+        </div>
+
+        <!-- HERO -->
+        <div class="trip-hero">
+          <div class="sticker-called-up" id="calledUpSticker">you're up 💌</div>
+          <div class="live-row"><span class="live-dot"></span><span id="liveText">andrew shipman called you up</span></div>
+          <div class="trip-eyebrow" style="margin-top:6px">sell · weekend trip</div>
+          <div class="trip-title">tortola reset</div>
+          <div class="trip-meta">nov 20 → 26 · tortola, bvi</div>
+          <div class="postcard">
+            <div class="postcard-stamp">tortola · bvi</div>
+          </div>
+        </div>
+
+        <!-- COUNTDOWN (scoreboard — live tick) -->
+        <div class="countdown">
+          <div class="countdown-kicker">lock in by</div>
+          <div class="countdown-date">mar 15 · 12pm et</div>
+          <div class="tile-row">
+            <div class="tile"><div class="tile-num" id="cdDays">51</div><div class="tile-label">days</div></div>
+            <div class="tile-sep">:</div>
+            <div class="tile"><div class="tile-num" id="cdHours">08</div><div class="tile-label">hrs</div></div>
+            <div class="tile-sep">:</div>
+            <div class="tile"><div class="tile-num" id="cdMins">24</div><div class="tile-label">min</div></div>
+            <div class="tile-sep">:</div>
+            <div class="tile secs"><div class="tile-num" id="cdSecs">17</div><div class="tile-label">sec</div></div>
+          </div>
+          <div class="countdown-hint">until the plan locks <span class="lock-emoji">🔒</span></div>
+        </div>
+
+        <!-- CREW ROW (always visible, but blur varies) -->
+        <div class="section" id="crewRowSection">
+          <div class="section-head">
+            <div class="section-title">who's coming</div>
+            <div class="section-count" id="crewCount">3 in · you're invited</div>
+          </div>
+          <div class="crew-row">
+            <div class="av">A</div>
+            <div class="av">R</div>
+            <div class="av">J</div>
+            <div class="av empty you" id="youAvatar">you?</div>
+            <span class="crew-helper" id="crewHelper">jump in 👇</span>
+          </div>
+        </div>
+
+        <!-- === BELOW HERE: BLURRED IN VIEW 1 === -->
+        <div id="blurableContent" style="position:relative">
+
+          <!-- 1 · CREW SECTION (full) -->
+          <div class="section">
+            <div class="section-head">
+              <div class="section-title">the crew</div>
+              <div class="section-count">3 in · 0 holding · 1 pending</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+                <div class="av" style="margin:0;width:26px;height:26px;font-size:10px">A</div>
+                <span>andrew</span>
+                <span style="margin-left:auto;font-size:10px;color:var(--muted)">👑 host</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+                <div class="av" style="margin:0;width:26px;height:26px;font-size:10px">R</div>
+                <span>robert</span>
+                <span style="margin-left:auto;font-size:10px;color:var(--muted)">in · 2d</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+                <div class="av" style="margin:0;width:26px;height:26px;font-size:10px">J</div>
+                <span>jane</span>
+                <span style="margin-left:auto;font-size:10px;color:var(--muted)">in · 1d</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2 · HEADLINER -->
+          <div class="section">
+            <div class="headliner">
+              <div class="headliner-eyebrow">the headliner</div>
+              <div class="headliner-og"></div>
+              <div class="headliner-body">
+                <div class="headliner-title">catamaran day charter</div>
+                <div class="cost-pill"><span class="dollar">$</span>120 / person · estimate</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3 · THE SPOT (lodging voting) -->
+          <div class="section">
+            <div class="section-head">
+              <div class="section-title">the spot</div>
+              <div class="section-badge" id="lodgingBadge">voting open</div>
+            </div>
+            <div class="lodging-card" id="lodgingCard1">
+              <div class="lodging-img">
+                <div class="lodging-img-pill">airbnb.com</div>
+              </div>
+              <div class="lodging-body">
+                <div class="lodging-name">the a-frame cabin</div>
+                <div class="lodging-price">$189/night · 6 nights · ~$1,134</div>
+                <div class="vote-bar"><div class="vote-fill" style="width:60%"></div></div>
+                <button class="vote-btn voted" id="vote1Btn">your pick ✓</button>
+                <button class="vote-btn organizer-lock" style="display:none" id="lock1Btn">lock this one in</button>
+              </div>
+            </div>
+            <div class="lodging-card" id="lodgingCard2">
+              <div class="lodging-img alt">
+                <div class="lodging-img-pill">vrbo.com</div>
+              </div>
+              <div class="lodging-body">
+                <div class="lodging-name">beach house villa</div>
+                <div class="lodging-price">$220/night · 6 nights · ~$1,320</div>
+                <div class="vote-bar"><div class="vote-fill" style="width:40%"></div></div>
+                <button class="vote-btn" id="vote2Btn">tap to vote 🗳️</button>
+                <button class="vote-btn organizer-lock" style="display:none" id="lock2Btn">lock this one in</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4 · GETTING HERE (your arrival only — method + approx cost, rolls into your total) -->
+          <div class="section">
+            <div class="section-head">
+              <div class="section-title">getting here</div>
+              <div class="section-count">your way in</div>
+            </div>
+
+            <!-- Mode picker (big, tap-to-select) -->
+            <div class="gh-mode-picker">
+              <button class="gh-mode-tile" data-mode="flight">
+                <div class="gh-mode-icon">✈️</div>
+                <div class="gh-mode-label">flight</div>
+              </button>
+              <button class="gh-mode-tile active" data-mode="drive">
+                <div class="gh-mode-icon">🚗</div>
+                <div class="gh-mode-label">drive</div>
+              </button>
+              <button class="gh-mode-tile" data-mode="train">
+                <div class="gh-mode-icon">🚆</div>
+                <div class="gh-mode-label">train</div>
+              </button>
+              <button class="gh-mode-tile" data-mode="other">
+                <div class="gh-mode-icon">·</div>
+                <div class="gh-mode-label">other</div>
+              </button>
+            </div>
+
+            <div class="gh-input-box">
+              <div class="gh-input-label">drop in a rough estimate · rolls into your total · not a booking</div>
+              <div class="gh-input-field">
+                <span class="dollar">$</span>
+                <input type="text" value="95" id="ghYourCost" />
+              </div>
+              <a href="https://www.google.com/flights" target="_blank" class="gh-link" id="ghRefLink">
+                ballpark it on google flights ↗
+              </a>
+            </div>
+
+            <div class="gh-roll-line">
+              <span>your way in · <span id="ghModeLabel">🚗 drive</span></span>
+              <span class="val" id="ghYourVal">$95</span>
+            </div>
+          </div>
+
+          <!-- 5 · TRANSPORTATION (group) -->
+          <div class="section">
+            <div class="section-head">
+              <div class="section-title">transportation</div>
+              <div class="section-count">1 item</div>
+            </div>
+            <div class="card">
+              <div class="card-icon">🚗</div>
+              <div class="card-body">
+                <div class="card-title">van rental · airport → house</div>
+                <div class="card-meta">$240 / total</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6 · EVERYTHING ELSE (activities + provisions) -->
+          <div class="section">
+            <div class="section-head">
+              <div class="section-title">activities</div>
+            </div>
+            <div class="estimate-row">
+              <div class="estimate-value">$15<span class="dim">/ person · estimate</span></div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-head">
+              <div class="section-title">provisions</div>
+            </div>
+            <div class="estimate-row">
+              <div class="estimate-value">$55<span class="dim">/ person · estimate</span></div>
+            </div>
+          </div>
+
+          <!-- BUZZ FEED (sell-only liveness surface — placement TBD, flagged Q8) -->
+          <div class="section">
+            <div class="section-head">
+              <div class="section-title">the buzz</div>
+              <div class="section-count">live</div>
+            </div>
+            <div id="buzzCompose" class="buzz-compose" style="display:none">+ drop a line to the crew</div>
+            <div class="buzz-event">🗳️ <span class="accent">robert</span> voted for the a-frame <span class="buzz-meta">· 2h</span></div>
+            <div class="buzz-event">🙌 <span class="accent">jane</span> is in <span class="buzz-meta">· 1d</span></div>
+            <div class="buzz-event">🙌 <span class="accent">robert</span> is in <span class="buzz-meta">· 2d</span></div>
+            <div class="buzz-event">🚀 andrew sent it <span class="buzz-meta">· 3d</span></div>
+          </div>
+
+          <!-- 6 · THE AUX (extras) -->
+          <div class="section">
+            <div class="section-head">
+              <div class="section-title">extras</div>
+              <div class="section-count">1</div>
+            </div>
+            <div class="extra-card">
+              <span class="extra-icon">🎧</span>
+              <span class="extra-title">the aux</span>
+              <span class="extra-meta">aux cord secured</span>
+            </div>
+          </div>
+
+          <!-- COST SUMMARY — now personalized: includes your "way in" -->
+          <div class="cost-summary">
+            <div class="cs-kicker">your total</div>
+            <div class="cs-headline">~$743 / you</div>
+            <div class="cs-sub">includes your way in · updates as the crew fills in</div>
+            <div class="cs-row headliner-row"><span>the headliner · catamaran charter</span><span>$120</span></div>
+            <div class="cs-row"><span>the spot · a-frame cabin (÷3)</span><span>$378</span></div>
+            <div class="cs-row"><span>transportation · van rental (÷3)</span><span>$80</span></div>
+            <div class="cs-row"><span>activities</span><span>$15</span></div>
+            <div class="cs-row"><span>provisions</span><span>~$55</span></div>
+            <div class="cs-row" style="border-top:1.5px dashed rgba(255,255,255,.2); margin-top:6px; padding-top:10px; color: var(--accent); font-weight: 700;"><span>your way in · 🚗 drive</span><span id="csYourWayIn">$95</span></div>
+            <div class="cs-caveat">your total will firm up once the spot is locked and the crew fills</div>
+          </div>
+
+          <!-- Lock overlay (view 1 teaser only) -->
+          <div class="lock-overlay" id="lockOverlay">
+            <div class="lock-msg">see the plan →</div>
+            <div class="lock-hint">sign in with phone · one tap · we'll unblur the rest</div>
+          </div>
+        </div>
+
+        <!-- STICKY BAR -->
+        <div class="sticky" id="stickyBar">
+          <button class="cta primary" style="flex:2">see the plan →</button>
+          <button class="cta ghost" style="flex:1">can't make it</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ANNOTATIONS ═══════════ -->
+<div class="annotation">
+  <h3>The four views, narratively</h3>
+
+  <h4>1. Logged-out teaser (the hook)</h4>
+  <p>Invitee opens the share link. Sees: trip name, who called them up, dates, destination, theme postcard, countdown. <strong>Crew row visible — shows social proof ("3 already in").</strong> Everything else (cost, lodging options, modules, buzz) is blurred. Primary CTA: <code>see the plan →</code>. Tap → passwordless signup.</p>
+  <p>The <em>blur scope</em> toggle above lets you compare "conservative" (hero + crew visible, only the plan is blurred) against "aggressive" (everything below hero fogs). My rec: conservative. The crew row is the highest-converting social-proof element we have — blurring it leaves conversion on the floor.</p>
+
+  <h4>2. Signed-in, pre-RSVP (the pitch fully loaded)</h4>
+  <p>After signup, the plan unblurs in place. "You?" avatar appears empty in the crew row. Sticky bar swaps from login CTA to 3-state RSVP: <code>i'm in</code> / <code>maybe</code> / <code>out</code>. Full cost summary, lodging voting, modules all readable. Buzz compose hidden (compose unlocks post-RSVP in this first pass — see open questions).</p>
+
+  <h4>3. Crew (RSVP'd in)</h4>
+  <p>Confetti pulse on commit. "You?" slot becomes real avatar. Sticky bar collapses to current RSVP state with a small "change" affordance. Buzz compose unlocks. This is the committed state — lock page is where it goes from here.</p>
+
+  <h4>4. Organizer view</h4>
+  <p>No RSVP sticky bar (organizer can't RSVP to their own trip). <code>lock it in</code> buttons appear under each lodging option. Share-link CTA prominent. Live activity row reads "trip is live · 3 in."</p>
+
+  <h3>Decisions locked in this revision (v2)</h3>
+  <ul>
+    <li><strong>Blur scope: conservative.</strong> Crew row visible, plan blurred. Aggressive toggle kept for contrast only — not the shipping default.</li>
+    <li><strong>Module order matches the sketch page.</strong> Ordered top-down: (1) the crew, (2) the headliner, (3) the spot, (4) getting here, (5) transportation, (6) everything else (activities + provisions), (7) the aux. Cost summary tallies at the very bottom. "Getting here" (individual arrival) sits between "the spot" and "transportation" — the logical grouping is: where we stay → how I get there → how we move around once there. This mirrors the shipped sketch-page convention so sell doesn't invent a new layout grammar — it just loads the sketch grammar with richer content.</li>
+    <li><strong>Getting here is a first-class sell module (NEW).</strong> Personal-only: the viewer picks their mode (✈️ / 🚗 / 🚆 / other) and drops in a rough cost estimate. That "your way in" rolls into a personalized total. Reference link adapts to the selected mode (Google Flights, Maps, Amtrak, etc.) — reference/ballpark only, <em>not</em> a booking path. This pulls the personalized-total mechanic forward from lock → sell. Crucially, the module does NOT show a roster of everyone's arrival methods on sell — that's a lock-phase feature (see Q10). Sell is "what's my cost"; lock is "how is the crew actually arriving."</li>
+    <li><strong>Cost summary: bottom of the page.</strong> Sell the fun first, tally at the end. Cost is the <em>closer</em>, not the opener.</li>
+    <li><strong>Countdown: scoreboard tiles, live tick.</strong> Replaced the single "51 days to lock it in" line with a yellow-stickered scoreboard (d : h : m : s), Georgia italic numerals, live-ticking seconds. Creates urgency + hype without new infrastructure. Open to further theming (see Q7).</li>
+    <li><strong>Sticky bar: per-view.</strong> Teaser → "see the plan." Pre-RSVP → 3-state RSVP. Crew → quiet "you're in" confirmation. Organizer → "lock it in" / "nudge." Confirmed.</li>
+  </ul>
+
+  <h3>Design-system usage</h3>
+  <ul>
+    <li><code>.card</code>, <code>.section</code>, <code>.headliner</code>, <code>.estimate-row</code>, <code>.cost-summary</code> — lifted directly from <code>rally-sketch-modules-v2-mockup.html</code> (the 8N <code>.module-section</code> idiom). Same token set: <code>--bg</code>, <code>--ink</code>, <code>--accent</code>, <code>--surface</code>, <code>--border</code>, <code>--sticker-bg</code>.</li>
+    <li><strong>Countdown scoreboard</strong> uses the same token set: yellow accent fill, 2.5px ink border, 12px radius, press-shadow <code>3px 3px 0 var(--ink)</code>. Tiles are mini <code>.card</code>s — no new primitives, just composition.</li>
+    <li>Georgia italic for the trip title, cost total, cost pill, headliner title.</li>
+    <li>Voting primitives (<code>.vote-bar</code>, <code>.vote-btn</code>) match patterns from <code>rally-phase-8-lodging-voting.html</code>.</li>
+    <li>Press-shadow CTAs (<code>3px 3px 0 var(--accent)</code>) from the 8R invite-button rebuild.</li>
+    <li>New primitives introduced: <code>.blur-veil</code>, <code>.lock-overlay</code>, <code>.sticker-called-up</code>, <code>.confetti</code>, <code>.buzz-event</code>. All sized and colored off existing tokens — no new colors.</li>
+  </ul>
+
+  <h3>Motion / liveness budget</h3>
+  <p>Where the "feel alive" commitment is spent:</p>
+  <ul>
+    <li><strong>Live-dot pulse</strong> in the live row — subtle, always on.</li>
+    <li><strong>Marquee scroll</strong> (not animated in this mockup — would animate in real build).</li>
+    <li><strong>Reveal animation</strong> from view 1 → view 2: blur-out transition, ~800ms. Crew "you?" avatar slides in. Sticky bar swaps with a cross-fade.</li>
+    <li><strong>RSVP confetti</strong> on view 2 → view 3: confetti burst from sticky bar, haptic feedback, avatar morphs from "you?" dashed to filled "you" with accent fill. Maybe a brief "locked and loaded" flash on the crew section count.</li>
+    <li><strong>Vote bar fill animation</strong> when tapping a vote button — fill eases from current % to new %.</li>
+    <li><strong>Countdown tick</strong> — scoreboard-tile seconds bump every tick, minute/hour/day roll naturally. Lock emoji wobbles on a 3s loop.</li>
+  </ul>
+  <p>What we're NOT spending motion on: parallax scroll, page transitions, full-page hero video, section reveal-on-scroll (all cost without conversion payoff for mobile web).</p>
+
+  <h3>Explicit non-goals shown in wireframe</h3>
+  <ul>
+    <li>No per-person travel-cost field. Cost summary note says "getting to the meetup isn't included yet — we'll dial that in once it's locked." That framing sets expectation that the personal total arrives in lock phase.</li>
+    <li>No arrival mode picker, no Google Flights deep-link, no passport integration.</li>
+    <li>No restaurants/groceries breakdown — provisions stays as single estimate line.</li>
+    <li>No buzz reactions, no @mentions, no threaded replies.</li>
+    <li>No +1 guest flow, no per-person notes.</li>
+    <li>No voting nudges (automatic), no "arrival checked: X of Y" indicator.</li>
+    <li>No cost-split toggle per line item.</li>
+  </ul>
+
+  <h3>Open questions (pinned for Session 9 scoping)</h3>
+  <div class="open-q"><strong>Q1 · Login mechanics.</strong> Phone OTP, email magic link, or both? Does <code>/auth</code> already handle passwordless inline, or does sell need a dedicated "quick signup" flow that keeps them on the trip page?</div>
+  <div class="open-q"><strong>Q2 · Blur scope cutline.</strong> Conservative vs. aggressive (toggle above). My rec: conservative — keep crew row visible for social proof.</div>
+  <div class="open-q"><strong>Q3 · Buzz compose for signed-in but not RSVP'd.</strong> This wireframe hides compose until RSVP. Alternative: visible-but-disabled with "rsvp to chime in" helper, or always open. Which?</div>
+  <div class="open-q"><strong>Q4 · Post-signup, pre-RSVP return visits.</strong> If someone signs in but bounces without RSVPing, what do they see on visit 2? Same pre-RSVP view? A "you're still on the fence" nudge? Decay to teaser after N days?</div>
+  <div class="open-q"><strong>Q5 · Organizer's sticky bar.</strong> Nothing, a share-link CTA, or a "lock it in when ready" CTA once quorum is met? Right now I show nothing, which may be dead space on mobile.</div>
+  <div class="open-q"><strong>Q6 · Invitee decline path.</strong> "Can't make it" button in the teaser sticky — do we let a logged-out invitee decline without signing in? Low-friction honesty, but no signup, so no growth-loop value. Probably yes, but flag.</div>
+  <div class="open-q"><strong>Q7 · Countdown theming.</strong> Current treatment is a yellow-stickered scoreboard with ticking tiles — generic but on-brand. Alternatives worth exploring: (a) theme-adaptive numerals (e.g. pine-tree ornaments for a ski trip, beach-ball motif for tropical); (b) flip-clock analog style; (c) postcard-date-stamp visual with a "ticking stamp" effect. Depth of custom work here scales with ambition — flag how far we want to push it.</div>
+  <div class="open-q"><strong>Q8 · Buzz-feed placement.</strong> Sketch page has six canonical modules (crew, headliner, spot, transport, everything else, aux). Buzz is a sell-only liveness surface with no sketch-page parent. Currently placed between "everything else" and "the aux" on the wireframe. Alternatives: (a) above the cost summary as a final "vibes" ribbon; (b) between "the crew" and "the headliner" as social proof; (c) collapsed into the crew section with a "recent activity" tab. Current placement is a guess — decide before Session 13 brief.</div>
+  <div class="open-q"><strong>Q9 · Theme postcard slot.</strong> The gradient block under the dates is a placeholder for a "theme postcard" — the destination mood visual. Options: (a) on-brand abstract/gradient keyed to theme color (current), (b) curated destination photo via Unsplash keyword search, (c) AI-generated theme image per trip, (d) map snippet of the destination, (e) kill the slot entirely and let the hero breathe. v0 recommendation: keep (a), upgrade to (b) in lock phase.</div>
+  <div class="open-q"><strong>Q10 · Lock-phase rescope (follow-up from Getting Here).</strong> Moving "your way in" to sell rewrites what lock was going to do. Sell now owns: personalized total, mode picker, travel-cost input, mode-specific reference links. Lock's remaining scope:
+    <ul>
+      <li><strong>Full crew arrival roster.</strong> Once locked, show every attendee's method + cost in a read-only list ("andrew · ✈️ flight · $420," "robert · 🚗 drive · $85," "jane · 🚆 train · $140"). This is the "how's everyone getting there" social view — the list I originally built on sell belongs here instead.</li>
+      <li><strong>Flight times + arrival details.</strong> Once each attendee confirms their booking, capture flight numbers / arrival times / train schedules / ETAs. The roster extends to show "lands at 2:14pm," "arriving wednesday 6pm," etc. Good for meetup coordination.</li>
+      <li><strong>Firming estimates</strong> from "estimated" → "confirmed" across the board.</li>
+      <li><strong>Final trip details</strong> — meetup addresses, access codes, itinerary polish.</li>
+      <li><strong>Payment collection</strong> if/when added.</li>
+      <li><strong>The lock-in commit moment</strong> itself (organizer action).</li>
+    </ul>
+    The "Sell Page Product Strategy" block in the fix plan reflects this. A dedicated lock-phase direction block will be written once sell ships.
+  </div>
+  <div class="open-q"><strong>Q11 · RSVP-before-cost-input ordering.</strong> Can someone RSVP "in" before filling out their getting-here row, or is the row required to commit? Two paths: (a) optional at sell — RSVP first, fill in "your way in" whenever you want, your total shows as "— until you set it"; (b) soft-required — sticky bar shows "rsvp" as disabled until you've picked a mode + entered a number, with copy "set your way in to rsvp." Path (a) is lower friction, (b) forces the commit to be informed. Path (a) probably wins — the whole curiosity-gap argument says we don't want friction at the RSVP tap — but worth calling out explicitly.</div>
+
+  <h3>Proposed session breakdown (rough, pre-scope)</h3>
+  <p>Each lettered item is a candidate Session 9+ brief. Ordered roughly by conversion impact per dev cost:</p>
+  <ol>
+    <li><strong>Session 9 · invitee first-touch.</strong> Ship the logged-out teaser → signup → reveal flow. Blur veil, lock overlay, passwordless auth wiring, reveal animation. Delivers views 1 and 2. Biggest conversion lever.</li>
+    <li><strong>Session 10 · cost-summary sell-page hero.</strong> Promote CostBreakdown to the sell-page visual anchor (yellow total, Georgia italic, dark card). Wire it to read from every shipped module's sketch inputs. Add the "getting to meetup isn't included yet" caveat copy. Polish only — no new math.</li>
+    <li><strong>Session 11 · rsvp sticky bar + confetti polish.</strong> Richer press states, motion on tap, confetti burst, haptic (where available), crew-section "you?" → "you" transition. Delivers the commit moment.</li>
+    <li><strong>Session 12 · lodging voting tightening.</strong> Harden vote-bar animation, organizer lock flow, "3 votes" meta copy, lock stamp placement. Voting is already shipped — this is polish + edge cases.</li>
+    <li><strong>Session 13 · buzz feed liveness.</strong> Event row polish, "live" section badge, scroll-into-view on new event, basic compose (gated per Q3). No reactions, no mentions.</li>
+    <li><strong>Session 14 · marquee + countdown + sticker motion.</strong> The "page feels alive" pass — marquee animation, countdown scoreboard polish (optional theming from Q7), called-up sticker entrance, live-dot refinement. Low-cost polish that compounds.</li>
+    <li><strong>Session 15 (NEW) · getting-here per-crew arrival module.</strong> Ship the per-crew arrival approximator: mode chips (✈️ / 🚗 / 🚆 / other), rough-estimate input, Google Flights reference link, crew-visible rows with read-only display of other members' choices, personalized "your total" roll-up into cost summary. Moderate complexity (new per-crew data shape, new component, cost-summary rewrite), high conversion impact (this is what makes "your total" concrete). Probably slots in after Session 10 (cost summary) since they share the roll-up math.</li>
+  </ol>
+  <p>Session 9 and 10 are the must-ships. 11–14 are compounding polish that can be re-ordered based on what we learn during 9/10 builds.</p>
+</div>
+
+<script>
+  let currentView = 'teaser';
+  let blurMode = 'conservative';
+
+  const frameLabel = document.getElementById('frameLabel');
+  const blurable = document.getElementById('blurableContent');
+  const lockOverlay = document.getElementById('lockOverlay');
+  const stickyBar = document.getElementById('stickyBar');
+  const crewRowSection = document.getElementById('crewRowSection');
+  const youAvatar = document.getElementById('youAvatar');
+  const crewHelper = document.getElementById('crewHelper');
+  const crewCount = document.getElementById('crewCount');
+  const calledUp = document.getElementById('calledUpSticker');
+  const liveText = document.getElementById('liveText');
+  const marquee = document.getElementById('marquee');
+  const buzzCompose = document.getElementById('buzzCompose');
+  const lock1Btn = document.getElementById('lock1Btn');
+  const lock2Btn = document.getElementById('lock2Btn');
+  const vote1Btn = document.getElementById('vote1Btn');
+  const vote2Btn = document.getElementById('vote2Btn');
+  const lodgingBadge = document.getElementById('lodgingBadge');
+
+  function render() {
+    // Reset
+    blurable.classList.remove('blurred', 'blurred-aggressive');
+    lockOverlay.style.display = 'none';
+    buzzCompose.style.display = 'none';
+    lock1Btn.style.display = 'none';
+    lock2Btn.style.display = 'none';
+    calledUp.style.display = '';
+    youAvatar.textContent = 'you?';
+    youAvatar.classList.add('empty');
+    youAvatar.classList.remove('you');
+
+    if (currentView === 'teaser') {
+      frameLabel.textContent = 'view 1 · logged-out invitee (teaser)';
+      // Apply blur per mode
+      if (blurMode === 'conservative') {
+        blurable.classList.add('blurred');
+      } else {
+        blurable.classList.add('blurred-aggressive');
+        crewRowSection.classList.add('blurred');
+      }
+      lockOverlay.style.display = 'flex';
+      stickyBar.innerHTML =
+        '<button class="cta primary" style="flex:2">see the plan →</button>' +
+        '<button class="cta ghost" style="flex:1">can\'t make it</button>';
+      liveText.textContent = 'andrew shipman called you up';
+      marquee.textContent = '★ andrew called you up ★ lock it in by mar 15 ★ 3 already in ★';
+      crewCount.textContent = '3 in · you\'re invited';
+      crewHelper.textContent = 'jump in 👇';
+    }
+    else if (currentView === 'revealed') {
+      frameLabel.textContent = 'view 2 · signed-in · pre-rsvp';
+      crewRowSection.classList.remove('blurred');
+      calledUp.textContent = '51 days 🌴';
+      calledUp.style.transform = 'rotate(-3deg)';
+      stickyBar.innerHTML =
+        '<button class="cta rsvp-in" style="font-size:12px">i\'m in 🙌</button>' +
+        '<button class="cta rsvp-hold" style="font-size:12px">maybe 🧗</button>' +
+        '<button class="cta rsvp-out" style="font-size:12px">out</button>';
+      liveText.textContent = 'trip is live';
+      marquee.textContent = '★ 51 days · tortola · rsvp by mar 15 ★ 3 in so far ★';
+      crewCount.textContent = '3 in · 1 pending (you)';
+      crewHelper.textContent = 'your call 👇';
+    }
+    else if (currentView === 'crew') {
+      frameLabel.textContent = 'view 3 · crew (rsvp\'d in)';
+      crewRowSection.classList.remove('blurred');
+      calledUp.textContent = '51 days 🌴';
+      calledUp.style.transform = 'rotate(-3deg)';
+      stickyBar.innerHTML =
+        '<div style="flex:1;display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--accent);border-radius:30px;border:2px solid var(--ink);box-shadow:3px 3px 0 var(--stroke)">' +
+        '<span style="font-weight:700;font-size:13px">you\'re in 🙌</span>' +
+        '<span style="font-size:10px;color:rgba(26,26,26,.6);margin-left:auto">change?</span>' +
+        '</div>';
+      buzzCompose.style.display = '';
+      liveText.textContent = 'trip is live · you\'re in';
+      marquee.textContent = '★ 51 days · tortola · 4 in · 3 pending ★';
+      crewCount.textContent = '4 in · 2 pending';
+      crewHelper.textContent = 'locked and loaded 🔥';
+      youAvatar.textContent = 'Y';
+      youAvatar.classList.remove('empty');
+      youAvatar.classList.add('you');
+    }
+    else if (currentView === 'organizer') {
+      frameLabel.textContent = 'view 4 · organizer (no rsvp)';
+      crewRowSection.classList.remove('blurred');
+      calledUp.style.display = 'none';
+      lock1Btn.style.display = '';
+      lock2Btn.style.display = '';
+      stickyBar.innerHTML =
+        '<button class="cta primary" style="flex:1;font-size:12px">copy invite link</button>' +
+        '<button class="cta ghost" style="flex:1;font-size:12px">nudge the crew</button>';
+      buzzCompose.style.display = '';
+      liveText.textContent = 'trip is live · you started this';
+      marquee.textContent = '★ your rally · 3 in · 51 days to lock ★';
+      crewCount.textContent = '3 in · 1 pending';
+      crewHelper.textContent = 'your crew 👇';
+      // Organizer view: don't show their own "you?" slot
+      youAvatar.style.display = 'none';
+    } else {
+      youAvatar.style.display = '';
+    }
+  }
+
+  document.querySelectorAll('[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentView = btn.dataset.view;
+      youAvatar.style.display = '';
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-blur]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-blur]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      blurMode = btn.dataset.blur;
+      render();
+    });
+  });
+
+  document.getElementById('demoReveal').addEventListener('click', () => {
+    // Force view 1 first, then animate to view 2
+    currentView = 'teaser';
+    document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-view="teaser"]').classList.add('active');
+    render();
+    setTimeout(() => {
+      blurable.classList.add('revealing');
+      lockOverlay.style.opacity = '0';
+      setTimeout(() => {
+        currentView = 'revealed';
+        document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+        document.querySelector('[data-view="revealed"]').classList.add('active');
+        blurable.classList.remove('revealing');
+        lockOverlay.style.opacity = '';
+        render();
+      }, 800);
+    }, 300);
+  });
+
+  document.getElementById('demoConfetti').addEventListener('click', () => {
+    const frame = document.querySelector('.frame');
+    const colors = ['#ffd84d', '#ff4d4d', '#22c55e', '#d94aa3'];
+    for (let i = 0; i < 30; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = (30 + Math.random() * 315) + 'px';
+      c.style.top = (500 + Math.random() * 80) + 'px';
+      c.style.background = colors[Math.floor(Math.random() * colors.length)];
+      c.style.animationDelay = (Math.random() * 0.3) + 's';
+      frame.appendChild(c);
+      setTimeout(() => c.remove(), 1500);
+    }
+    setTimeout(() => {
+      currentView = 'crew';
+      document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+      document.querySelector('[data-view="crew"]').classList.add('active');
+      render();
+    }, 400);
+  });
+
+  render();
+
+  // ── Live countdown tick ──
+  // Target: 51 days + 8h 24m 17s from page load, so the initial numbers match.
+  const cdTarget = Date.now() + (51 * 86400 + 8 * 3600 + 24 * 60 + 17) * 1000;
+  const cdDays = document.getElementById('cdDays');
+  const cdHours = document.getElementById('cdHours');
+  const cdMins = document.getElementById('cdMins');
+  const cdSecs = document.getElementById('cdSecs');
+  const pad2 = n => String(n).padStart(2, '0');
+  let lastSec = -1;
+  function tickCountdown() {
+    const ms = Math.max(0, cdTarget - Date.now());
+    const s = Math.floor(ms / 1000);
+    const days = Math.floor(s / 86400);
+    const hrs = Math.floor((s % 86400) / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    cdDays.textContent = days;
+    cdHours.textContent = pad2(hrs);
+    cdMins.textContent = pad2(mins);
+    if (secs !== lastSec) {
+      cdSecs.textContent = pad2(secs);
+      cdSecs.classList.remove('tick');
+      // force reflow then re-add for a tiny bump
+      void cdSecs.offsetWidth;
+      cdSecs.classList.add('tick');
+      lastSec = secs;
+    }
+  }
+  tickCountdown();
+  setInterval(tickCountdown, 1000);
+
+  // ── Getting here: mode chips + live cost roll-up ──
+  const ghInput = document.getElementById('ghYourCost');
+  const ghYourVal = document.getElementById('ghYourVal');
+  const csYourWayIn = document.getElementById('csYourWayIn');
+  const csHeadline = document.querySelector('.cs-headline');
+  const baseTotal = 648; // the group-cost share per person (pre way-in)
+
+  function updateGhRoll() {
+    const raw = ghInput.value.replace(/[^0-9]/g, '');
+    const n = parseInt(raw, 10) || 0;
+    ghYourVal.textContent = '$' + n;
+    csYourWayIn.textContent = '$' + n;
+    csHeadline.textContent = '~$' + (baseTotal + n) + ' / you';
+  }
+  ghInput.addEventListener('input', updateGhRoll);
+
+  const ghModeLabel = document.getElementById('ghModeLabel');
+  const ghRefLink = document.getElementById('ghRefLink');
+  const modeLabels = {
+    flight: '✈️ flight',
+    drive: '🚗 drive',
+    train: '🚆 train',
+    other: '· other'
+  };
+  const modeRefs = {
+    flight: { href: 'https://www.google.com/flights', text: 'ballpark it on google flights ↗' },
+    drive: { href: 'https://www.google.com/maps', text: 'estimate drive time on google maps ↗' },
+    train: { href: 'https://www.amtrak.com', text: 'check routes on amtrak ↗' },
+    other: { href: '#', text: 'estimate your own way ↗' }
+  };
+  document.querySelectorAll('[data-mode]').forEach(tile => {
+    tile.addEventListener('click', () => {
+      document.querySelectorAll('[data-mode]').forEach(c => c.classList.remove('active'));
+      tile.classList.add('active');
+      const mode = tile.dataset.mode;
+      // Update the way-in label in the module roll-line
+      if (ghModeLabel) ghModeLabel.textContent = modeLabels[mode];
+      // Update the way-in label in cost summary
+      const csRow = csYourWayIn.parentElement.querySelector('span');
+      csRow.textContent = 'your way in · ' + modeLabels[mode];
+      // Swap reference link to match mode
+      if (ghRefLink) {
+        ghRefLink.href = modeRefs[mode].href;
+        ghRefLink.textContent = modeRefs[mode].text;
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

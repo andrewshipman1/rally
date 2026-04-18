@@ -543,7 +543,10 @@ button:active {
   animation: pop-in 0.5s 0.1s both;
 }
 
-/* Title — large display headline, slides up + bounces on load. */
+/* Title — large display headline, slides up + bounces on load.
+   Session 9C — CSS-only lowercase per Rally voice. Scoped to
+   .chassis .title so sketch (which renders via .field.field-title)
+   is unaffected. Data is never mutated. */
 .chassis .title {
   font-family: var(--font-display), 'Shrikhand', serif;
   font-size: 42px;
@@ -551,6 +554,7 @@ button:active {
   color: var(--ink);
   margin: 0 0 12px;
   letter-spacing: -0.01em;
+  text-transform: lowercase;
   animation: slide-up-bounce 0.7s 0.2s both;
 }
 .chassis .title .accent {
