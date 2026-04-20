@@ -74,4 +74,10 @@ export const tripPageShared: Record<string, Templated> = {
 
   // LockedPlan
   'cost.currencySymbol': '$',
+
+  // Session 9D — countdown scoreboard unit labels (structural, phase-agnostic).
+  'scoreboard.units.days':    'days',
+  'scoreboard.units.hours':   'hrs',
+  'scoreboard.units.minutes': 'min',
+  'scoreboard.units.seconds': 'sec',
 };

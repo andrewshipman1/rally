@@ -13,4 +13,10 @@ export const tripPageSell: Record<string, Templated> = {
   'cost.banner':          ({ n }: ThemeVars) => `~$${n ?? 0} per person, before flights`,
   'lockUrgency.t3':       "3 days. don't be the missing one.",
   'lockUrgency.t1':       "tomorrow. it's now or december.",
+
+  // Session 9D — countdown scoreboard (sell phase only). Kicker sits above
+  // the date line; hint + emoji sit below the d:h:m:s tiles.
+  'scoreboard.kicker':    'lock in by',
+  'scoreboard.hint':      'until the plan locks',
+  'scoreboard.hintEmoji': '\u{1F512}', // 🔒 lock
 };

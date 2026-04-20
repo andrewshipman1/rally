@@ -5033,18 +5033,43 @@ evolved from the original 9A/9B pair to a top-down polish walk after 9A
   today, no new components, no new lexicon entries. CSS-only lowercase
   transform on `.chassis .title`. Marquee delta escalated + parked
   (no sell-phase marquee string exists today).
-- **9D — Countdown + deadline banner.** 🔜 On deck. Scope TBD — see
-  9D preview below.
-- **9E — Headliner module polish (sell readOnly + copy + layout).**
-  🔜 Queued. Full brief draft exists as 9E preview below (originally
-  drafted as 9C before the top-to-bottom walk reframe).
-- **9F — Spot / Lodging polish.** Queued — backlog item 1 (null-state
-  date-ordering) lives here.
-- **9B — Getting Here module.** Queued at its natural turn (after 9F /
-  before transportation polish). Net-new module, migration required,
+- **9D — Countdown scoreboard build.** ✅ Shipped + closed
+  2026-04-17. Scoreboard renders with d:h:m:s tiles, kicker, date
+  line, hint, wobble. Secondary sell countdown dropped. Date viewer-
+  local tz. Lock/go ships as "lite" shape. 7 new lexicon entries. 2
+  issues escalated to 9D-fix (tick rate, sizing).
+- **9D-fix — Scoreboard tick rate + sizing.** ✅ Shipped + accepted
+  2026-04-17. Tick rate diagnosed as Turbopack / Fast Refresh HMR
+  artifact (verified clean in `next build && npm start`); ref-guarded
+  `setInterval` added to `CountdownScoreboard.tsx` as dev-only
+  hardening. Tile sizing bumped: `max-width` removed, numerals 28px →
+  40px, labels 10px → 12px. Two files touched (component + CSS).
+- **9E — Top-of-header rebuild.** 🔜 On deck. Reshuffled 2026-04-17
+  (second time same day) after Andrew's "start at the very top, be
+  rigorous" ask. Combines dynamic marquee + live-dot row enable +
+  NEW phase-eyebrow + NEW trip meta row + tagline reposition. Preserves
+  rally chrome (logo, "is calling" pill, sticker). Fresh mockup at
+  `rally-9e-top-header-sell-mockup.html`. Brief below.
+- **9F — Scoreboard wrapper + cover-image postcard.** 🔜 Queued. Was
+  labeled 9E before the reshuffle. `.countdown-card` wrapper around
+  the scoreboard + cover image reposition + 2.5px border +
+  destination-stamp pill + theme-gradient fallback when
+  `cover_image_url` is null. Mockup at
+  `rally-9e-hero-chrome-sell-mockup.html` (file name retained for
+  historical reference; content valid for 9F). Brief below.
+- **9G — Headliner module polish (sell readOnly + copy + layout).**
+  Queued. Fixes the known soft dead-end card-body click deferred from
+  9A-fix.
+- **9H — Spot / Lodging polish.** Queued. Bug Backlog item 1
+  (null-state + date-ordering) lives here.
+- **9B — Getting Here module.** Queued at its natural turn (after 9H
+  / before transportation polish). Net-new module, migration required,
   new copy surface. Preview below.
-- **9G+ — Transportation, everything else, crew, cost, buzz, aux polish.**
-  Queued in top-to-bottom order.
+- **9I+ — Transportation, everything else, crew, cost, buzz, aux
+  polish.** Queued in top-to-bottom order.
+- **Cover-image uploader audit.** Separate concern (sketch-path). Not a
+  9-series session — standalone investigation when the sell work is
+  done or earlier if needed.
 
 **Scope exception.** Getting Here (9B) remains the one module where the
 *invitee* (not the organizer) contributes input on sell. Intentional.
@@ -5053,8 +5078,10 @@ evolved from the original 9A/9B pair to a top-down polish walk after 9A
 pre-RSVP), 3 (RSVP'd in), and 4 (organizer). View 1 (teaser / blur /
 login) is Session 10.
 
-**Paused 2026-04-17 end of working session.** Pick up at 9D scope
-decision (narrow polish vs. scoreboard build) when resuming.
+**Current state (2026-04-17 afternoon):** 9A / 9A-fix / 9C / 9D /
+9D-fix all shipped and accepted. Header audit done. **9E (top-of-
+header rebuild) brief + mockup + kickoff drafted, paste-ready prompt
+available.** Next: hand 9E to CC.
 
 ---
 
@@ -5897,41 +5924,1022 @@ point noted in 9A Actuals parked follow-ups.
 
 ---
 
-#### Session 9D (preview): "Countdown + deadline banner polish"
-
-*Scope decision pending — resolve before drafting full brief.*
+#### Session 9D: "Countdown scoreboard build"
 
 **Intent.** Second sub-session in the top-down sell polish walk.
-Targets the three surfaces sitting between the hero and the module
-stack: primary countdown (to `commit_deadline`), secondary countdown
-(to `date_start`), T-3 / T-0 deadline banner.
+Replace the current "big yellow zero on dark pill" countdown treatment
+with the wireframe's d:h:m:s scoreboard: yellow-stickered tiles,
+live-ticking seconds, lock-emoji wobble. Biggest single visual delta
+on the sell page vs. the wireframe. Scope confirmed 2026-04-17 —
+cover image reposition + postcard treatment splits out as 9E.
 
-**Open scope decision for Andrew (2026-04-17):**
+**Scope (numbered):**
 
-- **(a) Narrow polish, 9C-style.** Copy audit against lexicon, tiny CSS
-  polish, leave the current "big yellow zero on dark pill" treatment
-  as-is. No new components. Fast. Keeps the cadence discipline from
-  9C. Leaves the countdown visually flat vs. the wireframe.
-- **(b) Scoreboard build.** Replace the two countdowns with the
-  wireframe's d:h:m:s tile treatment — yellow-stickered tiles, live-
-  ticking seconds, lock-emoji wobble. Real new component + live-tick
-  useEffect. Bigger session. Biggest single visual delta on the sell
-  page vs. the wireframe. Previously slotted to Session 14 motion
-  pass; pulling it forward means lifting that slot.
+1. **New component `CountdownScoreboard`.** Create
+   `src/components/trip/CountdownScoreboard.tsx`, marked
+   `'use client'`. Props:
+   - `target: string` (ISO date)
+   - `kicker: string` (e.g., `"lock in by"`)
+   - `hint?: string` (e.g., `"until the plan locks"`)
+   - `hintEmoji?: string` (e.g., `"🔒"`)
+2. **Render shape.** Kicker line (Georgia italic, muted) → date line
+   (Georgia italic bold, formatted like `"mar 15 · 12pm et"`) → row of
+   4 yellow-stickered tiles (days : hrs : min : sec) → hint line with
+   wobbling emoji.
+3. **Tile treatment.** Each tile: `var(--accent)` background, 2.5px
+   ink border, 12px radius, 3px×3px press-shadow. Numerals: Georgia
+   italic 900, tabular numerals, ~28px. Label under numeral: lowercase
+   Georgia italic 10px.
+4. **Live tick.** `useEffect` with 1000ms `setInterval`. Each tick
+   recomputes all four values (d, h, m, s) so minute / hour / day
+   rolls happen naturally. Hydration-safe: initial `null`, render
+   `"--"` until mount. Clear interval on unmount. Same pattern as
+   existing `ChassisCountdown` but at 1Hz instead of 1/minute.
+5. **Tick-bump animation.** Seconds tile: subtle 1s ease-in-out scale
+   bump (1.0 → 1.03 → 1.0) as a visual "tick" cue. CSS only.
+6. **Lock-emoji wobble.** Hint emoji: 3s infinite ease-in-out rotation
+   loop, -4deg ↔ +4deg. CSS only.
+7. **Reduced-motion.** `@media (prefers-reduced-motion: reduce)`
+   disables both the tick-bump and the lock-emoji wobble. Tiles
+   still update their numerals (accessibility — the tick is a visual
+   cue, the data still reflects truth).
+8. **Phase wiring in `page.tsx`.** Replace the sell-phase
+   `<ChassisCountdown target={cutoffIso} ...>` call with
+   `<CountdownScoreboard target={cutoffIso} kicker="lock in by"
+   hint="until the plan locks" hintEmoji="🔒" />`. Apply the
+   phase-branch logic already in place: lock/go swap `target` to
+   `tripStartIso` and use themed kicker / hint per
+   `theme.strings.countdownSignature`.
+9. **Drop the secondary sell countdown.** The current sell render has
+   TWO countdowns: primary (to `commit_deadline`) and secondary (to
+   `date_start`). Wireframe has one scoreboard. **Recommendation: drop
+   the secondary on sell.** On lock/go the single scoreboard pivots to
+   `date_start` so no urgency is lost. **Escalation trigger** — if
+   this feels wrong, STOP and raise options before deleting the
+   secondary call.
+10. **Do NOT touch `ChassisCountdown.tsx`.** Leave it in place for any
+    remaining callers. 9D is additive (new component alongside).
+11. **Do NOT touch the deadline banner.** Separate surface. Its T-3 /
+    T-0 logic already runs on `daysToDeadline` from the date math —
+    the scoreboard doesn't break it.
 
-Default if unresolved: (a), per the narrow-polish cadence we
-established in 9C. Revisit before drafting the 9D brief.
+**Hard constraints:**
 
-**Also possibly folded into 9D:**
+- DO NOT modify `ChassisCountdown.tsx`
+- DO NOT touch the deadline banner (the rust-colored "today's the day"
+  bar) — 9D is countdown only
+- DO NOT touch the marquee (still parked)
+- DO NOT touch the cover image / hero banner — that's 9E
+- DO NOT touch any module (headliner onward) — later sessions
+- DO NOT touch sketch phase hero or its countdown
+- DO NOT invent new lexicon entries. If the kicker / hint strings
+  don't exist in the lexicon yet, ESCALATE before adding. Per Andrew's
+  9C rule: "keep copy consistent with what we have."
+- New component must be a client component (`'use client'`) for the
+  useEffect
+- Mobile-first at 375px
+- `rm -rf .next && npm run dev` before QA (kill orphan `next dev`
+  procs first per the 9C pain point)
+- `npx tsc --noEmit` clean before release notes
 
-- **Marquee sell-phase content** (parked from 9C). If 9D pulls in the
-  scoreboard, wrap the marquee work in too — both need new lexicon /
-  theme-string entries, so they share escalation overhead. If 9D is
-  narrow polish, the marquee stays parked for a standalone session.
+**Acceptance criteria:**
+
+- [ ] `CountdownScoreboard` component exists at
+      `src/components/trip/CountdownScoreboard.tsx`, marked `'use
+      client'`, with the four props listed above
+- [ ] Sell phase renders the scoreboard with 4 tiles (days, hrs, min,
+      sec) replacing the current single-number pill
+- [ ] Seconds tile updates every 1s (visible tick in a running dev
+      environment)
+- [ ] Minute tile rolls from `59 → 00` when the minute crosses; same
+      for hours and days
+- [ ] Lock emoji wobbles (3s loop)
+- [ ] Reduced-motion disables the tick-bump animation AND the lock-
+      emoji wobble (numeric updates continue — this is a visual-cue
+      disable, not a data disable)
+- [ ] Secondary "days until we do it again" countdown is no longer
+      rendered on sell (per #9 — if kept, flag why)
+- [ ] Lock/go phase renders the scoreboard targeting `date_start`
+      with themed kicker / hint per `theme.strings.countdownSignature`
+- [ ] Sketch phase renders unchanged (no scoreboard call)
+- [ ] Deadline banner renders unchanged (regression gate — same T-3 /
+      T-0 copy and trigger logic)
+- [ ] `ChassisCountdown.tsx` is unmodified
+- [ ] `npx tsc --noEmit` clean
+
+**Files to read first:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` → 9A release notes + 9A-fix + 9A Actuals +
+  9C release notes + 9C Actuals + this 9D brief
+- `rally-9d-scoreboard-mockup.html` — **canonical 9D target**
+- `rally-sell-phase-wireframe.html` — scoreboard reference (lines ~685
+  onwards)
+- `src/components/trip/ChassisCountdown.tsx` — existing countdown
+  pattern to match (hydration-safe null → value, interval pattern)
+- `src/app/trip/[slug]/page.tsx` — countdown call sites + phase
+  branching
+- `src/lib/copy/surfaces/` — check for existing kicker / hint strings
+  before escalating
+- `src/lib/themes/*` — `theme.strings.countdownSignature` for lock/go
+  variants
+
+**How to QA solo:**
+
+1. `rm -rf .next && npm run dev` (kill orphan procs first if cache
+   errors appear).
+2. Load the sell Coachella trip. Scoreboard renders with 4 tiles.
+3. Watch the seconds tile for ~5 seconds — it should update in real
+   time with a subtle scale bump.
+4. Confirm the lock emoji wobbles.
+5. Confirm only ONE scoreboard renders on sell (secondary countdown
+   gone).
+6. Deadline banner still renders immediately below the scoreboard.
+7. Toggle OS reduced-motion → tick bump + wobble freeze; numbers keep
+   updating.
+8. Sketch trip → hero renders unchanged.
+9. `npx tsc --noEmit`.
+
+**Scope boundary reminders:**
+
+- If you find yourself modifying `ChassisCountdown.tsx` → STOP. New
+  component alongside.
+- If you find yourself touching the deadline banner → STOP. Not in 9D.
+- If you find yourself touching the cover image or hero position →
+  STOP. That's 9E.
+- If you find yourself adding new lexicon entries → STOP. Escalate.
+- If dropping the secondary countdown feels wrong → STOP. Raise
+  options.
+
+#### Session 9D — Release Notes
+
+**What was built:**
+
+1. **New `CountdownScoreboard` client component** —
+   `src/components/trip/CountdownScoreboard.tsx`. `'use client'` for the
+   1Hz `useEffect` interval. Props: `target: string` (ISO),
+   `units: {days, hours, minutes, seconds}`, `kicker?: string`,
+   `hint?: string`, `hintEmoji?: string`. Hydration-safe (tick state
+   `null` → `"--"` placeholder → first tick on mount), same pattern as
+   `ChassisCountdown` but ticking every second so minute / hour / day
+   roll naturally on the second boundary. Date line auto-formats via
+   `Intl.DateTimeFormat` in the viewer's local tz when the `kicker`
+   prop is set (sell shape); omitted otherwise (lock/go lite shape).
+2. **Scoreboard CSS** — scoped under `.chassis .scoreboard` in
+   `src/app/globals.css` near the existing `.countdown` block. Tile
+   yellow comes from `--sticker-bg`, border / text from `--ink`,
+   shadow from `--stroke` — all chassis vars so the 17 theme palettes
+   continue to drive color. Georgia italic 900 tabular numerals at
+   28px per the mockup; 10px lowercase unit labels beneath. Entry
+   animation reuses `slide-up-bounce` to match the old
+   `ChassisCountdown`'s cadence.
+3. **Tick-bump + lock-wobble keyframes** — `@keyframes tile-tick-bump`
+   (1s scale 1 → 1.03 → 1) on `.tile-secs .tile-num`, and
+   `@keyframes scoreboard-lock-wobble` (3s rotate -4deg ↔ +4deg) on
+   `.scoreboard-hint .lock-emoji`. Both added to the existing
+   `@media (prefers-reduced-motion: reduce)` block so reduced-motion
+   freezes the CSS animations; React state still updates the numbers.
+4. **Lexicon additions (7 entries total)** —
+   - `src/lib/copy/surfaces/trip-page-sell.ts`:
+     - `'scoreboard.kicker': 'lock in by'`
+     - `'scoreboard.hint': 'until the plan locks'`
+     - `'scoreboard.hintEmoji': '\u{1F512}'` (🔒)
+   - `src/lib/copy/surfaces/trip-page-shared.ts` (structural unit
+     labels, phase-agnostic):
+     - `'scoreboard.units.days': 'days'`
+     - `'scoreboard.units.hours': 'hrs'`
+     - `'scoreboard.units.minutes': 'min'`
+     - `'scoreboard.units.seconds': 'sec'`
+5. **Phase wiring swap** in `src/app/trip/[slug]/page.tsx`:
+   - Sell phase now renders `<CountdownScoreboard target={cutoffIso}
+     kicker={sbKicker} hint={sbHint} hintEmoji={sbHintEmoji}
+     units={sbUnits} />` in place of `<ChassisCountdown target={cutoffIso}
+     label={heroLabel} flag={fomoFlag} />`.
+   - Lock/go renders `<CountdownScoreboard target={tripStartIso}
+     hint={heroLabel} units={sbUnits} />` — no kicker, no date line,
+     tiles + themed `heroLabel` below (lite shape per Option A).
+   - **Secondary sell countdown deleted.** The `<ChassisCountdown
+     target={tripStartIso} label={themedSignature ?? ...} />` block
+     (formerly lines 275–281) is gone. Wireframe has one scoreboard;
+     urgency is preserved because the single scoreboard pivots to
+     `date_start` on lock/go.
+6. **Dropped unused imports + locals** — `ChassisCountdown` import and
+   `fomoFlag` local were the only remaining consumers of the old
+   countdown shape on page.tsx; both are now unused post-swap and
+   removed. `ChassisCountdown.tsx` itself is **not modified** and is
+   still imported by `InviteeShell.tsx` (Session 10 surface, hands off
+   per brief) and the sketch empty-state path.
+
+**What changed from the brief:**
+
+1. **Escalation resolved pre-execution (Option A).** Brief said the
+   sell scoreboard needs kicker/hint strings but prohibited new
+   lexicon without escalation. Recon confirmed no scoreboard
+   kicker/hint strings existed in any surface or theme file. Per the
+   brief's own escalation trigger, paused and raised three options to
+   Andrew. Approved: **Option A** — add sell-phase lexicon entries,
+   ship lock/go as a "lite" scoreboard (no kicker / no date line;
+   tiles + existing themed `heroLabel`). Lock/go has zero trips today
+   (per 9A Actuals), so deferring its copy design to Session 12+ is
+   the narrowest path. Andrew also approved dropping the secondary
+   sell countdown.
+2. **Unit labels added to the shared surface (4 new entries).** The
+   mockup hard-codes tile labels `days / hrs / min / sec`. Rally's
+   "no hardcoded strings in JSX" rule pushes them into the lexicon.
+   Added under `tripPageShared.scoreboard.units.*` — they're
+   structural data annotations, not voice copy, and are the same on
+   every phase. Flagged here because this exceeds the strict "3 new
+   entries" count from the Option A proposal, but the rule forces it.
+3. **Date-line format differs from mockup.** The mockup shows
+   `"mar 15 · 12pm et"` — hard-coded Eastern tz. The component uses
+   `Intl.DateTimeFormat` with the viewer's local tz instead, rendering
+   e.g. `"mar 15 · 12pm est"` on-device. No product-level tz policy
+   exists in Rally yet; viewer-local is the safe default. Parked as a
+   product decision if Andrew wants a canonical "trip tz."
+4. **No changes to lock/go `countdownSignature` string shape.** The
+   brief suggested lock/go kicker/hint "per
+   `theme.strings.countdownSignature`", but that token is a single
+   whole string per theme (`"days until liftoff"`, etc.) and doesn't
+   decompose into kicker + hint. Lock/go lite shape sidesteps the
+   question until lock-phase polish (Session 12+) defines what
+   scoreboard copy looks like there.
+
+**What to test:**
+
+- [ ] **Pre-QA:** `pkill -f "next dev"; pkill -f "next-server";
+      pkill -f "node.*next"` → `rm -rf .next && npm run dev`. Same
+      dev-env incantation as 9C Actuals.
+- [ ] **Sell trip, authenticated view, 375px.** Scoreboard renders
+      between `PostcardHero` and the deadline banner with:
+      - Kicker line: `"lock in by"` (Georgia italic, muted)
+      - Date line: `"mar <N> · <H><ampm> <TZ>"` (viewer's local tz)
+      - 4 yellow tiles with ink border + 3×3 offset shadow, each
+        showing 2 digits (zero-padded)
+      - Seconds tile visibly ticks every ~1 s with a subtle scale bump
+      - Hint line: `"until the plan locks"` + 🔒 emoji with 3s wobble
+- [ ] **Minute / hour / day rolls** — watch the seconds tile reach 59
+      → 00 and confirm the minutes tile decrements at the same moment
+      (and same for the other boundaries when they happen). Since
+      every tick recomputes all four fields from the target, the roll
+      is a consequence of the math, not a special case.
+- [ ] **Secondary countdown is gone** — no "days until we do it again"
+      (or any theme-signature) countdown renders a second time on
+      sell. Only one scoreboard on the page.
+- [ ] **Deadline banner regression gate** — with a sell trip whose
+      `commit_deadline` is within 3 days, the T-3 banner still renders
+      immediately below the scoreboard. With `commit_deadline` in the
+      past / today, T-0 renders. Copy + trigger unchanged.
+- [ ] **Lock phase** (when a lock trip exists — none today per 9A
+      Actuals) — scoreboard renders in lite shape: no kicker, no date
+      line, 4 tiles counting to `date_start`, themed `heroLabel` below
+      ("days until toes in" / "days until first chair" / etc.).
+- [ ] **Sketch trip unchanged** — sketch short-circuits to
+      `SketchTripShell` before the scoreboard block; no scoreboard
+      renders. `SketchCountdownEmpty` still uses the existing
+      `.countdown-empty` styling.
+- [ ] **InviteeShell (incognito on a non-sketch trip) unchanged** —
+      still uses `ChassisCountdown`, per the Session 10 scope boundary.
+      Visually verified during this session — 85-day countdown renders
+      cleanly on beach-theme trip.
+- [ ] **Reduced-motion** — macOS System Settings → Accessibility →
+      Display → "Reduce motion" on, reload. Seconds tile no longer
+      scale-bumps; lock emoji no longer wobbles; both tile numerals
+      still decrement every second (React state, not CSS).
+- [ ] **Theme regression** — load sell trips on 2-3 different themes
+      (light + dark) and confirm tile yellow tracks `--sticker-bg`
+      correctly. Ink border + text stay readable on the page bg
+      across all themes.
+- [ ] **`ChassisCountdown.tsx` diff** — `git diff src/components/trip/
+      ChassisCountdown.tsx` should show zero changes.
+- [ ] **`npx tsc --noEmit` clean** (verified during session — exit 0,
+      no output).
+
+**Known issues:**
+
+- **Interactive QA of the authenticated scoreboard is blocked for
+  Claude Code** — same harness limitation noted in 9A and 9C Actuals.
+  The preview browser in this session loaded the unauth
+  `InviteeShell` path on `/trip/k5PbSJff` (no Supabase session, no
+  guest cookie). Server logs are clean, `tsc` is clean, `.next` cache
+  is fresh, no runtime errors. Visual / tick / animation verification
+  of the new scoreboard has to happen in Cowork on an authenticated
+  session.
+- **Date-line tz is viewer-local, not a canonical "trip tz."** A user
+  in PT sees `"mar 15 · 9am pst"` while an organizer in ET sees
+  `"mar 15 · 12pm est"` — technically the same moment, different
+  presentation. If Rally wants a canonical tz per trip (common in
+  group-travel tooling), that's a product + schema decision parked
+  here. No migration in 9D.
+- **Lock/go scoreboard is a "lite" shape.** No kicker, no date line;
+  tiles + existing themed `heroLabel`. Matches Option A: lock-phase
+  copy shape gets designed intentionally in Session 12+ when lock
+  trips actually exist. No regression from today — lock/go previously
+  rendered the single `ChassisCountdown` with `heroLabel` below.
+- **Dropped two locals in `page.tsx`** — `ChassisCountdown` import
+  and `fomoFlag` local are gone because the swap made them unused.
+  `theme.strings.fomoFlag` is still defined on the theme type and
+  could be reintroduced in a future session if needed (e.g., if the
+  scoreboard grows a flag sticker).
+
+**9D QA (2026-04-17) — two issues found, both escalated to 9D-fix:**
+
+1. **Tick rate runs ~4–5× faster than real time.** Verified in Chrome via
+   consecutive screenshots on `/trip/k5PbSJff` (Mexico, future
+   `commit_deadline`). Clock advanced 28 sec of displayed time during a
+   ~3 sec real-world wait, and 42 sec during a subsequent ~5 sec real
+   wait — ratio consistently ~4–5×. Component code on inspection looks
+   correct: 1 Hz `setInterval`, target-based recompute via
+   `computeTick(targetMs, Date.now())`, `[target]` dep. No StrictMode
+   in the app folder. Days/hours tiles do stay stable across the
+   samples, which narrows the bug — it's the tick *cadence*, not the
+   computation.
+2. **Tiles are visually under-scale at 375px.** The scoreboard has
+   meaningful horizontal whitespace on both sides — tiles hold
+   `max-width: 76px` with a centered flex row, so the four-tile group
+   only consumes ~320px of the 375px viewport. Numerals at 28px read
+   small relative to the trip title's 42px. Andrew's note: "feel like
+   it could be larger."
+
+Escalated to Session 9D-fix below.
+
+#### Session 9D — Actuals (QA'd 2026-04-17)
+
+**Status:** Closed. Scoreboard shipped and renders correctly on sell +
+lock/go. Two visual/behavioral issues found in QA — both escalated to
+Session 9D-fix rather than addressed in-session. Post-QA, Andrew also
+flagged the broader header vs. wireframe drift, producing a punch list
+that reshuffles 9E / 9F / 9G scopes.
+
+**Acceptance criteria results:**
+
+- ✅ `CountdownScoreboard` component shipped at
+  `src/components/trip/CountdownScoreboard.tsx`, `'use client'`, with
+  the documented prop surface
+- ✅ Sell phase renders scoreboard with 4 tiles + kicker + date + hint
+- ✅ Secondary sell countdown ("days until we do it again") removed
+- ✅ Deadline banner regression gate passes (still renders below
+  scoreboard)
+- ✅ `ChassisCountdown.tsx` unmodified (still used by `InviteeShell`)
+- ✅ Sketch phase renders unchanged
+- ✅ 7 lexicon entries added via in-plan escalation (3 sell +
+  4 shared structural)
+- ✅ Date line uses viewer-local tz via `Intl.DateTimeFormat`
+- ✅ Lock/go renders "lite" shape (tiles + heroLabel only; no kicker,
+  no date line — deferred to lock-phase polish)
+- ✅ `npx tsc --noEmit` clean
+- ⚠️ **Live-tick rate runs ~4-5× faster than real time.** Verified in
+  Chrome on `/trip/k5PbSJff`. Escalated to 9D-fix.
+- ⚠️ **Tiles visually under-scale at 375px.** Significant horizontal
+  whitespace, numerals read small relative to the trip title.
+  Escalated to 9D-fix.
+
+**Judgment calls — accepted defaults:**
+
+- **Viewer-local tz** on the date line (not a canonical "trip tz").
+  Accepted for v0. Product decision parked if the group-travel use
+  case ever demands a canonical tz per trip.
+- **Lock/go lite scoreboard** (no kicker / no date line, tiles +
+  heroLabel below). Accepted — full lock-phase scoreboard copy gets
+  designed when lock trips exist and Session 12+ defines the shape.
+
+**Escalated to 9D-fix (brief + kickoff drafted, execution pending):**
+
+- Tick rate diagnosis + fix (verify `next build && next start` first
+  to rule out dev-only HMR)
+- Tile size + whitespace — CSS-only scale-up in `globals.css`
+
+**Header audit findings (2026-04-17, post-9D QA):**
+
+Andrew's broader audit against the sell-phase wireframe found
+substantial drift beyond the 9D scope. Punch list documented in
+working chat, reshapes 9E / 9F / 9G sequencing:
+
+- **9E — Scoreboard container wrapper + cover image treatment**
+  (bundled — chrome around the countdown). Scoreboard needs a
+  `.countdown`-style card wrapper (white surface, ink border, padded,
+  rounded). Cover image needs repositioning (from above-header to
+  below-meta, above-scoreboard), border treatment, destination-stamp
+  pill, and a theme-gradient fallback when `cover_image_url` is null.
+- **9F — Hero text stack** (live-dot row, eyebrow, trip meta row,
+  tagline decision, sticker content swap from theme-string to
+  days-to-trip format).
+- **9G — Marquee sell-specific content** (dynamic template pulling
+  organizer + cutoff + in count — unparks the 9C deferred item).
+- **Cover-image uploader audit** — standalone investigation. Sell-path
+  only reads `trip.cover_image_url`; unclear whether the sketch flow
+  has a usable upload UI. Not a 9-series sell-polish session.
+- Headliner polish (was 9F) → shifts to 9H.
+- Spot / Lodging polish (was 9G) → shifts to 9I.
+
+**Parked follow-ups (now bundled into the header audit):**
+
+- Marquee sell content → 9G (no longer standalone).
+- "Deadline passed" visual state for the scoreboard (when
+  `cutoff <= now`, tiles go to `00 · 00 · 00 · 00` which looks visually
+  dead). Low priority; revisit when post-cutoff sell traffic matters.
 
 ---
 
-#### Session 9E (preview): "Headliner module polish — sell readOnly + copy + layout"
+#### Session 9D-fix: "Scoreboard tick rate + sizing"
+
+**Intent.** Hot fix for the two 9D QA findings. Two changes, tightly
+scoped. No new functionality; no prop-surface changes.
+
+**Scope (numbered):**
+
+1. **Diagnose + fix the tick rate.** Component `CountdownScoreboard.tsx`
+   is ticking ~4–5× faster than real time in the Next.js 16 / Turbopack
+   dev environment. Code reads correctly on paper (1 Hz interval,
+   target-based recompute, `[target]` dep, cleanup). Plausible causes:
+   - Dev-only HMR artifact (orphaned intervals from hot reload)
+   - Effect firing on every render due to a prop reference instability
+     (e.g., `units` or another object being recreated each render)
+   - Something in the `useEffect` pattern that stacks intervals
+   - A real bug I'm not seeing — e.g., Turbopack-specific `setInterval`
+     behavior
+
+   **Required verification steps before fixing:**
+   - Observe the bug in `npm run dev` (navigate to `/trip/k5PbSJff`,
+     watch the seconds tile vs. a wall clock for 10 seconds)
+   - Verify in `next build && next start` whether the bug repros in the
+     production profile. If it does NOT repro in prod build → mark
+     dev-only and harden the dev path (guard against multiple intervals
+     via a ref, use `setTimeout`-chain instead of `setInterval`, or add
+     an in-component "tick-once-per-second guard")
+   - If it DOES repro in prod build → fix the root cause (effect
+     stacking, prop instability, etc.)
+
+   **Preferred fix pattern (if dev-only):**
+   - Wrap the interval in a `useRef` guard so a stale interval can't
+     coexist with a new one across HMR boundaries
+   - Or swap `setInterval` for a recursive `setTimeout(update, 1000)`
+     pattern that's more resilient to multiple effect fires
+
+   **Acceptance:** seconds tile decrements by exactly 1 per real wall-
+   clock second on a future-dated trip, verified by two consecutive
+   screenshots 10 real seconds apart showing a ~10 sec decrease.
+
+2. **Enlarge the scoreboard.** CSS-only polish in
+   `src/app/globals.css` (scoped to `.scoreboard` and its children).
+   Changes:
+   - Remove or raise the tile `max-width` so the four tiles fill more
+     of the 375px viewport (target: tiles occupy ~90% of container
+     width, gaps between tiles match current 6px proportionally)
+   - Bump numeral font size from `28px` toward `36–42px`. CC's call on
+     the exact value — aim for visual weight closer to the trip title
+     (42px Georgia italic) without overwhelming it. Keep tabular
+     numerals.
+   - Bump unit label from `10px` to `11–12px` for legibility at the
+     new tile size
+   - Optional: tighten vertical spacing around the scoreboard (padding
+     above/below) if the enlarged tiles introduce awkward gaps
+
+   No changes to HTML structure or class names.
+
+**Hard constraints:**
+
+- Only two files may be touched:
+  `src/components/trip/CountdownScoreboard.tsx` (for #1) and
+  `src/app/globals.css` (for #2). Nothing else.
+- DO NOT change the component's prop surface. `units`, `kicker`,
+  `hint`, `hintEmoji`, `target` stay as they are.
+- DO NOT change the lexicon.
+- DO NOT modify `ChassisCountdown.tsx`.
+- DO NOT touch any other component, page, or module.
+- DO NOT add new dependencies.
+- Mobile-first at 375px — verify tiles fit within the viewport with
+  no horizontal scroll after enlarging.
+- `pkill -f "next dev"; pkill -f "next-server"; pkill -f "node.*next"`
+  → `rm -rf .next && npm run dev` before QA.
+- `npx tsc --noEmit` clean before release notes.
+
+**Acceptance criteria:**
+
+- [ ] Seconds tile decrements by exactly 1 per real wall-clock second.
+      Verified via two screenshots 10 real seconds apart on a
+      future-dated trip showing ~10 sec decrease (not ~40+ sec).
+- [ ] Minutes roll cleanly at the minute boundary; hours and days roll
+      naturally from the recompute.
+- [ ] No regression: reduced-motion still disables the tick-bump
+      animation and the lock-emoji wobble; numerals still decrement.
+- [ ] Tiles occupy meaningfully more horizontal space than before —
+      less empty gutter on both sides at 375px.
+- [ ] Numeral font size enlarged; numerals read closer in weight to
+      the trip title without overpowering it.
+- [ ] Unit labels still legible under each tile.
+- [ ] No horizontal scroll at 375px.
+- [ ] Lexicon unchanged; prop surface unchanged.
+- [ ] `ChassisCountdown.tsx` diff is empty.
+- [ ] `npx tsc --noEmit` clean.
+
+**Files to read first:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` → 9D Release Notes + 9D QA finding note +
+  this 9D-fix brief
+- `src/components/trip/CountdownScoreboard.tsx` — the component with
+  the tick bug
+- `src/app/globals.css` — scoreboard CSS block
+- `rally-9d-scoreboard-mockup.html` — visual reference; use as
+  directional guide, don't force pixel parity
+
+**How to QA solo:**
+
+1. `pkill -f "next dev"; pkill -f "next-server"; pkill -f "node.*next"`
+   → `rm -rf .next && npm run dev`.
+2. Navigate to `/trip/k5PbSJff` (Mexico, future deadline). Screenshot,
+   wait 10 real seconds, screenshot again. Compute the delta —
+   should be ~10 seconds, not 40+.
+3. Visually compare the scoreboard size to the first 9D screenshot
+   (archived on disk or git-inspected) — tiles should now fill more
+   of the row, numerals bigger.
+4. Toggle macOS reduced-motion → scale bump + wobble freeze;
+   numerals still decrement.
+5. Same trip in incognito → `InviteeShell` unchanged (Session 10
+   boundary).
+6. `npx tsc --noEmit` clean.
+
+**Escalation triggers:**
+
+- If the tick rate bug reproduces in `next build && next start` →
+  STOP and flag. That's a real bug (not dev HMR) and may require
+  rethinking the effect pattern. Raise options before coding.
+- If the tile-size bump breaks the 375px viewport layout (horizontal
+  scroll, clipped tiles) → STOP. Raise options between shrinking the
+  numeral or reducing gaps.
+- If any fix requires changing the component prop surface → STOP.
+  Not in scope.
+
+#### Session 9D-fix — Release Notes
+
+**What was built:**
+
+1. **Ref-guarded interval in `CountdownScoreboard.tsx`.** Imported
+   `useRef` alongside `useState`/`useEffect`. Added
+   `intervalRef: MutableRefObject<ReturnType<typeof setInterval> | null>`
+   initialized to `null`. On each effect run, the body now explicitly
+   clears `intervalRef.current` before scheduling a new interval, and
+   the cleanup both clears the interval and nulls the ref. Identical
+   behavior in prod (single effect run → single interval, same as
+   before); defensive in Turbopack dev where Fast Refresh can re-run
+   the effect without firing the previous cleanup. Prop surface,
+   render output, and keyed dep (`[target]`) all unchanged.
+2. **Tile sizing bump in `globals.css`.** Scoped to `.chassis .tile`,
+   `.tile-num`, `.tile-label`:
+   - `max-width: 76px` removed from `.tile`. With `flex: 1` unchanged
+     and `gap: 6px` unchanged, the four tiles now fill the full 339px
+     scoreboard row at 375px (80px per tile, measured in-browser).
+   - `.tile padding` changed `10px 4px 8px` → `12px 2px 10px` to give
+     the bigger numerals vertical breathing room and recover horizontal
+     room for wider glyphs.
+   - `.tile-num font-size` 28px → 40px. Georgia italic 900 tabular
+     numerals unchanged. Bumped to just under the 42px trip title for
+     visual parity without overpowering it.
+   - `.tile-label font-size` 10px → 12px, with `margin-top` 4px → 6px
+     to keep the label's vertical proportion matched to the larger tile.
+
+**What changed from the brief:** nothing. Scope held to two files.
+
+**Verification:**
+
+- **Tick-rate root-cause verified dev-only** (per Andrew's Option A on
+  the kickoff). Ran `npm run build && npm start` (prod profile) on the
+  same `/trip/k5PbSJff`; Andrew observed a clean 1-per-second tick in
+  his authenticated browser. This confirmed the ~4–5× rate in dev is
+  a Turbopack / Fast Refresh artifact (stale intervals stacking across
+  HMR reloads), not a code bug. Ref-guarded hardening applied per the
+  brief's dev-only-fix pathway.
+- **375px layout check done via in-browser probe** — injected a
+  stand-in scoreboard into the `.chassis` at 375px and measured each
+  tile: 80px × 91px, numerals at 40px Georgia, labels at 12px. Full
+  tile row spans 339px (exactly the scoreboard's margin-bounded width)
+  with no horizontal scroll on the page. Screenshot captured during
+  the session showing the new scoreboard alongside the unchanged
+  ChassisCountdown ("85 days until toes in") on the InviteeShell path
+  for size comparison.
+- `npx tsc --noEmit` clean (exit 0, no output).
+- `next build` clean (verified during the prod-profile verification
+  step above — 1725ms compile, TypeScript clean, all 17 static pages
+  generated).
+
+**What to test:**
+
+- [ ] **Pre-QA:** `pkill -f "next dev"; pkill -f "next-server";
+      pkill -f "node.*next"` → `rm -rf .next && npm run dev`.
+- [ ] **Tick rate** — load `/trip/k5PbSJff` (Mexico, future deadline)
+      in your authenticated browser, screenshot, wait 10 real seconds,
+      screenshot again. Seconds tile should have dropped by ~10, not
+      ~40+. Expected to be fixed by the ref guard even after multiple
+      HMR edits.
+- [ ] **Fast-refresh stress check** — with the trip page open, edit
+      `CountdownScoreboard.tsx` (e.g., add/remove a blank line), let
+      HMR fire. Tick rate should remain 1-per-second. Repeat a few
+      times to simulate the earlier stacking condition.
+- [ ] **Tile size** — scoreboard fills the 339px inner frame at 375px
+      (no meaningful gutters on either side). Tiles ~80px wide,
+      numerals clearly bigger than the 10/28px of 9D. No horizontal
+      scroll.
+- [ ] **Legibility** — unit labels ("days / hrs / min / sec") still
+      readable at 12px under each tile.
+- [ ] **Minute / hour / day roll** unchanged — seconds 59 → 00 also
+      decrements minutes, etc. Since every tick recomputes all four
+      fields from `target`, this is a consequence of the math, not a
+      special case.
+- [ ] **Reduced-motion** still disables the tick-bump animation and
+      the lock-emoji wobble; numerals keep decrementing via React
+      state.
+- [ ] **InviteeShell regression gate** (incognito) — still uses
+      `ChassisCountdown`, visually unchanged. Verified during the
+      session at 375px: 85-day countdown renders cleanly on the beach
+      theme.
+- [ ] **Lock/go "lite" scoreboard** — if a lock trip exists, verify
+      tiles are the new size there too (CSS is phase-agnostic).
+- [ ] `ChassisCountdown.tsx` diff is empty.
+- [ ] `npx tsc --noEmit` clean.
+
+**Known issues:**
+
+- **Harness still can't QA the authenticated scoreboard.** Same
+  blocker as 9A/9C/9D. The preview browser loads InviteeShell on
+  `/trip/k5PbSJff` (no Supabase session), so the authenticated
+  scoreboard visual (kicker, date, live tick, lock wobble) has to be
+  eyeballed in Cowork. Andrew's prod-profile run during this session
+  confirmed the bug is dev-only and the fix strategy is correct; the
+  useRef guard itself is a direct mapping from "if dev-only, harden
+  with useRef" in the brief.
+- **No root-cause diagnosis of the Fast Refresh cleanup skip.**
+  Turbopack / Next 16 dev behavior is treated as a black box here —
+  we hardened against the symptom rather than identifying which
+  specific HMR path skipped cleanup. If this pattern shows up in
+  other `setInterval` consumers (none today — `ChassisCountdown` at
+  60s cadence is imperceptible if it stacks 4× in dev), same
+  ref-guard pattern applies.
+- **Tile size is fixed at 40/12px** — no responsive scale above 375px.
+  Rally's 3-screen mobile-first rule holds; desktop looks fine but
+  isn't tuned.
+
+---
+
+#### Session 9E: "Top-of-header rebuild"
+
+**Intent.** Everything above the cover image slot gets rigorous, top-
+to-bottom. Rebuild the sell-phase header to match the wireframe view-2
+target while preserving rally's brand chrome (logo, "is calling" pill,
+sticker). Added to the 9-series 2026-04-17 after Andrew's header audit
+identified multiple missing pieces. Canonical target:
+`rally-9e-top-header-sell-mockup.html`.
+
+**Scope (numbered):**
+
+1. **Marquee — dynamic sell template.** On sell phase only, replace
+   `theme.strings.marquee` with a dynamic template pulling from trip +
+   crew state:
+   `"★ {organizer.display_name} called you up ★ lock it in by
+   {cutoffShort} ★ {inCount} already in ★"`
+   - `cutoffShort` = short date via `date-fns`, e.g., `"apr 29"`
+   - If `inCount === 0`, omit the count segment entirely
+   - Sketch / lock / go / done unchanged (keep existing theme marquee)
+   - Unparks the 9C marquee deferral
+   - New lexicon in `src/lib/copy/surfaces/trip-page-sell.ts`:
+     `marquee.calledUp`, `marquee.lockBy`, `marquee.alreadyIn` (or a
+     single template — CC's call based on surface pattern)
+
+2. **Enable live-dot row on sell.** Flip the gate at line ~111 in
+   `PostcardHero.tsx`: `const showLiveRow = isSketch || isLive;` →
+   `const showLiveRow = isSketch || isLive || phase === 'sell';`
+   - Verify `common.live` lexicon resolves to `"trip is live"` — if
+     not, ESCALATE before editing
+   - Preserve existing pulse animation + reduced-motion behavior
+
+3. **Phase-eyebrow — NEW element.** Below the live-dot row, render a
+   new element **distinct from the existing `.eyebrow` pill** (the
+   pill is the "is calling" layer — don't collide with it).
+   - Suggested class: `.phase-eyebrow` or `.sell-eyebrow`
+   - Content: `"sell · {N}-night trip"` via new lexicon key
+     `phaseEyebrow.sell` with `{nights}` interpolation
+   - Nights = `Math.ceil((dateEnd - dateStart) / 86_400_000)` with
+     `Math.max(0, ...)` guard; if either date unset, render `"sell"`
+     alone; if equal, `"sell · day trip"`
+   - Styling: Georgia italic, 12px, `var(--muted)`, lowercase
+   - Phase-gated to sell (don't render on lock/go/done unless that
+     surface design also demands it — default is sell only)
+
+4. **Trip meta row — NEW element.** Below `.title`, above the
+   tagline, render a new `.trip-meta` element.
+   - Content: `"{dateStart_short} → {dateEnd_short} · {destination}"`,
+     e.g., `"nov 20 → 26 · cabo · mx"`
+   - Same-month collapse: when `dateStart` and `dateEnd` share a
+     month, render `"MMM d → d"` instead of `"MMM d → MMM d"`
+   - No new lexicon — data render with `date-fns` format helpers
+   - Hide entirely if all three (both dates + destination) are unset;
+     render partial when only some are set
+   - Styling: 13px, `var(--muted)`, 10px margin-bottom
+   - Phase-gated: render on sell (and optionally lock/go — CC's call
+     based on whether those phases benefit; flag if deviating from
+     "sell only")
+
+5. **Tagline — reposition.** Tagline currently renders directly below
+   the title (`PostcardHero.tsx` lines 162-164 in the else-branch).
+   - Move: tagline now renders BELOW the trip meta row
+   - No content or styling changes
+   - Same `tagline || destination` fallback stays
+   - Affects sell / lock / go / done render paths (shared branch).
+     Verify lock / go visual still holds; if the meta row renders
+     there too, tagline-below-meta works naturally
+
+6. **Regression gates — untouched:**
+   - `.sticker` content + styling (theme-string swap is a later session)
+   - `.eyebrow` pill ("is calling") — content + styling stays
+   - `.logo` (`rally!`)
+   - `.title` (lowercase from 9C)
+   - Cover image (9F owns reposition + treatment)
+   - `CountdownScoreboard` (9D-fix owns tick + sizing; 9F owns
+     wrapper)
+   - `SketchTripShell` — sketch hero path untouched beyond shared
+     helpers (verify no break after phase-gating changes)
+   - `InviteeShell` — unauth teaser untouched
+
+**Hard constraints:**
+
+- Phase-gate every new/changed render branch to `sell` explicitly.
+  Do NOT assume sell-shaped rendering applies elsewhere without a
+  decision.
+- DO NOT collide the new phase-eyebrow with the existing `.eyebrow`
+  pill. Use a distinct class name.
+- DO NOT touch the sticker's content / position / styling.
+- DO NOT touch the cover image — that's 9F.
+- DO NOT touch the scoreboard or its wrapper — 9D-fix + 9F.
+- DO NOT touch any module (headliner onward).
+- DO NOT break the sketch hero path; verify after phase-gating.
+- DO NOT invent lexicon entries beyond the ones specified in scope
+  #1 and #3. If a gap surfaces (e.g., `common.live` needs updating),
+  ESCALATE before adding.
+- DO NOT change `PostcardHero` prop surface beyond adding what's
+  needed to pass in `inCount`, `organizerName`, `cutoffIso` (most
+  are already available; confirm).
+- Mobile-first at 375px.
+- `pkill -f "next dev"; pkill -f "next-server"; pkill -f "node.*next"`
+  → `rm -rf .next && npm run dev` before QA.
+- `npx tsc --noEmit` clean before release notes.
+
+**Acceptance criteria:**
+
+- [ ] Sell-phase marquee renders the dynamic template with organizer /
+      cutoff / inCount populated from trip state
+- [ ] Marquee `inCount === 0` edge case omits the count segment
+- [ ] Sketch-phase marquee unchanged (regression gate)
+- [ ] Lock/go/done marquee unchanged (still uses
+      `theme.strings.marquee`)
+- [ ] Live-dot row renders on sell with pulsing green dot + `"trip is
+      live"` text
+- [ ] Live-dot row still renders on sketch (with sketch override text)
+      and go (with `common.live`)
+- [ ] Reduced-motion disables the live-dot pulse
+- [ ] New phase-eyebrow renders on sell below the live-dot row with
+      `"sell · {N}-night trip"` format
+- [ ] Phase-eyebrow edge cases: dates unset → `"sell"` alone;
+      same-day → `"sell · day trip"`
+- [ ] Existing `.eyebrow` pill ("is calling") renders unchanged
+      (regression gate)
+- [ ] Trip meta row renders on sell with
+      `"{dates} · {destination}"` format
+- [ ] Same-month collapse shows `"MMM d → d"` not
+      `"MMM d → MMM d"`
+- [ ] Tagline now renders below the trip meta row (not immediately
+      below title)
+- [ ] Tagline content unchanged; `tagline || destination` fallback
+      preserved
+- [ ] Sketch hero renders unchanged (regression gate — verify
+      `SketchTripShell` path)
+- [ ] Lock/go hero still renders correctly (shared branch) — flag any
+      unavoidable visual shifts
+- [ ] `InviteeShell` renders unchanged (regression gate)
+- [ ] No sticker content swap; no cover image change
+- [ ] `ChassisCountdown.tsx` and `CountdownScoreboard.tsx`
+      unmodified
+- [ ] `npx tsc --noEmit` clean
+
+**Files to read first:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` → 9A release notes + 9A-fix + 9A Actuals +
+  9C release notes + 9C Actuals + 9D release notes + 9D Actuals +
+  header audit findings + this 9E brief
+- `rally-9e-top-header-sell-mockup.html` — **canonical 9E target**
+  with full top-of-header rendering
+- `rally-sell-phase-wireframe.html` — wireframe reference (view 2)
+- `src/components/trip/PostcardHero.tsx` — primary file for all
+  changes
+- `src/lib/copy/surfaces/trip-page-sell.ts` — lexicon home for
+  marquee + phase-eyebrow
+- `src/lib/copy/surfaces/common.ts` — verify `common.live`
+- `src/app/trip/[slug]/page.tsx` — call site; confirm which props
+  PostcardHero needs passed in
+- `src/components/trip/builder/SketchTripShell.tsx` — regression
+  reference
+
+**How to QA solo:**
+
+1. Clean restart (`pkill` + `rm -rf .next && npm run dev`).
+2. Load a sell trip (Mexico: `/trip/k5PbSJff`). Verify the full stack:
+   marquee (dynamic) → logo + pill + sticker → live-dot row →
+   phase-eyebrow → title → trip meta → tagline.
+3. Watch the live-dot pulse; confirm reduced-motion freezes it.
+4. Verify the marquee shows `"★ andrew shipman called you up ★ lock
+   it in by apr 29 ★ N already in ★"` with real data.
+5. If you can quickly flip `commit_deadline`, test the date-edge
+   cases (unset dates → "sell"; same-day → "sell · day trip").
+6. Sketch trip → hero renders unchanged.
+7. Incognito → InviteeShell unchanged.
+8. At 375px: verify no overflow, stamp-free header, tagline sits
+   below meta cleanly.
+9. `npx tsc --noEmit`.
+
+**Scope boundary reminders:**
+
+- If you find yourself changing the sticker → STOP. Later session.
+- If you find yourself touching cover image positioning / treatment
+  → STOP. 9F.
+- If you find yourself wrapping or modifying the scoreboard → STOP.
+  9F.
+- If you find yourself replacing the existing `.eyebrow` pill
+  content → STOP. Distinct new element.
+- If the sketch path breaks → STOP. Phase-gate, don't restructure.
+- If a lexicon gap appears → STOP. Escalate.
+
+---
+
+#### Session 9F: "Scoreboard wrapper + cover-image postcard"
+
+**Intent.** Put the "object around" the countdown (the card wrapper
+Andrew flagged as missing) AND reposition + reframe the hero cover
+image into a proper postcard treatment. Shared session because both
+are "chrome around the countdown" — the wrapper sits on the countdown
+itself; the postcard sits directly above it. Fresh mockup drafted at
+`rally-9e-hero-chrome-sell-mockup.html` with two variants (cover
+present + theme-gradient fallback).
+
+**Scope (numbered):**
+
+1. **Scoreboard card wrapper.** Wrap the existing scoreboard contents
+   (kicker + date + tiles + hint) in a new `.countdown-card`
+   container, added inside `CountdownScoreboard.tsx`.
+   - Treatment: white `var(--surface)` background, 2.5px ink border,
+     14px radius, `3px 3px 0 var(--stroke)` press shadow. Padding
+     16px top/sides, 18px bottom.
+   - Scoped CSS under `.chassis .countdown-card` — don't collide with
+     the existing `.countdown` class used by `ChassisCountdown`.
+   - No prop surface change. No tick-rate or tile-sizing changes (9D-fix owns those).
+   - Scoreboard interior unchanged — this is a wrapper only.
+
+2. **Reposition the cover image.** `PostcardHero.tsx` today renders
+   `<div className="postcard-cover">` between the marquee and the
+   header block (above sticker / title / tagline). Move it to sit
+   **below the tagline, above the `CountdownScoreboard`**.
+   - DOM order after 9E: marquee → header (sticker + wordmark + title
+     + tagline) → postcard block → scoreboard card → banner → ...
+   - 9F will later add a trip meta row between tagline and postcard;
+     9E does NOT reserve that slot. 9F will push the postcard down
+     naturally when it ships.
+
+3. **Postcard treatment — cover-present variant.** When
+   `trip.cover_image_url` is set, render the image inside a
+   `.postcard` frame with:
+   - 16:9 aspect ratio
+   - 2.5px ink border, 12px radius, `overflow: hidden`
+   - Subtle bottom-gradient tint overlay for stamp legibility
+   - Keep the existing `next/image` usage; don't refactor imaging.
+
+4. **Postcard treatment — theme-gradient fallback.** When
+   `trip.cover_image_url` is null, render the same frame with a
+   theme-color gradient instead. Same border / radius / aspect / stamp
+   rules.
+   - **Escalation trigger:** theme tokens may not cleanly support a
+     two-color gradient. Before coding the fallback, CC inspects
+     `src/lib/themes/*` to determine whether existing per-theme color
+     vars (`--accent`, `--hot`, theme-specific pairs, etc.) can
+     compose into a gradient. Options:
+     - (a) Reuse two existing per-theme color vars (preferred — no
+       new tokens)
+     - (b) Add `--theme-gradient-a` / `--theme-gradient-b` token pair
+       per theme — 17 themes to update, material work, ESCALATE
+     - (c) Fall back to a shared neutral gradient across all themes
+       for v0 (simpler, less "theme-alive")
+   - CC picks (a) if feasible; ESCALATES if (b) or (c) is the cleanest path.
+
+5. **Destination-stamp pill.** Small rotated pill in the postcard's
+   top-right corner, rendered over both variants.
+   - White background (~92% opacity over the image), 1.5px ink border,
+     7px radius, ~3deg rotation, 1.5px×1.5px mini press shadow.
+   - Content: `trip.destination` (e.g., `"tortola · bvi"`). Lowercase,
+     Georgia italic 700, 11px.
+   - Hide the stamp (and don't reserve its space) if `destination` is
+     unset.
+   - Stamp is a data render, not voice copy — no new lexicon entry.
+   - Inline element inside `PostcardHero`; no new reusable component.
+
+**Hard constraints:**
+
+- Only these files touched:
+  - `src/components/trip/PostcardHero.tsx` — reposition + fallback + stamp
+  - `src/components/trip/CountdownScoreboard.tsx` — add `.countdown-card` wrapper only
+  - `src/app/globals.css` — scoped `.postcard`, `.postcard-stamp`, `.postcard--image`, `.postcard--fallback`, `.countdown-card` rules
+  - `src/lib/themes/*` — ONLY if CC escalates and Andrew approves adding theme-gradient tokens
+- DO NOT touch `page.tsx` except if required by a render-order contract (unlikely)
+- DO NOT change the `CountdownScoreboard` prop surface or internals beyond the wrapper
+- DO NOT touch `ChassisCountdown.tsx` (used by `InviteeShell`)
+- DO NOT add the trip meta row — 9F owns it
+- DO NOT swap the sticker content — 9F owns it
+- DO NOT add live-dot row, eyebrow, or touch tagline — 9F
+- DO NOT touch the marquee — 9G
+- DO NOT touch any module (headliner onward) — 9H+
+- DO NOT address the 9D-fix tick rate / tile sizing in the same
+  session (they ship separately)
+- DO NOT add new lexicon entries (destination is data, not copy)
+- DO NOT build an image upload flow (separate concern, sketch path)
+- Mobile-first at 375px
+- `pkill -f "next dev"; pkill -f "next-server"; pkill -f "node.*next"` → `rm -rf .next && npm run dev` before QA
+- `npx tsc --noEmit` clean before release notes
+
+**Acceptance criteria:**
+
+- [ ] Scoreboard renders inside a new `.countdown-card` container with
+      white bg, 2.5px ink border, 14px radius, press shadow
+- [ ] Scoreboard interior (kicker, date, tiles, hint) unchanged —
+      same visual as 9D output
+- [ ] Cover image no longer renders above the header block
+- [ ] Cover image (when present) renders in a 16:9 postcard frame
+      below the tagline, above the scoreboard card
+- [ ] Postcard frame: 2.5px ink border, 12px radius, rounded-clipped
+      image
+- [ ] When `cover_image_url` is null, postcard frame renders a
+      theme-color gradient in the same shape
+- [ ] Destination-stamp pill renders in the postcard's top-right
+      corner when `trip.destination` is set; hidden when unset
+- [ ] Stamp: white pill, 1.5px ink border, ~3deg rotation, Georgia
+      italic lowercase
+- [ ] Sketch phase renders unchanged (regression gate — sketch uses
+      `sketchOverrides.renderPostcard` for its own layout; confirm
+      no break)
+- [ ] Lock/go phases render with the same chrome (scoreboard card +
+      postcard — lite scoreboard shape unchanged)
+- [ ] `InviteeShell` renders unchanged (regression gate)
+- [ ] No new lexicon entries
+- [ ] No changes to `CountdownScoreboard` prop surface
+- [ ] `ChassisCountdown.tsx` unmodified
+- [ ] `npx tsc --noEmit` clean
+
+**Files to read first:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` → 9D Release Notes + 9D Actuals + header
+  audit findings + this 9E brief
+- `rally-9e-hero-chrome-sell-mockup.html` — **canonical 9E target**
+  with both variants (cover present + fallback)
+- `rally-sell-phase-wireframe.html` — wireframe reference, lines
+  ~680 (postcard) + ~685-699 (scoreboard)
+- `src/components/trip/PostcardHero.tsx` — cover image lives here
+- `src/components/trip/CountdownScoreboard.tsx` — wrap internals
+- `src/app/globals.css` — `.postcard-cover` rules (to delete or
+  refactor)
+- `src/lib/themes/*` — check theme token structure for fallback
+  gradient
+- `src/components/trip/builder/SketchTripShell.tsx` — how
+  `sketchOverrides.renderPostcard` interacts with PostcardHero
+
+**How to QA solo:**
+
+1. Clean restart (`pkill` + `rm -rf .next && npm run dev`).
+2. Open the Mexico trip (no cover image set) → postcard frame should
+   render with theme-gradient fallback + stamp `"cabo · mx"` or
+   similar destination stamp. No cover image above the header.
+3. Open a trip that has `cover_image_url` set → postcard frame
+   renders with the real image + stamp. Cover image is NO LONGER at
+   the top of the hero.
+4. Scoreboard sits below the postcard, wrapped in a visible white
+   card with ink border + press shadow.
+5. Sketch trip → hero renders unchanged (sketch has its own
+   `sketchOverrides.renderPostcard` path).
+6. Incognito → `InviteeShell` renders unchanged.
+7. At 375px: no overflow, frame fits inside container, stamp pill
+   doesn't clip.
+8. `npx tsc --noEmit`.
+
+**Scope boundary reminders:**
+
+- If you find yourself touching trip meta, eyebrow, live-dot row, or
+  tagline → STOP. 9F.
+- If you find yourself changing the sticker content → STOP. 9F.
+- If you find yourself touching the marquee → STOP. 9G.
+- If you find yourself changing `CountdownScoreboard` prop surface or
+  tile internals → STOP. Out of 9E scope.
+- If theme tokens don't cleanly support a gradient → STOP. Escalate
+  options (a/b/c from #4 above).
+- If the upload flow feels missing → STOP. Separate session.
+
+---
+
+#### Session 9G (preview): "Headliner module polish — sell readOnly + copy + layout"
 
 *Full brief preserved from the pre-reframe 9C draft. Queues after 9D.*
 

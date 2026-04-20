@@ -15,7 +15,7 @@ import { getCopy } from '@/lib/copy/get-copy';
 
 // New chassis components
 import { PostcardHero } from '@/components/trip/PostcardHero';
-import { ChassisCountdown } from '@/components/trip/ChassisCountdown';
+import { CountdownScoreboard } from '@/components/trip/CountdownScoreboard';
 import { LodgingGallery } from '@/components/trip/LodgingGallery';
 import { StickyRsvpBarChassis } from '@/components/trip/StickyRsvpBarChassis';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
@@ -150,9 +150,6 @@ export default async function TripPage({ params }: Props) {
   const tripStartIso = trip.date_start;
   const cutoffIso = trip.commit_deadline;
 
-  // Theme-themed flag for the hero countdown — pull from theme.strings.fomoFlag.
-  const fomoFlag = theme.strings.fomoFlag;
-
   // ─── Sketch-phase short-circuit ───────────────────────────────────────
   // When a trip is in sketch phase, the trip page IS the builder.
   // Render the inline-edit sketch shell instead of the live trip
@@ -247,6 +244,20 @@ export default async function TripPage({ params }: Props) {
     ? getCopy(themeId, 'tripPageShared.countdown.label.toLock') as string
     : (themedSignature ?? getCopy(themeId, 'tripPageShared.countdown.label.signature'));
 
+  // Session 9D — scoreboard copy. Sell gets kicker + date + hint + emoji
+  // (the full mockup shape). Lock/go runs "lite" (tiles + heroLabel only)
+  // until lock-phase polish lands — zero lock trips exist today per 9A
+  // Actuals. Units are structural labels, shared across phases.
+  const sbKicker = getCopy(themeId, 'tripPageSell.scoreboard.kicker');
+  const sbHint = getCopy(themeId, 'tripPageSell.scoreboard.hint');
+  const sbHintEmoji = getCopy(themeId, 'tripPageSell.scoreboard.hintEmoji');
+  const sbUnits = {
+    days: getCopy(themeId, 'tripPageShared.scoreboard.units.days'),
+    hours: getCopy(themeId, 'tripPageShared.scoreboard.units.hours'),
+    minutes: getCopy(themeId, 'tripPageShared.scoreboard.units.minutes'),
+    seconds: getCopy(themeId, 'tripPageShared.scoreboard.units.seconds'),
+  };
+
   // Fetch buzz feed for inline section
   const buzzDays = await getBuzzFeed(trip.id, currentUserId, themeId);
 
@@ -264,19 +275,24 @@ export default async function TripPage({ params }: Props) {
         isLive={trip.phase === 'go'}
       />
 
-      {/* Hero countdown — sell: days to lock deadline; lock/go: days until trip start */}
+      {/* Session 9D — countdown scoreboard. Sell: full shape (kicker + date +
+          tiles + hint) targeting cutoff. Lock/go: lite shape (tiles + themed
+          heroLabel) targeting trip start. Secondary sell countdown dropped
+          per wireframe: one scoreboard, not two. */}
       {trip.phase === 'sell' && cutoffIso && (
-        <ChassisCountdown target={cutoffIso} label={heroLabel} flag={fomoFlag} />
+        <CountdownScoreboard
+          target={cutoffIso}
+          units={sbUnits}
+          kicker={sbKicker}
+          hint={sbHint}
+          hintEmoji={sbHintEmoji}
+        />
       )}
       {trip.phase !== 'sell' && tripStartIso && (
-        <ChassisCountdown target={tripStartIso} label={heroLabel} flag={fomoFlag} />
-      )}
-
-      {/* Secondary countdown — trip start teaser in sell phase */}
-      {trip.phase === 'sell' && tripStartIso && (
-        <ChassisCountdown
+        <CountdownScoreboard
           target={tripStartIso}
-          label={themedSignature ?? (getCopy(themeId, 'tripPageShared.countdown.label.signature') as string)}
+          units={sbUnits}
+          hint={heroLabel}
         />
       )}
 

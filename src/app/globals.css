@@ -622,6 +622,89 @@ button:active {
   animation: countdown-pulse 2s ease-in-out infinite;
 }
 
+/* Session 9D — countdown scoreboard. d:h:m:s yellow-stickered tiles with
+   a live-ticking seconds tile + optional kicker/date/hint rows. Replaces
+   .countdown on sell/lock/go; .countdown stays for InviteeShell and the
+   empty sketch card. */
+.chassis .scoreboard {
+  margin: 0 18px 18px;
+  padding: 4px 0 0;
+  animation: slide-up-bounce 0.7s 0.4s both;
+}
+.chassis .scoreboard-kicker {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.6;
+  text-align: center;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+.chassis .scoreboard-date {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  text-align: center;
+  margin-bottom: 14px;
+}
+.chassis .scoreboard-tiles {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 6px;
+}
+.chassis .tile {
+  flex: 1;
+  /* 9D-fix — max-width removed; tiles fill the row at 375px (4 × ~80px
+     with 6px gaps inside the 339px scoreboard width). Numeral + label
+     sizes bumped below to match the heavier tile. */
+  background: var(--sticker-bg);
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 var(--stroke);
+  padding: 12px 2px 10px;
+  text-align: center;
+}
+.chassis .tile-num {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 900;
+  font-size: 40px;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.chassis .tile-label {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink);
+  text-transform: lowercase;
+  margin-top: 6px;
+  opacity: 0.85;
+}
+.chassis .tile-secs .tile-num {
+  animation: tile-tick-bump 1s ease-in-out infinite;
+}
+.chassis .scoreboard-hint {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.6;
+  text-align: center;
+  margin-top: 12px;
+}
+.chassis .scoreboard-hint .lock-emoji {
+  display: inline-block;
+  animation: scoreboard-lock-wobble 3s ease-in-out infinite;
+  transform-origin: center;
+}
+
 /* Going row — avatar cascade with handwritten label. */
 /* ─── Deadline + Lock banners (3C) ──────────────────────────────── */
 .chassis .deadline-banner {
@@ -1366,6 +1449,16 @@ button:active {
   0%, 100% { transform: scale(1); }
   50%      { transform: scale(1.04); }
 }
+/* Session 9D — subtle scale bump on the seconds tile, once per second. */
+@keyframes tile-tick-bump {
+  0%, 100% { transform: scale(1);    }
+  50%      { transform: scale(1.03); }
+}
+/* Session 9D — lock-emoji wobble under the hint, 3s loop. */
+@keyframes scoreboard-lock-wobble {
+  0%, 100% { transform: rotate(-4deg); }
+  50%      { transform: rotate(4deg);  }
+}
 @keyframes poll-select {
   0%   { transform: scale(1); }
   50%  { transform: scale(1.05); }
@@ -1389,6 +1482,8 @@ button:active {
   .chassis .avatars .av,
   .chassis .sticky-chip,
   .chassis .countdown--final .cd-num,
+  .chassis .tile-secs .tile-num,
+  .chassis .scoreboard-hint .lock-emoji,
   .chassis.dash-card.needs-move,
   .dash-live-row .dot {
     animation: none !important;

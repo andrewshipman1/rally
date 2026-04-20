@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9C: Headliner (sell, readOnly) mockup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9C SCOPE — read this first
+
+     IN SCOPE:
+     - populated state only (module is hidden when headliner_description is null)
+     - sell / lock / go readOnly — outer card has NO click handler, NO hover
+     - "view site →" CTA link is the ONLY interactive element — opens source
+       URL in a new tab
+     - 8N module-section family: cream page, white surface, 2.5px ink border,
+       Georgia italic lowercase title
+     - mobile-first 375px
+     - copy audit against rally-microcopy-lexicon-v0.md
+
+     OUT OF SCOPE:
+     - null state / "+ the headliner" add affordance (sketch only)
+     - edit drawer (sketch only — see rally-headliner-drawer-wireframe.html)
+     - theme picker / theme variants (Session 14 motion pass)
+     - hover / press / motion states (Session 14)
+     - cost-summary "headliner line" styling (already renders today)
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg: #f5f1ea;          /* cream page */
+    --ink: #1a2a33;         /* primary text + borders */
+    --surface: #ffffff;     /* module card */
+    --on-surface: #1a2a33;  /* text on white */
+    --accent: #ffd84d;      /* yellow */
+    --hot: #e63946;         /* eyebrow accent */
+    --stroke: #1a2a33;      /* press-shadow */
+    --muted: #7a8a90;       /* meta text */
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #2a2a2a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+
+  /* ── Doc header ── */
+  .doc-header {
+    max-width: 620px;
+    margin: 0 auto 20px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: #faf8f5;
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.5;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* ── Stage ── */
+  .stage {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+  }
+
+  /* ── Phone frame (375px) ── */
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--on-surface);
+    border-radius: 18px;
+    padding: 20px 18px 80px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+  }
+  .frame-label {
+    position: absolute;
+    top: -24px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #888;
+    font-weight: 700;
+  }
+
+  /* ── Stub: hero + countdowns (context only, not 9C scope) ── */
+  .context-stub {
+    opacity: .28;
+    pointer-events: none;
+    padding: 0 0 14px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-bottom: 1px dashed rgba(26,42,51,.3);
+    margin-bottom: 18px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     THE HEADLINER MODULE — 9C TARGET
+     ═══════════════════════════════════════════════════════════ */
+
+  /* 8N module-section family primitive */
+  .module-section {
+    background: var(--surface);
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    padding: 14px 14px 16px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  /* decorative top bar — marks the module as a "module-section" */
+  .module-section::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: 14px;
+    right: 14px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 0 0 6px 6px;
+  }
+
+  /* Eyebrow — Georgia italic LOWERCASE per Rally voice */
+  .headliner-eyebrow {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 13px;
+    color: var(--hot);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    /* NOTE: original 8J mockup had uppercase-small-caps (letter-spacing .16em,
+       text-transform: uppercase). 9C moves to lowercase per 8N parity +
+       Rally voice. */
+  }
+  .headliner-eyebrow::after {
+    content: "";
+    flex: 1;
+    height: 1.5px;
+    background: var(--hot);
+    opacity: .3;
+  }
+
+  /* OG hero image */
+  .headliner-og {
+    position: relative;
+    height: 150px;
+    border-radius: 10px;
+    margin: 0 0 12px;
+    overflow: hidden;
+    border: 1.5px solid var(--ink);
+    background-size: cover;
+    background-position: center;
+    background-image:
+      linear-gradient(135deg, rgba(230,57,70,.7), rgba(255,216,77,.55)),
+      radial-gradient(circle at 80% 30%, rgba(255,255,255,.35), transparent 40%),
+      linear-gradient(180deg, #ff8c42, #e63946);
+  }
+  .headliner-og::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,.55) 100%);
+  }
+  .headliner-og-domain {
+    position: absolute;
+    bottom: 8px;
+    left: 10px;
+    z-index: 2;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: rgba(255,255,255,.95);
+    text-transform: lowercase;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .headliner-og-domain::before {
+    content: "↗";
+    font-weight: 900;
+  }
+
+  /* Title — Georgia italic lowercase per Rally voice */
+  .headliner-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 20px;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 10px;
+    letter-spacing: -.005em;
+  }
+
+  /* Cost row */
+  .headliner-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .cost-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    background: var(--ink);
+    color: #faf8f5;
+    padding: 5px 12px;
+    border-radius: 16px;
+  }
+  .cost-pill .dollar { color: var(--accent); }
+  .cost-sub {
+    font-size: 11px;
+    font-style: italic;
+    color: var(--muted);
+  }
+
+  /* "view site →" CTA — the ONLY interactive element on the card */
+  .headliner-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #faf8f5;
+    background: var(--hot);
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    padding: 8px 14px;
+    text-decoration: none;
+    box-shadow: 3px 3px 0 var(--stroke);
+    cursor: pointer;
+  }
+  .headliner-cta:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--stroke);
+  }
+
+  /* ── Annotations layer ── */
+  .annotation {
+    max-width: 620px;
+    margin: 40px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 18px 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: #faf8f5;
+    margin: 0 0 10px;
+  }
+  .annotation h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9c · sell / readOnly</div>
+  <div class="doc-title">the headliner — sell state</div>
+  <div class="doc-sub">
+    Populated, readOnly rendering of the headliner module on sell / lock / go.
+    Null state and edit drawer are sketch-path only and out of scope here.
+  </div>
+</div>
+
+<div class="stage">
+  <div class="frame">
+    <div class="frame-label">sell · 375px · readOnly</div>
+
+    <!-- Stubbed context: hero / countdown / share / organizer — NOT 9C scope -->
+    <div class="context-stub">
+      ▲ hero · countdowns · share · organizer · description (context — not 9C scope)
+    </div>
+
+    <!-- ═══ THE HEADLINER MODULE ═══ -->
+    <div class="module-section">
+      <div class="headliner-eyebrow">the headliner</div>
+
+      <div class="headliner-og">
+        <div class="headliner-og-domain">coachella.com</div>
+      </div>
+
+      <div class="headliner-title">coachella valley music &amp; arts festival</div>
+
+      <div class="headliner-row">
+        <span class="cost-pill"><span class="dollar">$</span>800</span>
+        <span class="cost-sub">/ person · estimated</span>
+      </div>
+
+      <!-- The ONLY interactive affordance on the card: opens source URL in new tab -->
+      <a
+        class="headliner-cta"
+        href="https://coachella.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        onclick="event.stopPropagation()"
+      >view site →</a>
+    </div>
+
+    <!-- Stub: spot (lodging) — just below, for positional context -->
+    <div class="context-stub" style="margin-top: 14px; border-bottom: none; border-top: 1px dashed rgba(26,42,51,.3); padding-top: 14px; margin-bottom: 0;">
+      ▼ spot · getting here · transportation · ... (context — not 9C scope)
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+  <h3>9C — what to change</h3>
+
+  <h4>1 · readOnly behavior (primary fix)</h4>
+  <ul>
+    <li>
+      Add <code>readOnly?: boolean</code> prop to
+      <code>Headliner.tsx</code>, default <code>false</code>.
+    </li>
+    <li>
+      When <code>readOnly={true}</code>: drop <code>role="button"</code> and
+      <code>onClick</code> from the outer card surface. Card becomes a pure
+      display container.
+    </li>
+    <li>
+      Suppress hover / active / press states on the outer card: cursor stays
+      default, no transform, no shadow shift.
+    </li>
+    <li>
+      The embedded <code>&lt;a&gt;</code> CTA ("view site →") is the ONLY
+      interactive element — still opens the source URL in a new tab. No
+      other card-level interactivity.
+    </li>
+    <li>
+      <code>SellHeadliner.tsx</code> passes <code>readOnly={true}</code> and
+      drops the noop <code>onOpen={() => {}}</code> — wrapper becomes a pure
+      prop-adapter.
+    </li>
+    <li>
+      Sketch path (via <code>SketchModules</code>) continues to render with
+      default <code>readOnly={false}</code> — tap opens the edit drawer,
+      unchanged.
+    </li>
+  </ul>
+
+  <h4>2 · 8N module-section parity</h4>
+  <ul>
+    <li>
+      Visual: cream page → white <code>.module-section</code> surface →
+      2.5px ink border → 16px radius → yellow decorative cap.
+    </li>
+    <li>
+      Reference: <code>rally-sketch-modules-v2-mockup.html</code>.
+    </li>
+    <li>
+      Scope headliner CSS to its own classes; do NOT edit
+      <code>.module-section</code> itself.
+    </li>
+  </ul>
+
+  <h4>3 · Copy audit</h4>
+  <ul>
+    <li>
+      Every user-facing string in <code>Headliner.tsx</code> resolves via
+      <code>getCopy</code> → <code>lib/copy/surfaces/builder-state.ts</code>
+      (<code>builderState.headliner.*</code>).
+    </li>
+    <li>
+      Resolved values must match
+      <code>rally-microcopy-lexicon-v0.md</code>.
+    </li>
+    <li>
+      Strings in this mockup (for reference):
+      <ul>
+        <li>Eyebrow: <code>"the headliner"</code> (lowercase, Georgia italic)</li>
+        <li>Cost sub: <code>"/ person · estimated"</code> or
+          <code>"· estimated"</code> — depends on existing lexicon</li>
+        <li>CTA: <code>"view site →"</code></li>
+      </ul>
+    </li>
+    <li>
+      If the audit surfaces strings not in the lexicon: <strong>stop and
+      escalate</strong>. Do not invent new lexicon entries.
+    </li>
+  </ul>
+
+  <h4>4 · 375px layout pass</h4>
+  <ul>
+    <li>
+      OG image height: 150px. Border 1.5px ink. 10px radius.
+    </li>
+    <li>
+      Domain chip bottom-left on OG image: 10px font, ↗ prefix, white/95%
+      over the gradient.
+    </li>
+    <li>
+      Title: 20px Georgia italic lowercase.
+    </li>
+    <li>
+      Cost pill: Georgia italic, ink background, yellow "$", white numeral.
+    </li>
+    <li>
+      CTA: <code>--hot</code> background, 2px ink border, 3px-3px press
+      shadow. Only <code>:active</code> transform state — no hover.
+    </li>
+  </ul>
+
+  <div class="callout">
+    <strong>Escalation trigger:</strong> if making the outer card
+    non-interactive breaks the CTA link's click (e.g., parent-level handler
+    was swallowing the link), flag the options before solving — adding
+    <code>stopPropagation</code> on the link vs. removing the outer click
+    handler vs. restructuring the card root element.
+  </div>
+
+  <h3>Out of scope (keep hands off)</h3>
+  <ul>
+    <li>Null state / "+ the headliner" affordance — sketch-only.</li>
+    <li>Edit drawer — see <code>rally-headliner-drawer-wireframe.html</code>.</li>
+    <li>Hover / press / motion states on the outer card — Session 14.</li>
+    <li>Per-theme variant design (festival vs. race vs. golf etc.) —
+      Session 14 motion / theming pass.</li>
+    <li>Cost-summary "headliner line" (the cost breakdown line item
+      already renders today — <code>rally-headliner-mockup.html</code> line 549).</li>
+    <li>Every other module on the page.</li>
+  </ul>
+
+  <h3>Files touched in 9C</h3>
+  <ul>
+    <li><code>src/components/trip/builder/Headliner.tsx</code> — add <code>readOnly</code> prop</li>
+    <li><code>src/components/trip/SellHeadliner.tsx</code> — pass <code>readOnly={true}</code>, drop noop</li>
+    <li><code>src/lib/copy/surfaces/builder-state.ts</code> — only if copy audit surfaces hardcoded literals with matching lexicon entries</li>
+    <li><code>src/app/globals.css</code> — headliner-scoped rules only (no <code>.module-section</code> edits)</li>
+  </ul>
+</div>
+
+</body>
+</html>

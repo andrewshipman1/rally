@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9D: Countdown scoreboard mockup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9D SCOPE — read this first
+
+     IN SCOPE:
+     - new CountdownScoreboard component: d:h:m:s tiles, live-ticking
+       seconds (1Hz setInterval), yellow-stickered treatment
+     - lock-emoji wobble (CSS keyframe loop, ~3s)
+     - replace sell-phase ChassisCountdown call(s) with scoreboard
+     - sell/lock/go phase awareness: sell → commit_deadline,
+       lock/go → date_start (match existing heroLabel logic)
+     - reduced-motion: disables tick + wobble
+
+     OUT OF SCOPE:
+     - marquee sell-phase content (parked, separate session)
+     - cover image reposition + postcard treatment  → 9E
+     - headliner polish                              → 9F
+     - any other module                              → later
+     - teaser view / InviteeShell                    → Session 10
+     - deadline banner (T-3 / T-0)                   → leave as-is; same
+       file but different surface. Only change is what happens around it.
+
+     DECISION CC ESCALATES:
+     - Drop the secondary "days until we do it again" countdown on sell?
+       Wireframe has one scoreboard. Recommendation: drop it. Confirm
+       before executing.
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg: #f5f1ea;
+    --ink: #1a2a33;
+    --surface: #ffffff;
+    --accent: #ffd84d;
+    --hot: #e63946;
+    --stroke: #1a2a33;
+    --muted: #7a8a90;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #2a2a2a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .doc-header {
+    max-width: 620px;
+    margin: 0 auto 20px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: #faf8f5;
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.5;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .stage {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+  }
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 20px 18px 60px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+  }
+  .frame-label {
+    position: absolute;
+    top: -24px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #888;
+    font-weight: 700;
+  }
+
+  /* Stubbed above/below — not 9D scope */
+  .context-stub {
+    opacity: .25;
+    pointer-events: none;
+    padding: 10px 0;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-bottom: 1px dashed rgba(26,42,51,.3);
+    margin-bottom: 16px;
+  }
+  .context-stub.below {
+    border-bottom: none;
+    border-top: 1px dashed rgba(26,42,51,.3);
+    margin-top: 18px;
+    margin-bottom: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SCOREBOARD — 9D TARGET
+     ═══════════════════════════════════════════════════════════ */
+
+  .scoreboard {
+    padding: 4px 0 0;
+  }
+
+  .scoreboard-kicker {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 4px;
+    letter-spacing: .02em;
+  }
+
+  .scoreboard-date {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    text-align: center;
+    margin-bottom: 14px;
+  }
+
+  .scoreboard-tiles {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .tile {
+    flex: 1;
+    max-width: 76px;
+    background: var(--accent);
+    border: 2.5px solid var(--ink);
+    border-radius: 12px;
+    box-shadow: 3px 3px 0 var(--stroke);
+    padding: 10px 4px 8px;
+    text-align: center;
+  }
+
+  .tile-num {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+
+  .tile-label {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 10px;
+    color: var(--ink);
+    text-transform: lowercase;
+    margin-top: 4px;
+    opacity: .85;
+  }
+
+  /* Seconds tile: animated bump on each tick (subtle) */
+  .tile-secs .tile-num {
+    animation: tick-bump 1s ease-in-out infinite;
+  }
+  @keyframes tick-bump {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.03); }
+  }
+
+  .scoreboard-hint {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 12px;
+  }
+  .scoreboard-hint .lock-emoji {
+    display: inline-block;
+    animation: lock-wobble 3s ease-in-out infinite;
+  }
+  @keyframes lock-wobble {
+    0%, 100% { transform: rotate(-4deg); }
+    50%      { transform: rotate(4deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tile-secs .tile-num,
+    .scoreboard-hint .lock-emoji {
+      animation: none;
+    }
+  }
+
+  /* Annotations layer */
+  .annotation {
+    max-width: 620px;
+    margin: 40px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 18px 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: #faf8f5;
+    margin: 0 0 10px;
+  }
+  .annotation h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9d · sell · countdown scoreboard</div>
+  <div class="doc-title">countdown scoreboard — sell / view 2</div>
+  <div class="doc-sub">
+    Replaces the current single-number pill with a d:h:m:s scoreboard.
+    Live-ticking seconds, lock-emoji wobble. Sell targets
+    <code style="background:rgba(255,255,255,.08); padding:1px 4px; border-radius:3px;">commit_deadline</code>;
+    lock/go targets
+    <code style="background:rgba(255,255,255,.08); padding:1px 4px; border-radius:3px;">date_start</code>.
+  </div>
+</div>
+
+<div class="stage">
+  <div class="frame">
+    <div class="frame-label">sell · 375px · view 2</div>
+
+    <div class="context-stub">▲ marquee · hero (title, tagline) (not 9D scope)</div>
+
+    <!-- ═══ SCOREBOARD ═══ -->
+    <div class="scoreboard">
+      <div class="scoreboard-kicker">lock in by</div>
+      <div class="scoreboard-date">mar 15 · 12pm et</div>
+      <div class="scoreboard-tiles">
+        <div class="tile"><div class="tile-num">51</div><div class="tile-label">days</div></div>
+        <div class="tile"><div class="tile-num">08</div><div class="tile-label">hrs</div></div>
+        <div class="tile"><div class="tile-num">24</div><div class="tile-label">min</div></div>
+        <div class="tile tile-secs"><div class="tile-num">17</div><div class="tile-label">sec</div></div>
+      </div>
+      <div class="scoreboard-hint">
+        until the plan locks
+        <span class="lock-emoji">🔒</span>
+      </div>
+    </div>
+
+    <div class="context-stub below">▼ deadline banner (untouched) · share / calendar · organizer · modules (not 9D scope)</div>
+  </div>
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+  <h3>9D — what to build</h3>
+
+  <h4>1 · New component</h4>
+  <ul>
+    <li>
+      Create <code>src/components/trip/CountdownScoreboard.tsx</code>
+      (or equivalent path alongside <code>ChassisCountdown</code>).
+    </li>
+    <li>
+      Mark <code>'use client'</code> — needs a 1Hz useEffect interval for
+      the seconds tick.
+    </li>
+    <li>
+      Props: <code>target: string</code> (ISO),
+      <code>kicker: string</code> (e.g., "lock in by"),
+      <code>hint?: string</code> (e.g., "until the plan locks"),
+      <code>hintEmoji?: string</code> (wobbling emoji, e.g., "🔒").
+    </li>
+    <li>
+      Do NOT modify or delete <code>ChassisCountdown.tsx</code>. It stays
+      for any remaining callers (lock/go if not migrated yet, etc.).
+      9D's scope is sell only per Andrew's single-module discipline.
+    </li>
+  </ul>
+
+  <h4>2 · Live tick</h4>
+  <ul>
+    <li>
+      <code>setInterval</code> at 1000ms. On each tick, recompute and
+      render all four tiles. Don't only tick the seconds tile — if the
+      minute rolls over, hrs/days should roll naturally.
+    </li>
+    <li>
+      Hydration-safe: initial state <code>null</code>, render
+      <code>"--"</code> placeholder until mount (same pattern as
+      <code>ChassisCountdown</code>).
+    </li>
+    <li>
+      Clear the interval on unmount.
+    </li>
+  </ul>
+
+  <h4>3 · Tile treatment (CSS)</h4>
+  <ul>
+    <li>
+      Each tile: yellow <code>var(--accent)</code> bg, 2.5px ink border,
+      12px radius, 3px×3px press-shadow. Georgia italic tabular numerals.
+    </li>
+    <li>
+      4 tiles equally-spaced, 6px gap, centered in the frame.
+    </li>
+    <li>
+      Scoped CSS in <code>globals.css</code> —
+      <code>.scoreboard</code> / <code>.scoreboard-tiles</code> /
+      <code>.tile</code> / <code>.tile-num</code> / <code>.tile-label</code>.
+      Don't conflict with any existing <code>.countdown</code> class.
+    </li>
+  </ul>
+
+  <h4>4 · Motion</h4>
+  <ul>
+    <li>
+      Seconds tile: subtle scale bump animation (1s loop) as a visual
+      "tick" cue. See <code>@keyframes tick-bump</code> in this mockup.
+    </li>
+    <li>
+      Lock emoji: 3s infinite ease-in-out rotation loop, -4deg → +4deg.
+      See <code>@keyframes lock-wobble</code>.
+    </li>
+    <li>
+      <code>@media (prefers-reduced-motion: reduce)</code> disables both
+      animations.
+    </li>
+  </ul>
+
+  <h4>5 · Phase wiring in page.tsx</h4>
+  <ul>
+    <li>
+      Sell phase: <code>&lt;CountdownScoreboard target={cutoffIso}
+      kicker="lock in by" hint="until the plan locks" hintEmoji="🔒" /&gt;</code>
+    </li>
+    <li>
+      Lock / go phases: same component, different target
+      (<code>tripStartIso</code>) + themed kicker / hint per
+      <code>theme.strings.countdownSignature</code>.
+    </li>
+    <li>
+      Sketch: untouched. Continues to use existing sketch countdown
+      path (if any).
+    </li>
+  </ul>
+
+  <h4>6 · Secondary countdown decision</h4>
+  <ul>
+    <li>
+      The live sell page currently renders TWO countdowns: primary
+      ("0 days to lock it in", targeting <code>commit_deadline</code>)
+      and secondary ("39 days until we do it again", targeting
+      <code>date_start</code>).
+    </li>
+    <li>
+      The wireframe has ONE scoreboard. Recommendation:
+      <strong>drop the secondary countdown</strong> on sell. Single
+      scoreboard per wireframe. On lock phase, the single scoreboard
+      pivots to <code>date_start</code> so no urgency is lost.
+    </li>
+    <li>
+      <strong>Escalation trigger:</strong> if you disagree or see a
+      reason to keep both, STOP and raise options before deleting the
+      secondary call.
+    </li>
+  </ul>
+
+  <div class="callout">
+    <strong>Deadline banner stays.</strong> The T-3 / T-0 banner
+    ("today's the day · 0 still holding.") renders immediately below
+    the countdowns today. 9D does NOT touch that. Same file, different
+    surface — leave it in place. Its behavior already depends on
+    <code>daysToDeadline</code>, which the new scoreboard data doesn't
+    break.
+  </div>
+
+  <h3>Out of scope (keep hands off)</h3>
+  <ul>
+    <li>Marquee content — parked, separate session.</li>
+    <li>Cover image reposition + postcard treatment — 9E.</li>
+    <li>Headliner polish — 9F.</li>
+    <li>Any module — later sessions.</li>
+    <li>Deadline banner rendering — leave as-is.</li>
+    <li>Theme-specific countdown variants (pine ornaments for ski, etc.)
+      — a Session 14 polish idea per wireframe Q7.</li>
+    <li><code>InviteeShell</code> / teaser — Session 10.</li>
+  </ul>
+
+  <h3>Files likely touched</h3>
+  <ul>
+    <li>
+      <code>src/components/trip/CountdownScoreboard.tsx</code> — new
+    </li>
+    <li>
+      <code>src/app/trip/[slug]/page.tsx</code> — swap sell-phase
+      <code>&lt;ChassisCountdown&gt;</code> call(s); apply same to
+      lock/go per phase-branch logic
+    </li>
+    <li>
+      <code>src/app/globals.css</code> — scoped scoreboard styles +
+      <code>tick-bump</code> + <code>lock-wobble</code> keyframes +
+      reduced-motion overrides
+    </li>
+    <li>
+      <code>src/lib/copy/surfaces/</code> — kicker / hint strings.
+      If new lexicon entries are needed, ESCALATE before adding.
+    </li>
+  </ul>
+</div>
+
+</body>
+</html>
