@@ -18,6 +18,7 @@ export const euroSummer: Theme = {
     stroke:    '#2a1a0f',
     surface:   '#1a140a',
     onSurface: '#f5e9d3',
+    hot:       '#e4572e',
   },
 
   strings: {

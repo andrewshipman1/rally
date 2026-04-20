@@ -16,9 +16,31 @@
 
 import Image from 'next/image';
 import type { ReactNode } from 'react';
+import { format } from 'date-fns';
 import { getCopy } from '@/lib/copy/get-copy';
 import { getTheme } from '@/lib/themes';
 import type { ThemeId } from '@/lib/themes/types';
+
+// 9F — length-adaptive title tier (class name → CSS font-size picks the
+// tier). Three steps: 60 / 48 / 38 by char count (≤16 / 17–24 / 25+).
+// Trims trailing whitespace before measuring — trip names stored with an
+// inadvertent trailing space should tier the same as the clean form.
+function titleLengthClass(name: string): string {
+  const n = name.trimEnd().length;
+  if (n <= 16) return 'title t-short';
+  if (n <= 24) return 'title t-medium';
+  return 'title t-long';
+}
+
+// 9F — split trailing !?. off the title so the punctuation can render
+// in var(--hot). No trailing punct → no accent span in the DOM.
+// Trims the right side first so `"name!!! "` still matches.
+function splitTitleAccent(name: string): { base: string; accent: string } {
+  const trimmed = name.trimEnd();
+  const m = trimmed.match(/([!?.]+)$/);
+  if (!m || m.index === undefined) return { base: trimmed, accent: '' };
+  return { base: trimmed.slice(0, m.index), accent: m[1] };
+}
 
 type InviteeOverrides = {
   /** Text for the inviter row above the wordmark: "{inviter_first} called you up". */
@@ -55,6 +77,14 @@ type Props = {
   phase: 'sketch' | 'sell' | 'lock' | 'go';
   /** Whether to render the live indicator (only true for go phase). */
   isLive?: boolean;
+  /** Count of members with rsvp='in' — drives sell marquee "N already in" segment. */
+  inCount?: number;
+  /** ISO commit_deadline — drives sell marquee "lock it in by {cutoff}" segment. */
+  cutoffIso?: string | null;
+  /** ISO date_start — drives the sell-phase trip-meta date range. */
+  dateStartIso?: string | null;
+  /** ISO date_end — drives the sell-phase trip-meta date range. */
+  dateEndIso?: string | null;
   /** When set, swaps the hero into sketch-builder mode (see Phase 4). */
   sketchOverrides?: SketchOverrides;
   /** When set, renders the inviter row + eyebrow (Phase 5 invitee state). */
@@ -70,11 +100,18 @@ export function PostcardHero({
   organizerName,
   phase,
   isLive,
+  inCount = 0,
+  cutoffIso = null,
+  dateStartIso = null,
+  dateEndIso = null,
   sketchOverrides,
   inviteeOverrides,
 }: Props) {
   const theme = getTheme(themeId);
   const isSketch = !!sketchOverrides;
+  // 9E: every sell-specific branch gates on !inviteeOverrides so the
+  // InviteeShell teaser stays unchanged on sell-phase trips.
+  const isSignedInSell = phase === 'sell' && !inviteeOverrides;
 
   // Sticker: sketch override wins; otherwise phase-derived default.
   let sticker: string;
@@ -100,16 +137,51 @@ export function PostcardHero({
           ? getCopy(themeId, 'tripPageSketch.eyebrow')
           : getCopy(themeId, 'tripPageLock.eyebrow');
 
-  // Marquee: sketch override wins; otherwise theme-provided array.
+  // Marquee: sketch override wins; signed-in sell renders a dynamic
+  // template pulling from trip + crew state; everything else (lock /
+  // go / done / InviteeShell-on-sell) uses the theme array.
+  const cutoffShort = cutoffIso ? format(new Date(cutoffIso), 'MMM d').toLowerCase() : null;
   const marqueeItems: string[] = isSketch
     ? sketchOverrides.marqueeItems
-    : theme.strings.marquee.map((item) => (typeof item === 'string' ? item : item({})));
+    : isSignedInSell
+      ? [
+          getCopy(themeId, 'tripPageSell.marquee.calledUp', { organizer: organizerName }),
+          ...(cutoffShort
+            ? [getCopy(themeId, 'tripPageSell.marquee.lockBy', { cutoff: cutoffShort })]
+            : []),
+          ...(inCount > 0
+            ? [getCopy(themeId, 'tripPageSell.marquee.alreadyIn', { count: inCount })]
+            : []),
+        ]
+      : theme.strings.marquee.map((item) => (typeof item === 'string' ? item : item({})));
   // Duplicate the list so the scroll loop is seamless (phase 2 mockup pattern).
   const marqueeContent = [...marqueeItems, ...marqueeItems];
 
-  // Live-row: sketch forces its own text; live path only renders when isLive.
+  // Live-row: sketch forces its own text; go-phase renders via isLive.
+  // 9F reverted the 9E sell gate — sell trips no longer show the muted
+  // "trip is live" row above the title. `common.live` stays in the
+  // lexicon (still consumed when isLive is true on go-phase trips).
   const showLiveRow = isSketch || isLive;
   const liveRowText = isSketch ? sketchOverrides.liveRowText : getCopy(themeId, 'common.live');
+
+  // 9E: trip-meta row (sell only, data render — no lexicon).
+  // Same-month collapse: "Nov 20 → 26"; otherwise "Nov 20 → Dec 2".
+  // Partial render when only some of (dates, destination) are set;
+  // returns null when all three are unset.
+  let tripMetaText: string | null = null;
+  if (isSignedInSell) {
+    let range: string | null = null;
+    if (dateStartIso && dateEndIso) {
+      const s = new Date(dateStartIso);
+      const e = new Date(dateEndIso);
+      const sameMonth = s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth();
+      range = sameMonth
+        ? `${format(s, 'MMM d')} → ${format(e, 'd')}`
+        : `${format(s, 'MMM d')} → ${format(e, 'MMM d')}`;
+    }
+    const parts = [range, destination].filter((p): p is string => !!p);
+    tripMetaText = parts.length ? parts.join(' · ') : null;
+  }
 
   return (
     <>
@@ -158,7 +230,18 @@ export function PostcardHero({
           sketchOverrides.renderBody
         ) : (
           <>
-            <h1 className="title">{tripName}</h1>
+            {(() => {
+              const { base, accent } = splitTitleAccent(tripName);
+              return (
+                <h1 className={titleLengthClass(tripName)}>
+                  {base}
+                  {accent && <span className="title-accent">{accent}</span>}
+                </h1>
+              );
+            })()}
+            {tripMetaText && (
+              <div className="trip-meta">{tripMetaText}</div>
+            )}
             {(tagline || destination) && (
               <div className="tagline">{tagline || destination}</div>
             )}

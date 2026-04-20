@@ -5044,28 +5044,38 @@ evolved from the original 9A/9B pair to a top-down polish walk after 9A
   `setInterval` added to `CountdownScoreboard.tsx` as dev-only
   hardening. Tile sizing bumped: `max-width` removed, numerals 28px →
   40px, labels 10px → 12px. Two files touched (component + CSS).
-- **9E — Top-of-header rebuild.** 🔜 On deck. Reshuffled 2026-04-17
-  (second time same day) after Andrew's "start at the very top, be
-  rigorous" ask. Combines dynamic marquee + live-dot row enable +
-  NEW phase-eyebrow + NEW trip meta row + tagline reposition. Preserves
-  rally chrome (logo, "is calling" pill, sticker). Fresh mockup at
-  `rally-9e-top-header-sell-mockup.html`. Brief below.
-- **9F — Scoreboard wrapper + cover-image postcard.** 🔜 Queued. Was
-  labeled 9E before the reshuffle. `.countdown-card` wrapper around
-  the scoreboard + cover image reposition + 2.5px border +
-  destination-stamp pill + theme-gradient fallback when
-  `cover_image_url` is null. Mockup at
-  `rally-9e-hero-chrome-sell-mockup.html` (file name retained for
-  historical reference; content valid for 9F). Brief below.
-- **9G — Headliner module polish (sell readOnly + copy + layout).**
-  Queued. Fixes the known soft dead-end card-body click deferred from
-  9A-fix.
-- **9H — Spot / Lodging polish.** Queued. Bug Backlog item 1
-  (null-state + date-ordering) lives here.
-- **9B — Getting Here module.** Queued at its natural turn (after 9H
+- **9E — Top-of-header rebuild.** ✅ Shipped. Dynamic marquee +
+  live-dot enable + NEW phase-eyebrow + NEW trip meta row + tagline
+  reposition. Rally chrome preserved. Mockup:
+  `rally-9e-top-header-sell-mockup.html`. **Note:** several 9E
+  additions (phase-eyebrow, live-row on sell) are being scrapped in
+  9F — the hierarchy feedback from Andrew post-ship drove that
+  reversal.
+- **9F — Header rework + scoreboard wrapper.** ✅ Shipped + QA'd
+  2026-04-17. Scraps phase-eyebrow + live-dot row on sell. Title tiers
+  60/48/38 by length. Theme-color title accent on trailing punctuation
+  via new `--hot` palette token (22-file scope expansion approved in
+  plan). Meta 20px ink, tagline 22px Caveat, chrome rebalanced.
+  Scoreboard wrapped in `.countdown-card` with theme-adaptive `--bg`
+  background. Three judgment calls accepted. See 9F Actuals below.
+- **9G — Cover-image postcard + destination stamp + hero-area
+  cleanup.** 🔜 Queued. Was part of the pre-rework 9F; split out
+  when 9F rescoped. Reposition cover image below tagline / above
+  countdown card, add 2.5px ink-bordered postcard frame with
+  destination stamp pill + theme-gradient fallback. Also deletes
+  `<ShareLinkButton>` + `<OrganizerCard>` render calls from
+  `page.tsx`. Canonical wireframe: `rally-9e-hero-chrome-sell-
+  mockup.html` (filename retained; content valid for 9G). Kickoff
+  file pending.
+- **9H — Headliner module polish (sell readOnly + copy + layout).**
+  Queued. Bumped from 9G → 9H on 2026-04-17. Fixes the known soft
+  dead-end card-body click deferred from 9A-fix.
+- **9I — Spot / Lodging polish.** Queued (bumped from 9H → 9I). Bug
+  Backlog item 1 (null-state + date-ordering) lives here.
+- **9B — Getting Here module.** Queued at its natural turn (after 9I
   / before transportation polish). Net-new module, migration required,
   new copy surface. Preview below.
-- **9I+ — Transportation, everything else, crew, cost, buzz, aux
+- **9J+ — Transportation, everything else, crew, cost, buzz, aux
   polish.** Queued in top-to-bottom order.
 - **Cover-image uploader audit.** Separate concern (sketch-path). Not a
   9-series session — standalone investigation when the sell work is
@@ -5078,10 +5088,13 @@ evolved from the original 9A/9B pair to a top-down polish walk after 9A
 pre-RSVP), 3 (RSVP'd in), and 4 (organizer). View 1 (teaser / blur /
 login) is Session 10.
 
-**Current state (2026-04-17 afternoon):** 9A / 9A-fix / 9C / 9D /
-9D-fix all shipped and accepted. Header audit done. **9E (top-of-
-header rebuild) brief + mockup + kickoff drafted, paste-ready prompt
-available.** Next: hand 9E to CC.
+**Current state (2026-04-17 late evening):** 9A / 9A-fix / 9C / 9D /
+9D-fix / 9E / 9F all shipped and QA'd. **9G on deck** — cover-image
+postcard + destination stamp + hero-area render-call deletions.
+Canonical wireframe for 9G: `rally-9e-hero-chrome-sell-mockup.html`
+(filename retained from earlier iteration; content valid for 9G).
+Brief already drafted in the fix plan block below. Next: create the
+9G kickoff file + hand off to CC.
 
 ---
 
@@ -6767,17 +6780,953 @@ identified multiple missing pieces. Canonical target:
 - If the sketch path breaks → STOP. Phase-gate, don't restructure.
 - If a lexicon gap appears → STOP. Escalate.
 
+#### Session 9E — Release Notes
+
+**What was built:**
+
+1. **Lexicon — 4 new entries in
+   `src/lib/copy/surfaces/trip-page-sell.ts`:**
+   - `marquee.calledUp` — `({ organizer }) => "${organizer} called you up"`
+   - `marquee.lockBy` — `({ cutoff }) => "lock it in by ${cutoff}"`
+   - `marquee.alreadyIn` — `({ count }) => "${count} already in"`
+   - `phaseEyebrow.sell` — function template handling three branches:
+     `null → 'sell'`, `0 → 'sell · day trip'`,
+     `N → 'sell · N-night trip'`
+   - All follow the existing function-template pattern (mirrors
+     `eyebrow`, `countdown1.label`, `going.labelN`). No changes to
+     `common.ts` — `common.live` already resolves to `"trip is live"`
+     at `src/lib/copy/surfaces/common.ts:14`.
+2. **`src/components/trip/PostcardHero.tsx` —
+   all 5 brief scope items plus a regression-guard:**
+   - Added 4 new optional props: `inCount?: number`,
+     `cutoffIso?: string | null`, `dateStartIso?: string | null`,
+     `dateEndIso?: string | null`. Optional (with safe defaults)
+     specifically so `InviteeShell.tsx` stays untouched — the
+     TypeScript surface doesn't force it to pass pass-through values.
+   - Introduced `isSignedInSell = phase === 'sell' && !inviteeOverrides`.
+     Every new sell-specific branch (dynamic marquee, live-row,
+     phase-eyebrow, trip-meta) gates on this flag — see Judgment call
+     #1. Without the `!inviteeOverrides` guard, the live-row + dynamic
+     marquee would leak into the InviteeShell teaser on sell trips.
+   - **Marquee (scope #1):** sell branch builds an array from the new
+     lexicon with `date-fns` `format(cutoffIso, 'MMM d').toLowerCase()`
+     → e.g., `"apr 29"`. `alreadyIn` segment omits when `inCount ===
+     0`; `lockBy` segment omits when `cutoffIso` is null. Sketch /
+     lock / go / done / InviteeShell-on-sell paths unchanged (still
+     render `theme.strings.marquee` or `sketchOverrides.marqueeItems`).
+   - **Live-row (scope #2):** gate flipped to
+     `isSketch || isLive || isSignedInSell`. Existing `liveRowText`
+     resolution (`getCopy(themeId, 'common.live')` → `"trip is live"`)
+     already fits sell. No animation or CSS changes.
+   - **Phase-eyebrow (scope #3):** new `<div className="phase-eyebrow">`
+     inserted as a sibling **before** `<h1 className="title">` in the
+     non-sketch branch. Distinct class (not `.eyebrow`). Nights math
+     inline via `Math.max(0, Math.ceil((end - start) / 86_400_000))`;
+     null when either date unset.
+   - **Trip-meta (scope #4):** new `<div className="trip-meta">`
+     inserted between title and tagline. `date-fns` same-month
+     collapse: `"Nov 20 → 26"` vs `"Nov 20 → Dec 2"`. Partial render
+     when only some of (dates / destination) are set; hidden when all
+     three are unset. No new lexicon — pure data render.
+   - **Tagline (scope #5):** moved in the JSX tree to sit below
+     trip-meta. No content or style change. `tagline || destination`
+     fallback preserved. On lock/go/done/InviteeShell the `.trip-meta`
+     slot doesn't render (sell-only gate), so tagline visually stays
+     directly below title — no regression.
+   - Added `import { format } from 'date-fns'`.
+3. **`src/app/trip/[slug]/page.tsx` — prop wiring:** the existing
+   `<PostcardHero>` call site now passes `inCount={inCount}`,
+   `cutoffIso={cutoffIso}`, `dateStartIso={trip.date_start}`,
+   `dateEndIso={trip.date_end}`. All four values were already in scope
+   at that line (line 146, 151, trip object). No other page.tsx edits.
+4. **`src/app/globals.css` — two new scoped blocks:**
+   - `.chassis .phase-eyebrow` — Georgia italic 12px, ink + 0.6
+     opacity (matches the 9D scoreboard muted-text pattern — see
+     Judgment call #2), 2px top / 4px bottom margin, lowercase.
+   - `.chassis .trip-meta` — 13px, ink + 0.6 opacity, 10px bottom
+     margin, lowercase.
+   - Both inserted DOM-order adjacent to existing `.chassis .eyebrow`
+     / `.chassis .title` / `.chassis .tagline` blocks for readability.
+   - `InviteeShell.tsx` **not modified** (diff empty). The 4 new
+     PostcardHero props are optional with safe defaults so the
+     existing InviteeShell call site still type-checks unchanged.
+
+**What changed from the brief:** minimal.
+
+1. **Judgment call #1 — `!inviteeOverrides` guard on every sell
+   branch.** Brief text said "Enable live-dot row on sell — flip gate
+   from `isSketch || isLive` → `isSketch || isLive || phase ===
+   'sell'`." A literal flip would have made the live-row render inside
+   `InviteeShell` on sell trips (since InviteeShell calls PostcardHero
+   with `phase={trip.phase}` and `isLive={false}` —
+   `src/components/trip/InviteeShell.tsx:61-69`), which fails the
+   "InviteeShell renders unchanged" regression gate. Added
+   `!inviteeOverrides` to all four sell-specific branches (marquee
+   dynamic, live-row, phase-eyebrow, trip-meta). InviteeShell is
+   passing `inviteeOverrides={...}` today, so every new sell branch
+   correctly no-ops for it. **Verified in preview:** the incognito
+   InviteeShell view of `/trip/k5PbSJff` on mobile renders the beach-
+   theme marquee (`"beers on the beach ★ sunset walk ★ rosé all
+   day..."`), no live-dot row, no phase-eyebrow, no trip-meta, title
+   + tagline positioned as today. Full gate holds.
+2. **Judgment call #2 — CSS uses `var(--ink)` + `opacity: 0.6`
+   instead of `var(--muted)`.** The mockup
+   (`rally-9e-top-header-sell-mockup.html`) defines
+   `--muted: #7a8a90` in its `:root`. The actual project's
+   `globals.css` does **not** define `--muted` anywhere — the tokens
+   across 17 themes only set `--bg`, `--ink`, `--accent`, `--accent2`,
+   `--sticker-bg`, `--surface`, `--on-surface` (matches the Rally
+   skill's list). The 9D scoreboard's kicker / hint / tile-label
+   blocks use `color: var(--ink); opacity: 0.6;` to get the same
+   visual read (see `.chassis .scoreboard-kicker` at
+   `src/app/globals.css:657`). Followed that established pattern for
+   the new `.phase-eyebrow` and `.trip-meta` rules — same visual
+   effect, plays nicely with all 17 themes, no new token needed.
+3. **Judgment call #3 — sell-only scope for all 4 new sell-specific
+   branches.** Brief said "Phase-gated: render on sell (and optionally
+   lock/go — CC's call based on whether those phases benefit; flag if
+   deviating from 'sell only')." Chose sell-only for all four.
+   Rationale:
+   - Lock/go dynamic marquee ("called you up · lock it in by · N
+     already in") is semantically wrong post-lock — different
+     urgency; themed marquee is correct.
+   - Lock/go live-row already renders when `isLive` (go phase) —
+     unchanged.
+   - Lock/go phase-eyebrow copy ("lock · 6-night trip" / "go · 6-
+     night trip") hasn't been designed. Lock-phase copy design is
+     Session 12+ per 9D Actuals.
+   - Lock/go trip-meta would be useful standalone, but introducing it
+     without the matching phase-eyebrow or lock-phase polish direction
+     creates inconsistency. Defer to lock-phase depth session.
+4. **New props are optional, not required.** Brief said "DO NOT
+   change PostcardHero prop surface beyond adding what's needed to
+   pass in inCount, organizerName, cutoffIso." Added 4 new props (the
+   3 named + `dateStartIso` + `dateEndIso` for nights + trip-meta).
+   Made them optional with safe defaults so InviteeShell.tsx stays
+   truly untouched — respects the "InviteeShell unchanged" regression
+   gate both behaviorally and diff-wise. Release notes for future
+   sessions: if lock/go polish wants to consume these values, the
+   props are already in place.
+5. **TypeScript nit fixed.** `getCopy(..., { nights })` initially
+   failed `ThemeVars` type (nights can be `null`, but `ThemeVars`
+   values are `string | number | undefined`). Coerced with
+   `nights ?? undefined`; the lexicon function handles both
+   `undefined` and `null` the same way via `typeof n === 'number'`
+   branch.
+6. **`globals.css` scoped under `.chassis`.** Both new blocks scope
+   to `.chassis` (the chassis container class) so sketch's
+   non-`.chassis` paths can't accidentally pick them up. Consistent
+   with how `.chassis .title` was scoped in 9C to avoid sketch
+   collateral.
+
+**What to test:**
+
+- [ ] **Pre-QA:** `pkill -f "next dev"; pkill -f "next-server";
+      pkill -f "node.*next"` → `rm -rf .next && npm run dev`. Same
+      dev-env pattern as 9C/9D/9D-fix.
+- [ ] **Signed-in sell trip** (`/trip/k5PbSJff` — Mexico) at 375px.
+      Verify top-to-bottom stack matches
+      `rally-9e-top-header-sell-mockup.html`:
+      - Marquee cycles three dynamic segments:
+        `"andrew shipman called you up"` → `"lock it in by <cutoff>"`
+        (cutoff short, lowercase, e.g., `"apr 29"`) →
+        `"<inCount> already in"`. Star separators between, set by
+        existing marquee CSS.
+      - `rally!` logo, `"★ andrew shipman is calling"` eyebrow pill,
+        sticker (`"sand szn 🏖️"`) all unchanged.
+      - Live-dot row: pulsing green dot + `"trip is live"`.
+      - **Phase-eyebrow**: `"sell · 6-night trip"` (nights from
+        dates; confirm Mexico trip's math — Nov 20 → 26 = 6 nights).
+      - **Title**: `"mexico!!!"` (lowercase, 9C regression).
+      - **Trip-meta**: `"nov 20 → 26 · cabo · mx"` (or whatever the
+        trip's dates + destination are; same-month collapse should
+        show the second month as bare day).
+      - **Tagline**: sits **below** trip-meta, not below title.
+- [ ] **Marquee `inCount === 0` edge case** — create or find a sell
+      trip with zero `rsvp='in'` members. The `"N already in"` segment
+      must be absent from the marquee.
+- [ ] **Phase-eyebrow edge cases** — if a sell trip with unset dates
+      is reachable: phase-eyebrow reads `"sell"` alone. Same-day
+      (`date_start === date_end`) → `"sell · day trip"`.
+- [ ] **Trip-meta edge cases** — unset destination → only date range
+      renders (`"nov 20 → 26"`). Unset dates but destination set →
+      only destination renders (`"cabo · mx"`). All three unset → row
+      hidden entirely (no empty slot).
+- [ ] **Cross-month dates** — if a sell trip spans months, confirm
+      `"nov 30 → dec 2"` format, not the same-month collapse.
+- [ ] **Reduced-motion** (macOS Accessibility → Reduce motion) —
+      live-dot pulse freezes, marquee scroll pauses. Numerals in the
+      scoreboard still tick (9D-fix unchanged).
+- [ ] **Sketch regression gate** — load a sketch trip. Hero renders
+      unchanged (no phase-eyebrow, no trip-meta; `sketchOverrides`
+      branch still controls marquee + live-row + eyebrow).
+- [ ] **Lock/go regression gate** — if a lock-phase trip exists,
+      hero still renders `title + tagline` only (no sell-specific
+      additions). Live-row renders only on go (`isLive=true`).
+- [ ] **InviteeShell regression gate** (incognito →
+      `/trip/k5PbSJff`) — **verified during this session via
+      preview**: beach-theme marquee (not dynamic), no live-row, no
+      phase-eyebrow, no trip-meta, sticker + title + tagline
+      unchanged, ChassisCountdown (`85 · days until toes in`)
+      unchanged. Re-verify in Cowork as a spot-check.
+- [ ] **`git diff src/components/trip/InviteeShell.tsx`** is empty.
+- [ ] **`git diff src/components/trip/ChassisCountdown.tsx`** is
+      empty.
+- [ ] **`git diff src/components/trip/CountdownScoreboard.tsx`** is
+      empty.
+- [ ] **`git diff src/lib/copy/surfaces/common.ts`** is empty.
+- [ ] **`npx tsc --noEmit` clean** (verified during session — exit 0,
+      no output after one round-trip fix on the `nights ?? undefined`
+      coercion).
+
+**Known issues:**
+
+- **Interactive QA of the signed-in-sell hero is blocked for Claude
+  Code** — same harness limitation noted in 9A / 9C / 9D / 9D-fix
+  Actuals. The preview browser loads `InviteeShell` on
+  `/trip/k5PbSJff` (no Supabase session), so I could only verify the
+  InviteeShell regression gate (Gotcha #1, which is the main 9E
+  risk). Visual confirmation of the dynamic marquee, live-dot row,
+  phase-eyebrow, trip-meta, and tagline reposition has to happen in
+  Cowork.
+- **Same double-star rendering in `.eyebrow` pill on InviteeShell**
+  — on the preview snapshot the invitee eyebrow reads
+  `"★ ★ for Mexico!!!"` (the hero prepends `★ ` unconditionally and
+  the invitee override's `eyebrowText` already starts with `★`).
+  Pre-existing behavior unchanged by 9E — flagged here only because
+  the QA eye might catch it; logged as a bug backlog candidate, not
+  a 9E regression.
+- **Trip-meta lowercase is CSS-only** — if the font rendering
+  lowercase causes a legibility problem on any theme, the fallback
+  is to `.toLowerCase()` the string in JS. Not observed in this
+  session; current approach matches 9C's title lowercase pattern.
+- **Lock/go scope deferred** — all 4 sell-specific branches are
+  gated `phase === 'sell'`. When lock-phase direction is formalized
+  (Session 12+), the 4 new props are already in place; the decisions
+  are what lock-phase *copy* looks like for each.
+
 ---
 
-#### Session 9F: "Scoreboard wrapper + cover-image postcard"
+#### Session 9F: "Header rework + scoreboard wrapper"
 
-**Intent.** Put the "object around" the countdown (the card wrapper
-Andrew flagged as missing) AND reposition + reframe the hero cover
-image into a proper postcard treatment. Shared session because both
-are "chrome around the countdown" — the wrapper sits on the countdown
-itself; the postcard sits directly above it. Fresh mockup drafted at
-`rally-9e-hero-chrome-sell-mockup.html` with two variants (cover
-present + theme-gradient fallback).
+**Intent.** Refactor the shipped 9E header to match the locked v3
+wireframe. Four deltas land together because they're all "the top of
+the page as one hierarchy":
+- Scrap the phase-eyebrow + live-dot row on sell (Andrew: "doesn't
+  earn its place")
+- Scale up title / meta / tagline to a real hierarchy
+- Add a theme-color accent on the trip title's trailing punctuation
+  (new brand-mechanics touch — `"mexico!!!"` renders with `!!!` in
+  `var(--hot)`)
+- Wrap the scoreboard in a new `.countdown-card` variant (white
+  surface + ink border + press shadow)
+
+Canonical target: `rally-9f-header-rework-sell-mockup.html` (v3,
+locked 2026-04-17). Three rows: before/after · length tiers · theme
+adaptivity.
+
+**Scope (numbered):**
+
+1. **Scrap phase-eyebrow.** In `PostcardHero.tsx`, remove the
+   `.phase-eyebrow` render block added in 9E. Remove the
+   `phaseEyebrow.sell` lexicon entry from
+   `src/lib/copy/surfaces/trip-page-sell.ts`. Remove the
+   `.phase-eyebrow` CSS rule from `globals.css`.
+
+2. **Scrap live-dot row on sell.** In `PostcardHero.tsx` ~line 111,
+   revert the 9E gate change:
+   `const showLiveRow = isSketch || isLive || phase === 'sell';` →
+   `const showLiveRow = isSketch || isLive;`.
+   Keep the `common.live` lexicon entry and `.live-row` CSS — still
+   used by the go/done `isLive` path. Do NOT remove those.
+
+3. **Trip title with length-adaptive tiers.** Three size tiers based
+   on `tripName.length`:
+   - `≤ 16 chars` → `.t-short` → **60px**
+   - `17–24 chars` → `.t-medium` → **48px**
+   - `≥ 25 chars` → `.t-long` → **38px** (lh 1.05 so wrap is clean)
+   All Georgia italic 900 lowercase. Apply the tier class at render
+   time via a helper:
+   ```ts
+   function titleLengthClass(name: string) {
+     if (name.length <= 16) return 'title t-short';
+     if (name.length <= 24) return 'title t-medium';
+     return 'title t-long';
+   }
+   ```
+
+4. **Theme-color accent on title trailing punctuation.** JSX-level
+   split — regex `/([!?.]+)$/` extracts trailing `!?.` from the name
+   and wraps it in a `<span className="title-accent">`. CSS:
+   `.chassis .title .title-accent { color: var(--hot); }`. When no
+   trailing punctuation exists, no accent renders (no empty span in
+   the DOM). Helper:
+   ```ts
+   function splitTitleAccent(name: string) {
+     const m = name.match(/([!?.]+)$/);
+     if (!m) return { base: name, accent: '' };
+     return { base: name.slice(0, m.index), accent: m[1] };
+   }
+   ```
+
+5. **Scale up date + destination meta.** Retune `.trip-meta` in
+   `globals.css` from the 9E shipped 13px muted → **20px
+   `var(--ink)` italic 700 Georgia**. 14px margin-bottom. No structural
+   change — same single line with `·` dividers; wraps naturally if
+   destination is very long.
+
+6. **Bump tagline font-size.** `.tagline` 20px → **22px**. Same Caveat
+   hand font. No other changes.
+
+7. **Rebalance chrome row.** `.wordmark`/logo 22px → **18px**.
+   `.eyebrow` (the called-up pill) 11px → **10px**. Sticker unchanged
+   at 11px. Chrome row `margin-bottom` → 14px. Keeps the chrome
+   supporting the bigger title, not competing with it.
+
+8. **Wrap scoreboard in `.countdown-card`.** In
+   `CountdownScoreboard.tsx`, wrap the entire return in a
+   `<div className="countdown-card">`. CSS (new class, extension of
+   design system — call out in release notes):
+   ```css
+   .chassis .countdown-card {
+     background: var(--surface);
+     border: 2.5px solid var(--ink);
+     border-radius: 16px;
+     box-shadow: 3px 3px 0 var(--stroke);
+     padding: 18px 18px 20px;
+     margin: 0 18px 16px;
+   }
+   ```
+   Scoreboard interior unchanged — wrapper only. **Do not modify the
+   tick logic, the tile CSS, the lexicon, or the prop surface.** 9D-fix
+   owns tick-rate + tile-sizing; leave both alone.
+
+9. **Lock vertical rhythm.** Tune gaps to:
+   - Hero padding-top (from marquee): 16px
+   - Chrome row → title: 14px
+   - Title → meta: 10px
+   - Meta → tagline: 14px
+   - Tagline → countdown card: 20px
+
+**Hard constraints:**
+
+- Only these files touched:
+  - `src/components/trip/PostcardHero.tsx` — scraps + title helpers
+  - `src/components/trip/CountdownScoreboard.tsx` — wrapper only
+  - `src/app/globals.css` — scale retunes + tier classes + accent +
+    card + cleanup of `.phase-eyebrow`
+  - `src/lib/copy/surfaces/trip-page-sell.ts` — remove
+    `phaseEyebrow.sell` only
+- DO NOT touch the marquee (shipped 9E, unchanged)
+- DO NOT touch the cover image / `.postcard-cover` → 9G
+- DO NOT delete `<ShareLinkButton>` or `<OrganizerCard>` → 9G
+- DO NOT change the sticker content
+- DO NOT modify `ChassisCountdown.tsx` (used by `InviteeShell`)
+- DO NOT change the `CountdownScoreboard` prop surface or internals
+  beyond the wrapper
+- DO NOT remove `common.live` lexicon or `.live-row` CSS
+- DO NOT add a fourth title tier or switch to JS-based sizing
+- DO NOT touch any module (headliner onward)
+- Mobile-first at 375px
+- `pkill -f "next dev"; pkill -f "next-server"; pkill -f "node.*next"`
+  → `rm -rf .next && npm run dev` before QA
+- `npx tsc --noEmit` clean before release notes
+
+**Acceptance criteria:**
+
+- [ ] `.phase-eyebrow` render removed from `PostcardHero.tsx`
+- [ ] `phaseEyebrow.sell` lexicon entry removed
+- [ ] `.phase-eyebrow` CSS rule removed from `globals.css`
+- [ ] `.live-row` no longer renders on sell (gate reverted)
+- [ ] `.live-row` still renders on go/done when `isLive` is true
+      (regression gate)
+- [ ] `common.live` lexicon entry still exists
+- [ ] Trip title on sell renders at the correct tier by length:
+      60px (≤16), 48px (17–24), 38px (25+)
+- [ ] Trailing `!?.` punctuation on the title renders in
+      `var(--hot)` via the `.title-accent` span
+- [ ] Titles without trailing punctuation render with NO accent
+      (verify no empty `.title-accent` span in the DOM)
+- [ ] Date + destination meta row: 20px, ink, italic 700
+- [ ] Tagline: 22px Caveat
+- [ ] Logo: 18px · called-up pill: 10px · sticker unchanged
+- [ ] Scoreboard wrapped in `.countdown-card` (white surface, 2.5px
+      ink border, 16px radius, 3px×3px press shadow, 18/18/20 padding,
+      18px horizontal margin)
+- [ ] Scoreboard interior identical to before 9F (tiles, kicker, date,
+      hint all render as 9D-fix shipped)
+- [ ] Vertical rhythm matches spec (16/14/10/14/20)
+- [ ] Sketch phase renders unchanged — confirm the new title-tier
+      CSS rules don't affect sketch's inline edit field (which uses
+      `.field.field-title` per 9C, a different class; verify)
+- [ ] Lock/go phases render with the new title tiers + accent +
+      countdown card (shared render path)
+- [ ] `InviteeShell` teaser view renders: title uses new tiers +
+      accent (shares `PostcardHero`); live-row path untouched. Log
+      actual behavior in release notes so Session 10 has a reference.
+- [ ] Spot-check title accent across 2-3 themes (e.g., default,
+      bachelorette, beach) — `--hot` tracks per theme
+- [ ] `npx tsc --noEmit` clean
+
+**Files to read first:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` → 9E Release Notes + this 9F brief
+- `rally-9f-header-rework-sell-mockup.html` — **canonical 9F target
+  (v3, locked).** Read first. Three rows: before/after, length tiers,
+  theme adaptivity.
+- `src/components/trip/PostcardHero.tsx` — header component
+- `src/components/trip/CountdownScoreboard.tsx` — wrap target
+- `src/app/globals.css` — existing `.title`, `.trip-meta`, `.tagline`,
+  `.phase-eyebrow`, `.live-row`, `.wordmark`, `.eyebrow` rules
+- `src/lib/copy/surfaces/trip-page-sell.ts` — remove
+  `phaseEyebrow.sell`
+- `src/lib/themes/*` — confirm every theme declares `--hot` (accent
+  adaptivity)
+
+**How to QA solo:**
+
+1. Clean restart (`pkill` + `rm -rf .next && npm run dev`).
+2. Load the Mexico sell trip (`mexico!!!`) — title at 60px with
+   `!!!` in theme `--hot`.
+3. Load the Coachella trip (`coachella 2026!!!`) — 48px tier, same
+   accent treatment.
+4. Load a trip with a 25+ char title without trailing punctuation
+   (e.g., `"cape cod for the fourth of july"`) — 38px, no accent,
+   wraps cleanly.
+5. Confirm phase-eyebrow and live-dot row are both gone on sell.
+6. Meta + tagline sized up; clear hierarchy reading
+   title → dates → tagline.
+7. Countdown card wraps the scoreboard with visible white surface +
+   shadow.
+8. Load a sketch trip — inline title edit field unchanged (different
+   class, unaffected by new tier CSS).
+9. Incognito (InviteeShell teaser view) — title still renders with
+   new tiers + accent; log behavior.
+10. Cycle 2-3 themes to confirm `--hot` accent tracks.
+11. `npx tsc --noEmit`.
+
+**Scope boundary reminders:**
+
+- If `.title` is shared with sketch's inline edit field → STOP and
+  scope the new size tiers to a sell-only wrapper class.
+- If the punctuation-split regex needs edge case handling (emoji-only
+  names, non-ASCII) → simplest fallback (no accent) and move on.
+- If `common.live` is referenced beyond the `isLive` gate → STOP
+  before reverting.
+- If touching cover image / postcard / page.tsx deletions → STOP. 9G.
+- If touching the marquee → STOP.
+- If touching any module (headliner onward) → STOP.
+
+#### Session 9F — Release Notes
+
+**What was built:**
+
+1. **`--hot` palette token — FULL PALETTE UPGRADE (scope expansion,
+   approved in planning).** The brief's Scope #4 accent color
+   (`var(--hot)`) didn't exist anywhere in the project —
+   `ThemePalette` was 8 vars, none of the 17 `[data-theme]` blocks
+   declared `--hot`, zero references in source. Picked Option B
+   (full upgrade) over the aliased fallbacks. Adds:
+   - `hot: string` to `ThemePalette` in
+     `src/lib/themes/types.ts`
+   - `hot: '#…'` to every `palette: {…}` in the 17 theme files
+     under `src/lib/themes/`
+   - `--hot: #…` in `:root` + every `[data-theme]` block in
+     `src/app/globals.css`
+   Verified cross-theme in the preview: beach → `#0ea5e9` (sky
+   blue), bachelorette → `#ec4899`, reunion-weekend → `#e63946`,
+   boys-trip → `#ff3838`, festival-run → `#ff3a8c`,
+   wine-country → `#c4264a`, desert-trip → `#e63946`, tropical →
+   `#ff6b35`, `:root`/just-because → `#fa581e`. Values table below.
+2. **Scope #1 — Phase-eyebrow scrapped.**
+   - `PostcardHero.tsx`: removed the `phaseEyebrowText` computation
+     (inline nights math + `getCopy(..., 'tripPageSell.phaseEyebrow.sell')`)
+     and the `<div className="phase-eyebrow">` render block.
+   - `src/lib/copy/surfaces/trip-page-sell.ts`: removed the
+     `phaseEyebrow.sell` function template + its comment block.
+     Replaced with a one-line "9F scrapped" breadcrumb so future
+     readers don't reintroduce it.
+   - `src/app/globals.css`: removed the `.chassis .phase-eyebrow`
+     rule block entirely.
+3. **Scope #2 — Live-dot row gate reverted on sell.** In
+   `PostcardHero.tsx`, `showLiveRow` is back to `isSketch || isLive`
+   (was 9E's `isSketch || isLive || isSignedInSell`). `common.live`
+   lexicon entry kept intact (`src/lib/copy/surfaces/common.ts:14`);
+   still consumed when `isLive` is true on go-phase trips. `.live-row`
+   CSS untouched.
+4. **Scope #3 — Length-adaptive title tiers.** Added two internal
+   helpers above `PostcardHero` (`titleLengthClass`,
+   `splitTitleAccent`). Rendered `<h1>` now uses
+   `className={titleLengthClass(tripName)}` → `title t-short`
+   (≤16) / `title t-medium` (17–24) / `title t-long` (25+). CSS:
+   ```css
+   .chassis .title.t-short  { font-size: 60px; line-height: 0.98; }
+   .chassis .title.t-medium { font-size: 48px; line-height: 1.0; }
+   .chassis .title.t-long   { font-size: 38px; line-height: 1.05; }
+   ```
+   Base `.chassis .title` kept Shrikhand display font / lowercase /
+   slide-up animation; removed the old `font-size: 42px` +
+   `line-height: 0.95` (now owned by tiers). The pre-existing
+   `.chassis .title .accent` rule (different selector — rotated
+   block) left alone per single-module discipline; flagged as
+   possible dead-code follow-up.
+5. **Scope #4 — Title punctuation accent.** `splitTitleAccent()`
+   splits trailing `!?.` via `/([!?.]+)$/`; wrapped in
+   `<span className="title-accent">`. CSS:
+   `.chassis .title .title-accent { color: var(--hot); }`. No
+   trailing punct → no span in the DOM (confirmed via `outerHTML`
+   probe). See Judgment call #2 for the trailing-whitespace fix.
+6. **Scope #5 — Meta row scaled up.** `.chassis .trip-meta` rewrote
+   13px muted (ink + opacity 0.6) → Georgia italic 700 20px, full
+   ink, `line-height: 1.18`, `margin-bottom: 14px`. Keeps lowercase
+   transform. Data render (no lexicon) unchanged in JSX.
+7. **Scope #6 — Tagline bumped.** `.chassis .tagline`: 20px → 22px.
+   `line-height: 1.1` → `1.18`. `margin-bottom: 18px` → `20px`
+   (hits the locked 20px tagline→card rhythm). Caveat font stays.
+8. **Scope #7 — Chrome row rebalanced.**
+   - `.chassis .wordmark`: 28px → 18px; `margin: 0 0 18px` →
+     `0 0 14px`.
+   - `.chassis .eyebrow`: 11px → 10px; `margin-bottom: 12px` → `14px`.
+   - Sticker untouched (still `.chassis .header .sticker` at 13px).
+9. **Scope #8 — Scoreboard wrapped in `.countdown-card`.**
+   `CountdownScoreboard.tsx` return wrapped in
+   `<div className="countdown-card"><div className="scoreboard">…`.
+   Prop surface / tick useEffect / interval ref guard /
+   `computeTick` / `formatDateLabel` all unchanged. New CSS:
+   ```css
+   .chassis .countdown-card {
+     background: var(--bg);   /* see Judgment call #3 */
+     border: 2.5px solid var(--ink);
+     border-radius: 16px;
+     box-shadow: 3px 3px 0 var(--stroke);
+     padding: 18px 18px 20px;
+     margin: 0 18px 16px;
+   }
+   .chassis .countdown-card .scoreboard { margin: 0; }
+   ```
+   Existing `.chassis .scoreboard` margin + animation unchanged —
+   it still applies when the scoreboard isn't inside a card (none
+   today, but the nested reset keeps it clean).
+10. **Scope #9 — Vertical rhythm locked to 16/14/10/14/20.**
+    - `.chassis .header` padding-top: 18 → 16 (marquee → hero)
+    - `.chassis .wordmark` mb: 18 → 14 (chrome row stack)
+    - `.chassis .eyebrow` mb: 12 → 14 (chrome → title)
+    - `.chassis .title` mb: 12 → 10 (title → meta)
+    - `.chassis .trip-meta` mb: 10 → 14 (meta → tagline)
+    - `.chassis .tagline` mb: 18 → 20 (tagline → card)
+
+**`--hot` values per theme (for QA tuning):**
+
+| theme | `--hot` | rationale |
+|-------|---------|-----------|
+| `:root` / just-because | `#fa581e` | Rally orange (matches `--accent`) |
+| bachelorette | `#ec4899` | mockup anchor — hot pink |
+| boys-trip | `#ff3838` | flare red on charcoal bg |
+| birthday-trip | `#ff2e7e` | hot pink on cream |
+| couples-trip | `#d94a5c` | rose red |
+| wellness-retreat | `#d94a2e` | sunset terracotta |
+| reunion-weekend | `#e63946` | mockup anchor — coral red |
+| festival-run | `#ff3a8c` | matches accent (tune candidate) |
+| beach-trip | `#0ea5e9` | mockup anchor — sky blue |
+| ski-chalet | `#e63946` | red alert on snow |
+| euro-summer | `#e4572e` | blood-orange aperitivo |
+| city-weekend | `#ff2e7e` | neon pink in the dark |
+| wine-country | `#c4264a` | bordeaux |
+| lake-weekend | `#d94a2e` | sunset |
+| desert-trip | `#e63946` | canyon red |
+| camping-trip | `#d94a2e` | campfire ember |
+| tropical | `#ff6b35` | hibiscus |
+
+**What changed from the brief:**
+
+1. **Judgment call #1 — scope expansion to 22 files, approved in
+   planning.** The brief listed 4 files in the allowlist, but `--hot`
+   didn't exist anywhere in the project. Andrew chose "full palette
+   upgrade" in the kickoff AskUserQuestion: expand the allowlist to
+   include `src/lib/themes/types.ts` + the 17 theme `.ts` files. 22
+   files total touched (4 brief-listed + 1 interface + 17 themes).
+2. **Judgment call #2 — helpers trim trailing whitespace.**
+   Preview probe revealed the DB trip name is `"Mexico!!! "` (one
+   trailing space after the punctuation). The original
+   `splitTitleAccent` regex anchored on `$`, so no accent span
+   rendered — `.title-accent` was missing from the DOM. Added
+   `.trimEnd()` to both helpers (`titleLengthClass` uses the trimmed
+   length; `splitTitleAccent` matches against the trimmed string and
+   also returns `trimmed` as the base). Defensive behavior: trip
+   names stored with or without trailing whitespace tier and accent
+   identically. Confirmed via `outerHTML` probe:
+   `<h1 class="title t-short">Mexico<span class="title-accent">!!!</span></h1>`.
+3. **Judgment call #3 — `.countdown-card` uses `var(--bg)`, not the
+   brief's `var(--surface)`.** The brief (and the v3 mockup)
+   literally read `background: var(--surface)`, but that mockup
+   self-declared `--surface: #ffffff`. Rally's `--surface` is the
+   **dark-block color** across all 17 themes (per the comment at
+   `src/app/globals.css:44`: "dark block, light text — marquee,
+   countdown"). The scoreboard interior (kicker, date, tile-label,
+   hint) all print in `var(--ink)`, so using `var(--surface)` would
+   render the card dark on every theme and make the text invisible.
+   Switched to `var(--bg)`: same visual intent as the mockup's
+   white-on-cream (card reads "page color in a framed border"),
+   works across light AND dark themes (`--bg` inverts, `--ink`
+   inverts with it — interior text stays readable). CSS comment
+   documents the reason. If Andrew wants a whiter card on light
+   themes specifically, simplest follow-up is a new `--card-surface`
+   var in a later session.
+4. **`.chassis .title .accent` left alone.** Pre-existing rule
+   (`color: var(--accent); display: block; transform: rotate(-1.5deg)`)
+   uses a different selector than `.title-accent`. Grep found zero
+   consumers in component code. Likely dead from an earlier design
+   iteration; kept out of scope per single-module discipline. Flag
+   for backlog — Cowork-safe CSS delete if confirmed unused.
+5. **Prop-doc update in PostcardHero.** The comments on
+   `dateStartIso` / `dateEndIso` still mentioned "phase-eyebrow
+   nights math" (9E copy). Trimmed to "sell-phase trip-meta date
+   range" since the nights math is gone with the phase-eyebrow
+   scrap. No prop surface change.
+6. **Hero top-of-header padding.** The brief's 16px rhythm anchor is
+   `.chassis .header` top-padding; retained the right/bottom
+   (18 + 10) from pre-9F since 9F's scope doesn't cover the
+   hero→cover-image transition (9G territory).
+
+**What to test:**
+
+- [ ] **Pre-QA:** `pkill -f "next dev"; pkill -f "next-server";
+      pkill -f "node.*next"` → `rm -rf .next && npm run dev`. Same
+      dance as 9C/9D/9D-fix/9E. Two stale-chunk crashes hit during
+      preview work in this session — the `rm -rf .next` is
+      mandatory, not optional.
+- [ ] **Signed-in Mexico sell trip** (`/trip/k5PbSJff`) at 375px:
+      - No phase-eyebrow, no live-row above the title.
+      - Title: 60px (t-short), `mexico` in ink + `!!!` in sky-blue
+        beach `--hot`.
+      - Meta row: `nov 20 → 26 · cabo · mx` in 20px ink Georgia
+        italic 700 (no muting).
+      - Tagline: 22px Caveat, directly below meta.
+      - Chrome row: `rally!` 18px wordmark, `★ is calling` pill at
+        10px, sand-szn sticker unchanged at 13px.
+      - Countdown scoreboard wrapped in `.countdown-card` — beach
+        `--bg` background, 2.5px ink border, 3×3 press shadow,
+        18/18/20 padding, 18px horizontal margin.
+- [ ] **Length tier medium** — rename (or find) a trip with a
+      17–24 char title (e.g., `coachella 2026!!!`). Title should
+      drop to 48px.
+- [ ] **Length tier long** — a trip with 25+ char title WITHOUT
+      trailing `!?.` (e.g., `cape cod for the fourth of july`, 31
+      chars). Title at 38px; verify NO `<span class="title-accent">`
+      in the rendered HTML (check via DevTools Elements panel).
+- [ ] **Title accent with trailing space data** — covered by the
+      Mexico trip already (its DB value has `"Mexico!!! "` with a
+      trailing space; verified in preview that
+      `.title` → `Mexico<span>!!!</span>`).
+- [ ] **Theme accent adaptivity** — cycle 2–3 trips on different
+      themes. Confirm the title's trailing punct renders in that
+      theme's `--hot` (not `--accent`, not stroke-ink). Cross-theme
+      probe verified during the session; ground truth in Cowork.
+- [ ] **Sketch regression** — load a sketch trip. Inline title
+      field (`.field.field-title`) renders unchanged — different
+      class, new tier CSS doesn't reach it.
+- [ ] **Lock-phase / go-phase regression** — if a lock or go trip
+      exists, confirm it also picks up the new tiers + accent and
+      the countdown card (shared render path). Live-row should
+      still render on go (`isLive=true`).
+- [ ] **`common.live` still resolves** — on a go-phase trip, the
+      `.live-row` shows `"trip is live"`. Lexicon entry verified
+      intact at `src/lib/copy/surfaces/common.ts:14`.
+- [ ] **InviteeShell teaser** (incognito on `/trip/k5PbSJff`) —
+      title renders with tier + accent (verified during this
+      session's preview — see screenshot; `.title-accent` color
+      `rgb(14, 165, 233)` = beach `--hot`). ChassisCountdown
+      ("85 days until toes in") NOT wrapped in `.countdown-card`
+      — that's the separate `ChassisCountdown` component which
+      9F doesn't touch. `.trip-meta` doesn't render because the
+      meta row gates on `isSignedInSell` (requires `!inviteeOverrides`).
+- [ ] **Vertical rhythm** — measure (via devtools) the gaps between
+      chrome row bottom, title bottom, meta bottom, tagline bottom,
+      card top. Expected: 14 / 10 / 14 / 20 with hero padding-top 16.
+- [ ] **`git diff src/components/trip/InviteeShell.tsx`** empty.
+- [ ] **`git diff src/components/trip/ChassisCountdown.tsx`** empty.
+- [ ] **`git diff src/lib/copy/surfaces/common.ts`** empty.
+- [ ] **`npx tsc --noEmit`** exit 0 (verified during session).
+
+**Known issues:**
+
+- **Harness can't verify the authenticated scoreboard.** Same
+  blocker as 9A/9C/9D/9D-fix/9E — the preview browser has no
+  Supabase session, so `/trip/k5PbSJff` renders the InviteeShell
+  teaser. The `.countdown-card` CSS was verified via dynamic DOM
+  injection during the session (beach theme resolved correctly:
+  `background rgb(230, 246, 244)` = beach `--bg`, 2.5px ink border,
+  3×3 press shadow, 18/18/20 padding, 18px margin). Ground-truth
+  wrap of the real `CountdownScoreboard` in the authenticated
+  browser is a Cowork eyeball.
+- **Trip-meta unverified in preview.** Same reason — gated on
+  `isSignedInSell`, which requires `!inviteeOverrides`. The 20px
+  ink italic 700 CSS resolves correctly when probed, but the live
+  render of the `nov 20 → 26 · cabo · mx` string lives behind auth.
+- **`.chassis .title .accent` pre-existing rule may be dead code.**
+  A separate selector from 9F's `.title-accent`. Grep found no
+  usages in components or docs (beyond historical comments).
+  Flagged for a possible backlog CSS cleanup; not removed in 9F
+  because that's out of scope.
+- **`festival-run` `--hot` matches `--accent`.** `#ff3a8c` is both.
+  Other themes got distinct values — festival could use a sharper
+  red (`#ff1a5e`?) if Andrew wants more separation. Safe tune in a
+  CSS-only follow-up; single value change.
+- **Turbopack stale-chunk crashes twice during QA.** The second
+  restart with `rm -rf .next` recovered cleanly. Not a 9F
+  regression — same Turbopack behavior that motivated 9D-fix's
+  ref-guarded interval. Flagging here so QA expects it on the
+  first HMR reload of the session and knows the recovery step.
+- **Hero top-of-header padding is 16/18/10 (top/sides/bottom).**
+  The brief's 16px rhythm anchor is the top padding; sides + bottom
+  preserved from pre-9F because they're part of the hero→cover
+  transition that 9G owns.
+
+#### Session 9F — Actuals (QA'd 2026-04-17)
+
+**Status:** Complete. Visual + DOM-probe QA in Chrome on two sell
+trips (Mexico — beach theme, t-short tier; Coachella — reunion-weekend
+theme, t-medium tier). All in-scope ACs pass. Judgment calls 1–3 all
+accepted.
+
+**Acceptance criteria results:**
+
+- ✅ `.phase-eyebrow` not in DOM (verified on both themes)
+- ✅ `.live-row` not in DOM on sell (verified)
+- ✅ `phaseEyebrow.sell` lexicon entry removed (file grep + probe)
+- ✅ `.phase-eyebrow` CSS rule removed
+- ✅ Title tier `.t-short` @ 60px on "Mexico!!!" (9 chars) — verified
+- ✅ Title tier `.t-medium` @ 48px on "Coachella 2026!!!" (17 chars)
+  — verified
+- ⏭ Title tier `.t-long` @ 38px — **not tested** (no trip with 25+ chars
+  without trailing punct in the system). Acceptable skip; CSS rule is
+  in place and the classifier code is straightforward. Revisit if
+  regression surfaces.
+- ✅ Title punctuation accent works: `<span class="title-accent">!!!</span>`
+  renders in `var(--hot)`. DOM-split confirmed.
+- ✅ Theme accent adaptivity (2 themes verified):
+  - beach → `rgb(14, 165, 233)` = `#0ea5e9` (sky blue)
+  - reunion-weekend → `rgb(230, 57, 70)` = `#e63946` (coral red)
+- ✅ Meta row: 20px Georgia ink italic 700, full-ink color
+- ✅ Tagline: 22px Caveat hand font, margin-bottom 20px
+- ✅ Chrome row: logo 18px / pill 10px / sticker 13px (unchanged)
+- ✅ Countdown card wraps the scoreboard with `var(--bg)` background
+  (beach: mint-cream `rgb(230, 246, 244)`; reunion: `rgb(244, 237, 224)`),
+  2.5px ink border (CSS: verified via grep at globals.css:689;
+  Chrome computed-style reports `2px` — sub-pixel normalization, not
+  a bug), 3×3 press shadow, 18/18/20 padding, `0 18px 16px` margin
+- ✅ Scoreboard interior unchanged (tiles, kicker, date, hint render
+  as 9D-fix shipped)
+- ✅ Vertical rhythm 16 / 14 / 10 / 14 / 20 — verified via computed
+  styles
+- ✅ Deadline banner ("today's the day · 0 still holding") still
+  renders below the scoreboard (regression gate from 9D)
+- ⏭ Sketch regression — **not tested this pass.** No sketch trip loaded
+  during QA. CC's scoping (new title-tier classes apply only to
+  `.chassis .title`, sketch uses `.field.field-title`) is sound. Log
+  as "assumed pass per scope analysis; spot-check in next session."
+- ⏭ InviteeShell regression — **not tested this pass.** Incognito would
+  require a separate browser session. CC verified during their
+  harness session that accent + tiers apply via dynamic probe. Log
+  as "CC-verified in harness; Cowork eyeball deferred."
+- ⏭ Lock/go phase regression — **not testable** (no lock/go trips
+  exist).
+- ⏭ `common.live` still rendering on go-phase — **not testable.**
+  Lexicon grep confirms entry intact at `common.ts:14`.
+- ✅ `ChassisCountdown.tsx` unmodified (CC verified via git diff)
+- ✅ `common.live` lexicon entry intact
+- ✅ `npx tsc --noEmit` clean (CC verified during session)
+
+**Judgment calls — all accepted:**
+
+1. **Scope expansion to `--hot` palette upgrade (22 files).** Accepted
+   in plan mode. Adds `hot: string` to `ThemePalette`, declares
+   `--hot` in `:root` + every `[data-theme]` block in `globals.css`,
+   sets per-theme values across all 17 theme files. Verified working
+   on beach + reunion-weekend; no regressions observed.
+2. **`splitTitleAccent` trims trailing whitespace.** DB value for the
+   Mexico trip is `"Mexico!!! "` with a trailing space. Defensive
+   `.trimEnd()` in both helpers ensures the accent renders regardless
+   of whitespace sloppiness in stored trip names. Pass.
+3. **`.countdown-card` uses `var(--bg)` not `var(--surface)`.** The
+   original spec said `var(--surface)`, but Rally's `--surface` is
+   the dark-block color (marquee / countdown pre-9F). Using it would
+   render the card dark on every theme and break text legibility.
+   Swap to `var(--bg)` preserves the mockup's intent (card = page
+   color in a framed border) while being theme-adaptive. Accepted.
+   If a whiter-specific card on light themes is wanted later,
+   simplest follow-up is a new `--card-surface` token.
+
+**Wireframe-vs-reality notes for future sessions:**
+
+- Title font in the app is **Shrikhand** (via `--font-display`), not
+  Georgia. The v3 wireframe fell back to Georgia because Shrikhand
+  wasn't loaded in the mockup HTML. Visual result is the same display-
+  weight serif. Mockups for future sessions should either import
+  Shrikhand or explicitly note the fallback.
+- Border sub-pixel (`2.5px`) normalizes to `2px` in Chrome's computed
+  styles. CSS source is correct; visual is crisp. Not a bug.
+
+**Parked follow-ups:**
+
+- `.chassis .title .accent` pre-existing CSS rule (different selector
+  from 9F's `.title-accent`, zero component refs) — likely dead code
+  from an earlier iteration. Cowork-safe CSS delete if confirmed
+  unused. Not removed in 9F per single-module discipline.
+- `festival-run` theme `--hot` (`#ff3a8c`) matches `--accent`. Could
+  use a sharper red for separation. One-line theme file tune.
+- Lock/go, InviteeShell, sketch spot-checks deferred to next session
+  that exercises those paths.
+- Optional follow-up: `--card-surface` token if a whiter card on light
+  themes is wanted (vs. today's `--bg`-inherit behavior).
+
+---
+
+#### Session 9G: "Cover-image postcard + destination stamp + hero-area cleanup"
+
+*Was bundled into the pre-rework 9F. Split out 2026-04-17 when 9F
+rescoped to header hierarchy.*
+
+**Intent.** Reposition the hero cover image into a proper postcard
+frame below the tagline (above the countdown card that 9F adds), add
+the destination stamp pill, provide a theme-gradient fallback when no
+cover is set, and clean up two misplaced hero-area render calls from
+`page.tsx`. Canonical target: `rally-9e-hero-chrome-sell-mockup.html`
+(file name from the old 9F draft; content valid for 9G).
+
+**Scope (numbered):**
+
+1. **Reposition cover image.** Move
+   `<div className="postcard-cover">` in `PostcardHero.tsx` from
+   between the marquee and the header block to sit **below the
+   tagline, above the `<CountdownScoreboard>` / `.countdown-card`
+   wrapper** (post-9F).
+
+2. **Postcard frame — cover-present variant.** When
+   `trip.cover_image_url` is set, render the image inside a
+   `.postcard` frame: 16:9 aspect, 2.5px ink border, 12px radius,
+   `overflow: hidden`, subtle bottom-gradient tint overlay for stamp
+   legibility. Keep existing `next/image` usage.
+
+3. **Postcard frame — theme-gradient fallback.** When
+   `cover_image_url` is null, render the same frame with a
+   theme-color gradient. Same border / radius / aspect / stamp rules.
+   **Escalation trigger:** theme tokens may not cleanly support a
+   two-color gradient. Before coding, inspect `src/lib/themes/*`:
+   - (a) Reuse two existing per-theme color vars (preferred — no new
+     tokens)
+   - (b) Add `--theme-gradient-a` / `--theme-gradient-b` per theme
+     (17 themes × 2 vars = 34 new tokens — material work, ESCALATE)
+   - (c) Shared neutral gradient across all themes for v0
+   CC picks (a) if feasible; ESCALATES if (b) or (c) is the clean path.
+
+4. **Destination-stamp pill.** Small rotated pill in the postcard's
+   top-right corner, rendered over both variants.
+   - White background (~92% opacity), 1.5px ink border, 7px radius,
+     ~3deg rotation, 1.5px×1.5px mini press shadow.
+   - Content: `trip.destination` (e.g., `"tortola · bvi"`). Lowercase
+     Georgia italic 700 11px.
+   - Hidden (and no reserved space) when `destination` is unset.
+   - Inline element inside `PostcardHero`; no new reusable component.
+
+5. **Delete `<ShareLinkButton>`** render call from `page.tsx`
+   (~lines 341–345) plus its import. Andrew: "totally wrong." Share-
+   link UX is Session 11's concern. Leave `ShareLinkButton.tsx` as an
+   orphan file (same pattern as 9A's flights/groceries/activities).
+
+6. **Delete `<OrganizerCard>`** render call from `page.tsx`
+   (~line 357) plus its import. Leave `OrganizerCard.tsx` as an
+   orphan.
+
+**Hard constraints:**
+
+- Only these files touched:
+  - `src/components/trip/PostcardHero.tsx` — cover reposition + frame
+    + stamp
+  - `src/app/globals.css` — `.postcard`, `.postcard-stamp`,
+    `.postcard--image`, `.postcard--fallback` rules
+  - `src/app/trip/[slug]/page.tsx` — only the two deletions + their
+    imports; no other edits
+  - `src/lib/themes/*` — ONLY if CC escalates and Andrew approves
+    path (b)
+- DO NOT modify `CountdownScoreboard.tsx` (9F territory, already
+  shipped)
+- DO NOT touch `ChassisCountdown.tsx`
+- DO NOT touch title / meta / tagline / chrome row (9F owns those;
+  already shipped)
+- DO NOT touch the marquee
+- DO NOT touch any module (headliner onward)
+- DO NOT build an image upload flow (separate sketch-path concern)
+- DO NOT add new lexicon entries (destination is data, not voice copy)
+- DO NOT delete `ShareLinkButton.tsx` or `OrganizerCard.tsx` files
+- Mobile-first at 375px
+- Clean-restart incantation before QA
+- `npx tsc --noEmit` clean
+
+**Acceptance criteria:**
+
+- [ ] Cover image no longer renders above the header block
+- [ ] Cover image (when set) renders in a 16:9 postcard frame below
+      the tagline, above the countdown card
+- [ ] Postcard frame: 2.5px ink border, 12px radius, image clipped
+- [ ] When `cover_image_url` is null, frame renders a theme-color
+      gradient (path a/b/c per escalation)
+- [ ] Destination-stamp pill renders in the postcard's top-right
+      corner when `trip.destination` is set
+- [ ] Stamp: white pill, 1.5px ink border, ~3deg rotation, Georgia
+      italic lowercase 11px
+- [ ] Stamp hidden (no reserved space) when destination unset
+- [ ] `<ShareLinkButton>` render call removed from `page.tsx`; import
+      removed; component file still exists (orphan)
+- [ ] `<OrganizerCard>` render call removed; import removed; component
+      file still exists (orphan)
+- [ ] On sell, "copy the invite link ↗" and "Andrew Shipman · Big
+      Daddy · started this" no longer render above the scoreboard
+- [ ] Sketch phase renders unchanged (regression gate — sketch uses
+      `sketchOverrides.renderPostcard`, a different path)
+- [ ] Lock/go phases render with postcard + countdown card chrome
+- [ ] `InviteeShell` renders unchanged
+- [ ] At 375px: no overflow, frame fits, stamp doesn't clip
+- [ ] `npx tsc --noEmit` clean
+
+**Files to read first:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` → 9F Release Notes + 9F Actuals + this 9G
+  brief
+- `rally-9e-hero-chrome-sell-mockup.html` — canonical target (file
+  named 9e historically, content valid for 9G)
+- `src/components/trip/PostcardHero.tsx`
+- `src/app/trip/[slug]/page.tsx`
+- `src/app/globals.css`
+- `src/lib/themes/*` — theme token structure for gradient fallback
+- `src/components/trip/builder/SketchTripShell.tsx` — verify sketch
+  path unaffected
+
+**Scope boundary reminders:**
+
+- If theme tokens can't cleanly support a gradient (paths b/c) →
+  STOP, escalate options before coding.
+- If you find yourself touching title / meta / tagline → STOP. 9F
+  already shipped.
+- If you find yourself touching scoreboard internals → STOP.
+- If upload flow feels missing → STOP. Separate concern.
+- If deleting the `ShareLinkButton` or `OrganizerCard` component files
+  (not just render calls) → STOP. Orphan pattern.
+
+---
+
+#### (old 9F placeholder — retained below for history; scope fully replaced above)
+
+<!-- OLD 9F SCOPE — SUPERSEDED BY NEW 9F + 9G ABOVE. Retained
+     verbatim as a historical marker so the fix plan shows the scope
+     evolution. DO NOT hand off this block to CC. -->
+
+*Note 2026-04-17: the following scope block is superseded. The
+scoreboard wrapper ships in the new 9F (header rework). The cover-
+image postcard + destination stamp + page.tsx deletions ship in the
+new 9G. This old block remains only as evolution context.*
 
 **Scope (numbered):**
 
@@ -6838,14 +7787,35 @@ present + theme-gradient fallback).
    - Stamp is a data render, not voice copy — no new lexicon entry.
    - Inline element inside `PostcardHero`; no new reusable component.
 
+6. **Remove two hero-area render calls from `page.tsx`** (added
+   2026-04-17 per Andrew's direction — folded into 9F since it's
+   already the hero-chrome session):
+   - Delete the `<ShareLinkButton>` `<Reveal>` block (~lines 341-345 in
+     `src/app/trip/[slug]/page.tsx`) — the "copy the invite link ↗"
+     button at the top of the sell hero. Andrew: "totally wrong."
+     Share-link UX will be handled via Session 11's invite delivery
+     flow.
+   - Delete the `<OrganizerCard>` `<Reveal>` block (~line 357) — the
+     "Andrew Shipman · Big Daddy · started this" module. Not deleting
+     `OrganizerCard.tsx` itself — same orphan-not-delete pattern we
+     used in 9A for flights/groceries/activities.
+   - Drop the corresponding imports (`ShareLinkButton`, `OrganizerCard`)
+     from `page.tsx` since they become unused.
+   - Confirm these components aren't referenced on sketch / lock / go
+     paths before deleting the call sites (regression gate). Sketch
+     uses `SketchTripShell` — a different render path — so it should
+     be unaffected.
+
 **Hard constraints:**
 
-- Only these files touched:
+- Files touched (updated 2026-04-17 to allow the two page.tsx
+  deletions from #6):
   - `src/components/trip/PostcardHero.tsx` — reposition + fallback + stamp
   - `src/components/trip/CountdownScoreboard.tsx` — add `.countdown-card` wrapper only
   - `src/app/globals.css` — scoped `.postcard`, `.postcard-stamp`, `.postcard--image`, `.postcard--fallback`, `.countdown-card` rules
+  - `src/app/trip/[slug]/page.tsx` — delete the two render calls (and their imports) per #6 only; no other edits
   - `src/lib/themes/*` — ONLY if CC escalates and Andrew approves adding theme-gradient tokens
-- DO NOT touch `page.tsx` except if required by a render-order contract (unlikely)
+- DO NOT touch `page.tsx` beyond the two specific deletions in #6
 - DO NOT change the `CountdownScoreboard` prop surface or internals beyond the wrapper
 - DO NOT touch `ChassisCountdown.tsx` (used by `InviteeShell`)
 - DO NOT add the trip meta row — 9F owns it
@@ -6884,6 +7854,17 @@ present + theme-gradient fallback).
 - [ ] Lock/go phases render with the same chrome (scoreboard card +
       postcard — lite scoreboard shape unchanged)
 - [ ] `InviteeShell` renders unchanged (regression gate)
+- [ ] `<ShareLinkButton>` render call is removed from `page.tsx`; its
+      import is removed; `ShareLinkButton.tsx` component file still
+      exists (orphan, don't delete)
+- [ ] `<OrganizerCard>` render call is removed from `page.tsx`; its
+      import is removed; `OrganizerCard.tsx` component file still
+      exists (orphan, don't delete)
+- [ ] On sell, the "copy the invite link ↗" button and the
+      "Andrew Shipman · Big Daddy · started this" card no longer
+      render above the scoreboard
+- [ ] Sketch flow unaffected by the deletions (confirm `SketchTripShell`
+      doesn't depend on these components)
 - [ ] No new lexicon entries
 - [ ] No changes to `CountdownScoreboard` prop surface
 - [ ] `ChassisCountdown.tsx` unmodified
@@ -6939,9 +7920,11 @@ present + theme-gradient fallback).
 
 ---
 
-#### Session 9G (preview): "Headliner module polish — sell readOnly + copy + layout"
+#### Session 9H (preview): "Headliner module polish — sell readOnly + copy + layout"
 
-*Full brief preserved from the pre-reframe 9C draft. Queues after 9D.*
+*Bumped from 9G → 9H on 2026-04-17 when 9G was claimed by the cover-
+image postcard + hero-area cleanup work. Full brief preserved from
+the pre-reframe 9C draft.*
 
 **Intent.** First module in the top-down module-stack polish walk.
 Originally scoped as 9C before the top-to-bottom reframe pulled hero

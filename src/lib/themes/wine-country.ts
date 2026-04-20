@@ -18,6 +18,7 @@ export const wineCountry: Theme = {
     stroke:    '#3e1f3a',
     surface:   '#2a1420',
     onSurface: '#f4ede0',
+    hot:       '#c4264a',
   },
 
   strings: {

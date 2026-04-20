@@ -19,6 +19,7 @@ export const tropical: Theme = {
     stroke:    '#0a2a1f',
     surface:   '#0a2418',
     onSurface: '#e4f4e8',
+    hot:       '#ff6b35',
   },
 
   strings: {

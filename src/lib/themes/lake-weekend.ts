@@ -18,6 +18,7 @@ export const lakeWeekend: Theme = {
     stroke:    '#0e2a3e',
     surface:   '#0a1a24',
     onSurface: '#dfeef0',
+    hot:       '#d94a2e',
   },
 
   strings: {

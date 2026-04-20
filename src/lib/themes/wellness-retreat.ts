@@ -17,6 +17,7 @@ export const wellnessRetreat: Theme = {
     stroke:    '#1a3329',
     surface:   '#1a2a22',
     onSurface: '#eaeee4',
+    hot:       '#d94a2e',
   },
 
   strings: {

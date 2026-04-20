@@ -19,6 +19,7 @@ export const boysTrip: Theme = {
     stroke:    '#f0e8d8',
     surface:   '#1a1a1e',
     onSurface: '#f0e8d8',
+    hot:       '#ff3838',
   },
 
   strings: {

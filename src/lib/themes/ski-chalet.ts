@@ -18,6 +18,7 @@ export const skiChalet: Theme = {
     stroke:    '#1a1f1a',
     surface:   '#1a2018',
     onSurface: '#f1ebd9',
+    hot:       '#e63946',
   },
 
   strings: {

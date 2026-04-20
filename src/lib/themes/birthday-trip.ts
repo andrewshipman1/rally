@@ -18,6 +18,7 @@ export const birthdayTrip: Theme = {
     stroke:    '#2a1a0f',
     surface:   '#3a1f24',
     onSurface: '#fff5e1',
+    hot:       '#ff2e7e',
   },
 
   strings: {

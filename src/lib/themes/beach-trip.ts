@@ -18,6 +18,7 @@ export const beachTrip: Theme = {
     stroke:    '#0a2a3a',
     surface:   '#0a3a4a',
     onSurface: '#e6f6f4',
+    hot:       '#0ea5e9',
   },
 
   strings: {

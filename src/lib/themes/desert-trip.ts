@@ -18,6 +18,7 @@ export const desertTrip: Theme = {
     stroke:    '#3a1f10',
     surface:   '#2a1508',
     onSurface: '#f4e4cf',
+    hot:       '#e63946',
   },
 
   strings: {

@@ -18,6 +18,7 @@ export const reunionWeekend: Theme = {
     stroke:    '#2a1f18',
     surface:   '#1a1410',
     onSurface: '#f4ede0',
+    hot:       '#e63946',
   },
 
   strings: {

@@ -17,6 +17,7 @@ export const bachelorette: Theme = {
     stroke:    '#1a0a12',
     surface:   '#2a1018',
     onSurface: '#fde9ed',
+    hot:       '#ec4899',
   },
 
   strings: {

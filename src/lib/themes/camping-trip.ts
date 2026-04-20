@@ -18,6 +18,7 @@ export const campingTrip: Theme = {
     stroke:    '#1a2418',
     surface:   '#1a1a10',
     onSurface: '#e8e4d4',
+    hot:       '#d94a2e',
   },
 
   strings: {

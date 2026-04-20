@@ -112,42 +112,46 @@ export function CountdownScoreboard({ target, units, kicker, hint, hintEmoji }: 
   const ph = '--';
 
   return (
-    <div className="scoreboard">
-      {showHeader && (
-        <>
-          <div className="scoreboard-kicker">{kicker}</div>
-          <div className="scoreboard-date">{dateLabel || ph}</div>
-        </>
-      )}
-      <div className="scoreboard-tiles" role="timer" aria-live="off">
-        <div className="tile">
-          <div className="tile-num">{tick?.days ?? ph}</div>
-          <div className="tile-label">{units.days}</div>
+    // 9F — wrap in .countdown-card (white-surface variant of the module
+    // system). Interior markup, prop surface, and tick logic unchanged.
+    <div className="countdown-card">
+      <div className="scoreboard">
+        {showHeader && (
+          <>
+            <div className="scoreboard-kicker">{kicker}</div>
+            <div className="scoreboard-date">{dateLabel || ph}</div>
+          </>
+        )}
+        <div className="scoreboard-tiles" role="timer" aria-live="off">
+          <div className="tile">
+            <div className="tile-num">{tick?.days ?? ph}</div>
+            <div className="tile-label">{units.days}</div>
+          </div>
+          <div className="tile">
+            <div className="tile-num">{tick?.hours ?? ph}</div>
+            <div className="tile-label">{units.hours}</div>
+          </div>
+          <div className="tile">
+            <div className="tile-num">{tick?.minutes ?? ph}</div>
+            <div className="tile-label">{units.minutes}</div>
+          </div>
+          <div className="tile tile-secs">
+            <div className="tile-num">{tick?.seconds ?? ph}</div>
+            <div className="tile-label">{units.seconds}</div>
+          </div>
         </div>
-        <div className="tile">
-          <div className="tile-num">{tick?.hours ?? ph}</div>
-          <div className="tile-label">{units.hours}</div>
-        </div>
-        <div className="tile">
-          <div className="tile-num">{tick?.minutes ?? ph}</div>
-          <div className="tile-label">{units.minutes}</div>
-        </div>
-        <div className="tile tile-secs">
-          <div className="tile-num">{tick?.seconds ?? ph}</div>
-          <div className="tile-label">{units.seconds}</div>
-        </div>
+        {hint && (
+          <div className="scoreboard-hint">
+            {hint}
+            {hintEmoji && (
+              <>
+                {' '}
+                <span className="lock-emoji" aria-hidden="true">{hintEmoji}</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
-      {hint && (
-        <div className="scoreboard-hint">
-          {hint}
-          {hintEmoji && (
-            <>
-              {' '}
-              <span className="lock-emoji" aria-hidden="true">{hintEmoji}</span>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }

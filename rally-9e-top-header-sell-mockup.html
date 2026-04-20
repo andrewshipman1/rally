@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9E: Top-of-header rebuild mockup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9E SCOPE — read this first
+
+     IN SCOPE (everything above the cover image slot):
+     - marquee — dynamic sell template:
+       "★ {organizer} called you up ★ lock it in by {cutoff} ★ {N} already in ★"
+     - live-dot row — enable on sell, content "trip is live"
+     - NEW phase-eyebrow element — "sell · {N}-night trip"
+       (distinct from the existing .eyebrow pill)
+     - NEW trip meta row — "{dateStart} → {dateEnd} · {destination}"
+     - tagline reposition — move below meta row
+
+     PRESERVE (regression gates — don't modify):
+     - rally! logo
+     - existing .eyebrow pill — "★ {organizer} is calling" content stays
+     - sticker (theme-string content stays — sticker content swap deferred)
+     - title
+     - cover image (9F owns reposition + treatment)
+     - scoreboard (9D-fix owns tick + sizing, 9F owns wrapper)
+
+     OUT OF SCOPE:
+     - Scoreboard card wrapper                            → 9F
+     - Cover image reposition + postcard treatment        → 9F
+     - Sticker content swap (theme string → days format)  → later
+     - Any module (headliner onward)                      → 9H+
+     - Sketch hero path                                   → untouched
+     - InviteeShell / teaser                              → Session 10
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg: #f5f1ea;
+    --ink: #1a2a33;
+    --surface: #ffffff;
+    --accent: #ffd84d;
+    --hot: #e63946;
+    --stroke: #1a2a33;
+    --muted: #7a8a90;
+    --live: #2ecc71;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #2a2a2a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .doc-header {
+    max-width: 620px;
+    margin: 0 auto 20px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: #faf8f5;
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.5;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .stage {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+  }
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 0 0 30px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+    overflow: hidden;
+  }
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #888;
+    font-weight: 700;
+  }
+
+  /* ═══ MARQUEE — DYNAMIC SELL TEMPLATE ═══ */
+  .marquee {
+    background: var(--ink);
+    color: #faf8f5;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 10px 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .marquee-track {
+    display: inline-flex;
+    animation: marquee-scroll 28s linear infinite;
+  }
+  .marquee-content {
+    display: inline-flex;
+    gap: 20px;
+    padding-right: 20px;
+    align-items: center;
+  }
+  .marquee-content .star {
+    color: var(--accent);
+    font-size: 10px;
+  }
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  /* ═══ HERO ═══ */
+  .hero {
+    padding: 16px 18px 4px;
+  }
+
+  /* Top row: logo + pill + sticker */
+  .hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 10px;
+  }
+  .hero-top-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .logo {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: var(--hot);
+    letter-spacing: -.02em;
+  }
+  /* Existing .eyebrow pill — unchanged */
+  .eyebrow-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--accent);
+    border: 1.5px solid var(--ink);
+    border-radius: 18px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .eyebrow-pill .star { font-size: 8px; }
+  /* Sticker — unchanged */
+  .sticker {
+    background: var(--accent);
+    border: 2px solid var(--ink);
+    border-radius: 22px;
+    padding: 5px 11px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+    transform: rotate(-3deg);
+    box-shadow: 2px 2px 0 var(--stroke);
+    white-space: nowrap;
+  }
+
+  /* ═══ NEW: LIVE-DOT ROW ═══ */
+  .live-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: .04em;
+    text-transform: lowercase;
+  }
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--live);
+    animation: live-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes live-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: .55; transform: scale(1.15); }
+  }
+
+  /* ═══ NEW: PHASE EYEBROW ═══ */
+  .phase-eyebrow {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    letter-spacing: .02em;
+    text-transform: lowercase;
+  }
+
+  /* TITLE — unchanged from 9C */
+  .title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 42px;
+    line-height: 1.0;
+    color: var(--ink);
+    text-transform: lowercase;
+    letter-spacing: -.01em;
+    margin-bottom: 6px;
+  }
+
+  /* ═══ NEW: TRIP META ROW ═══ */
+  .trip-meta {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    letter-spacing: .01em;
+  }
+
+  /* TAGLINE — repositioned below meta */
+  .tagline {
+    font-family: 'Caveat', 'Brush Script MT', cursive;
+    font-size: 20px;
+    color: var(--ink);
+    line-height: 1.1;
+    opacity: .8;
+    margin-bottom: 14px;
+  }
+
+  /* Stub: what 9F will fill */
+  .context-stub {
+    opacity: .22;
+    pointer-events: none;
+    padding: 14px 18px 0;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    text-align: center;
+    border-top: 1px dashed rgba(26,42,51,.3);
+  }
+
+  /* Annotations */
+  .annotation {
+    max-width: 620px;
+    margin: 40px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 20px 24px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: #faf8f5;
+    margin: 0 0 10px;
+  }
+  .annotation h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--accent); }
+  .annotation .tag-new {
+    display: inline-block;
+    background: var(--live);
+    color: var(--ink);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: 2px;
+  }
+  .annotation .tag-preserve {
+    display: inline-block;
+    background: rgba(255,255,255,.15);
+    color: #ccc;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9e · sell · top-of-header rebuild</div>
+  <div class="doc-title">header top — view 2 target</div>
+  <div class="doc-sub">
+    Everything above the cover image slot. Rally brand chrome preserved;
+    wireframe additions layered in (live-dot row, phase eyebrow, trip
+    meta row, tagline reposition, dynamic marquee).
+  </div>
+</div>
+
+<div class="stage">
+  <div class="frame">
+    <div class="frame-label">sell · 375px · view 2</div>
+
+    <!-- Marquee — DYNAMIC SELL TEMPLATE -->
+    <div class="marquee">
+      <div class="marquee-track">
+        <span class="marquee-content">
+          <span class="star">★</span>
+          <span>andrew shipman called you up</span>
+          <span class="star">★</span>
+          <span>lock it in by apr 29</span>
+          <span class="star">★</span>
+          <span>3 already in</span>
+        </span>
+        <span class="marquee-content">
+          <span class="star">★</span>
+          <span>andrew shipman called you up</span>
+          <span class="star">★</span>
+          <span>lock it in by apr 29</span>
+          <span class="star">★</span>
+          <span>3 already in</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-top">
+        <div class="hero-top-left">
+          <div class="logo">rally!</div>
+          <span class="eyebrow-pill">
+            <span class="star">★</span> Andrew Shipman is calling
+          </span>
+        </div>
+        <div class="sticker">sand szn 🏖️</div>
+      </div>
+
+      <!-- NEW -->
+      <div class="live-row">
+        <span class="live-dot"></span>
+        <span>trip is live</span>
+      </div>
+
+      <!-- NEW -->
+      <div class="phase-eyebrow">sell · 6-night trip</div>
+
+      <!-- Title (unchanged from 9C) -->
+      <div class="title">mexico!!!</div>
+
+      <!-- NEW -->
+      <div class="trip-meta">nov 20 → 26 · cabo · mx</div>
+
+      <!-- Tagline (existing, repositioned below meta) -->
+      <div class="tagline">we are going to celebrate our girl in style!!!!</div>
+    </div>
+
+    <!-- 9F starts here -->
+    <div class="context-stub">
+      ▼ cover image / postcard (9F) · scoreboard card wrapper (9F) · banner · modules (later)
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+  <h3>9E — what to build</h3>
+
+  <h4>Render order (top to bottom)</h4>
+  <ol>
+    <li><span class="tag-new">update</span> <strong>Marquee</strong> — dynamic sell template</li>
+    <li><span class="tag-preserve">keep</span> <strong>Logo</strong> <code>rally!</code></li>
+    <li><span class="tag-preserve">keep</span> <strong>Eyebrow pill</strong> <code>"★ {organizer} is calling"</code> — existing <code>.eyebrow</code> slot, unchanged</li>
+    <li><span class="tag-preserve">keep</span> <strong>Sticker</strong> — content stays (theme string); content swap is a later session</li>
+    <li><span class="tag-new">enable</span> <strong>Live-dot row</strong> — pulsing dot + <code>"trip is live"</code></li>
+    <li><span class="tag-new">add</span> <strong>Phase eyebrow</strong> — <code>"sell · {N}-night trip"</code> (new element, distinct from the existing <code>.eyebrow</code> pill)</li>
+    <li><span class="tag-preserve">keep</span> <strong>Title</strong> — lowercase (9C)</li>
+    <li><span class="tag-new">add</span> <strong>Trip meta row</strong> — <code>"{dateStart} → {dateEnd} · {destination}"</code></li>
+    <li><span class="tag-new">move</span> <strong>Tagline</strong> — reposition below meta</li>
+  </ol>
+
+  <h4>1 · Marquee — dynamic sell template</h4>
+  <ul>
+    <li>
+      Today: sell phase uses <code>theme.strings.marquee</code> (theme-
+      specific phrases). Change: on sell only, replace with dynamic
+      template pulling from trip + crew state.
+    </li>
+    <li>
+      Template: <code>"★ {organizer.display_name} called you up ★ lock
+      it in by {cutoffShort} ★ {inCount} already in ★"</code>
+    </li>
+    <li>
+      <code>cutoffShort</code> = short date format via
+      <code>date-fns</code>, e.g., <code>"apr 29"</code>.
+    </li>
+    <li>
+      If <code>inCount === 0</code>, omit the count segment entirely.
+    </li>
+    <li>
+      Keep sketch phase using <code>sketchOverrides.marqueeItems</code>.
+      Keep lock/go/done using <code>theme.strings.marquee</code>. Only
+      sell changes.
+    </li>
+    <li>
+      New lexicon entries in <code>src/lib/copy/surfaces/trip-page-sell.ts</code>:
+      <code>marquee.calledUp</code>, <code>marquee.lockBy</code>,
+      <code>marquee.alreadyIn</code>. Or a single template string with
+      <code>{organizer}</code>, <code>{cutoff}</code>, <code>{count}</code>
+      interpolation — CC's call based on the surface's existing pattern.
+    </li>
+    <li>
+      Scroll animation unchanged — the <code>.marquee-track</code>
+      animation runs regardless of content. <code>prefers-reduced-motion</code>
+      still pauses.
+    </li>
+  </ul>
+
+  <h4>2 · Live-dot row — enable on sell</h4>
+  <ul>
+    <li>
+      Today: <code>showLiveRow = isSketch || isLive</code> (line 111).
+      <code>isLive = phase === 'go'</code>, so sell never renders it.
+    </li>
+    <li>
+      Fix: add <code>|| phase === 'sell'</code> to the gate.
+    </li>
+    <li>
+      Content: <code>getCopy(themeId, 'common.live')</code>. Verify this
+      resolves to <code>"trip is live"</code> on sell — if the lexicon
+      currently has a different value, update or add a sell-specific
+      override. ESCALATE if unsure.
+    </li>
+    <li>
+      Dot pulse via existing <code>.dot</code> class if present, or the
+      <code>.live-dot</code> + <code>@keyframes live-pulse</code> in
+      this mockup. Reduced-motion disables the pulse.
+    </li>
+  </ul>
+
+  <h4>3 · Phase eyebrow — NEW element (do not reuse <code>.eyebrow</code>)</h4>
+  <ul>
+    <li>
+      Add a new element <code>.phase-eyebrow</code> (or similarly
+      disambiguating class) below <code>.live-row</code>.
+    </li>
+    <li>
+      Content: <code>"sell · {N}-night trip"</code> where <code>N</code>
+      = <code>Math.ceil((dateEnd - dateStart) / 1 day)</code>.
+    </li>
+    <li>
+      Edge cases: if <code>dateStart</code> or <code>dateEnd</code> is
+      unset → render <code>"sell"</code> alone. If equal → render
+      <code>"sell · day trip"</code>.
+    </li>
+    <li>
+      New lexicon key in <code>trip-page-sell.ts</code> —
+      <code>phaseEyebrow.sell</code> with <code>{nights}</code>
+      interpolation. Pluralization handled in the template
+      (<code>{nights}-night</code> — template controls singular/plural
+      via the <code>-</code> glyph).
+    </li>
+    <li>
+      Styling: Georgia italic, 12px, <code>var(--muted)</code>,
+      lowercase, 4px margin-bottom.
+    </li>
+    <li>
+      CRITICAL: do NOT modify the existing <code>.eyebrow</code> slot
+      (the "is calling" pill). Add this as a sibling.
+    </li>
+  </ul>
+
+  <h4>4 · Trip meta row — NEW element</h4>
+  <ul>
+    <li>
+      New element <code>.trip-meta</code> below <code>.title</code>,
+      above <code>.tagline</code>.
+    </li>
+    <li>
+      Content: <code>"{dateStart_short} → {dateEnd_short} · {destination}"</code>
+      → e.g., <code>"nov 20 → 26 · cabo · mx"</code>.
+    </li>
+    <li>
+      Date format: <code>MMM d</code> for both, collapse to
+      <code>"MMM d → d"</code> when same month (the mockup shows this
+      pattern). Use <code>date-fns</code>.
+    </li>
+    <li>
+      No new lexicon — data render with format helpers. If the
+      destination field is structured (city · region), render as-is.
+    </li>
+    <li>
+      Hide the row if BOTH dates are unset AND destination is unset. If
+      any one is present, render that part.
+    </li>
+    <li>
+      Styling: 13px, <code>var(--muted)</code>, 10px margin-bottom.
+    </li>
+  </ul>
+
+  <h4>5 · Tagline reposition</h4>
+  <ul>
+    <li>
+      Tagline currently renders directly below the title (inside the
+      else-branch in <code>PostcardHero.tsx</code> lines 162-164).
+    </li>
+    <li>
+      Move: tagline now renders BELOW the trip meta row.
+    </li>
+    <li>
+      No content or styling change. Same <code>tagline || destination</code>
+      fallback logic stays.
+    </li>
+  </ul>
+
+  <h4>6 · What stays untouched (regression gates)</h4>
+  <ul>
+    <li><span class="tag-preserve">keep</span> <code>.sticker</code> content + position (theme-string content is a later session)</li>
+    <li><span class="tag-preserve">keep</span> <code>.eyebrow</code> pill ("is calling") content + styling</li>
+    <li><span class="tag-preserve">keep</span> <code>.logo</code> (<code>rally!</code>)</li>
+    <li><span class="tag-preserve">keep</span> <code>.title</code> (lowercase from 9C)</li>
+    <li><span class="tag-preserve">keep</span> cover image (9F will reposition + reframe)</li>
+    <li><span class="tag-preserve">keep</span> <code>CountdownScoreboard</code> (9D-fix + 9F own its continuing work)</li>
+    <li><span class="tag-preserve">keep</span> sketch-path rendering — all changes phase-gated to sell (and optionally lock/go for shared elements)</li>
+    <li><span class="tag-preserve">keep</span> <code>InviteeShell</code> — unauth teaser untouched</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Escalation triggers:</strong>
+    <ul style="margin-top: 4px;">
+      <li>
+        <code>common.live</code> lexicon doesn't currently resolve to
+        <code>"trip is live"</code> → raise options (update existing vs.
+        add sell-specific override) before editing.
+      </li>
+      <li>
+        Marquee template needs an approach decision — single
+        interpolated string vs. three discrete pieces that join in the
+        component. Raise options before committing; CC's call but flag
+        it.
+      </li>
+      <li>
+        Nights math edge case you can't resolve cleanly (timezone
+        weirdness, invalid dates, same-day) → raise options.
+      </li>
+      <li>
+        Preserving sketch-path behavior requires restructuring
+        <code>PostcardHero</code>'s conditional rendering in a way that
+        exceeds "add elements, add a phase branch" — STOP before
+        touching sketch.
+      </li>
+    </ul>
+  </div>
+
+  <h3>Files likely touched</h3>
+  <ul>
+    <li><code>src/components/trip/PostcardHero.tsx</code> — new elements, new phase branches</li>
+    <li><code>src/lib/copy/surfaces/trip-page-sell.ts</code> — marquee template + phase-eyebrow lexicon</li>
+    <li><code>src/lib/copy/surfaces/common.ts</code> — verify/update <code>common.live</code> if it doesn't resolve to <code>"trip is live"</code></li>
+    <li><code>src/app/trip/[slug]/page.tsx</code> — pass new props if needed (organizer name, inCount, cutoffIso, nights — most are already available)</li>
+    <li><code>src/app/globals.css</code> — <code>.phase-eyebrow</code>, <code>.trip-meta</code>, confirm <code>.live-row</code> styling matches mockup</li>
+  </ul>
+</div>
+
+</body>
+</html>

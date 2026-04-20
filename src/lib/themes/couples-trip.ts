@@ -19,6 +19,7 @@ export const couplesTrip: Theme = {
     stroke:    '#3a1f24',
     surface:   '#2a1418',
     onSurface: '#fde6d4',
+    hot:       '#d94a5c',
   },
 
   strings: {

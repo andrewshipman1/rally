@@ -26,7 +26,7 @@
  * ════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ─── 8 chassis vars (just-because defaults — source: theme content system §17) ─── */
+  /* ─── 9 chassis vars (just-because defaults — source: theme content system §17) ─── */
   --bg:          #fafafa;
   --ink:         #1a1a1a;
   --accent:      #fa581e;
@@ -36,6 +36,9 @@
   --surface:     #1a1a1a;
   --on-surface:  #fafafa;
   --on-accent:   #fff;
+  /* 9F — theme-adaptive urgency/attention punch. Used for the trip title's
+     trailing punctuation accent; every [data-theme] block below overrides. */
+  --hot:         #fa581e;
 
   /* --field: subtle tint of --bg toward --ink. Use as background for
      cards, inputs, and banners that carry --ink text. NEVER put --ink
@@ -82,6 +85,7 @@
   --surface:    #2a1018;
   --on-surface: #fde9ed;
   --on-accent:  #fff;
+  --hot:        #ec4899;
 }
 
 /* 02 · Boys Trip — DARK */
@@ -95,6 +99,7 @@
   --surface:    #1a1a1e;
   --on-surface: #f0e8d8;
   --on-accent:  #fff;
+  --hot:        #ff3838;
 }
 
 /* 03 · Birthday Trip */
@@ -108,6 +113,7 @@
   --surface:    #3a1f24;
   --on-surface: #fff5e1;
   --on-accent:  #fff;
+  --hot:        #ff2e7e;
 }
 
 /* 04 · Couples Trip */
@@ -121,6 +127,7 @@
   --surface:    #2a1418;
   --on-surface: #fde6d4;
   --on-accent:  #fff;
+  --hot:        #d94a5c;
 }
 
 /* 05 · Wellness Retreat */
@@ -134,6 +141,7 @@
   --surface:    #1a2a22;
   --on-surface: #eaeee4;
   --on-accent:  #fff;
+  --hot:        #d94a2e;
 }
 
 /* 06 · Reunion Weekend */
@@ -147,6 +155,7 @@
   --surface:    #1a1410;
   --on-surface: #f4ede0;
   --on-accent:  #fff;
+  --hot:        #e63946;
 }
 
 /* 07 · Festival Run — DARK */
@@ -160,6 +169,7 @@
   --surface:    #2a1540;
   --on-surface: #f4e6ff;
   --on-accent:  #fff;
+  --hot:        #ff3a8c;
 }
 
 /* 08 · Beach Trip */
@@ -173,6 +183,7 @@
   --surface:    #0a3a4a;
   --on-surface: #e6f6f4;
   --on-accent:  #fff;
+  --hot:        #0ea5e9;
 }
 
 /* 09 · Ski Chalet */
@@ -186,6 +197,7 @@
   --surface:    #1a2018;
   --on-surface: #f1ebd9;
   --on-accent:  #fff;
+  --hot:        #e63946;
 }
 
 /* 10 · Euro Summer */
@@ -199,6 +211,7 @@
   --surface:    #1a140a;
   --on-surface: #f5e9d3;
   --on-accent:  #fff;
+  --hot:        #e4572e;
 }
 
 /* 11 · City Weekend — DARK */
@@ -212,6 +225,7 @@
   --surface:    #2a2a2e;
   --on-surface: #f4ede0;
   --on-accent:  #fff;
+  --hot:        #ff2e7e;
 }
 
 /* 12 · Wine Country */
@@ -225,6 +239,7 @@
   --surface:    #2a1420;
   --on-surface: #f4ede0;
   --on-accent:  #fff;
+  --hot:        #c4264a;
 }
 
 /* 13 · Lake Weekend */
@@ -238,6 +253,7 @@
   --surface:    #0a1a24;
   --on-surface: #dfeef0;
   --on-accent:  #fff;
+  --hot:        #d94a2e;
 }
 
 /* 14 · Desert Trip */
@@ -251,6 +267,7 @@
   --surface:    #2a1508;
   --on-surface: #f4e4cf;
   --on-accent:  #fff;
+  --hot:        #e63946;
 }
 
 /* 15 · Camping Trip */
@@ -264,6 +281,7 @@
   --surface:    #1a1a10;
   --on-surface: #e8e4d4;
   --on-accent:  #fff;
+  --hot:        #d94a2e;
 }
 
 /* 16 · Tropical */
@@ -277,6 +295,7 @@
   --surface:    #0a2418;
   --on-surface: #e4f4e8;
   --on-accent:  #fff;
+  --hot:        #ff6b35;
 }
 
 /* 17 · Just Because — already in :root, but exposing the data-theme block
@@ -438,9 +457,10 @@ button:active {
   color: var(--accent);
 }
 
-/* Header block — contains wordmark, eyebrow, title, tagline, sticker. */
+/* Header block — contains wordmark, eyebrow, title, tagline, sticker.
+   9F: top padding 18 → 16 (from marquee to chrome row). */
 .chassis .header {
-  padding: 18px 18px 10px;
+  padding: 16px 18px 10px;
   position: relative;
 }
 
@@ -466,14 +486,15 @@ button:active {
   animation: blink-dot 1.4s ease-in-out infinite;
 }
 
-/* Wordmark — `rally!` in Shrikhand, accent color, constantly wiggling. */
+/* Wordmark — `rally!` in Shrikhand, accent color, constantly wiggling.
+   9F: 28px → 18px to balance the bigger title tiers. */
 .chassis .wordmark {
   font-family: var(--font-display), 'Shrikhand', serif;
-  font-size: 28px;
+  font-size: 18px;
   color: var(--accent);
   transform: rotate(-3deg);
   display: inline-block;
-  margin: 0 0 18px;
+  margin: 0 0 14px;
   animation: wiggle-left 5s ease-in-out infinite;
   transform-origin: center;
 }
@@ -528,9 +549,10 @@ button:active {
   transform-origin: center;
 }
 
-/* Eyebrow — small pill above the title. */
+/* Eyebrow — small pill above the title. 9F: 11px → 10px; mb 12 → 14
+   so the title has a little more air below the chrome row. */
 .chassis .eyebrow {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--stroke);
@@ -539,23 +561,32 @@ button:active {
   padding: 4px 10px;
   border-radius: 100px;
   border: 2px solid var(--stroke);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   animation: pop-in 0.5s 0.1s both;
 }
 
 /* Title — large display headline, slides up + bounces on load.
    Session 9C — CSS-only lowercase per Rally voice. Scoped to
    .chassis .title so sketch (which renders via .field.field-title)
-   is unaffected. Data is never mutated. */
+   is unaffected. Data is never mutated.
+
+   Session 9F — length-adaptive tiers (.t-short/.t-medium/.t-long)
+   replace the single 42px size. Trailing !?. punctuation accent via
+   .title-accent renders in var(--hot). PostcardHero applies the
+   tier class via titleLengthClass(name). */
 .chassis .title {
   font-family: var(--font-display), 'Shrikhand', serif;
-  font-size: 42px;
-  line-height: 0.95;
   color: var(--ink);
-  margin: 0 0 12px;
+  margin: 0 0 10px;
   letter-spacing: -0.01em;
   text-transform: lowercase;
   animation: slide-up-bounce 0.7s 0.2s both;
+}
+.chassis .title.t-short  { font-size: 60px; line-height: 0.98; }
+.chassis .title.t-medium { font-size: 48px; line-height: 1.0; }
+.chassis .title.t-long   { font-size: 38px; line-height: 1.05; }
+.chassis .title .title-accent {
+  color: var(--hot);
 }
 .chassis .title .accent {
   color: var(--accent);
@@ -563,13 +594,30 @@ button:active {
   transform: rotate(-1.5deg);
 }
 
-/* Tagline — handwritten subhead. */
+/* Session 9E — trip meta row. Sits between title and tagline on
+   sell-phase trips. Pure data render (date range · destination);
+   lowercase via CSS to match Rally voice.
+   Session 9F — scaled up to 20px Georgia italic 700, full ink
+   (no muting) to match the title as the second tier of hierarchy. */
+.chassis .trip-meta {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.18;
+  color: var(--ink);
+  margin-bottom: 14px;
+  letter-spacing: 0.01em;
+  text-transform: lowercase;
+}
+
+/* Tagline — handwritten subhead. 9F: 20px → 22px. */
 .chassis .tagline {
   font-family: var(--font-hand), 'Caveat', cursive;
-  font-size: 20px;
+  font-size: 22px;
   color: var(--ink);
-  margin-bottom: 18px;
-  line-height: 1.1;
+  margin-bottom: 20px;
+  line-height: 1.18;
   animation: slide-up-bounce 0.7s 0.3s both;
 }
 
@@ -626,6 +674,28 @@ button:active {
    a live-ticking seconds tile + optional kicker/date/hint rows. Replaces
    .countdown on sell/lock/go; .countdown stays for InviteeShell and the
    empty sketch card. */
+/* Session 9F — countdown card wrapper. Light page-colored card with
+   ink border + press shadow around the existing .scoreboard.
+   Designed as an extension of the module/tile system (2.5px border
+   + 16px radius matches modules; 3×3 press shadow matches .tile).
+   Uses var(--bg) instead of the brief's var(--surface): Rally's
+   --surface is always the dark-block color (marquee/countdown), but
+   the scoreboard interior prints .scoreboard-kicker/date/tile-label
+   /hint in var(--ink), so --surface would render them invisible on
+   every theme. --bg is "page color" — same visual intent as the
+   mockup's white-on-cream card while staying readable cross-theme. */
+.chassis .countdown-card {
+  background: var(--bg);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 3px 3px 0 var(--stroke);
+  padding: 18px 18px 20px;
+  margin: 0 18px 16px;
+}
+.chassis .countdown-card .scoreboard {
+  margin: 0;
+}
+
 .chassis .scoreboard {
   margin: 0 18px 18px;
   padding: 4px 0 0;

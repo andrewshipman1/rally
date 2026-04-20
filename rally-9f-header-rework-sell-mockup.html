@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9F: Header rework + scoreboard wrapper (v3 — locked)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9F SCOPE (v3 — locked)
+
+     IN SCOPE:
+     - Scrap phase-eyebrow + live-dot row
+     - Scale up trip title with length-adaptive tiers (60/48/38)
+     - Scale up date + destination meta (20px, ink italic 700)
+     - Minor tagline bump (22px)
+     - Chrome row rebalance (logo 18px, pill 10px)
+     - NEW: theme-color accent on trip title's trailing punctuation
+       (e.g., "mexico!!!" → "!!!" renders in var(--hot))
+     - Wrap scoreboard in .countdown-card (new variant, committed)
+
+     OUT OF SCOPE:
+     - Cover image / postcard / destination stamp     → 9G
+     - <ShareLinkButton> + <OrganizerCard> deletes    → 9G
+     - Headliner module                                → 9H
+     - Marquee content / sticker content              → unchanged
+     - Scoreboard tile internals / tick logic         → 9D-fix shipped
+     - Character-max at sketch input                   → separate follow-up
+     - Teaser-specific sticker variants / microtext   → Session 10
+     - Motion polish                                   → Session 14
+
+     CORE HIERARCHY:
+       TITLE (with theme-color accent on punctuation)
+         → DATES + LOCATION
+           → TAGLINE
+             → scoreboard card
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg: #f5f1ea;
+    --ink: #1a2a33;
+    --surface: #ffffff;
+    --accent: #ffd84d;
+    --hot: #e63946;
+    --stroke: #1a2a33;
+    --muted: #7a8a90;
+  }
+
+  /* Per-theme --hot demos for row 3 */
+  .theme-default { --hot: #e63946; --accent: #ffd84d; }
+  .theme-bachelorette { --hot: #ec4899; --accent: #fbcfe8; --bg: #fff1f5; }
+  .theme-beach { --hot: #0ea5e9; --accent: #fde047; --bg: #eff6fb; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #2a2a2a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .doc-header {
+    max-width: 900px;
+    margin: 0 auto 20px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: #ffd84d;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: #faf8f5;
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.5;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+  .row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+  .row-label {
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #ffd84d;
+    font-weight: 700;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 0 0 32px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+    overflow: hidden;
+  }
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+
+  .marquee {
+    background: var(--ink);
+    color: #faf8f5;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 8px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  /* HERO */
+  .hero { padding: 16px 18px 0; }
+
+  .chrome-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    min-height: 32px;
+  }
+  .chrome-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 18px;
+    color: var(--hot);
+    letter-spacing: -.02em;
+  }
+  .called-up-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--accent);
+    border: 1.5px solid var(--ink);
+    border-radius: 18px;
+    padding: 3px 9px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .called-up-pill .star { font-size: 8px; }
+  .sticker {
+    background: var(--accent);
+    border: 2px solid var(--ink);
+    border-radius: 22px;
+    padding: 5px 11px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+    transform: rotate(-3deg);
+    box-shadow: 2px 2px 0 var(--stroke);
+    white-space: nowrap;
+  }
+
+  /* TITLE — with length tiers and punctuation accent */
+  .hero-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    color: var(--ink);
+    margin-bottom: 10px;
+    text-transform: lowercase;
+    letter-spacing: -.02em;
+    line-height: 0.98;
+  }
+  .hero-title.t-short  { font-size: 60px; }
+  .hero-title.t-medium { font-size: 48px; line-height: 1.0; }
+  .hero-title.t-long   { font-size: 38px; line-height: 1.05; }
+
+  /* NEW — theme-color accent on trailing punctuation */
+  .hero-title .title-accent {
+    color: var(--hot);
+  }
+
+  /* META */
+  .hero-meta {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--ink);
+    margin-bottom: 14px;
+    line-height: 1.18;
+  }
+  .hero-meta .divider {
+    color: var(--muted);
+    margin: 0 6px;
+    font-weight: 400;
+  }
+
+  /* TAGLINE */
+  .hero-tagline {
+    font-family: Georgia, serif;  /* real site: Caveat hand font */
+    font-style: italic;
+    font-weight: 400;
+    font-size: 22px;
+    color: var(--ink);
+    line-height: 1.18;
+    margin-bottom: 20px;
+  }
+
+  /* COUNTDOWN CARD (committed: new .countdown-card variant) */
+  .countdown-card {
+    background: var(--surface);
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    box-shadow: 3px 3px 0 var(--stroke);
+    padding: 18px 18px 20px;
+    margin: 0 18px 16px;
+  }
+
+  .scoreboard-kicker {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .scoreboard-date {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .scoreboard-tiles {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+  }
+  .tile {
+    flex: 1;
+    background: var(--accent);
+    border: 2.5px solid var(--ink);
+    border-radius: 12px;
+    box-shadow: 3px 3px 0 var(--stroke);
+    padding: 10px 4px 8px;
+    text-align: center;
+  }
+  .tile-num {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 40px;
+    line-height: 1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+  .tile-label {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink);
+    margin-top: 4px;
+    opacity: .85;
+  }
+  .scoreboard-hint {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 14px;
+  }
+
+  .context-stub {
+    opacity: .3;
+    pointer-events: none;
+    padding: 12px 0 0;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-top: 1px dashed rgba(26,42,51,.3);
+    margin: 0 18px;
+  }
+
+  .scrap-marker { position: relative; }
+  .scrap-marker::after {
+    content: "✂ scrap";
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: #e63946;
+    color: #fff;
+    font-family: -apple-system, sans-serif;
+    font-style: normal;
+    font-weight: 700;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: .05em;
+  }
+
+  .phase-eyebrow {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 3px;
+    opacity: .85;
+  }
+  .live-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #2ecc71;
+  }
+
+  /* Annotations */
+  .annotation {
+    max-width: 900px;
+    margin: 40px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 18px 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: #faf8f5;
+    margin: 16px 0 10px;
+  }
+  .annotation h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: #ffd84d;
+    margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .annotation pre {
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    overflow-x: auto;
+    margin: 6px 0 10px;
+    color: #e8e4da;
+    line-height: 1.5;
+  }
+  .spec-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 14px;
+    font-size: 12px;
+  }
+  .spec-table th, .spec-table td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    vertical-align: top;
+  }
+  .spec-table th {
+    color: #ffd84d;
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+  }
+  .spec-table td:nth-child(2),
+  .spec-table td:nth-child(3),
+  .spec-table td:nth-child(4) {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 11px;
+  }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid #ffd84d;
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: #ffd84d; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9f · sell · header rework + scoreboard wrapper · v3 (locked)</div>
+  <div class="doc-title">header rework — sell view 2 (final wireframe)</div>
+  <div class="doc-sub">
+    v3 locks font scale, vertical rhythm, length-adaptive tiers, card
+    variant, and adds a small brand-mechanics upgrade: theme-color
+    accent on the trip title's trailing punctuation. Ready to scope
+    into a brief.
+  </div>
+</div>
+
+<!-- ═══ ROW 1: BEFORE / AFTER ═══ -->
+<div class="row-label">row 1 · before (9e shipped) vs after (9f locked)</div>
+<div class="row">
+  <div class="frame theme-default">
+    <div class="frame-label">before · 9e shipped</div>
+    <div class="marquee">★ andrew called you up ★ lock it in by apr 29 ★ 1 already in ★</div>
+    <div class="hero">
+      <div class="chrome-row">
+        <div class="chrome-left">
+          <div class="logo">rally!</div>
+          <span class="called-up-pill"><span class="star">★</span> Andrew Shipman is calling</span>
+        </div>
+        <div class="sticker">sand szn 🏖️</div>
+      </div>
+      <div class="live-row scrap-marker"><span class="live-dot"></span> trip is live</div>
+      <div class="phase-eyebrow scrap-marker">sell · 17-night trip</div>
+      <h1 class="hero-title" style="font-size: 42px;">coachella 2026!!!</h1>
+      <div class="hero-meta" style="font-size: 13px; color: var(--muted); font-weight: 400;">nov 20 → 26 · cabo · mx</div>
+      <div class="hero-tagline" style="font-size: 20px;">we are going to celebrate our girl in style!!!!</div>
+    </div>
+    <div style="padding: 4px 18px 16px;">
+      <div class="scoreboard-kicker">lock in by</div>
+      <div class="scoreboard-date">apr 29 · 8pm edt</div>
+      <div class="scoreboard-tiles">
+        <div class="tile"><div class="tile-num">09</div><div class="tile-label">days</div></div>
+        <div class="tile"><div class="tile-num">09</div><div class="tile-label">hrs</div></div>
+        <div class="tile"><div class="tile-num">22</div><div class="tile-label">min</div></div>
+        <div class="tile"><div class="tile-num">47</div><div class="tile-label">sec</div></div>
+      </div>
+      <div class="scoreboard-hint">until the plan locks 🔒</div>
+    </div>
+    <div class="context-stub">▼ banner · modules</div>
+  </div>
+
+  <div class="frame theme-default">
+    <div class="frame-label">after · 9f locked · color accent</div>
+    <div class="marquee">★ andrew called you up ★ lock it in by apr 29 ★ 1 already in ★</div>
+    <div class="hero">
+      <div class="chrome-row">
+        <div class="chrome-left">
+          <div class="logo">rally!</div>
+          <span class="called-up-pill"><span class="star">★</span> Andrew Shipman is calling</span>
+        </div>
+        <div class="sticker">sand szn 🏖️</div>
+      </div>
+      <h1 class="hero-title t-medium">coachella 2026<span class="title-accent">!!!</span></h1>
+      <div class="hero-meta">nov 20 → 26<span class="divider">·</span>cabo · mx</div>
+      <div class="hero-tagline">we are going to celebrate our girl in style!!!!</div>
+    </div>
+    <div class="countdown-card">
+      <div class="scoreboard-kicker">lock in by</div>
+      <div class="scoreboard-date">apr 29 · 8pm edt</div>
+      <div class="scoreboard-tiles">
+        <div class="tile"><div class="tile-num">09</div><div class="tile-label">days</div></div>
+        <div class="tile"><div class="tile-num">09</div><div class="tile-label">hrs</div></div>
+        <div class="tile"><div class="tile-num">22</div><div class="tile-label">min</div></div>
+        <div class="tile"><div class="tile-num">47</div><div class="tile-label">sec</div></div>
+      </div>
+      <div class="scoreboard-hint">until the plan locks 🔒</div>
+    </div>
+    <div class="context-stub">▼ banner · modules</div>
+  </div>
+</div>
+
+<!-- ═══ ROW 2: LENGTH TIERS ═══ -->
+<div class="row-label">row 2 · length tiers · adaptive title shrink</div>
+<div class="row">
+  <div class="frame theme-default">
+    <div class="frame-label">tier 1 · short · ≤16 chars · 60px</div>
+    <div class="marquee">★ andrew called you up ★ lock it in by apr 29 ★ 1 already in ★</div>
+    <div class="hero">
+      <div class="chrome-row">
+        <div class="chrome-left">
+          <div class="logo">rally!</div>
+          <span class="called-up-pill"><span class="star">★</span> Andrew Shipman is calling</span>
+        </div>
+        <div class="sticker">sand szn 🏖️</div>
+      </div>
+      <h1 class="hero-title t-short">mexico<span class="title-accent">!!!</span></h1>
+      <div class="hero-meta">nov 20 → 26<span class="divider">·</span>cabo · mx</div>
+      <div class="hero-tagline">we are going to celebrate our girl in style!!!!</div>
+    </div>
+    <div class="countdown-card">
+      <div class="scoreboard-kicker">lock in by</div>
+      <div class="scoreboard-date">apr 29 · 8pm edt</div>
+      <div class="scoreboard-tiles">
+        <div class="tile"><div class="tile-num">09</div><div class="tile-label">days</div></div>
+        <div class="tile"><div class="tile-num">09</div><div class="tile-label">hrs</div></div>
+        <div class="tile"><div class="tile-num">22</div><div class="tile-label">min</div></div>
+        <div class="tile"><div class="tile-num">47</div><div class="tile-label">sec</div></div>
+      </div>
+      <div class="scoreboard-hint">until the plan locks 🔒</div>
+    </div>
+  </div>
+
+  <div class="frame theme-default">
+    <div class="frame-label">tier 2 · medium · 17–24 chars · 48px</div>
+    <div class="marquee">★ andrew called you up ★ lock it in by apr 29 ★ 1 already in ★</div>
+    <div class="hero">
+      <div class="chrome-row">
+        <div class="chrome-left">
+          <div class="logo">rally!</div>
+          <span class="called-up-pill"><span class="star">★</span> Andrew Shipman is calling</span>
+        </div>
+        <div class="sticker">sand szn 🏖️</div>
+      </div>
+      <h1 class="hero-title t-medium">coachella 2026<span class="title-accent">!!!</span></h1>
+      <div class="hero-meta">nov 20 → 26<span class="divider">·</span>cabo · mx</div>
+      <div class="hero-tagline">we are going to celebrate our girl in style!!!!</div>
+    </div>
+    <div class="countdown-card">
+      <div class="scoreboard-kicker">lock in by</div>
+      <div class="scoreboard-date">apr 29 · 8pm edt</div>
+      <div class="scoreboard-tiles">
+        <div class="tile"><div class="tile-num">09</div><div class="tile-label">days</div></div>
+        <div class="tile"><div class="tile-num">09</div><div class="tile-label">hrs</div></div>
+        <div class="tile"><div class="tile-num">22</div><div class="tile-label">min</div></div>
+        <div class="tile"><div class="tile-num">47</div><div class="tile-label">sec</div></div>
+      </div>
+      <div class="scoreboard-hint">until the plan locks 🔒</div>
+    </div>
+  </div>
+
+  <div class="frame theme-default">
+    <div class="frame-label">tier 3 · long · 25+ chars · 38px · no accent</div>
+    <div class="marquee">★ andrew called you up ★ lock it in by jun 1 ★ 3 already in ★</div>
+    <div class="hero">
+      <div class="chrome-row">
+        <div class="chrome-left">
+          <div class="logo">rally!</div>
+          <span class="called-up-pill"><span class="star">★</span> Andrew Shipman is calling</span>
+        </div>
+        <div class="sticker">salt + cedar 🌊</div>
+      </div>
+      <h1 class="hero-title t-long">cape cod for the fourth of july</h1>
+      <div class="hero-meta">jul 2 → 6<span class="divider">·</span>cape cod · ma</div>
+      <div class="hero-tagline">our annual gathering — beach + lobster rolls</div>
+    </div>
+    <div class="countdown-card">
+      <div class="scoreboard-kicker">lock in by</div>
+      <div class="scoreboard-date">jun 1 · 12pm edt</div>
+      <div class="scoreboard-tiles">
+        <div class="tile"><div class="tile-num">42</div><div class="tile-label">days</div></div>
+        <div class="tile"><div class="tile-num">14</div><div class="tile-label">hrs</div></div>
+        <div class="tile"><div class="tile-num">07</div><div class="tile-label">min</div></div>
+        <div class="tile"><div class="tile-num">19</div><div class="tile-label">sec</div></div>
+      </div>
+      <div class="scoreboard-hint">until the plan locks 🔒</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ROW 3: THEME ADAPTIVITY ═══ -->
+<div class="row-label">row 3 · theme adaptivity · --hot tracks per theme</div>
+<div class="row">
+  <div class="frame theme-default">
+    <div class="frame-label">theme · default (reunion)</div>
+    <div class="hero">
+      <div class="chrome-row">
+        <div class="chrome-left">
+          <div class="logo">rally!</div>
+          <span class="called-up-pill"><span class="star">★</span> Andrew Shipman is calling</span>
+        </div>
+        <div class="sticker">usual suspects 🎉</div>
+      </div>
+      <h1 class="hero-title t-short">reunion<span class="title-accent">!!!</span></h1>
+      <div class="hero-meta">aug 8 → 10<span class="divider">·</span>nashville · tn</div>
+      <div class="hero-tagline">you know what it is.</div>
+    </div>
+    <div class="countdown-card">
+      <div class="scoreboard-kicker">lock in by</div>
+      <div class="scoreboard-date">jul 1 · 8pm cdt</div>
+      <div class="scoreboard-tiles">
+        <div class="tile"><div class="tile-num">12</div><div class="tile-label">days</div></div>
+        <div class="tile"><div class="tile-num">04</div><div class="tile-label">hrs</div></div>
+        <div class="tile"><div class="tile-num">33</div><div class="tile-label">min</div></div>
+        <div class="tile"><div class="tile-num">08</div><div class="tile-label">sec</div></div>
+      </div>
+      <div class="scoreboard-hint">until the plan locks 🔒</div>
+    </div>
+  </div>
+
+  <div class="frame theme-bachelorette">
+    <div class="frame-label">theme · bachelorette</div>
+    <div class="hero">
+      <div class="chrome-row">
+        <div class="chrome-left">
+          <div class="logo">rally!</div>
+          <span class="called-up-pill"><span class="star">★</span> Andrew Shipman is calling</span>
+        </div>
+        <div class="sticker">bride szn 👰</div>
+      </div>
+      <h1 class="hero-title t-short">lauren's week<span class="title-accent">!!!</span></h1>
+      <div class="hero-meta">sep 12 → 15<span class="divider">·</span>miami · fl</div>
+      <div class="hero-tagline">one last rager before the aisle</div>
+    </div>
+    <div class="countdown-card">
+      <div class="scoreboard-kicker">lock in by</div>
+      <div class="scoreboard-date">aug 1 · 10pm est</div>
+      <div class="scoreboard-tiles">
+        <div class="tile"><div class="tile-num">24</div><div class="tile-label">days</div></div>
+        <div class="tile"><div class="tile-num">12</div><div class="tile-label">hrs</div></div>
+        <div class="tile"><div class="tile-num">08</div><div class="tile-label">min</div></div>
+        <div class="tile"><div class="tile-num">44</div><div class="tile-label">sec</div></div>
+      </div>
+      <div class="scoreboard-hint">until the plan locks 🔒</div>
+    </div>
+  </div>
+
+  <div class="frame theme-beach">
+    <div class="frame-label">theme · beach</div>
+    <div class="hero">
+      <div class="chrome-row">
+        <div class="chrome-left">
+          <div class="logo">rally!</div>
+          <span class="called-up-pill"><span class="star">★</span> Andrew Shipman is calling</span>
+        </div>
+        <div class="sticker">salt + sun 🌊</div>
+      </div>
+      <h1 class="hero-title t-short">tulum<span class="title-accent">!!!</span></h1>
+      <div class="hero-meta">dec 1 → 7<span class="divider">·</span>tulum · mx</div>
+      <div class="hero-tagline">slow week. no wifi rule.</div>
+    </div>
+    <div class="countdown-card">
+      <div class="scoreboard-kicker">lock in by</div>
+      <div class="scoreboard-date">nov 10 · 6pm est</div>
+      <div class="scoreboard-tiles">
+        <div class="tile"><div class="tile-num">08</div><div class="tile-label">days</div></div>
+        <div class="tile"><div class="tile-num">02</div><div class="tile-label">hrs</div></div>
+        <div class="tile"><div class="tile-num">19</div><div class="tile-label">min</div></div>
+        <div class="tile"><div class="tile-num">01</div><div class="tile-label">sec</div></div>
+      </div>
+      <div class="scoreboard-hint">until the plan locks 🔒</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+
+  <h3>Final spec — type scale (locked)</h3>
+  <table class="spec-table">
+    <tr>
+      <th>Element</th>
+      <th>9E shipped</th>
+      <th>9F target</th>
+      <th>Notes</th>
+    </tr>
+    <tr><td>Trip title — short (≤16)</td><td>42px</td><td><strong>60px</strong></td><td>Georgia italic 900 lowercase, lh 0.98</td></tr>
+    <tr><td>Trip title — medium (17–24)</td><td>—</td><td><strong>48px</strong></td><td>same family, lh 1.0</td></tr>
+    <tr><td>Trip title — long (25+)</td><td>—</td><td><strong>38px</strong></td><td>same family, lh 1.05 (allows wrap)</td></tr>
+    <tr><td><strong>Title punctuation accent</strong></td><td>—</td><td><strong><code>var(--hot)</code></strong></td><td>NEW — only when trailing !?. present</td></tr>
+    <tr><td>Date + destination meta</td><td>13px muted</td><td><strong>20px</strong> ink italic 700</td><td>natural wrap if very long</td></tr>
+    <tr><td>Tagline</td><td>20px</td><td>22px</td><td>real font is Caveat hand</td></tr>
+    <tr><td>Called-up pill</td><td>11px</td><td>10px</td><td>-1px to balance the bigger title</td></tr>
+    <tr><td>Sticker</td><td>11px</td><td>11px</td><td>unchanged</td></tr>
+    <tr><td>Logo</td><td>22px</td><td>18px</td><td>-4px to balance</td></tr>
+    <tr><td>Phase-eyebrow</td><td>12px</td><td><strong>SCRAPPED</strong></td><td>render + CSS + lexicon removed</td></tr>
+    <tr><td>Live-dot row (sell)</td><td>11px + dot</td><td><strong>SCRAPPED on sell</strong></td><td>gate reverted; go/done <code>isLive</code> path intact</td></tr>
+  </table>
+
+  <h4>Length tiers — locked</h4>
+  <ul>
+    <li><code>≤ 16 chars</code> → <code>.t-short</code> → 60px</li>
+    <li><code>17–24 chars</code> → <code>.t-medium</code> → 48px</li>
+    <li><code>≥ 25 chars</code> → <code>.t-long</code> → 38px (wraps naturally if needed)</li>
+  </ul>
+
+  <h4>Vertical rhythm — locked</h4>
+  <table class="spec-table">
+    <tr><th>Gap</th><th>Pixels</th></tr>
+    <tr><td>Hero padding-top (from marquee)</td><td>16px</td></tr>
+    <tr><td>Chrome row → title</td><td>14px</td></tr>
+    <tr><td>Title → meta</td><td>10px</td></tr>
+    <tr><td>Meta → tagline</td><td>14px</td></tr>
+    <tr><td>Tagline → countdown card</td><td>20px</td></tr>
+  </table>
+
+  <h4>Countdown card — locked (new variant)</h4>
+  <ul>
+    <li>Class: <code>.countdown-card</code> (new)</li>
+    <li>Background: <code>var(--surface)</code> (white)</li>
+    <li>Border: 2.5px solid <code>var(--ink)</code></li>
+    <li>Radius: 16px (matches <code>.module-section</code>)</li>
+    <li>Shadow: <code>3px 3px 0 var(--stroke)</code> (press shadow — matches <code>.tile</code>)</li>
+    <li>Padding: 18px 18px 20px</li>
+    <li>Horizontal margin: 18px (inset-aligns with hero)</li>
+    <li>Documented as an <strong>extension</strong> of the design system — same border / radius / chassis-var palette as <code>.module-section</code>, but adds surface + shadow because the scoreboard is an attention card (urgency + commitment), not a content module.</li>
+  </ul>
+
+  <h3>Title punctuation accent — implementation</h3>
+
+  <h4>Rendering</h4>
+  <p>JSX-level split. In <code>PostcardHero.tsx</code>, replace:</p>
+  <pre>&lt;h1 className="title"&gt;{tripName}&lt;/h1&gt;</pre>
+  <p>with:</p>
+  <pre>const { base, accent } = splitTitleAccent(tripName);
+&lt;h1 className={titleLengthClass(tripName)}&gt;
+  {base}
+  {accent &amp;&amp; &lt;span className="title-accent"&gt;{accent}&lt;/span&gt;}
+&lt;/h1&gt;</pre>
+  <p>Helper:</p>
+  <pre>function splitTitleAccent(name: string) {
+  const m = name.match(/([!?.]+)$/);
+  if (!m) return { base: name, accent: '' };
+  return {
+    base: name.slice(0, m.index),
+    accent: m[1],
+  };
+}
+
+function titleLengthClass(name: string) {
+  if (name.length &lt;= 16) return 'title t-short';
+  if (name.length &lt;= 24) return 'title t-medium';
+  return 'title t-long';
+}</pre>
+
+  <h4>CSS</h4>
+  <pre>.chassis .title .title-accent {
+  color: var(--hot);
+}</pre>
+  <p>Accent applies only when trailing <code>!?.</code> is present. Long
+  names without trailing punct (e.g., <code>"cape cod for the fourth
+  of july"</code>) get no accent — clean fallback, no ugly empty span.</p>
+
+  <h4>Why <code>--hot</code> not <code>--accent</code>?</h4>
+  <ul>
+    <li><code>--accent</code> is yellow; on the cream page <code>--bg</code> it's low-contrast.</li>
+    <li><code>--hot</code> is the theme's accent red/coral/pink; it's already used for the logo and scrap markers, so it's the established "attention" color.</li>
+    <li>Every theme declares <code>--hot</code>; row 3 above shows it adapting across default (coral red), bachelorette (hot pink), and beach (sky blue) skins.</li>
+  </ul>
+
+  <h3>What's scrapped</h3>
+  <ul>
+    <li><strong>Phase-eyebrow.</strong> Remove the <code>.phase-eyebrow</code> render in <code>PostcardHero.tsx</code>. Remove the <code>phaseEyebrow.sell</code> lexicon entry from <code>trip-page-sell.ts</code>. Remove the CSS rule from <code>globals.css</code>.</li>
+    <li><strong>Live-dot row on sell.</strong> Revert the 9E gate at line ~111 of <code>PostcardHero.tsx</code>: <code>const showLiveRow = isSketch || isLive || phase === 'sell';</code> → back to <code>const showLiveRow = isSketch || isLive;</code>. Keep <code>common.live</code> lexicon + <code>.live-row</code> CSS — still used by the go/done <code>isLive</code> path.</li>
+  </ul>
+
+  <h3>Files touched (brief preview)</h3>
+  <ul>
+    <li><code>src/components/trip/PostcardHero.tsx</code> — scrap phase-eyebrow; revert live-row gate; add length-class + punctuation-split helpers for the title</li>
+    <li><code>src/components/trip/CountdownScoreboard.tsx</code> — wrap return in <code>.countdown-card</code> div</li>
+    <li><code>src/app/globals.css</code> — retune <code>.title</code> + add <code>.t-short/.t-medium/.t-long</code> + <code>.title-accent</code>; bump <code>.trip-meta</code> + <code>.tagline</code>; add <code>.countdown-card</code>; remove <code>.phase-eyebrow</code>; tune chrome-row spacing</li>
+    <li><code>src/lib/copy/surfaces/trip-page-sell.ts</code> — remove <code>phaseEyebrow.sell</code> entry only</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Escalation triggers for the brief.</strong>
+    (a) If the <code>.title</code> class is shared with sketch's inline editable name field, scope the size tiers + accent to a sell-only wrapper so sketch is unaffected.
+    (b) If <code>common.live</code> is referenced beyond the <code>isLive</code> gate, verify no regression before reverting.
+    (c) If splitting punctuation introduces issues with emoji-only titles (e.g., <code>"🎉🎉🎉"</code>), the regex falls back to no-accent cleanly. No special casing needed.
+    (d) If the length-tier breakpoints feel wrong against real trip names in dev, tune values — don't add a fourth tier or switch to JS-based sizing.
+  </div>
+</div>
+
+</body>
+</html>

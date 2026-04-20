@@ -18,6 +18,7 @@ export const cityWeekend: Theme = {
     stroke:    '#f4ede0',
     surface:   '#2a2a2e',
     onSurface: '#f4ede0',
+    hot:       '#ff2e7e',
   },
 
   strings: {

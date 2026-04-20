@@ -18,6 +18,7 @@ export const festivalRun: Theme = {
     stroke:    '#f4e6ff',
     surface:   '#2a1540',
     onSurface: '#f4e6ff',
+    hot:       '#ff3a8c',
   },
 
   strings: {

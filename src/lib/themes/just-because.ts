@@ -23,6 +23,7 @@ export const justBecause: Theme = {
     stroke:    '#1a1a1a',
     surface:   '#1a1a1a',
     onSurface: '#fafafa',
+    hot:       '#fa581e',
   },
 
   // Optional dark variant: the only theme shipping one in step 1.

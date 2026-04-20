@@ -273,6 +273,10 @@ export default async function TripPage({ params }: Props) {
         organizerName={organizer.display_name}
         phase={trip.phase}
         isLive={trip.phase === 'go'}
+        inCount={inCount}
+        cutoffIso={cutoffIso}
+        dateStartIso={trip.date_start}
+        dateEndIso={trip.date_end}
       />
 
       {/* Session 9D — countdown scoreboard. Sell: full shape (kicker + date +

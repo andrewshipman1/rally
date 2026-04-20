@@ -42,6 +42,11 @@ export interface ThemePalette {
   stroke: string;
   surface: string;
   onSurface: string;
+  /** Theme-adaptive "urgency / attention" punch color. Used for the trip
+   *  title's trailing punctuation accent (Session 9F) and anywhere else
+   *  a theme wants an emotional peak distinct from --accent. Added in 9F
+   *  as a full palette upgrade: every theme declares this. */
+  hot: string;
 }
 
 /** Optional dark variant. Partial because dark mode only overrides what differs. */
