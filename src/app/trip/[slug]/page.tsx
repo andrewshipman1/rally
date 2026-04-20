@@ -25,11 +25,9 @@ import { InviteeShell } from '@/components/trip/InviteeShell';
 import { ModuleSlot } from '@/components/trip/ModuleSlot';
 import { CrewSection } from '@/components/trip/CrewSection';
 import { BuzzSection } from '@/components/trip/BuzzSection';
-import { ShareLinkButton } from '@/components/trip/ShareLinkButton';
 import { getBuzzFeed } from '@/lib/buzz';
 
 // Carry-over typed component cards from v0
-import { OrganizerCard } from '@/components/trip/OrganizerCard';
 import { Description } from '@/components/trip/Description';
 import { ExtrasSections } from '@/components/trip/ExtrasSections';
 import { TransportCard } from '@/components/trip/TransportCard';
@@ -341,24 +339,10 @@ export default async function TripPage({ params }: Props) {
           is the single crew surface on sell / lock / go. */}
 
       <div style={{ padding: '0 18px' }}>
-        {/* Share link — sell+ only */}
-        <Reveal delay={0}>
-          <div style={{ textAlign: 'center', marginTop: 12 }}>
-            <ShareLinkButton slug={slug} themeId={themeId} />
-          </div>
-        </Reveal>
-
         {/* Add-to-calendar — secondary action */}
         <Reveal delay={0}>
           <div style={{ textAlign: 'center', marginTop: 12 }}>
             <AddToCalendarButton trip={trip} themeId={themeId} />
-          </div>
-        </Reveal>
-
-        {/* Organizer card */}
-        <Reveal delay={0.05}>
-          <div style={{ marginTop: 16 }}>
-            <OrganizerCard organizer={organizer} tripName={trip.name} />
           </div>
         </Reveal>
 
@@ -375,23 +359,34 @@ export default async function TripPage({ params }: Props) {
           headliner → spot → (Getting Here 9B) → transportation →
           everything-else → crew → cost → buzz → aux → extras(lock/go) */}
 
-      {/* 1 · Headliner — lifted from sketch (8J/8O). Renders only when set.
-             Sell-phase onOpen is noop (no edit drawer in 9A); the embedded
-             source-link <a> inside the card still works. */}
+      {/* 1 · Headliner — sketch parity on sell (9H). Wrapped in
+             `.module-section` with a `.module-section-header` ("the
+             headliner" / "rough estimate") that mirrors SketchModules.tsx
+             exactly. SellHeadliner passes readOnly={true} under option C. */}
       {trip.headliner_description && (
         <Reveal delay={0}>
           <div style={{ padding: '0 18px', marginTop: 14 }}>
-            <SellHeadliner
-              themeId={themeId}
-              headliner={{
-                description: trip.headliner_description,
-                costCents: trip.headliner_cost_cents,
-                costUnit: trip.headliner_cost_unit,
-                linkUrl: trip.headliner_link_url,
-                imageUrl: trip.headliner_image_url,
-                sourceTitle: trip.headliner_source_title,
-              }}
-            />
+            <div className="module-section headliner-module">
+              <div className="module-section-header">
+                <span className="module-section-title">
+                  {getCopy(themeId, 'builderState.headliner.eyebrow')}
+                </span>
+                <span className="module-section-count">
+                  {getCopy(themeId, 'builderState.headliner.estimateCaption')}
+                </span>
+              </div>
+              <SellHeadliner
+                themeId={themeId}
+                headliner={{
+                  description: trip.headliner_description,
+                  costCents: trip.headliner_cost_cents,
+                  costUnit: trip.headliner_cost_unit,
+                  linkUrl: trip.headliner_link_url,
+                  imageUrl: trip.headliner_image_url,
+                  sourceTitle: trip.headliner_source_title,
+                }}
+              />
+            </div>
           </div>
         </Reveal>
       )}

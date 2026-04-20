@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9E: Scoreboard wrapper + cover-image postcard mockup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9E SCOPE — read this first
+
+     IN SCOPE:
+     - .countdown card wrapper around the scoreboard (white surface,
+       ink border, rounded, padded) — the "object around it"
+     - Cover image REPOSITION from above-header → between trip meta
+       and scoreboard (new slot)
+     - Cover image TREATMENT: 2.5px ink border, 12px radius, fixed
+       aspect ratio, destination-stamp pill in top-right corner
+     - Theme-gradient FALLBACK when `trip.cover_image_url` is null —
+       same frame + stamp; gradient pulled from theme tokens
+
+     OUT OF SCOPE (later sessions — don't touch):
+     - Trip meta row (dates + destination)                → 9F
+     - Live-dot row / eyebrow / sticker content swap      → 9F
+     - Tagline decision (keep / move / drop)              → 9F
+     - Marquee sell-specific content                      → 9G
+     - Cover-image uploader flow (sketch path)            → standalone
+     - Scoreboard tick rate / tile sizing                 → 9D-fix
+     - Any module (headliner onward)                      → 9H+
+     - InviteeShell / teaser                              → Session 10
+
+     NOTES:
+     - 9F will add the trip meta row between tagline/title and the
+       postcard block. 9E reserves the slot for it by positioning the
+       postcard block below where the meta will land. For 9E, CC can
+       place the postcard directly below the existing tagline /title
+       since meta isn't there yet.
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg: #f5f1ea;
+    --ink: #1a2a33;
+    --surface: #ffffff;
+    --accent: #ffd84d;
+    --hot: #e63946;
+    --stroke: #1a2a33;
+    --muted: #7a8a90;
+    --theme-gradient-a: #ff8c42;
+    --theme-gradient-b: #e63946;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #2a2a2a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .doc-header {
+    max-width: 860px;
+    margin: 0 auto 20px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: #faf8f5;
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.5;
+    max-width: 580px;
+    margin: 0 auto;
+  }
+
+  /* Two frames side by side */
+  .stage {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+  }
+  .frame-wrap { position: relative; }
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #888;
+    font-weight: 700;
+  }
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 18px 18px 40px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+  }
+
+  /* Hero stub — simplified chrome to establish position only */
+  .hero-stub {
+    padding: 0 0 12px;
+  }
+  .hero-stub-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .hero-stub-logo {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 20px;
+    color: var(--hot);
+    letter-spacing: -.02em;
+  }
+  .hero-stub-pill {
+    background: var(--accent);
+    border: 1.5px solid var(--ink);
+    border-radius: 18px;
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .hero-stub-sticker {
+    background: var(--accent);
+    border: 2px solid var(--ink);
+    border-radius: 20px;
+    padding: 5px 10px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    font-weight: 700;
+    transform: rotate(-3deg);
+    box-shadow: 2px 2px 0 var(--stroke);
+  }
+  .hero-stub-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 30px;
+    line-height: 1.05;
+    text-transform: lowercase;
+    margin-bottom: 4px;
+  }
+  .hero-stub-tagline {
+    font-family: 'Caveat', cursive;
+    font-size: 16px;
+    color: var(--ink);
+    line-height: 1.1;
+    margin-bottom: 14px;
+    opacity: .7;
+  }
+  .meta-placeholder {
+    font-size: 11px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--muted);
+    opacity: .45;
+    border: 1px dashed var(--muted);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     POSTCARD — 9E TARGET
+     ═══════════════════════════════════════════════════════════ */
+
+  .postcard {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 2.5px solid var(--ink);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 18px;
+    background-size: cover;
+    background-position: center;
+  }
+  /* Real-image variant */
+  .postcard--image {
+    background-image:
+      linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.35) 100%),
+      linear-gradient(135deg, #ff8c42 0%, #e63946 50%, #9c3839 100%);
+    /* In production, background-image would be url(trip.cover_image_url)
+       layered with the linear-gradient tint for stamp legibility. */
+  }
+  /* Gradient-fallback variant (no cover_image_url) */
+  .postcard--fallback {
+    background-image:
+      linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.15) 100%),
+      linear-gradient(135deg, var(--theme-gradient-a), var(--theme-gradient-b));
+  }
+  .postcard-stamp {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255,255,255,.92);
+    border: 1.5px solid var(--ink);
+    border-radius: 7px;
+    padding: 4px 10px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--ink);
+    transform: rotate(3deg);
+    letter-spacing: .02em;
+    box-shadow: 1.5px 1.5px 0 var(--stroke);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SCOREBOARD CARD WRAPPER — 9E TARGET
+     ═══════════════════════════════════════════════════════════ */
+
+  .countdown-card {
+    background: var(--surface);
+    border: 2.5px solid var(--ink);
+    border-radius: 14px;
+    padding: 16px 14px 18px;
+    box-shadow: 3px 3px 0 var(--stroke);
+    margin-bottom: 18px;
+  }
+
+  .scoreboard-kicker {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 2px;
+    letter-spacing: .02em;
+  }
+  .scoreboard-date {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .scoreboard-tiles {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .tile {
+    flex: 1;
+    background: var(--accent);
+    border: 2.5px solid var(--ink);
+    border-radius: 12px;
+    box-shadow: 3px 3px 0 var(--stroke);
+    padding: 10px 4px 8px;
+    text-align: center;
+  }
+  .tile-num {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 32px;
+    line-height: 1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+  .tile-label {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 10px;
+    color: var(--ink);
+    text-transform: lowercase;
+    margin-top: 4px;
+    opacity: .85;
+  }
+  .scoreboard-hint {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 10px;
+  }
+
+  .context-stub-below {
+    opacity: .25;
+    pointer-events: none;
+    padding: 10px 0;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-top: 1px dashed rgba(26,42,51,.3);
+    margin-top: 4px;
+  }
+
+  /* Annotations */
+  .annotation {
+    max-width: 860px;
+    margin: 44px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 20px 24px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: #faf8f5;
+    margin: 0 0 10px;
+  }
+  .annotation h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin: 16px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9e · sell · chrome around the countdown</div>
+  <div class="doc-title">scoreboard wrapper + cover-image postcard</div>
+  <div class="doc-sub">
+    Two concerns, shared "chrome around the countdown" session. Left frame:
+    trip has <code style="background:rgba(255,255,255,.08); padding:1px 4px; border-radius:3px;">cover_image_url</code>
+    set. Right frame: no cover — theme-gradient fallback. Scoreboard card
+    wrapper is identical in both.
+  </div>
+</div>
+
+<div class="stage">
+  <!-- Variant A: cover image set -->
+  <div class="frame-wrap">
+    <div class="frame-label">variant a · cover image present</div>
+    <div class="frame">
+      <div class="hero-stub">
+        <div class="hero-stub-top">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="hero-stub-logo">rally!</span>
+            <span class="hero-stub-pill">★ Andrew is calling</span>
+          </div>
+          <span class="hero-stub-sticker">sticker</span>
+        </div>
+        <div class="hero-stub-title">tortola reset</div>
+        <div class="hero-stub-tagline">just the usual suspects + beach</div>
+        <div class="meta-placeholder">⇣ trip meta row lands here in 9F (dates + destination) ⇣</div>
+      </div>
+
+      <div class="postcard postcard--image">
+        <div class="postcard-stamp">tortola · bvi</div>
+      </div>
+
+      <div class="countdown-card">
+        <div class="scoreboard-kicker">lock in by</div>
+        <div class="scoreboard-date">apr 29 · 8pm edt</div>
+        <div class="scoreboard-tiles">
+          <div class="tile"><div class="tile-num">09</div><div class="tile-label">days</div></div>
+          <div class="tile"><div class="tile-num">09</div><div class="tile-label">hrs</div></div>
+          <div class="tile"><div class="tile-num">22</div><div class="tile-label">min</div></div>
+          <div class="tile"><div class="tile-num">47</div><div class="tile-label">sec</div></div>
+        </div>
+        <div class="scoreboard-hint">until the plan locks 🔒</div>
+      </div>
+
+      <div class="context-stub-below">▼ banner · share · organizer · modules (not 9E scope)</div>
+    </div>
+  </div>
+
+  <!-- Variant B: theme-gradient fallback -->
+  <div class="frame-wrap">
+    <div class="frame-label">variant b · no cover · theme gradient fallback</div>
+    <div class="frame">
+      <div class="hero-stub">
+        <div class="hero-stub-top">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="hero-stub-logo">rally!</span>
+            <span class="hero-stub-pill">★ Andrew is calling</span>
+          </div>
+          <span class="hero-stub-sticker">sticker</span>
+        </div>
+        <div class="hero-stub-title">mexico!!!</div>
+        <div class="hero-stub-tagline">we are going to celebrate our girl in style</div>
+        <div class="meta-placeholder">⇣ trip meta row lands here in 9F (dates + destination) ⇣</div>
+      </div>
+
+      <div class="postcard postcard--fallback">
+        <div class="postcard-stamp">cabo · mx</div>
+      </div>
+
+      <div class="countdown-card">
+        <div class="scoreboard-kicker">lock in by</div>
+        <div class="scoreboard-date">apr 29 · 8pm edt</div>
+        <div class="scoreboard-tiles">
+          <div class="tile"><div class="tile-num">09</div><div class="tile-label">days</div></div>
+          <div class="tile"><div class="tile-num">09</div><div class="tile-label">hrs</div></div>
+          <div class="tile"><div class="tile-num">22</div><div class="tile-label">min</div></div>
+          <div class="tile"><div class="tile-num">47</div><div class="tile-label">sec</div></div>
+        </div>
+        <div class="scoreboard-hint">until the plan locks 🔒</div>
+      </div>
+
+      <div class="context-stub-below">▼ banner · share · organizer · modules (not 9E scope)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+  <h3>9E — what to build</h3>
+
+  <h4>1 · Scoreboard card wrapper (the "object around it")</h4>
+  <ul>
+    <li>
+      Wrap the existing <code>.scoreboard</code> contents in a new
+      <code>.countdown-card</code> container.
+    </li>
+    <li>
+      Treatment: white <code>var(--surface)</code> background, 2.5px ink
+      border, 14px radius, 3px-3px press shadow. Padding ~16px top/sides,
+      18px bottom.
+    </li>
+    <li>
+      Keep the existing scoreboard internals (kicker, date, tiles, hint)
+      exactly as they are — 9E is the wrapper only. Tile sizing /
+      tick-rate fixes live in 9D-fix; don't re-fix them here.
+    </li>
+    <li>
+      Scoreboard margin-bottom baked into the card, not the interior.
+    </li>
+    <li>
+      Scope the CSS under <code>.chassis .countdown-card</code> so it
+      doesn't collide with the existing <code>.countdown</code> class
+      that <code>ChassisCountdown</code> uses.
+    </li>
+  </ul>
+
+  <h4>2 · Cover image reposition</h4>
+  <ul>
+    <li>
+      Today <code>PostcardHero.tsx</code> renders
+      <code>&lt;div className="postcard-cover"&gt;</code> between the
+      marquee and the header block (above the sticker / title).
+    </li>
+    <li>
+      Move it to sit <strong>between the hero text stack and the
+      scoreboard card</strong>. In practice that's below the
+      tagline/title and above the countdown card.
+    </li>
+    <li>
+      NOTE: 9F will add a trip meta row ("dates · destination") between
+      tagline and postcard. For 9E, place the postcard directly below the
+      tagline — leave the meta-row slot unreserved. 9F will push the
+      postcard down by one row when it ships. No placeholder needed.
+    </li>
+  </ul>
+
+  <h4>3 · Cover image — present variant (Variant A)</h4>
+  <ul>
+    <li>
+      When <code>trip.cover_image_url</code> is set, render the image at
+      16:9 aspect ratio inside a <code>.postcard</code> frame.
+    </li>
+    <li>
+      Frame: 2.5px ink border, 12px radius, <code>overflow: hidden</code>.
+    </li>
+    <li>
+      Subtle bottom-gradient tint overlay to keep the stamp legible on
+      bright imagery. See the
+      <code>.postcard--image</code> rule in this mockup.
+    </li>
+    <li>
+      Use the existing <code>next/image</code> &lt;Image&gt; setup as
+      the image source — don't refactor imaging logic.
+    </li>
+  </ul>
+
+  <h4>4 · Theme-gradient fallback (Variant B)</h4>
+  <ul>
+    <li>
+      When <code>trip.cover_image_url</code> is null, render the same
+      frame with a theme-color gradient instead of an image.
+    </li>
+    <li>
+      Gradient colors come from existing theme tokens. If there's no
+      first-class "theme-gradient" token pair today, <strong>escalate
+      before adding</strong>. Likely candidates: reuse
+      <code>--accent</code> + <code>--hot</code> or a pair defined in
+      each theme's string file. CC decides after reading the theme
+      token structure; flag in release notes if a new token was added
+      (preferred: none).
+    </li>
+    <li>
+      Same 2.5px ink border + 12px radius. Same stamp pill placement.
+    </li>
+  </ul>
+
+  <h4>5 · Destination-stamp pill</h4>
+  <ul>
+    <li>
+      Small white pill, 1.5px ink border, 7px radius, slight rotation
+      (~3deg), 1.5px-1.5px mini press shadow.
+    </li>
+    <li>
+      Position: top-right corner of the postcard, 10px from each edge.
+    </li>
+    <li>
+      Content: <code>trip.destination</code> (e.g.,
+      <code>"tortola · bvi"</code>). Lowercase, Georgia italic.
+    </li>
+    <li>
+      Hide the stamp if <code>trip.destination</code> is unset.
+    </li>
+    <li>
+      If the stamp copy doesn't have a lexicon home, the raw field is
+      fine — <code>destination</code> is data, not voice copy. No new
+      lexicon entry required.
+    </li>
+  </ul>
+
+  <div class="callout">
+    <strong>Escalation trigger:</strong> if theme tokens don't cleanly
+    support a two-color gradient, STOP and flag. Options: (a) pick two
+    existing per-theme color vars, (b) add a new
+    <code>--theme-gradient-a</code> / <code>--theme-gradient-b</code>
+    token pair per theme (17 themes to update — material work), (c)
+    fall back to a shared neutral gradient across all themes for v0.
+    Don't invent token names without alignment.
+  </div>
+
+  <h3>Out of scope</h3>
+  <ul>
+    <li>Trip meta row (dates + destination) — 9F.</li>
+    <li>Live-dot row, eyebrow, sticker content swap, tagline decision — 9F.</li>
+    <li>Marquee sell content — 9G.</li>
+    <li>Scoreboard tick rate / tile sizing — 9D-fix.</li>
+    <li>Cover-image upload flow — sketch-path concern, separate session.</li>
+    <li>Any module below the countdown — 9H+.</li>
+    <li><code>ChassisCountdown.tsx</code> — still used by InviteeShell, untouched.</li>
+  </ul>
+
+  <h3>Files likely touched</h3>
+  <ul>
+    <li><code>src/components/trip/PostcardHero.tsx</code> — reposition <code>.postcard-cover</code>, add fallback rendering, add stamp</li>
+    <li><code>src/components/trip/CountdownScoreboard.tsx</code> — wrap existing render in the new <code>.countdown-card</code> container (single render change, no prop surface change)</li>
+    <li><code>src/app/globals.css</code> — <code>.postcard</code>, <code>.postcard-stamp</code>, <code>.postcard--image</code>, <code>.postcard--fallback</code>, <code>.countdown-card</code> scoped rules</li>
+    <li><code>src/app/trip/[slug]/page.tsx</code> — likely no changes (component internals handle the swap)</li>
+  </ul>
+</div>
+
+</body>
+</html>

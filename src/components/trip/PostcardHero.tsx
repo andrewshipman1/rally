@@ -194,20 +194,6 @@ export function PostcardHero({
         </div>
       </div>
 
-      {coverImageUrl && (
-        <div className="postcard-cover">
-          <Image
-            src={coverImageUrl}
-            alt={tripName}
-            width={800}
-            height={450}
-            className="postcard-cover-img"
-            priority
-            unoptimized
-          />
-        </div>
-      )}
-
       <div className="header">
         <div className="sticker">{sticker}</div>
         {showLiveRow && (
@@ -244,6 +230,30 @@ export function PostcardHero({
             )}
             {(tagline || destination) && (
               <div className="tagline">{tagline || destination}</div>
+            )}
+            {/* 9G — postcard frame. Cover-present + fallback gradient variants.
+                Gated off for InviteeShell (inviteeOverrides) so the teaser
+                render is unchanged. Sketch gating is already implicit — this
+                branch only runs when !isSketch. */}
+            {!inviteeOverrides && (
+              <div
+                className={`postcard ${coverImageUrl ? 'postcard--image' : 'postcard--fallback'}`}
+              >
+                {coverImageUrl && (
+                  <Image
+                    src={coverImageUrl}
+                    alt={tripName}
+                    width={800}
+                    height={450}
+                    className="postcard-img-fill"
+                    priority
+                    unoptimized
+                  />
+                )}
+                {destination && (
+                  <div className="postcard-stamp">{destination}</div>
+                )}
+              </div>
             )}
           </>
         )}

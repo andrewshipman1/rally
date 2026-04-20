@@ -5059,14 +5059,17 @@ evolved from the original 9A/9B pair to a top-down polish walk after 9A
   Scoreboard wrapped in `.countdown-card` with theme-adaptive `--bg`
   background. Three judgment calls accepted. See 9F Actuals below.
 - **9G — Cover-image postcard + destination stamp + hero-area
-  cleanup.** 🔜 Queued. Was part of the pre-rework 9F; split out
-  when 9F rescoped. Reposition cover image below tagline / above
-  countdown card, add 2.5px ink-bordered postcard frame with
-  destination stamp pill + theme-gradient fallback. Also deletes
-  `<ShareLinkButton>` + `<OrganizerCard>` render calls from
-  `page.tsx`. Canonical wireframe: `rally-9e-hero-chrome-sell-
-  mockup.html` (filename retained; content valid for 9G). Kickoff
-  file pending.
+  cleanup.** ✅ Shipped + QA'd 2026-04-17. Cover image repositioned
+  below tagline in a framed 16:9 `.postcard`. Both variants live-
+  verified: cover-present (`.postcard--image`) on Cape Cod trip,
+  fallback (`.postcard--fallback`) on Mexico + Coachella with
+  theme-adaptive `linear-gradient(135deg, --accent, --accent2)`.
+  Destination stamp pill in top-right. `<ShareLinkButton>` +
+  `<OrganizerCard>` render calls deleted from `page.tsx`
+  (component files kept as orphans). One judgment call accepted:
+  fallback uses `--accent + --accent2` instead of brief's
+  `--hot + --accent` (avoids flat gradient on 3 themes where
+  `--hot === --accent`).
 - **9H — Headliner module polish (sell readOnly + copy + layout).**
   Queued. Bumped from 9G → 9H on 2026-04-17. Fixes the known soft
   dead-end card-body click deferred from 9A-fix.
@@ -5089,12 +5092,11 @@ pre-RSVP), 3 (RSVP'd in), and 4 (organizer). View 1 (teaser / blur /
 login) is Session 10.
 
 **Current state (2026-04-17 late evening):** 9A / 9A-fix / 9C / 9D /
-9D-fix / 9E / 9F all shipped and QA'd. **9G on deck** — cover-image
-postcard + destination stamp + hero-area render-call deletions.
-Canonical wireframe for 9G: `rally-9e-hero-chrome-sell-mockup.html`
-(filename retained from earlier iteration; content valid for 9G).
-Brief already drafted in the fix plan block below. Next: create the
-9G kickoff file + hand off to CC.
+9D-fix / 9E / 9F / 9G all shipped and QA'd. **9H on deck** — headliner
+module polish (sell readOnly + copy + layout). Preview block exists
+in the fix plan below (bumped from 9G → 9H when 9G was claimed by the
+postcard work). Full brief + mockup + kickoff need drafting before
+handoff. Next: scope 9H.
 
 ---
 
@@ -7717,6 +7719,284 @@ cover is set, and clean up two misplaced hero-area render calls from
 
 ---
 
+#### Session 9G — Release Notes
+
+**What was built:**
+
+1. **Scope #1 — Cover-image repositioned into the hero body.**
+   Deleted the pre-9G `<div className="postcard-cover">` block from
+   `PostcardHero.tsx` (the edge-to-edge 16:9 cover that sat above the
+   `.header` block). Replaced with a new framed `.postcard` block
+   rendered as the **last child of `.header`**, after the
+   `<div className="tagline">`. The block is placed inside the existing
+   non-sketch branch of the render (`isSketch ? … : <>…</>`), and guarded
+   with `!inviteeOverrides` so the InviteeShell teaser remains unchanged.
+2. **Scope #2 — Cover-present variant (`.postcard.postcard--image`).**
+   When `coverImageUrl` is truthy, the frame renders the existing
+   `next/image` element (`width=800`, `height=450`, `priority`,
+   `unoptimized`) filling 100% with `object-fit: cover`. Bottom-tint
+   `::after` overlay at `linear-gradient(180deg, rgba(0,0,0,0) 55%,
+   rgba(0,0,0,.35) 100%)` keeps the stamp legible on bright imagery.
+3. **Scope #3 — Fallback variant (`.postcard.postcard--fallback`)** —
+   path (a'), approved in planning. Uses
+   `linear-gradient(135deg, var(--accent), var(--accent2))` (not the
+   brief-suggested `--hot + --accent` — see Judgment call #1). Lighter
+   bottom tint (`rgba(0,0,0,.15)`). Zero new tokens, zero theme-file
+   edits — works on all 17 themes via the existing `accent2` declaration.
+4. **Scope #4 — Destination stamp pill (`.postcard-stamp`).**
+   Absolute-positioned top-right (10px from each edge), z-index 1 (above
+   the tint overlay), `rgba(255,255,255,0.92)` bg, 1.5px ink border, 7px
+   radius, `transform: rotate(3deg)`, 1.5px×1.5px press shadow. Content:
+   `{destination}` raw. Gated on `destination` truthy — **no reserved
+   space** when unset (the element simply isn't rendered). Georgia italic
+   700 11px, `text-transform: lowercase`, `letter-spacing: 0.02em`,
+   `color: var(--ink)`.
+5. **Scope #5 — `<ShareLinkButton>` render call + import deleted** from
+   `src/app/trip/[slug]/page.tsx` (old L28 import, old L344–349 Reveal
+   block with its "Share link — sell+ only" comment). Component file
+   `ShareLinkButton.tsx` left in place as an orphan (9A pattern).
+6. **Scope #6 — `<OrganizerCard>` render call + import deleted** from
+   `page.tsx` (old L32 import, old L358–363 Reveal block). Component
+   file `OrganizerCard.tsx` left in place as an orphan. The
+   `<AddToCalendarButton>` Reveal block between them, the surrounding
+   `<div style={{ padding: '0 18px' }}>` wrapper, and the subsequent
+   `<Description>` render all left untouched.
+
+**CSS shape:**
+
+```css
+.chassis .postcard {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+.chassis .postcard::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.35) 100%);
+}
+.chassis .postcard--fallback {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+}
+.chassis .postcard--fallback::after {
+  background: linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.15) 100%);
+}
+.chassis .postcard-img-fill { width: 100%; height: 100%; object-fit: cover; display: block; }
+.chassis .postcard-stamp { /* abs top-right, white pill, 1.5px ink border, 7px
+   radius, rotate(3deg), press shadow, Georgia italic 700 11px lowercase */ }
+```
+
+The pre-9G `.chassis .postcard-cover` + `.postcard-cover-img` rules
+(edge-to-edge, `border-bottom: 3px solid var(--stroke)`) were fully
+replaced. The unrelated `.chassis .postcard-img` rule at
+`globals.css:510` (sketch-phase wordmark-row thumbnail) is a distinct
+selector and was left alone.
+
+**What changed from the brief:**
+
+1. **Judgment call #1 — fallback uses `--accent + --accent2`, not
+   `--hot + --accent`.** Accepted in plan mode via AskUserQuestion. The
+   brief suggested `--hot + --accent` as path (a). Cross-theme scan
+   found this would collapse to a flat gradient on 3 themes
+   (`festival-run`, `city-weekend`, `just-because` all have
+   `--hot === --accent`) and a near-flat gradient on ~10 more themes
+   whose `--hot` and `--accent` share the same red/orange hue family
+   (e.g. `boys-trip` `#e84a1a + #ff3838`; `couples-trip` `#c44d3a +
+   `#d94a5c`; `reunion-weekend` `#b84a2f + #e63946`). Proposed path
+   (a') — `--accent + --accent2` — works on all 17 themes because
+   `accent2` was designed as a per-theme adjacent/complementary pop
+   color (beach `#e55f37 + #ffd84d` = orange→yellow; bachelorette
+   `#ff2e7e + #c4ff7a` = pink→neon-green; city-weekend `#ff2e7e +
+   #2dd4d4` = pink→teal). Zero new tokens, zero theme-file edits.
+   Verified via DOM probe: beach/bachelorette/city-weekend/
+   festival-run/just-because/tropical all render distinct two-tone
+   gradients (see Cross-theme gradient verification below).
+2. **`!inviteeOverrides` guard added, not just `!isSketch`.** Brief's
+   scope was `!isSketch` (sketch owns its own wordmark-row postcard
+   via `sketchOverrides.renderPostcard`). But `InviteeShell` invokes
+   `PostcardHero` with `inviteeOverrides` (no sketch flag), and the AC
+   requires "InviteeShell renders unchanged." Added a separate
+   `!inviteeOverrides` guard on the `.postcard` block so the teaser
+   path stays byte-identical. Verified in the preview: InviteeShell
+   renders with no `.postcard` element in the DOM (the teaser's pre-
+   existing title / tagline / countdown / going-row are all unchanged).
+3. **`postcard-img-fill` class name** (brief said "CC's final naming
+   call"). Picked this instead of reusing `postcard-cover-img` to
+   signal the new rule is scoped to the fill-the-frame `<Image>`, not
+   the old edge-to-edge cover.
+4. **No changes to `src/lib/themes/*`.** Path (a') made theme-file
+   edits unnecessary. The escalation contingency in the brief was
+   "ONLY if CC takes escalation path (b) and Andrew approves" — (a')
+   skips this entirely.
+
+**Cross-theme gradient verification (DOM probe, harness browser):**
+
+| theme | `--accent` | `--accent2` | gradient outcome |
+|-------|------------|-------------|------------------|
+| beach-trip | `#e55f37` | `#ffd84d` | orange → yellow (sunset) |
+| bachelorette | `#ff2e7e` | `#c4ff7a` | pink → neon-green |
+| city-weekend | `#ff2e7e` | `#2dd4d4` | pink → teal |
+| festival-run | `#ff3a8c` | `#5aff9e` | pink → mint |
+| just-because | `#fa581e` | `#1fa8ff` | orange → blue |
+| tropical | `#ed5436` | `#3ab8d4` | orange → cyan |
+
+The three "would have been flat on `--hot + --accent`" themes
+(`festival-run`, `city-weekend`, `just-because`) all render vibrant,
+distinct two-tone gradients via `--accent + --accent2`. Decision
+validated.
+
+**CSS-dimension verification (DOM probe at 375px, beach theme):**
+
+- `.postcard--image`: `aspect-ratio: 16 / 9`, border `2.5px solid rgb(10, 42, 58)` (beach `--ink`), `border-top-left-radius: 12px`, `overflow-x: hidden`, `margin-bottom: 18px`, width 339px (sits at x=18 to x=357 inside `.header` 18px horizontal padding).
+- `.postcard-stamp`: `background-color: rgba(255, 255, 255, 0.92)`, `border-top-width: 1.5px`, `border-top-color: rgb(10, 42, 58)`, `border-top-left-radius: 7px`, `transform: matrix(0.99863, 0.052336, -0.052336, 0.99863, 0, 0)` = ~3deg rotation, `font-family: Georgia, serif`, `font-style: italic`, `font-weight: 700`, `font-size: 11px`, `text-transform: lowercase`, `color: rgb(10, 42, 58)`, `box-shadow: rgb(10, 42, 58) 1.5px 1.5px 0px 0px`.
+- **No horizontal overflow at 375px**: `document.documentElement.scrollWidth - clientWidth = 0`; stamp right edge 345.17px < postcard right 357px (contained).
+
+**What to test:**
+
+- [ ] **Pre-QA:** `pkill -f "next dev"; pkill -f "next-server"; pkill -f "node.*next"` → `rm -rf .next && npm run dev`. Stale-chunk dance, same as 9E/9F.
+- [ ] **Signed-in Mexico sell trip** (`/trip/k5PbSJff`, beach theme): cover image renders in a 16:9 framed `.postcard.postcard--image` below the tagline and above the `.countdown-card`. Stamp pill in the top-right reads `"Cabo, MX"` (lowercase), 3deg rotation, white fill, 1.5px ink border, 1.5×1.5 press shadow. No `.postcard-cover` div above `.header` in the DOM.
+- [ ] **Fallback variant** — load a trip with null `cover_image_url` (or temporarily null the DB field on a test trip). `.postcard.postcard--fallback` renders a `linear-gradient(135deg, --accent, --accent2)` background. Cycle through 2–3 themes (e.g. beach, bachelorette, city-weekend); confirm each gradient is distinct and saturated.
+- [ ] **Stamp-hidden path** — load a trip with `destination = null`. No `.postcard-stamp` element in the DOM. Postcard frame still renders; no reserved space where the stamp would have been.
+- [ ] **Deletions verified** — on the signed-in sell page, between the scoreboard and the headliner, the **"copy the invite link ↗"** button and the **"Andrew Shipman · Big Daddy · started this"** organizer card no longer render. `<AddToCalendarButton>` ("add to calendar") still renders in the same slot.
+- [ ] **375px fit** — no horizontal overflow; stamp fits inside the postcard frame; postcard sits inside the header's 18px horizontal padding. (Harness-verified; Cowork eyeball confirms at 375px.)
+- [ ] **Sketch regression** — load a sketch trip. `SketchTripShell` owns its own render path; the new `.postcard` block is gated by `!isSketch && !inviteeOverrides`. Sketch hero should render unchanged (wordmark-row postcard via `sketchOverrides.renderPostcard` still works via the separate `.chassis .postcard-img` rule family).
+- [ ] **InviteeShell regression** — incognito on a non-sketch trip. Teaser renders unchanged; no `.postcard` element in the DOM. Verified in harness preview.
+- [ ] **Lock/go regression** — if a lock or go trip exists, confirm the new postcard + stamp render via the same `PostcardHero` path. Zero lock/go trips existed per 9A/9F actuals; will need a QA-time spot-check if one is created.
+- [ ] **`npx tsc --noEmit`** exit 0 (verified during session).
+- [ ] **`git diff src/components/trip/InviteeShell.tsx`** empty.
+- [ ] **`git diff src/components/trip/CountdownScoreboard.tsx`** empty.
+- [ ] **`git diff src/components/trip/ChassisCountdown.tsx`** empty.
+- [ ] **`git diff src/components/trip/ShareLinkButton.tsx`** empty (orphan preserved).
+- [ ] **`git diff src/components/trip/OrganizerCard.tsx`** empty (orphan preserved).
+- [ ] **`git diff src/lib/themes/`** empty (path a' required no theme edits).
+
+**Known issues:**
+
+- **Harness can't verify the authenticated signed-in render.** Same
+  blocker as 9A / 9C / 9D / 9D-fix / 9E / 9F — the preview browser
+  has no Supabase session, so `/trip/k5PbSJff` renders InviteeShell.
+  The new `.postcard` CSS was verified via DOM injection into the
+  `.chassis .header` block (both `.postcard--image` and
+  `.postcard--fallback` variants, stamp pill, 375px fit, no
+  horizontal overflow) and via cross-theme gradient probe across six
+  themes. Ground-truth render of the authenticated cover image and
+  destination stamp is a Cowork eyeball.
+- **Sketch regression protected by scope analysis, not preview
+  verification.** The new `.postcard` block is inside the `isSketch ?
+  sketchOverrides.renderBody : <>…</>` ternary's ELSE branch, which
+  the sketch path never hits. CSS is scoped by class name
+  (`.chassis .postcard` vs sketch's `.chassis .postcard-img` — fully
+  distinct selectors, no cascade overlap). The harness has no sketch
+  trip loaded to spot-check; Cowork QA should hit a sketch trip to
+  confirm.
+- **Lock / go phases untested.** Zero lock or go trips exist in the
+  system (per 9A / 9F Actuals). New `.postcard` render path is
+  shared (all non-sketch, non-invitee phases run through it), so
+  lock/go pick it up automatically; flagged here so QA knows the
+  lock-phase polish session will validate.
+- **No fallback destination when `destination` is null.** Per brief:
+  stamp hides entirely. Cover-present trips without a destination
+  render with no stamp pill; `destination` is data, not voice copy,
+  so no lexicon fallback.
+- **`.chassis .postcard-cover` CSS and `.chassis .postcard-cover-img`
+  CSS were fully deleted.** If any external callers existed (none
+  found in a codebase grep), they'd render unstyled. Confirmed: zero
+  consumers in `src/`.
+
+#### Session 9G — Actuals (QA'd 2026-04-17)
+
+**Status:** Complete. Visual + DOM-probe QA in Chrome on two sell
+trips (Mexico — beach theme, null cover; Coachella — reunion-weekend
+theme, null cover). Both fallback gradients verified distinct and
+theme-adaptive. Deletions confirmed on both.
+
+**Acceptance criteria results:**
+
+- ✅ Cover-image repositioned — new `.postcard` block sits as the
+  last child of `.header`, after the tagline, before the countdown
+  card. Verified via DOM probe on Mexico:
+  `[sticker, wordmark, eyebrow, title, trip-meta, tagline,
+  postcard postcard--fallback]`.
+- ✅ Old `.postcard-cover` block fully removed from DOM on both
+  themes probed.
+- ✅ Cover-present variant (`.postcard--image`) — **verified live** on
+  Cape Cod trip (`zVf9nvgG`, beach theme). Supabase-hosted cover
+  image renders inside the 16:9 frame with `object-fit: cover`;
+  "Cape Cod" stamp in the corner; mutually exclusive with fallback
+  class (probe: `.postcard--image: true, .postcard--fallback: false`).
+- ✅ Fallback variant on beach: `linear-gradient(135deg, #e55f37,
+  #ffd84d)` — vibrant orange-to-yellow sunset. Verified via computed
+  style.
+- ✅ Fallback variant on reunion-weekend: distinct muted burgundy →
+  steel-blue gradient via `--accent + --accent2`. Proves theme
+  adaptivity — same formula, different mood per theme.
+- ✅ Postcard frame on both trips: 16:9 aspect ratio, 2.5px ink
+  border (computed 2px — sub-pixel normalization, not a bug; same
+  pattern as 9F's countdown card), 12px radius.
+- ✅ Stamp pill: text rendered from `trip.destination` raw, CSS
+  `text-transform: lowercase` applies ("Tulum, Mexico" → visually
+  "tulum, mexico"; "Palm Spring, Ca" → "palm spring, ca"). White
+  92% opacity bg, 1.5px ink border, ~3deg rotation matrix, press
+  shadow.
+- ⏭ Stamp-hidden path (null `trip.destination`) — **not tested.** No
+  trip with null destination. Scope-analysis: the element is gated
+  on `destination` truthy; if unset, not rendered. Accept.
+- ✅ `<ShareLinkButton>` render + import deleted from `page.tsx`
+  (DOM probe confirms no element; no "copy the invite link ↗"
+  button visible above the scoreboard on either trip).
+- ✅ `<OrganizerCard>` render + import deleted (no
+  "Andrew Shipman · Big Daddy · started this" card rendered on
+  either trip).
+- ✅ `<AddToCalendarButton>` still renders in the same slot
+  (visible on Mexico).
+- ✅ 9F header work intact — no regression (title tiers + accent +
+  meta + tagline + countdown card all render unchanged).
+- ✅ Deadline banner regression gate — T-0 banner
+  ("today's the day · 0 still holding.") still renders on Coachella
+  (whose deadline has passed).
+- ⏭ Sketch regression — **not tested.** CC's scope analysis: new
+  `.postcard` block is gated on `!isSketch && !inviteeOverrides`;
+  sketch's wordmark-row postcard uses a distinct selector
+  (`.chassis .postcard-img` family). Accept per scope analysis.
+- ⏭ InviteeShell regression — **not tested this pass.** CC
+  harness-verified (`.postcard` element not in InviteeShell DOM).
+  Accept.
+- ⏭ Lock/go regression — **not testable** (no lock/go trips).
+- ✅ No horizontal overflow at 375px.
+- ✅ `ChassisCountdown.tsx` / `CountdownScoreboard.tsx` /
+  `InviteeShell.tsx` / `ShareLinkButton.tsx` / `OrganizerCard.tsx` /
+  `src/lib/themes/*` — all untouched per CC's git-diff verification.
+- ✅ `npx tsc --noEmit` clean (CC verified).
+
+**Judgment call — accepted:**
+
+1. **Fallback gradient uses `--accent + --accent2`, not the brief's
+   `--hot + --accent`.** CC's cross-theme scan found 3 themes where
+   `--hot === --accent` (flat gradient) and ~10 where the two live in
+   the same red/orange hue family (near-flat gradient). Path (a')
+   with `--accent + --accent2` produces vibrant two-tone gradients
+   across all 17 themes; no new tokens, no theme-file edits. Smart
+   catch; approved in plan mode. Validated visually on beach
+   (orange→yellow) and reunion-weekend (brown→blue).
+
+**Parked follow-ups:**
+
+- Cover-present variant `.postcard--image` spot-check when any trip
+  has `cover_image_url` set. Not urgent.
+- Null-destination stamp-hidden spot-check when a trip without a
+  destination exists.
+- Sketch / InviteeShell / lock / go regression spot-checks deferred
+  to next session that exercises those paths (same pattern as 9F
+  Actuals).
+
+---
+
 #### (old 9F placeholder — retained below for history; scope fully replaced above)
 
 <!-- OLD 9F SCOPE — SUPERSEDED BY NEW 9F + 9G ABOVE. Retained
@@ -7920,47 +8200,468 @@ new 9G. This old block remains only as evolution context.*
 
 ---
 
-#### Session 9H (preview): "Headliner module polish — sell readOnly + copy + layout"
+#### Session 9H: "Headliner — sketch parity on sell"
 
-*Bumped from 9G → 9H on 2026-04-17 when 9G was claimed by the cover-
-image postcard + hero-area cleanup work. Full brief preserved from
-the pre-reframe 9C draft.*
+**Intent.** First module in the sketch-parity walk down the sell page.
+Make the sell headliner look exactly like the populated sketch
+headliner. No sell-specific design invention for this module. Inner
+`.module-card` stays byte-identical; the delta is a `.module-section`
+wrap with sketch-style header (title + "rough estimate" caption) and
+a `readOnly` prop that locks the card-body click on sell.
 
-**Intent.** First module in the top-down module-stack polish walk.
-Originally scoped as 9C before the top-to-bottom reframe pulled hero
-chrome forward. Makes the headliner pixel-perfect on sell and fixes
-the known **soft dead-end card-body click** left over from 9A-fix.
+**Principle (Andrew, 2026-04-17).** Sell below the countdown clock =
+sketch populated, fully read-only. Invitees can't edit; organizer
+edits via future sketch-mode portal (option C, separate session).
+Abandon any sell-specific design that doesn't mirror sketch. 9F
+countdown card + 9G postcard stay shipped (sketch has no equivalent
+for those).
 
-**Scope (summary, full brief to be re-drafted at turn):**
+**Reference source.** Sketch VEGAS BABY trip (`/trip/TheVfl1-`),
+verified live 2026-04-17. Canonical target:
+`rally-9h-headliner-sell-mockup.html` v2 (locked).
 
-1. Add `readOnly?: boolean` to `Headliner.tsx` (default `false`).
-   When `true`: drop `role="button"` + `onClick` + hover/press on the
-   outer card. Embedded source-link CTA unchanged.
-2. `SellHeadliner.tsx` passes `readOnly={true}`, drops the noop
-   `onOpen`.
-3. Copy audit of the headliner module against
-   `rally-microcopy-lexicon-v0.md`.
-4. 375px layout pass against `rally-headliner-mockup.html`.
-5. 8N `.module-section` parity.
+**Scope (numbered):**
 
-**Existing artifacts to reuse at turn:**
+1. **Wrap rendered headliner in `.module-section`.** Use the existing
+   sketch primitive in `globals.css:4796` (2.5px ink border, 16px
+   radius, 18/24 padding, transparent bg, flex column with 12px gap).
+   No new CSS.
+2. **Add `.module-section-header`** at the top of the wrap:
+   - Left: `.module-section-title` = **"the headliner"**
+     (Georgia italic lowercase 18px, weight 700) — existing primitive,
+     existing CSS
+   - Right: `.module-section-caption` (new class) = **"rough estimate"**
+     (Caveat hand-font via `--font-hand`, 15–16px, `color: var(--ink)`
+     with `opacity: 0.5`) — mirrors the sketch reference exactly
+3. **Inner `.module-card` unchanged.** The OG image, title text, cost
+   line, and "view site →" CTA all render exactly as today. Do NOT
+   restyle the inner card beyond removing interactivity in #4.
+4. **Add `readOnly?: boolean` to `Headliner.tsx`.** Default `false`.
+   When `true`:
+   - Outer `.module-card` drops `role="button"`, `tabIndex`,
+     `onClick`, `onKeyDown`, `aria-label`. Render as a bare
+     `<div>` instead of a click-activated wrapper.
+   - The embedded `.module-card-pill.headliner-cta` anchor is the
+     only interactive element (it already has
+     `onClick={(e) => e.stopPropagation()}`).
+   - Sketch path unchanged — `SketchModules.tsx` continues to render
+     with default `readOnly={false}`, tap-to-open drawer for organizer
+     on sketch.
+5. **`SellHeadliner.tsx` passes `readOnly={true}`.** Drop the noop
+   `onOpen={() => {}}` — pure prop-adapter. Per option C, sell is
+   read-only for everyone (including organizer).
+6. **Section wrap location — audit first.** Grep `SketchModules.tsx`
+   to confirm whether sketch wraps `<Headliner>` in a
+   `<div className="module-section">` at the call site, or whether
+   the wrap lives inside `Headliner.tsx`. Match sketch's pattern —
+   don't duplicate the wrap at two levels.
+7. **Copy: section title + section caption strings.** Grep the
+   lexicon (`src/lib/copy/surfaces/`) for existing keys before
+   adding. If sketch already uses lexicon keys for these (likely
+   under `builderState.headliner.*` or
+   `tripPageShared.headliner.*`), reuse them. If not, add:
+   - `builderState.headliner.sectionTitle` = "the headliner"
+   - `builderState.headliner.sectionCaption` = "rough estimate"
+   ESCALATE before adding new lexicon entries (Rally rule).
+8. **Copy audit — "· edit anytime" tail on sell.** The cost-line
+   caption reads `"pulled from {domain} · edit anytime"` today on
+   both sketch and sell. Under option C, sell is read-only and "edit
+   anytime" is semantically wrong for invitees. Three options (CC
+   escalates before picking):
+   - (i) Keep as-is (strict visual parity, accept mild dissonance)
+   - (ii) Drop the " · edit anytime" tail on sell via a phase-aware
+     lexicon key
+   - (iii) Replace with "· est." or similar sell-appropriate tail
+   **Recommended: (ii).** It preserves visual parity while fixing
+   the semantic mismatch.
 
-- `rally-9c-headliner-sell-mockup.html` — focused mockup for the
-  sell-phase readOnly headliner at 375px. Rename to
-  `rally-9e-headliner-sell-mockup.html` when 9E is drafted.
-- `claude-code-kickoff-9c-headliner-polish.md` — stale kickoff from the
-  pre-reframe 9C draft. Rename / update to `9e-headliner-polish` when
-  drafting 9E.
+**Hard constraints:**
 
-**Decisions to make at draft time:**
+- Only these files touched:
+  - `src/components/trip/builder/Headliner.tsx` — `readOnly` prop,
+    section wrap (or keep the wrap at the call site — per #6)
+  - `src/components/trip/SellHeadliner.tsx` — pass `readOnly={true}`,
+    drop noop
+  - `src/lib/copy/surfaces/` — ONLY if new lexicon entries are
+    needed after grep (escalate first)
+  - `src/app/globals.css` — ONLY if a new `.module-section-caption`
+    rule is needed (existing `.module-section-count` might suffice —
+    check first, escalate if unclear)
+- DO NOT modify the inner `.module-card` layout, image, title, cost
+  line, or CTA. Everything inside the section stays as it renders today.
+- DO NOT touch sketch path (`SketchModules.tsx`) beyond inspecting
+  for reference.
+- DO NOT add any sell-specific visual element not present on sketch.
+- DO NOT touch any other module (spot, transport, etc.) — later sessions.
+- DO NOT touch the deadline banner or AddToCalendarButton — 9I.
+- DO NOT address organizer edit flow — future session.
+- Mobile-first at 375px.
+- `pkill -f "next dev"; pkill -f "next-server"; pkill -f "node.*next"`
+  → `rm -rf .next && npm run dev` before QA.
+- `npx tsc --noEmit` clean before release notes.
 
-- Whether the "soft dead-end on the outer card body" fix is a
-  `readOnly?` prop (option A), making `onOpen` optional in
-  `Headliner.tsx` (option B), or a more comprehensive `readOnly`
-  refactor that also changes hover/press states (option C). The
-  pre-reframe draft recommended option A.
-- Whether the copy audit's gaps trigger new lexicon entries (escalation
-  trigger per session rule).
+**Acceptance criteria:**
+
+- [ ] Sell headliner renders inside a `.module-section` frame (2.5px
+      ink border, 16px radius, 18/24 padding, transparent bg)
+- [ ] `.module-section-header` renders at the top with "the headliner"
+      on the left and "rough estimate" on the right
+- [ ] Inner `.module-card` (image, title, cost line, CTA) renders
+      byte-identically to pre-9H behavior
+- [ ] Tapping the card body on sell does NOTHING (no cursor change,
+      no hover state, no action). Dead area is intentional.
+- [ ] The embedded "view site →" CTA link still opens the source URL
+      in a new tab
+- [ ] Sketch headliner renders unchanged — `SketchModules.tsx` and
+      the sketch rendering path are untouched
+- [ ] Lock/go phase headliner picks up the new section wrap (shared
+      render path — expected)
+- [ ] Sell headliner visual matches the sketch headliner side-by-side
+      at 375px (outer frame, header spacing, inner card treatment)
+- [ ] `SellHeadliner.tsx` no longer passes a noop `onOpen`
+- [ ] `.title-accent` + `--hot` accent from 9F still works on the
+      trip title (regression gate)
+- [ ] `npx tsc --noEmit` clean
+
+**Files to read first:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` → Session 9H brief + 9A / 9A-fix / 9F / 9G
+  release notes (context for what was shipped)
+- `rally-9h-headliner-sell-mockup.html` — **canonical 9H target
+  (v2, locked).** Three rows: sketch reference ← → sell target;
+  current sell (before).
+- `src/components/trip/builder/Headliner.tsx` — component source
+- `src/components/trip/SellHeadliner.tsx` — 9A-fix wrapper
+- `src/components/trip/builder/SketchModules.tsx` — confirm where
+  sketch wraps the headliner (at the call site, or inside the
+  component?)
+- `src/app/globals.css:4796` — `.module-section` primitive
+- `src/lib/copy/surfaces/builder-state.ts` — existing lexicon
+- `src/app/trip/[slug]/page.tsx` — sell render path for headliner
+
+**How to QA solo:**
+
+1. Clean restart.
+2. Load a sketch trip (e.g., VEGAS BABY at `/trip/TheVfl1-`) →
+   screenshot the populated headliner.
+3. Load Coachella (`/trip/sjtIcYZB`) on sell → screenshot the
+   headliner.
+4. Side-by-side: the two should look identical within the module
+   area (ignoring sketch's pink bg vs. sell's cream bg; the module
+   treatment itself should mirror).
+5. Tap the sell headliner card body → nothing happens. Tap the
+   "view site →" link → opens in a new tab.
+6. Tap the sketch headliner card body → drawer opens (regression —
+   unchanged from pre-9H).
+7. Incognito on the sell share link → `InviteeShell` renders
+   unchanged.
+8. `npx tsc --noEmit` clean.
+
+**Scope boundary reminders:**
+
+- If the wrap location debate (component vs. call-site) is unclear
+  → STOP and raise options before editing.
+- If the lexicon doesn't have section-title / section-caption keys
+  → STOP and raise before adding.
+- If the "edit anytime" copy question in #8 feels ambiguous → raise
+  options (i/ii/iii) before picking.
+- If the `.module-section` primitive doesn't render cleanly with
+  the existing `.module-card` inside (e.g., margins collide) →
+  STOP and flag; don't add new CSS.
+- If touching any other module → STOP. 9I+.
+
+---
+
+#### Session 9H — Release Notes
+
+**What was built:**
+
+1. **Scope #1 + #2 — sketch-parity section wrap around the sell
+   headliner.** Added `<div className="module-section headliner-module">`
+   around `<SellHeadliner>` in [page.tsx:367](src/app/trip/[slug]/page.tsx:367),
+   with a `.module-section-header` block containing:
+   - Left: `<span className="module-section-title">` →
+     `getCopy(themeId, 'builderState.headliner.eyebrow')` = "the headliner"
+   - Right: `<span className="module-section-count">` →
+     `getCopy(themeId, 'builderState.headliner.estimateCaption')` = "rough estimate"
+   The wrap lives at the call site in `page.tsx` — matches sketch's
+   pattern in [SketchModules.tsx:149](src/components/trip/builder/SketchModules.tsx:149)
+   exactly. Zero new CSS (reused `.module-section`,
+   `.module-section-header`, `.module-section-title`,
+   `.module-section-count` primitives from `globals.css:4796–4830`).
+2. **Scope #3 — inner `.module-card` untouched.** The OG image hero
+   with `.headliner-og-domain` chip, `.module-card-title`, cost pill,
+   `.headliner-caption`, and `.module-card-pill.headliner-cta` CTA all
+   render exactly as they did pre-9H. No changes to the card's
+   internal layout.
+3. **Scope #4 — `readOnly?: boolean` prop added to `Headliner.tsx`.**
+   Default `false`. When `true`, the populated card renders as a
+   bare `<div className="module-card headliner">` with no `role=button`,
+   no `tabIndex`, no `onClick`, no `onKeyDown`, no `aria-label`.
+   Extracted the card-body JSX to a shared `cardBody` fragment so both
+   branches render byte-identical markup inside; only the outer
+   wrapper differs. The embedded `.headliner-cta` anchor (which
+   already has its own `onClick={e => e.stopPropagation()}`) is the
+   only interactive affordance on sell. Made `onOpen` optional in
+   the Props type (default `() => {}`) so callers can omit it when
+   `readOnly=true`.
+4. **Scope #5 — `SellHeadliner.tsx` is now a pure prop-adapter.**
+   Passes `readOnly` and `themeId` + `headliner` only. Dropped the
+   noop `onOpen={() => {}}` (Headliner's `onOpen` is optional now and
+   ignored under `readOnly`). File is 3 JSX lines.
+5. **Scope #6 — wrap location confirmed via grep.** Sketch wraps at
+   the call site in `SketchModules.tsx`, not inside `Headliner.tsx`.
+   Mirrored the same structure around `<SellHeadliner>` — no
+   component-level wrap, no double-nesting.
+6. **Scope #7 — lexicon keys reused, no new entries for section chrome.**
+   `builderState.headliner.eyebrow` ("the headliner") and
+   `builderState.headliner.estimateCaption` ("rough estimate") already
+   exist in [builder-state.ts:208,226](src/lib/copy/surfaces/builder-state.ts:208).
+   Sketch already consumes both.
+7. **Scope #8 — `· edit anytime` tail resolved via option (ii).**
+   Added one new lexicon entry:
+   `'headliner.pulledFromReadOnly': 'pulled from {domain}'` at
+   [builder-state.ts:229](src/lib/copy/surfaces/builder-state.ts:229).
+   Headliner picks the key based on `readOnly` — sketch/organizer
+   (readOnly=false) keeps `pulledFrom` with the `· edit anytime` tail;
+   sell/lock/go (readOnly=true) uses `pulledFromReadOnly` and drops
+   the tail entirely. Visual parity stays: the `.headliner-caption`
+   span and its surrounding spacing are unchanged; only the final
+   four words go away on sell.
+
+**What changed from the brief:**
+
+1. **Judgment call #1 — `onOpen` made optional, not removed.** Brief
+   said "drop the noop onOpen" from SellHeadliner. Dropping it fully
+   would require `onOpen` to be optional in Headliner's Props (or an
+   `if (onOpen) onOpen()` guard in every call site). Picked the
+   optional-prop path: `onOpen?: () => void` with a destructure
+   default of `() => {}`. Sketch continues to pass `onOpen={…}`;
+   SellHeadliner omits it entirely. Cleaner than a conditional guard
+   or a required-but-unused prop.
+2. **Judgment call #2 — `.module-section-count` class reused, no new
+   `.module-section-caption` class added.** Brief flagged (d) as an
+   escalation trigger: "existing `.module-section-count` doesn't
+   deliver the 'rough estimate' treatment cleanly". But
+   [globals.css:4825](src/app/globals.css:4825) already delivers
+   exactly the mockup spec: `font-family: var(--font-hand), 'Caveat',
+   cursive; font-size: 16px; color: var(--ink); opacity: 0.5`.
+   That's identical to the mockup's "Caveat hand-font, opacity 0.5,
+   15–16px, color: var(--ink)". Sketch also uses
+   `.module-section-count` for the same "rough estimate" caption on
+   the sketch headliner — reusing it on sell means both paths share
+   the primitive. Zero new CSS.
+3. **Judgment call #3 — `onOpen` noop default not strictly needed,
+   kept for defensive behavior.** Headliner still renders an empty-
+   state (`!isSet` branch) with a `<button onClick={onOpen}>` for the
+   "add" affordance. Under `readOnly=true` with no `onOpen`, clicking
+   that button would call the destructure-default noop. Kept the
+   default instead of guarding every call site — sell doesn't reach
+   the empty-state branch anyway (render is gated on
+   `trip.headliner_description`) but defensive.
+4. **Escalation (c) resolved via AskUserQuestion → option (ii).**
+   User confirmed: drop the tail on sell via phase-aware lexicon.
+   New `pulledFromReadOnly` entry added; `pulledFrom` (sketch) kept.
+
+**Verification:**
+
+- **`npx tsc --noEmit` clean** (verified during session; no output on
+  clean runs).
+- **Sketch regression** (`/trip/TheVfl1-` — VEGAS BABY): verified
+  via live preview + DOM probe that `.headliner-module` still
+  renders with `role="button"`, `tabindex="0"`, `aria-label="edit
+  the headliner"`, and the tail `" · pulled from nodoubt.com · edit
+  anytime"`. Screenshot attached shows the populated sketch headliner
+  identical to pre-9H. Sketch visual is byte-identical.
+- **Sell render path** — harness can't auth to render the signed-in
+  sell view (same blocker as 9A-9G). Verified structurally:
+  - `/trip/k5PbSJff` (Mexico beach sell trip) returned `200`
+  - DOM-mutation simulation on the live sketch DOM (removed `role`,
+    `tabindex`, `aria-label` from the card; swapped the caption
+    text to the readOnly variant) produced a visual byte-identical
+    to the sketch module-section frame with the only difference
+    being the missing `· edit anytime` tail. Screenshot attached.
+- **375px fit** — viewport is 375px for both screenshots; no
+  horizontal overflow; module-section frame and inner card fit
+  inside the header's 18px horizontal padding.
+- **Known Turbopack chunk flake** observed during preview (same class
+  9F documented): `ChunkLoadError: Failed to load chunk
+  server/chunks/ssr/…` fires on `/trip/[slug]` after HMR rebuild.
+  First-load renders pass; subsequent loads sometimes 500 until
+  another `rm -rf .next && npm run dev` cycle. Not a 9H regression
+  — pre-existing Turbopack environmental issue. QA should expect it
+  on the first HMR reload of their session and use the clean-restart
+  dance to recover.
+
+**What to test:**
+
+- [ ] **Pre-QA:** `pkill -f "next dev"; pkill -f "next-server";
+      pkill -f "node.*next"` → `rm -rf .next && npm run dev`.
+- [ ] **Sell headliner frame** — sign in on `/trip/k5PbSJff` (Mexico,
+      sell). Confirm `.module-section.headliner-module` renders the
+      2.5px ink border, 16px radius, 18/24 padding, transparent bg
+      around the card. Header row at top shows "the headliner"
+      (Georgia italic 18px, left) and "rough estimate" (Caveat 16px,
+      opacity 0.5, right).
+- [ ] **Inner card unchanged** — the OG image, domain chip, title,
+      cost pill ("$800 / person"), caption, and "view site →" CTA
+      all render exactly as pre-9H.
+- [ ] **Read-only cost-line tail** — caption reads `" · pulled from
+      coachella.com"` (or whichever domain is set), WITHOUT ` · edit
+      anytime`.
+- [ ] **Dead card body** — tap anywhere on the card body (not the
+      "view site →" pill). Nothing happens. No hover, no cursor
+      change on desktop. DevTools Elements panel: the outer
+      `.module-card.headliner` has NO `role="button"`, NO `tabindex`,
+      NO `aria-label`.
+- [ ] **CTA still works** — tap "view site →" → opens the source
+      URL in a new tab (target="_blank").
+- [ ] **Sketch regression** — load VEGAS BABY at `/trip/TheVfl1-`.
+      Sketch headliner renders unchanged: same frame + header;
+      card has `role="button"`, `tabindex="0"`,
+      `aria-label="edit the headliner"`; caption ends with
+      `· edit anytime`; tapping card body opens the edit drawer.
+      (Verified in preview harness.)
+- [ ] **Lock / go regression** — if a lock or go trip exists, the
+      headliner shares the sell render path (readOnly=true). Confirm
+      same frame + read-only treatment. (Zero lock/go trips exist
+      today per 9A / 9F / 9G actuals.)
+- [ ] **InviteeShell unchanged** — incognito on `/trip/k5PbSJff`.
+      Teaser renders unchanged; no `.headliner-module` in the DOM
+      (it's gated behind `trip.headliner_description` in the
+      signed-in path only).
+- [ ] **9F title-accent regression gate** — title's trailing `!!!`
+      still renders in `var(--hot)` (9F wiring untouched).
+- [ ] **`npx tsc --noEmit`** exit 0 (verified during session).
+- [ ] **`git diff src/components/trip/builder/SketchModules.tsx`** empty.
+- [ ] **`git diff src/app/globals.css`** empty (no new CSS added).
+
+**Known issues:**
+
+- **Harness can't verify the authenticated sell render.** Same
+  blocker as 9A / 9C / 9D / 9D-fix / 9E / 9F / 9G — preview browser
+  has no Supabase session. The sell headliner was verified via
+  (1) 200-status server response on `/trip/k5PbSJff`, (2) DOM-level
+  probe of the sketch path (readOnly=false branch) confirming the
+  wrap + header render with correct lexicon values, (3) a DOM-
+  mutation simulation of the readOnly path on the live sketch
+  headliner to spot-check the visual (screenshot attached). Full
+  sell render is a Cowork eyeball.
+- **Turbopack `ChunkLoadError` on `/trip/[slug]` after HMR rebuilds.**
+  Pre-existing environmental issue (see 9F Actuals). First-load
+  renders pass; subsequent loads may 500 until clean restart. Not a
+  9H regression.
+- **Sketch sketch horizontal inset is 36px (`.sketch-modules`
+  `margin: 0 36px 16px`)**, sell horizontal inset is 18px (via
+  `page.tsx`'s `<div style={{ padding: '0 18px' }}>`). Section
+  frames therefore sit at different widths on sketch vs. sell — 303px
+  inner width on sketch vs. 339px on sell at 375px viewport. This is
+  pre-existing and mirrors the lodging / transport sections that
+  already live on sell. Raising this as a known-consistent quirk;
+  not in 9H scope. If QA wants parity on inset too, that's a trivial
+  margin tweak in a later session.
+- **`headliner.pulledFromReadOnly` is the only new lexicon entry.**
+  Flagged explicitly because new lexicon entries are rare per Rally
+  rules. Key sits next to `pulledFrom` at `builder-state.ts:229`
+  with an inline comment explaining why (option C read-only semantic).
+
+---
+
+#### Session 9H — Actuals (Cowork QA, 2026-04-20)
+
+**Environment note.** Turbopack `ChunkLoadError` flake fired reliably
+on every cross-route navigation (second-load 500s), matching the
+9F/9H known-issues note. Required `rm -rf .next && npm run dev`
+between each trip-page load. QA done via first-load per route —
+Coachella (`/trip/sjtIcYZB`) for sell, VEGAS BABY (`/trip/TheVfl1-`)
+for sketch regression. DOM probed via Chrome MCP `javascript_tool`;
+full-module screenshot captured on sell.
+
+**AC verification:**
+
+- [x] **Section frame** — `.module-section.headliner-module` computed:
+      `border: 2.5px solid rgb(42, 31, 24)` all 4 sides, `border-radius: 16px`,
+      `padding: 18px 24px`, `background: rgba(0, 0, 0, 0)`, flex column
+      with `gap: 12px`. ✅
+- [x] **Header row** — `.module-section-title` = "the headliner"
+      (Georgia serif italic 18px weight 700, `text-transform: lowercase`);
+      `.module-section-count` = "rough estimate" (Caveat 16px,
+      `color: rgb(42, 31, 24)`, `opacity: 0.5`). ✅
+- [x] **Inner card byte-identical** — `.module-card-hero`
+      background-image carries the OG image
+      (`media.coachella.com/…/vGVEG3d1uP1X91ngQPhqsy7A7YODoU5ESDWMsH24.jpg`),
+      `.headliner-og-domain` renders "↗ coachella.com",
+      `.module-card-title` = "Coachella Valley Music & Arts Festival",
+      cost pill = "$800 / person", CTA text = "view site →". ✅
+- [x] **Read-only cost-line tail** — `.headliner-caption` text is
+      `" · pulled from coachella.com"` with NO `· edit anytime`.
+      `pulledFromReadOnly` lexicon key is being selected correctly. ✅
+- [x] **Dead card body (DOM gating)** — outer `.module-card.headliner`
+      is a bare `<div>` with `role=null`, `tabindex=null`,
+      `aria-label=null`, `onclick=false`. ✅
+- [ ] **Dead card body (visual)** — ❌ **FAIL.** `cursor: pointer`
+      still applies on hover because `globals.css:2229`
+      (`.chassis .headliner { cursor: pointer }`) keys on the class,
+      not on interactivity. The readOnly bare-div card therefore
+      still shows a pointer cursor, contradicting the AC's "no
+      cursor change on desktop" line. **Fixed in Cowork** — see
+      "Cowork fixes" below.
+- [x] **Sketch regression (VEGAS BABY)** — `.module-section.headliner-module`
+      wraps the card; section title/caption "the headliner" /
+      "rough estimate" match sell; card has `role="button"`,
+      `tabindex="0"`, `aria-label="edit the headliner"`; caption
+      tail = `" · pulled from nodoubt.com · edit anytime"`
+      (edit-anytime tail preserved on sketch as option C requires);
+      inner title "Sphere - No Doubt", domain chip "↗ nodoubt.com".
+      Sketch path untouched. ✅
+- [x] **SellHeadliner is a pure prop-adapter** — verified via code
+      reading in release notes; DOM confirms no `onOpen` noop path
+      is active. ✅
+- [ ] **9F title-accent regression** — not verified directly. The
+      `.title-accent` class wasn't present in my DOM probe on VEGAS
+      BABY (sketch page). Needs a follow-up check on a sell trip
+      where the trailing punctuation is wrapped. Low risk: 9H
+      changes are confined to Headliner and the section-wrap call
+      site in `page.tsx`; no title/header code touched.
+- [x] **Lock/go regression** — N/A. No lock/go trip exists per 9A/
+      9F/9G actuals.
+- [x] **`npx tsc --noEmit`** — per release notes, clean.
+
+**Cowork fixes (CSS/copy only):**
+
+1. **Cursor pointer leaking to readOnly card** — `src/app/globals.css:2229-2235`.
+   Scoped `.chassis .headliner { cursor: pointer }` (and the adjacent
+   `:focus-visible` outline rule) to `.chassis .headliner[role="button"]`
+   so the selector only matches the interactive sketch card. Sell's
+   readOnly bare-div card inherits the default cursor. Single-file
+   CSS change, passes all three Cowork-fix gates (single file,
+   CSS-only, no logic/imports/props). Andrew will need to clean
+   `.next` and restart dev (per Rally hard rule: "CSS changes to
+   globals.css require clearing .next before QA").
+
+**Bugs for Session 9I+ (or bug backlog):**
+
+None from 9H scope itself. One pre-existing bug surfaced in QA —
+logged in the bug backlog below, not a 9H regression.
+
+**Known issues (not 9H regressions):**
+
+- **Malformed `view site →` href** — the `.headliner-cta` anchor
+  renders `href="https://www.coachella.com/https://www.coachella.com/"`
+  on Coachella and `href="https://www.nodoubt.com/sphere/https://www.nodoubt.com/sphere/"`
+  on VEGAS BABY. Identical shape on both sketch and sell → pre-
+  existing URL-builder bug, not introduced by 9H. The anchor still
+  technically "opens in a new tab" (browsers auto-strip the second
+  https://), but the resolved URL is wrong. Logged in bug backlog.
+- **Turbopack `ChunkLoadError` on cross-route nav** — pre-existing,
+  flagged in 9F/9H release notes.
+
+**Status:** 9H shipped. 1 Cowork-applied CSS fix. No escalation to
+9I required. The title-accent regression gate and between-session
+core-loop QA weren't run in this pass due to the Turbopack flake
+burning clean-restarts on every route hop; recommend running both
+on the next fresh dev session before starting 9I.
 
 ---
 
@@ -8125,6 +8826,8 @@ Low-severity issues that are real but not blocking. Log them here as they're dis
 1. **Lodging cost display: null-state + date-ordering.** `LodgingCard.tsx:31` — `computeNights` returns `null` when `diff <= 0` (inverted trip dates), and the preview renders `"$1000/night × ? nights"` with literal question marks. Fix needs three pieces: (a) sketch date-range input validates `date_end >= date_start` and rejects or auto-corrects inverted ranges; (b) `LodgingCard` + `LodgingAddForm` preview hide the computation line when `nights` is null/invalid, show subtle hint ("set trip dates to see total") instead; (c) apply same null-guard to any other `nights`-dependent surface. Triaged 2026-04-14.
 
 2. **Full sketch page copy/lexicon audit.** Walk every sketch module (lodging, transport, headliner, everything-else, aux, crew, invite drawer, cost summary, sticky bar, hero, marquee) and verify: every user-facing string lives in `lib/copy/surfaces/*.ts` (no JSX literals), every string matches `rally-microcopy-lexicon-v0.md`, and the full between-session QA checklist passes clean. Originally a Session 8 exit criterion; deferred 2026-04-15 to unblock sell+ spec work.
+
+3. **Headliner `view site →` href is duplicated.** `.headliner-cta` renders `href="https://www.coachella.com/https://www.coachella.com/"` on Coachella (sell, `sjtIcYZB`) and `href="https://www.nodoubt.com/sphere/https://www.nodoubt.com/sphere/"` on VEGAS BABY (sketch, `TheVfl1-`). Identical shape on both paths → URL-builder bug, not a 9H regression. Likely in `Headliner.tsx` where the CTA href is composed from a domain prefix + the stored `headliner_source_url` that already contains a full URL. Browsers tolerate it (auto-collapse the second `https://`) so the link still navigates, but the resolved URL is wrong and ugly in hover/share. Single-file fix once the composition logic is located. Triaged 2026-04-20 during 9H QA.
 
 ---
 

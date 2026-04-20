@@ -225,6 +225,9 @@ export const builderState: Record<string, Templated> = {
   'headliner.removeConfirmHint':    'tap remove again to confirm',
   'headliner.estimateCaption':      'rough estimate',
   'headliner.pulledFrom':           'pulled from {domain} · edit anytime',
+  // 9H — read-only variant for sell/lock/go. "Edit anytime" is
+  // misleading for invitees under option C (sell is fully read-only).
+  'headliner.pulledFromReadOnly':   'pulled from {domain}',
   'headliner.enrichingIndicator':   'pulling details…',
   'headliner.saveError':            "couldn't save — try again",
   // Session 8O — "view site →" CTA inside the headliner card.

@@ -25,7 +25,15 @@ export type HeadlinerData = {
 type Props = {
   themeId: ThemeId;
   headliner: HeadlinerData;
-  onOpen: () => void;
+  /** Drawer open handler — only consumed on sketch (readOnly=false). When
+   *  readOnly=true, the card has no click handlers and onOpen is ignored;
+   *  the prop is optional so sell/lock/go render paths don't pass one. */
+  onOpen?: () => void;
+  /** 9H — when true, render the populated card as a bare div (no click
+   *  handlers, no role=button, no tabIndex). Used on sell/lock/go where
+   *  the module is fully read-only per option C. Default false keeps
+   *  the sketch tap-to-open behavior untouched. */
+  readOnly?: boolean;
 };
 
 function domainOf(url: string | null): string | null {
@@ -37,7 +45,12 @@ function domainOf(url: string | null): string | null {
   }
 }
 
-export function Headliner({ themeId, headliner, onOpen }: Props) {
+export function Headliner({
+  themeId,
+  headliner,
+  onOpen = () => {},
+  readOnly = false,
+}: Props) {
   const isSet = !!headliner.description;
 
   if (!isSet) {
@@ -64,20 +77,14 @@ export function Headliner({ themeId, headliner, onOpen }: Props) {
     ? getCopy(themeId, 'builderState.headliner.costUnitTotal')
     : getCopy(themeId, 'builderState.headliner.costUnitPerPerson');
 
-  return (
-    <div
-      className="module-card headliner"
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
-      aria-label={getCopy(themeId, 'builderState.headliner.drawerTitleEdit')}
-    >
+  // 9H — "pulled from {domain}" tail. Sketch/organizer: "… · edit anytime".
+  // Sell read-only: drop the tail (invitees can't edit). Option (ii).
+  const pulledFromKey = readOnly
+    ? 'builderState.headliner.pulledFromReadOnly'
+    : 'builderState.headliner.pulledFrom';
+
+  const cardBody = (
+    <>
       {headliner.imageUrl && (
         <span
           className="module-card-hero"
@@ -99,7 +106,7 @@ export function Headliner({ themeId, headliner, onOpen }: Props) {
           {domain && (
             <span className="headliner-caption">
               {' · '}
-              {getCopy(themeId, 'builderState.headliner.pulledFrom', { domain })}
+              {getCopy(themeId, pulledFromKey, { domain })}
             </span>
           )}
         </span>
@@ -115,6 +122,33 @@ export function Headliner({ themeId, headliner, onOpen }: Props) {
           </a>
         )}
       </div>
+    </>
+  );
+
+  // 9H — readOnly path: bare div, no click handlers, no role=button,
+  // no tabIndex, no aria-label. The inner `.module-card-pill.headliner-cta`
+  // anchor is the only interactive affordance (already has
+  // stopPropagation on its own click). Sketch path (readOnly=false)
+  // keeps the tap-to-open drawer behavior unchanged.
+  if (readOnly) {
+    return <div className="module-card headliner">{cardBody}</div>;
+  }
+
+  return (
+    <div
+      className="module-card headliner"
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      aria-label={getCopy(themeId, 'builderState.headliner.drawerTitleEdit')}
+    >
+      {cardBody}
     </div>
   );
 }

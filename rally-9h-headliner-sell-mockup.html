@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9H: Headliner sketch-parity (v2 — locked)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9H SCOPE (v2 — locked)
+
+     PRINCIPLE (Andrew, 2026-04-17): sell page = sketch page,
+     populated. Invitees see read-only; organizer goes back to sketch
+     mode to edit (option C). Sell stays fully read-only.
+
+     SCOPE (headliner only):
+     - Wrap `.module-card.headliner` in a `.module-section` frame
+       matching sketch exactly (ink border, rounded, transparent bg)
+     - Add `.module-section-header` with:
+       - Left: `.module-section-title` = "the headliner"
+         (Georgia italic lowercase 18px, 700)
+       - Right: caption matching sketch = "rough estimate"
+         (Caveat hand-font, opacity 0.5)
+     - Fix soft dead-end: `readOnly?: boolean` on `Headliner.tsx`,
+       true on sell (all viewers, per option C)
+     - Copy audit against lexicon (flag "edit anytime" tail as
+       sell-appropriateness question — sell is read-only)
+
+     OUT OF SCOPE (9I+):
+     - Deadline banner deletion        → 9I
+     - AddToCalendarButton deletion    → 9I
+     - "getting around" → "transportation" rename → 9I
+     - Sketch-parity for spot + transport → 9I
+     - Organizer edit mode flow         → future dedicated session
+
+     PATTERN LOCKED:
+     Variant A (section wraps inner .module-card), matching sketch's
+     actual treatment exactly. Confirmed by viewing the sketch VEGAS
+     BABY trip headliner at /trip/TheVfl1- (2026-04-17).
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg: #f5f1ea;
+    --ink: #1a2a33;
+    --surface: #ffffff;
+    --accent: #ffd84d;
+    --hot: #e63946;
+    --stroke: #1a2a33;
+    --muted: #7a8a90;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #2a2a2a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .doc-header {
+    max-width: 900px;
+    margin: 0 auto 20px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: #faf8f5;
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.5;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+  .row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+  .row-label {
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 18px 0 28px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+  }
+  .frame.sketch { background: #fce5ec; } /* pink-tint for sketch page */
+
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+
+  .context-stub {
+    opacity: .28;
+    pointer-events: none;
+    padding: 10px 18px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-bottom: 1px dashed rgba(26,42,51,.3);
+    margin: 0 0 16px;
+  }
+  .context-stub.below {
+    border-bottom: none;
+    border-top: 1px dashed rgba(26,42,51,.3);
+    margin: 16px 0 0;
+  }
+
+  /* Module card (existing) */
+  .module-card {
+    position: relative;
+    display: block;
+    width: 100%;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .module-card-hero {
+    display: block;
+    width: 100%;
+    height: 160px;
+    background-image: linear-gradient(135deg, rgba(230,57,70,.35), rgba(255,216,77,.2)),
+      linear-gradient(180deg, #5a6c8e, #2a3a52);
+    background-size: cover;
+    background-position: center;
+    position: relative;
+  }
+  .headliner-og-domain {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255,255,255,.9);
+    background: rgba(0,0,0,.4);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .module-card-body {
+    padding: 12px 14px 14px;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .frame.sketch .module-card-body { background: #fce5ec; }
+  .module-card-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 18px;
+    color: var(--ink);
+    letter-spacing: -.005em;
+  }
+  .module-card-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    color: var(--hot);
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+  }
+  .headliner-cost-pill { font-weight: 700; }
+  .headliner-caption { opacity: .7; }
+  .module-card-pill {
+    align-self: flex-start;
+    display: inline-flex;
+    padding: 8px 14px;
+    background: var(--hot);
+    color: #faf8f5;
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    box-shadow: 3px 3px 0 var(--stroke);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    margin-top: 4px;
+  }
+
+  /* .module-section — sketch primitive (target treatment) */
+  .module-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 24px;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    margin: 0 18px;
+    background: transparent;
+  }
+  .module-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px;
+  }
+  .module-section-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.1;
+    color: var(--ink);
+    text-transform: lowercase;
+  }
+  .module-section-caption {
+    font-family: 'Caveat', 'Shrikhand', cursive;
+    font-family: Georgia, serif; /* fallback in mockup */
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink);
+    opacity: 0.5;
+  }
+
+  .module-section .module-card {
+    width: 100%;
+    margin: 0;
+  }
+
+  /* Annotations */
+  .annotation {
+    max-width: 900px;
+    margin: 40px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 18px 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: #faf8f5;
+    margin: 16px 0 10px;
+  }
+  .annotation h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--accent); }
+  .locked-badge {
+    display: inline-block;
+    background: rgba(46,196,182,.15);
+    color: #2ec4b6;
+    border: 1px solid rgba(46,196,182,.4);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9h · sell · headliner sketch-parity · v2 (locked)</div>
+  <div class="doc-title">headliner — sketch parity on sell</div>
+  <div class="doc-sub">
+    Mirror the populated sketch page's headliner treatment on sell.
+    Variant A locked. readOnly for all sell viewers (option C —
+    organizer edits via sketch mode, not sell).
+  </div>
+</div>
+
+<!-- ═══ ROW 1: PARITY COMPARISON ═══ -->
+<div class="row-label">row 1 · sketch reference → sell target · visual parity check</div>
+<div class="row">
+  <div class="frame sketch">
+    <div class="frame-label">sketch (reference) · source of truth</div>
+    <div class="context-stub">▲ name · tagline · dates · crew ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">the headliner</div>
+        <div class="module-section-caption">rough estimate</div>
+      </div>
+      <a class="module-card">
+        <span class="module-card-hero">
+          <span class="headliner-og-domain">↗ nodoubt.com</span>
+        </span>
+        <div class="module-card-body">
+          <span class="module-card-title">Sphere - No Doubt</span>
+          <span class="module-card-meta">
+            <span class="headliner-cost-pill">
+              $1,000 / person
+            </span>
+            <span class="headliner-caption"> · pulled from nodoubt.com · edit anytime</span>
+          </span>
+          <a class="module-card-pill">view site →</a>
+        </div>
+      </a>
+    </div>
+    <div class="context-stub below">▼ the spot · transport · ...</div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-label">sell (9h target) · must mirror sketch</div>
+    <div class="context-stub">▲ postcard · countdown card · ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">the headliner</div>
+        <div class="module-section-caption">rough estimate</div>
+      </div>
+      <a class="module-card">
+        <span class="module-card-hero">
+          <span class="headliner-og-domain">↗ coachella.com</span>
+        </span>
+        <div class="module-card-body">
+          <span class="module-card-title">Coachella Valley Music &amp; Arts Festival</span>
+          <span class="module-card-meta">
+            <span class="headliner-cost-pill">
+              $800 / person
+            </span>
+            <span class="headliner-caption"> · pulled from coachella.com · edit anytime</span>
+          </span>
+          <a class="module-card-pill">view site →</a>
+        </div>
+      </a>
+    </div>
+    <div class="context-stub below">▼ spot · transport · ...</div>
+  </div>
+</div>
+
+<!-- ═══ ROW 2: BEFORE (current sell) ═══ -->
+<div class="row-label">row 2 · before · current sell state (what's broken)</div>
+<div class="row">
+  <div class="frame">
+    <div class="frame-label">before · sell today · bare card, no section frame, no eyebrow</div>
+    <div class="context-stub">▲ postcard · countdown card · ...</div>
+    <a class="module-card" style="margin: 0 18px; width: calc(100% - 36px);">
+      <span class="module-card-hero">
+        <span class="headliner-og-domain">↗ coachella.com</span>
+      </span>
+      <div class="module-card-body">
+        <span class="module-card-title">Coachella Valley Music &amp; Arts Festival</span>
+        <span class="module-card-meta">
+          <span class="headliner-cost-pill">
+            $800 / person
+          </span>
+          <span class="headliner-caption"> · pulled from coachella.com · edit anytime</span>
+        </span>
+        <a class="module-card-pill">view site →</a>
+      </div>
+    </a>
+    <div class="context-stub below">▼ spot · ...</div>
+  </div>
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+
+  <h3>The principle (locked 2026-04-17)</h3>
+  <p>Sell page = sketch page, populated. Same modules, same treatments,
+  same layout. No sell-specific invention for the module stack.
+  Invitees see read-only; organizer edits via sketch mode (option C,
+  separate future session).</p>
+
+  <h3>What's in scope for 9H <span class="locked-badge">locked</span></h3>
+
+  <h4>1 · Wrap in `.module-section` + sketch-parity header</h4>
+  <ul>
+    <li>
+      Outer: <code>.module-section</code> (existing primitive,
+      <code>globals.css:4796</code>). Zero new CSS.
+    </li>
+    <li>
+      <code>.module-section-header</code> with:
+      <ul>
+        <li>Left: <code>.module-section-title</code> =
+          <strong>"the headliner"</strong> (Georgia italic lowercase
+          18px)</li>
+        <li>Right: <strong>"rough estimate"</strong>
+          (Caveat hand-font, opacity 0.5, 16px) — matches sketch
+          exactly</li>
+      </ul>
+    </li>
+    <li>
+      The inner <code>.module-card</code> stays exactly as it renders
+      today. Variant A pattern — zero changes to the card's internal
+      layout.
+    </li>
+  </ul>
+
+  <h4>2 · Soft dead-end fix — readOnly on sell (all viewers)</h4>
+  <ul>
+    <li>
+      Add <code>readOnly?: boolean</code> to <code>Headliner.tsx</code>
+      (default <code>false</code>).
+    </li>
+    <li>
+      When <code>readOnly={true}</code>: drop <code>role="button"</code>,
+      <code>tabIndex</code>, <code>onClick</code>, <code>onKeyDown</code>,
+      <code>aria-label</code>. Render as a bare wrapper.
+    </li>
+    <li>
+      The embedded <code>.module-card-pill.headliner-cta</code> link
+      (which already has <code>stopPropagation</code>) is the only
+      interactive affordance on sell.
+    </li>
+    <li>
+      <code>SellHeadliner.tsx</code>: pass <code>readOnly={true}</code>,
+      drop the noop <code>onOpen={() => {}}</code>. Pure prop-adapter.
+    </li>
+    <li>
+      Per option C: organizer does NOT get edit-in-place on sell. Sell
+      is fully read-only; organizer edits via sketch mode (future
+      session).
+    </li>
+    <li>
+      Sketch path (<code>SketchModules.tsx</code> call site) unchanged
+      — default <code>readOnly={false}</code> preserves tap-to-open
+      drawer for organizer on sketch.
+    </li>
+  </ul>
+
+  <h4>3 · Copy audit</h4>
+  <ul>
+    <li>
+      Walk every string. All should resolve via <code>getCopy</code>.
+      Per <code>Headliner.tsx</code>, all do today.
+    </li>
+    <li>
+      <strong>New lexicon entries (possibly):</strong>
+      <ul>
+        <li><code>builderState.headliner.sectionTitle</code> = "the headliner"</li>
+        <li><code>builderState.headliner.sectionCaption</code> = "rough estimate"</li>
+      </ul>
+      Grep the lexicon first — if keys already exist under a different
+      surface (e.g. <code>tripPageShared.headliner.*</code>), reuse.
+    </li>
+    <li>
+      <strong>Copy question to escalate:</strong> the cost-line tail
+      reads <code>"· edit anytime"</code> on both sketch AND sell today.
+      On sell (read-only per option C), "edit anytime" is misleading.
+      Three options:
+      <ul>
+        <li>(i) Keep "edit anytime" — strict sketch parity, accept
+          the mild dissonance</li>
+        <li>(ii) Drop the " · edit anytime" tail on sell, keep on
+          sketch — conditional lexicon</li>
+        <li>(iii) Replace with a sell-appropriate tail (e.g.
+          "· est." or nothing)</li>
+      </ul>
+      Flag in brief; CC escalates before picking.
+    </li>
+  </ul>
+
+  <h3>Files likely touched</h3>
+  <ul>
+    <li><code>src/components/trip/builder/Headliner.tsx</code> — add `readOnly` prop, wrap rendered output in `.module-section` + `.module-section-header`</li>
+    <li><code>src/components/trip/SellHeadliner.tsx</code> — pass `readOnly={true}`, drop noop `onOpen`</li>
+    <li><code>src/lib/copy/surfaces/builder-state.ts</code> — possibly add `sectionTitle` + `sectionCaption` entries (grep first)</li>
+    <li><code>src/app/globals.css</code> — zero additions if the existing `.module-section` primitive handles it cleanly</li>
+  </ul>
+
+  <h3>Out of scope (9I+ handles)</h3>
+  <ul>
+    <li>Deadline banner deletion — 9I</li>
+    <li>AddToCalendarButton deletion — 9I</li>
+    <li>"getting around" → "transportation" rename — 9I</li>
+    <li>Sketch-parity for spot + transport — 9I (transport blocked by
+      a sketch-side bug; needs separate decision)</li>
+    <li>All other modules (cost, crew, buzz, aux) — later</li>
+    <li>Organizer edit mode on sell — future dedicated session</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Escalation triggers for the brief.</strong>
+    (a) If the sketch's headliner wrapping happens at a different
+    component (e.g. the wrap is in <code>SketchModules.tsx</code>
+    around the <code>Headliner</code> render, not inside Headliner
+    itself), move the wrap to match where sketch does it — don't
+    duplicate the pattern in two places.
+    (b) If the lexicon doesn't have the section-title / section-caption
+    keys, flag options before adding.
+    (c) The "edit anytime" cost-line tail copy on sell is misleading
+    under option C — flag the three options (i/ii/iii) listed above
+    before making a call.
+  </div>
+</div>
+
+</body>
+</html>
