@@ -1,4 +1,4 @@
-import type { TripWithDetails, TripCostSummary } from '@/types';
+import type { TripWithDetails, TripCostSummary, ArrivalMode } from '@/types';
 import type { ThemeId } from '@/lib/themes/types';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Badge } from '@/components/ui/Badge';
@@ -27,20 +27,31 @@ function pickLodgingForRollup(
   return { spot: lodging[0], status: 'first-added' };
 }
 
+type Item = {
+  label: string;
+  val: number | null;
+  icon: string;
+  emphasize?: boolean;
+  pending?: boolean;
+};
+
 export function CostBreakdown({
   trip,
   cost,
   dateStr,
   themeId,
+  viewerArrival,
 }: {
   trip: TripWithDetails;
   cost: TripCostSummary;
   dateStr: string;
   themeId: ThemeId;
+  viewerArrival:
+    | { mode: ArrivalMode | null; cost_cents: number | null }
+    | null;
 }) {
-  // Build breakdown line items from typed components.
-  // Session 8J: headliner renders first with accent emphasis when present.
-  const items: { label: string; val: number; icon: string; emphasize?: boolean }[] = [];
+  // ─── Aggregation (unchanged from 9J baseline) ───────────────────────
+  const items: Item[] = [];
 
   if (cost.headliner_per_person > 0 && trip.headliner_description) {
     items.push({
@@ -51,9 +62,6 @@ export function CostBreakdown({
     });
   }
 
-  // Session 9J — priority-ordered display-spot for the Accommodation
-  // rollup line: locked winner → leading vote (ties: first-added) →
-  // single option → first-added. Status drives the "(so far)" suffix.
   const pick = pickLodgingForRollup(trip.lodging);
   if (pick) {
     const { spot: selectedLodging, status } = pick;
@@ -79,7 +87,13 @@ export function CostBreakdown({
   }
 
   const flightsTotal = trip.flights.reduce((s, f) => s + (f.estimated_price || 0), 0);
-  if (flightsTotal > 0) items.push({ label: 'Flights', val: flightsTotal, icon: '✈️' });
+  if (flightsTotal > 0) {
+    items.push({
+      label: getCopy(themeId, 'tripPageShared.costBreakdown.line.flights'),
+      val: flightsTotal,
+      icon: '✈️',
+    });
+  }
 
   const sharedTransport = trip.transport
     .filter((t) => t.cost_type === 'shared')
@@ -89,7 +103,13 @@ export function CostBreakdown({
     .reduce((s, t) => s + (t.estimated_total || 0), 0);
   const transportPerPerson =
     Math.round(sharedTransport / (cost.divisor_used)) + indTransport;
-  if (transportPerPerson > 0) items.push({ label: 'Transport', val: transportPerPerson, icon: '🚗' });
+  if (transportPerPerson > 0) {
+    items.push({
+      label: getCopy(themeId, 'tripPageShared.costBreakdown.line.transport'),
+      val: transportPerPerson,
+      icon: '🚗',
+    });
+  }
 
   const sharedMeals = trip.restaurants
     .filter((r) => r.cost_type === 'shared')
@@ -98,122 +118,144 @@ export function CostBreakdown({
     .filter((r) => r.cost_type === 'individual')
     .reduce((s, r) => s + (r.cost_per_person || 0), 0);
   const mealsPerPerson = sharedMeals + indMeals;
-  if (mealsPerPerson > 0) items.push({ label: 'Meals', val: Math.round(mealsPerPerson), icon: '🍽️' });
+  if (mealsPerPerson > 0) {
+    items.push({
+      label: getCopy(themeId, 'tripPageShared.costBreakdown.line.meals'),
+      val: Math.round(mealsPerPerson),
+      icon: '🍽️',
+    });
+  }
 
-  // Session 8K — activities sources from the single trip-level estimate
-  // (already per-person). Legacy activities line-item aggregation retired.
   if (cost.activities_per_person > 0) {
-    items.push({ label: 'Activities', val: cost.activities_per_person, icon: '🤿' });
+    items.push({
+      label: getCopy(themeId, 'tripPageShared.costBreakdown.line.activities'),
+      val: cost.activities_per_person,
+      icon: '🤿',
+    });
+  }
+
+  // ─── Session 9B-2 — Per-viewer personalization ──────────────────────
+  // "your way in" goes first (above the headliner) so the viewer reads
+  // their own line at the top of the breakdown. Row renders in three
+  // states keyed off (viewerArrival.mode, viewerArrival.cost_cents);
+  // null-viewerArrival (logged-out / non-member edge) keeps the old
+  // group-fallback hero + subtitle + no "your way in" row.
+  const isPerViewer = viewerArrival !== null;
+  const arrivalDollars =
+    viewerArrival?.cost_cents != null ? viewerArrival.cost_cents / 100 : 0;
+  const yourTotal = isPerViewer
+    ? cost.per_person_total + arrivalDollars
+    : cost.per_person_total;
+
+  if (isPerViewer) {
+    const mode = viewerArrival.mode;
+    const baseLabel = getCopy(themeId, 'tripPageShared.costBreakdown.yourWayInLabel');
+    const label =
+      mode == null
+        ? baseLabel
+        : `${baseLabel} · ${getCopy(themeId, `gettingHere.modeIcon.${mode}`)} ${getCopy(themeId, `gettingHere.modeLabel.${mode}`)}`.trim();
+    items.unshift({
+      label,
+      val: viewerArrival.cost_cents != null ? viewerArrival.cost_cents / 100 : null,
+      icon: '',
+      emphasize: true,
+      pending: viewerArrival.cost_cents == null,
+    });
   }
 
   const nightsMatch = dateStr.match(/(\d+)[–-](\d+)/);
   const nights = nightsMatch ? parseInt(nightsMatch[2]) - parseInt(nightsMatch[1]) : 3;
 
+  // Denominator for row progress bars: yourTotal in per-viewer mode so
+  // the "your way in" line shows the correct fraction of the
+  // personalized total; cost.per_person_total in fallback.
+  const barDenominator = isPerViewer ? yourTotal : cost.per_person_total;
+
+  const heroLabel = isPerViewer
+    ? getCopy(themeId, 'tripPageShared.costBreakdown.yourTotalLabel')
+    : getCopy(themeId, 'tripPageShared.cost.perPersonLabel');
+  const heroSubtitle = isPerViewer
+    ? getCopy(themeId, 'tripPageShared.costBreakdown.subtitle')
+    : `${nights} ${getCopy(themeId, 'tripPageShared.cost.nightsSeparator')} ${
+        cost.divisor_is_estimate
+          ? `estimated for ${cost.divisor_used} people`
+          : `${cost.divisor_used} going`
+      }`;
+  const pendingLabel = getCopy(themeId, 'tripPageShared.costBreakdown.yourWayInPending');
+  const sharedBadgeText = getCopy(themeId, 'tripPageShared.costBreakdown.sharedBadge', {
+    amount: formatMoney(cost.per_person_shared),
+  });
+  const bookYoursBadgeText = getCopy(themeId, 'tripPageShared.costBreakdown.bookYoursBadge', {
+    amount: formatMoney(cost.individual_total),
+  });
+
   return (
     <GlassCard>
-      <div style={{ padding: '4px 0', textAlign: 'center' }}>
-        <div
-          style={{
-            fontSize: 10,
-            color: 'rgba(255,255,255,0.6)',
-            textTransform: 'uppercase',
-            letterSpacing: 2.5,
-            marginBottom: 4,
-            fontWeight: 600,
-          }}
-        >
-          {getCopy(themeId, 'tripPageShared.cost.perPersonLabel')}
-        </div>
-        <div
-          style={{
-            fontFamily: 'var(--rally-font-display)',
-            fontSize: 52,
-            fontWeight: 800,
-            color: '#fff',
-            lineHeight: 1,
-          }}
-        >
-          {'~'}{formatMoney(cost.per_person_total)}
-        </div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 3, marginBottom: 16 }}>
-          {nights} {getCopy(themeId, 'tripPageShared.cost.nightsSeparator')}{' '}
-          {cost.divisor_is_estimate
-            ? `estimated for ${cost.divisor_used} people`
-            : `${cost.divisor_used} going`}
+      <div className="cost-breakdown">
+        <div className="cost-breakdown-hero">
+          <div className="cost-breakdown-label">{heroLabel}</div>
+          <div>
+            <span className="cost-breakdown-total">
+              {'~'}
+              {formatMoney(yourTotal)}
+            </span>
+            {isPerViewer && (
+              <span className="cost-breakdown-per-you">
+                {getCopy(themeId, 'tripPageShared.costBreakdown.perYouSuffix')}
+              </span>
+            )}
+          </div>
+          <div className="cost-breakdown-subtitle">{heroSubtitle}</div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, textAlign: 'left' }}>
-          {items.map((b) => (
-            <div
-              key={b.label}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div className="cost-breakdown-rows">
+          {items.map((b, idx) => {
+            const pct =
+              b.val != null && barDenominator > 0
+                ? Math.min(100, (b.val / barDenominator) * 100)
+                : 0;
+            return (
+              <div key={`${b.label}-${idx}`} className="cost-breakdown-row">
                 <span
-                  style={{
-                    fontSize: 13,
-                    color: b.emphasize ? 'var(--rally-accent)' : undefined,
-                  }}
+                  className={`cost-breakdown-row-label${b.emphasize ? ' emphasize' : ''}`}
                 >
-                  {b.icon}
+                  {b.icon && <span className="cost-breakdown-row-icon">{b.icon}</span>}
+                  <span>{b.label}</span>
                 </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: b.emphasize ? 'var(--rally-accent)' : 'rgba(255,255,255,0.6)',
-                    fontWeight: b.emphasize ? 700 : 400,
-                  }}
-                >
-                  {b.label}
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div
-                  style={{
-                    width: 70,
-                    height: 4,
-                    borderRadius: 2,
-                    background: 'rgba(255,255,255,.1)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      height: '100%',
-                      width: `${cost.per_person_total > 0 ? (b.val / cost.per_person_total) * 100 : 0}%`,
-                      background: 'var(--rally-accent)',
-                      borderRadius: 2,
-                      transition: 'width 1s ease',
-                    }}
-                  />
+                <div className="cost-breakdown-row-meter">
+                  {b.pending ? (
+                    <span className="cost-breakdown-row-val pending">{pendingLabel}</span>
+                  ) : (
+                    <>
+                      <div className="cost-breakdown-bar-track">
+                        <div
+                          className="cost-breakdown-bar-fill"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span
+                        className={`cost-breakdown-row-val${b.emphasize ? ' emphasize' : ''}`}
+                      >
+                        {formatMoney(b.val)}
+                      </span>
+                    </>
+                  )}
                 </div>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: b.emphasize ? 'var(--rally-accent)' : '#fff',
-                    fontWeight: b.emphasize ? 800 : 600,
-                    minWidth: 36,
-                    textAlign: 'right',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {formatMoney(b.val)}
-                </span>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        <div style={{ display: 'flex', gap: 6, marginTop: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div className="cost-breakdown-badges">
           <Badge
-            text={`🏠 Shared: ~${formatMoney(cost.per_person_shared, '/pp')}`}
-            bg="rgba(45,107,90,.2)"
-            color="#7ecdb8"
+            text={sharedBadgeText}
+            bg="var(--cost-badge-shared-bg)"
+            color="var(--cost-badge-shared-fg)"
           />
           <Badge
-            text={`✈️ Book yours: ~${formatMoney(cost.individual_total)}`}
-            bg="rgba(26,58,74,.2)"
-            color="rgba(255,255,255,.7)"
+            text={bookYoursBadgeText}
+            bg="var(--cost-badge-yours-bg)"
+            color="var(--cost-badge-yours-fg)"
           />
         </div>
       </div>

@@ -5047,6 +5047,213 @@ button:active {
   opacity: 0.5;
 }
 
+/* ─── Session 9B-1 — Getting Here (per-viewer arrival estimator) ──────
+   Net-new primitives for the module. Outer frame, header, empty
+   prompt, cost input, and pill CTA all reuse shipped primitives
+   (.module-section, .module-section-empty, .estimate-input,
+   .module-card-pill). These three .gh-* blocks are the pieces with
+   no existing precedent: a 4-col mode-picker grid, an inline
+   passport-origin nudge, and a Georgia-italic personal roll line. */
+.chassis .gh-mode-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.chassis .gh-mode-tile {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px;
+  background: transparent;
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 2px 2px 0 var(--stroke);
+  text-align: center;
+  box-sizing: border-box;
+}
+.chassis .gh-mode-tile.active {
+  background: var(--accent);
+  color: var(--bg);
+}
+.chassis .gh-mode-tile:active {
+  transform: translateY(1px);
+  box-shadow: 0 0 0 var(--stroke);
+}
+.chassis .gh-mode-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+.chassis .gh-mode-label {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: lowercase;
+  color: inherit;
+}
+.chassis .gh-passport-nudge {
+  font-size: 11px;
+  color: var(--hot);
+  margin-top: 10px;
+  font-family: Georgia, serif;
+  font-style: italic;
+  line-height: 1.4;
+}
+.chassis .gh-passport-nudge a {
+  color: var(--hot);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  font-weight: 700;
+}
+.chassis .gh-roll-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 2px;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink);
+  opacity: 0.85;
+}
+.chassis .gh-roll-line .val {
+  font-weight: 900;
+  font-size: 15px;
+  color: var(--ink);
+}
+.chassis .gh-roll-line .val.pending {
+  opacity: 0.5;
+  font-weight: 600;
+  font-size: 13px;
+  font-style: normal;
+}
+
+/* ─── Session 9B-2 — CostBreakdown refactor (per-viewer hero + inline-styles → classes)
+   The breakdown renders inside GlassCard (background = var(--surface), a
+   per-theme dark block). All text and fills resolve off --on-surface so
+   theme overrides carry through automatically. Previously-hardcoded
+   #fff / rgba(255,255,255,*) strings are consolidated into the two
+   --cost-on-glass aliases below; previously-hardcoded badge hex colors
+   become theme-token mixes. */
+.chassis .cost-breakdown {
+  --cost-on-glass:       var(--on-surface);
+  --cost-on-glass-dim:   color-mix(in srgb, var(--on-surface) 60%, transparent);
+  --cost-on-glass-faint: color-mix(in srgb, var(--on-surface) 10%, transparent);
+  --cost-badge-shared-bg: color-mix(in srgb, var(--accent2) 20%, transparent);
+  --cost-badge-shared-fg: var(--accent2);
+  --cost-badge-yours-bg:  color-mix(in srgb, var(--on-surface) 10%, transparent);
+  --cost-badge-yours-fg:  color-mix(in srgb, var(--on-surface) 70%, transparent);
+  padding: 4px 0;
+  text-align: center;
+}
+.chassis .cost-breakdown-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.chassis .cost-breakdown-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+  color: var(--cost-on-glass-dim);
+  margin-bottom: 4px;
+}
+.chassis .cost-breakdown-total {
+  font-size: 52px;
+  font-weight: 800;
+  color: var(--cost-on-glass);
+  line-height: 1;
+}
+.chassis .cost-breakdown-per-you {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--cost-on-glass-dim);
+  margin-left: 4px;
+}
+.chassis .cost-breakdown-subtitle {
+  font-size: 11px;
+  color: var(--cost-on-glass-dim);
+  margin-top: 3px;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+.chassis .cost-breakdown-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  text-align: left;
+}
+.chassis .cost-breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chassis .cost-breakdown-row-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--cost-on-glass-dim);
+  font-weight: 400;
+}
+.chassis .cost-breakdown-row-label.emphasize {
+  color: var(--accent);
+  font-weight: 700;
+}
+.chassis .cost-breakdown-row-icon {
+  font-size: 13px;
+}
+.chassis .cost-breakdown-row-meter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chassis .cost-breakdown-bar-track {
+  width: 70px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--cost-on-glass-faint);
+  overflow: hidden;
+}
+.chassis .cost-breakdown-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 1s ease;
+}
+.chassis .cost-breakdown-row-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cost-on-glass);
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.chassis .cost-breakdown-row-val.emphasize {
+  color: var(--accent);
+  font-weight: 800;
+}
+.chassis .cost-breakdown-row-val.pending {
+  color: var(--accent);
+  font-weight: 600;
+  font-style: italic;
+  opacity: 0.75;
+}
+.chassis .cost-breakdown-badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .chassis .tally-line {
   padding: 6px 12px 4px;
   font-size: 12px;

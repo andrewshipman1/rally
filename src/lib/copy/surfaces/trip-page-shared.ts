@@ -59,6 +59,25 @@ export const tripPageShared: Record<string, Templated> = {
   'costBreakdown.lodging.label':         'lodging',
   'costBreakdown.lodging.leadingSuffix': '(so far)',
 
+  // CostBreakdown — per-viewer hero + "your way in" row (Session 9B-2).
+  // "your total" / "~$X / you" only renders when a viewerArrival is
+  // available; null-viewer fallback keeps the old group hero copy.
+  'costBreakdown.yourTotalLabel':     'your total',
+  'costBreakdown.perYouSuffix':       ' / you',
+  'costBreakdown.yourWayInLabel':     'your way in',
+  'costBreakdown.yourWayInPending':   '(pending)',
+  'costBreakdown.subtitle':           'your total will firm up once the crew fills in.',
+
+  // CostBreakdown — line-item labels ported off hardcoded strings.
+  'costBreakdown.line.flights':       'flights',
+  'costBreakdown.line.transport':     'transport',
+  'costBreakdown.line.meals':         'meals',
+  'costBreakdown.line.activities':    'activities',
+
+  // CostBreakdown — footer badges (theme-token colored at CSS layer).
+  'costBreakdown.sharedBadge':        ({ amount }: ThemeVars) => `🏠 shared · ${amount ?? '—'}/pp`,
+  'costBreakdown.bookYoursBadge':     ({ amount }: ThemeVars) => `✈️ book yours · ${amount ?? '—'}`,
+
   // FlightCard
   'flight.perPerson':    'per person',
   'flight.searchCta':    'Search flights \u2192',

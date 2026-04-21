@@ -34,6 +34,7 @@ import { auth } from './surfaces/auth';
 import { crew } from './surfaces/crew';
 import { buzz } from './surfaces/buzz';
 import { profile } from './surfaces/profile';
+import { gettingHere } from './surfaces/getting-here';
 
 export const lexicon: Lexicon = {
   common,
@@ -63,6 +64,7 @@ export const lexicon: Lexicon = {
   crew,
   buzz,
   profile,
+  gettingHere,
 };
 
 export type { Lexicon, SurfaceKey } from './types';

@@ -9599,6 +9599,1398 @@ via 9I) with cost correctly propagating through to the rollup
 
 ---
 
+### Session 9B-1: "Getting Here module — mode picker, cost entry, reference links"
+
+**Intent.** Ship the first genuinely personal Rally module. Each
+invitee picks how they're arriving (flight / drive / train / other),
+drops in a rough cost estimate, and sees a reference link to
+Google Flights or Google Maps for ballparking. The data persists
+on their membership row. Unlike lodging (shared split) or transport
+(shared group), arrival is inherently different per person — so
+this is the first sell-phase surface where a module renders
+per-viewer, not per-trip.
+
+9B-1 covers the module + data + render. 9B-2 handles the rollup
+personalization (CostBreakdown rewrite + backlog #4 cleanup).
+
+**Design reference.** `rally-9b-getting-here-mockup.html` (v2,
+locked 2026-04-21). Read this file before writing any code —
+three-state progression, four-mode variants, passport edge case,
+primitive-reuse table, and five escalation triggers all live in
+the annotations.
+
+**Decisions locked (2026-04-21):**
+
+1. **Single number input.** No range.
+2. **Passport dependency.** Flight mode's reference link pulls
+   origin from `passport.based_in`. If missing, the reference
+   link is replaced by an inline "add your based-in city" nudge
+   that links to the passport form.
+3. **Per-viewer only.** Each attendee sees only their own data.
+   No roster of others' arrivals on sell (that's a lock-phase
+   feature; not in scope here or 9B-2).
+4. **Personalized rollup in 9B-2** — not 9B-1.
+5. **"Other" mode** is the catch-all (already local, rideshare,
+   mixed, anything else). No reference link. Same form shape as
+   other modes.
+6. **Required-soft.** Empty state shows a nudge; roll line reads
+   "(pending)". No hard RSVP gate. No red-outline blocker.
+7. **Mode change resets cost to null.** Prevents stale numbers
+   when switching modes.
+8. **Reference link destinations:** flight → Google Flights;
+   drive → Google Maps driving; train → Google Maps transit
+   (`/data=!4m2!4m1!3e3` suffix); other → no link.
+9. **State model:**
+   - `mode NULL, cost NULL` → not started. Pick-a-mode prompt +
+     picker visible; no input.
+   - `mode set, cost NULL` → in progress. Active picker + dashed
+     `.estimate-input` + "(pending)" roll line.
+   - `mode set, cost set (including 0)` → complete. Solid
+     `.estimate-input.filled` + amount in roll line.
+
+**Scope (numbered):**
+
+1. **Database migration.** Add three columns to the member/invitee
+   table (CC to verify the correct table — most likely
+   `trip_members`; could be `members` or `trip_invitees`):
+   - `arrival_mode` — enum `(flight, drive, train, other)` — nullable
+   - `arrival_cost_cents` — integer — nullable
+   - `arrival_updated_at` — timestamp — nullable, auto-set on change
+
+   Migration file name: `supabase/migrations/NNNN_arrival_columns.sql`
+   (NNNN = next sequential number in the migrations dir).
+   Include: enum type creation, column adds, and (optional) an
+   update trigger for `arrival_updated_at`. If adding the trigger
+   adds complexity, set `arrival_updated_at` from the server
+   action instead — CC's call.
+
+2. **Server action** — new file
+   `src/app/actions/getting-here.ts` (or extend an existing
+   actions file if CC finds a clean fit). Signature:
+   ```ts
+   upsertArrival(
+     tripId: string,
+     mode: ArrivalMode | null,
+     costCents: number | null
+   ): Promise<{ ok: boolean; error?: string }>
+   ```
+   - Writes to the current user's row on the member table.
+   - Authorization: caller must be a member of the trip (any RSVP
+     state, since they're writing their own row).
+   - When `mode` changes vs. existing row, `arrival_cost_cents`
+     resets to `null` (regardless of what's passed in — the reset
+     is automatic on mode change).
+   - Calls `revalidatePath('/trip/${slug}')` after mutation.
+   - Returns `{ ok: false, error }` on failure — no throws.
+
+3. **New component** — `src/components/trip/GettingHere.tsx`.
+   NOT in `builder/` (that's for sketch primitives; Getting Here
+   is sell-only).
+
+   Props:
+   ```ts
+   type Props = {
+     tripId: string;
+     slug: string;
+     themeId: ThemeId;
+     userArrival: { mode: ArrivalMode | null; cost_cents: number | null } | null;
+     passportBasedIn: string | null;
+     tripDestination: string;
+     dateStart: string;
+     dateEnd: string;
+   };
+   ```
+
+   Client component (interactive mode selection + cost input via
+   `useTransition`). Mirror the `LodgingCard`/`useRouter().refresh()`
+   pattern. State machine drives three render branches per the
+   decision-9 state model above.
+
+   Elements required (from the mockup):
+   - `.module-section` outer frame (REUSE existing primitive).
+   - `.module-section-header` with `.module-section-title`
+     ("getting here") + `.module-section-caption` ("your way in").
+     REUSE existing primitives.
+   - When `mode === null`: render `.module-section-empty` with
+     `.module-section-empty-text` reading "how are you getting
+     there?" (REUSE existing primitives) + `.gh-mode-picker`.
+   - When `mode !== null`: render `.gh-mode-picker` (active tile
+     highlighted) + `.estimate-input` (REUSE existing primitive,
+     toggle `.filled` when cost is set) with `.field-label`
+     showing the mode-appropriate helper copy + `.estimate-prefix`
+     "$" + `.estimate-field` bound to cost state + either a
+     `.module-card-pill` reference link OR the `.gh-passport-nudge`
+     (flight mode with no passport origin).
+   - Always render `.gh-roll-line` when `mode !== null`: left span
+     "your way in · {icon} {mode}", right span = cost (with
+     "(pending)" variant when cost is null).
+
+4. **Render on sell** — fill the reserved comment slot at
+   `src/app/trip/[slug]/page.tsx:415`
+   (`{/* 3 · Getting Here — Session 9B */}`).
+   - Query the viewer's own arrival row — extend the existing
+     member query to include `arrival_mode`, `arrival_cost_cents`.
+   - Query passport `based_in` for the current user (8D added
+     the passport table/field — verify join shape).
+   - Pass all props into `<GettingHere>`.
+   - Do NOT render when `currentUserId` is null (logged-out
+     teaser — Session 10 territory).
+   - Do NOT render in sketch phase.
+
+5. **Lexicon surface** — new file
+   `src/lib/copy/surfaces/getting-here.ts` keyed under
+   `gettingHere.*`. Keys:
+   - `sectionTitle` · "getting here"
+   - `sectionCaption` · "your way in"
+   - `emptyPrompt` · "how are you getting there?"
+   - `modeLabel.flight` · "flight"
+   - `modeLabel.drive` · "drive"
+   - `modeLabel.train` · "train"
+   - `modeLabel.other` · "other"
+   - `modeIcon.flight` · "✈️"
+   - `modeIcon.drive` · "🚗"
+   - `modeIcon.train` · "🚆"
+   - `modeIcon.other` · "·"
+   - `inputHelper.flight` · "drop in a rough estimate · rolls into your total · not a booking"
+   - `inputHelper.drive` · "gas + tolls · rolls into your total · not a booking"
+   - `inputHelper.train` · "ticket estimate · rolls into your total · not a booking"
+   - `inputHelper.other` · "already local · rideshare · anything else · drop a rough number"
+   - `refLinkLabel.flight` · "ballpark it on google flights ↗"
+   - `refLinkLabel.drive` · "ballpark it on google maps ↗"
+   - `refLinkLabel.train` · "ballpark it on google maps ↗"
+   - `passportNudge` · `"add your \"based in\" city to your <passport> to search flights ↗"`
+     (with a `<passport>` marker so the link wraps cleanly —
+     CC picks a template strategy)
+   - `rollLine.pending` · "(pending)"
+
+6. **Reference link URL builders** — helpers in the component
+   (or a small utility in `src/lib/` if CC prefers). Templates:
+   - Flight: `https://www.google.com/travel/flights?q=Flights%20from%20{origin}%20to%20{dest}%20on%20{dateStart}%20through%20{dateEnd}`
+   - Drive: `https://www.google.com/maps/dir/{origin}/{dest}`
+   - Train: `https://www.google.com/maps/dir/{origin}/{dest}/data=!4m2!4m1!3e3`
+   - URL-encode `origin` and `dest`. Origin = `passportBasedIn`
+     (empty string fallback for drive/train; flight requires
+     non-empty — otherwise shows passport nudge).
+   - All links open in `target="_blank"` with
+     `rel="noopener noreferrer"`.
+
+7. **CSS** — add to `src/app/globals.css` (near the `.voting-*`
+   primitives 9I shipped). Approximately 60 new lines total.
+   - `.gh-mode-picker` — 4-column grid, 8px gap.
+   - `.gh-mode-tile` — 2px ink border, 2px offset ink shadow,
+     transparent bg, Georgia-italic label, ink text.
+   - `.gh-mode-tile.active` — `background: var(--accent)`,
+     `color: var(--bg)`. Keep same border + shadow.
+   - `.gh-mode-tile:active` — translateY(1px) + flatten shadow
+     (matches `.module-card-pill` press state).
+   - `.gh-mode-icon` — 20px.
+   - `.gh-mode-label` — Georgia italic, 12px, lowercase.
+   - `.gh-passport-nudge` — italic, `color: var(--hot)`, 11px,
+     line-height 1.4.
+   - `.gh-passport-nudge a` — underlined, hot color, 700 weight.
+   - `.gh-roll-line` — flex space-between, Georgia italic, 13px,
+     padding 0 2px.
+   - `.gh-roll-line .val` — 900 weight, 15px.
+   - `.gh-roll-line .val.pending` — normal-style, 600 weight,
+     0.5 opacity, 13px.
+
+   Every declaration uses theme tokens. Zero raw whites.
+   Remember the `.next` flush rule before QA.
+
+8. **Types** — extend `src/types/index.ts`:
+   - New enum: `export type ArrivalMode = 'flight' | 'drive' | 'train' | 'other'`.
+   - Extend the member/invitee type with nullable
+     `arrival_mode`, `arrival_cost_cents`, `arrival_updated_at`.
+
+**Hard Constraints:**
+
+- **DO NOT create new routes.** Three screens.
+- **DO NOT modify `CostBreakdown.tsx` at all.** The cost-summary
+  personalization ("your total · ~$X / you" + "your way in" row
+  + bug-backlog-#4 cleanup) is 9B-2's entire scope. Any
+  CostBreakdown touch in 9B-1 is scope creep.
+- **DO NOT render Getting Here on sketch.** Sketch has a helper-
+  text-only slot from 8I and it stays as-is.
+- **DO NOT render Getting Here for logged-out teaser viewers.**
+  Session 10 (InviteeShell) will handle visibility rules for the
+  teaser state.
+- **DO NOT show a roster of other crew members' arrivals.** The
+  module renders only the current viewer's row. Lock-phase
+  roster is a future session.
+- **DO NOT integrate any flight/maps/transit API.** Google
+  Flights + Google Maps deep-links only; no scraping, no paid
+  APIs, no Rally-generated price estimates.
+- **DO NOT modify other modules.** Headliner, spot, transport,
+  everything-else, crew, cost, buzz, aux — all untouched.
+- **DO NOT modify `SketchModules.tsx`, `LodgingCard.tsx`, or
+  any server action other than the new one.** Single-module
+  discipline.
+- **DO NOT hard-gate RSVP on arrival being filled in.** Nudge
+  only. Friction is visual, not functional.
+- **DO NOT add a free-text note field to "other" mode.** Defer.
+- **DO NOT add hardcoded strings in JSX.** Every user-facing
+  string through `getCopy`.
+- **DO NOT add hardcoded colors inside `[data-theme]`.** CSS
+  variables only.
+- **Mobile-first at 375px.** Mode picker 4-column grid must not
+  overflow. If tiles feel cramped, flag — do not silently switch
+  to 2×2.
+
+**Acceptance Criteria:**
+
+- [ ] Migration runs clean (`supabase migration up`). Three
+  columns present on the member table. Enum type created.
+- [ ] `upsertArrival` server action exists, returns `{ ok, error? }`,
+  writes to the current user's row, resets cost when mode
+  changes, calls `revalidatePath`.
+- [ ] On a sell trip as a signed-in member with **no arrival
+  row** yet: module renders the `.module-section` frame with
+  "getting here" / "your way in" header, `.module-section-empty`
+  with "how are you getting there?" copy, and the 4-tile
+  `.gh-mode-picker`. No `.estimate-input`, no roll line.
+- [ ] Tapping a mode tile marks it active (accent bg + bg-color
+  text + offset shadow). Picker collapses from empty-state
+  layout into the mode-picked layout. `.estimate-input` appears
+  below in dashed (unfilled) state. Roll line appears reading
+  "your way in · {icon} {mode}" + "(pending)".
+- [ ] Entering a cost (e.g., "420") fills the input and flips
+  the `.estimate-input` to `.filled` (solid border). Roll line
+  updates to show "$420" (no "(pending)"). Server action fires;
+  DB row reflects `mode + cost_cents`.
+- [ ] Changing mode resets cost to `null` — input blanks, roll
+  line shows "(pending)" again. Confirmed via DB row inspection
+  after mode-change.
+- [ ] Reference link CTA (`.module-card-pill`) renders per mode:
+  Flight → "ballpark it on google flights ↗" with a Google Flights
+  URL containing origin/dest/dates. Drive → "ballpark it on
+  google maps ↗" with driving URL. Train → "ballpark it on
+  google maps ↗" with transit-mode URL (`/data=!4m2!4m1!3e3`).
+  Other → no pill rendered.
+- [ ] Flight mode with passport `based_in = null`: pill is
+  replaced by `.gh-passport-nudge` reading "add your 'based in'
+  city to your passport to search flights ↗" with an inline link.
+  No Google Flights URL generated.
+- [ ] Drive / Train modes with passport `based_in = null`:
+  pill still renders; URL uses empty origin (Google handles
+  gracefully).
+- [ ] All reference links open in new tab (`target="_blank"
+  rel="noopener noreferrer"`).
+- [ ] Sketch trip (`/trip/TheVfl1-`): Getting Here module does
+  NOT render. Existing sketch "getting here" helper-text slot
+  from 8I remains.
+- [ ] Logged-out teaser on sell trip: Getting Here module does
+  NOT render. InviteeShell behavior unchanged.
+- [ ] No hardcoded English in the diff. `grep` clean for raw
+  strings in JSX.
+- [ ] No raw `#fff` / `rgba(255,255,255,*)` in the new CSS.
+  `grep` clean.
+- [ ] `npx tsc --noEmit` clean.
+- [ ] 9H, 9I, 9J regressions: headliner renders unchanged; spot
+  module with voting UI unchanged; per-person cost line on
+  lodging card unchanged; CostBreakdown Accommodation line
+  unchanged.
+
+**Files to Read (required, before touching code):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — updated Part 1
+  (reuse before rebuild + canonical module order).
+- `rally-fix-plan-v1.md` — this brief + 9I/9J Actuals (pattern
+  precedents).
+- `rally-9b-getting-here-mockup.html` — visual target + 5
+  escalation triggers in annotations.
+- `rally-sell-phase-wireframe.html` lines ~360 (CSS),
+  ~788 (markup), ~993 (open questions) — original design thinking.
+- `src/components/trip/builder/LodgingCard.tsx` — pattern for
+  `useTransition` + server action + `revalidatePath`.
+- `src/app/trip/[slug]/page.tsx:415` — the reserved slot; also
+  existing member query shape.
+- `src/app/globals.css` — `.module-section*`, `.estimate-input`,
+  `.module-card-pill` primitives you'll reuse.
+- `src/lib/copy/surfaces/*.ts` — copy voice precedent for the
+  new surface file.
+- `supabase/migrations/` — sequential numbering + current schema
+  state for the member/invitee table.
+- `src/types/index.ts` — type extension shape.
+
+**How to QA Solo (Claude Code, before handing back):**
+
+1. `supabase migration up`; verify three columns on member
+   table via `psql` or the Supabase dashboard.
+2. `npx tsc --noEmit` — fix before proceeding.
+3. `rm -rf .next && npm run dev` (globals.css changed).
+4. Load a **sell trip as a signed-in member without an arrival**:
+   - Module renders "getting here" / "your way in" header, empty
+     prompt, 4 tiles.
+   - Tap flight tile → active state flips, input appears, roll
+     line says "(pending)".
+   - Type 420 → input flips to filled, roll line shows $420.
+   - Verify server action fired (check network tab + DB row).
+5. Change mode to drive → cost blanks, roll shows "(pending)",
+   helper copy flips to "gas + tolls · ...", reference pill
+   flips to google-maps URL. Enter 85 → total shows $85.
+6. Change mode to other → no reference pill. Enter 0 → roll
+   shows $0. Confirm DB stores mode="other", cost_cents=0
+   (not null).
+7. Create or modify a test member with passport `based_in = null`:
+   switch to flight mode → passport nudge replaces the pill.
+8. Visit a **sketch trip**: Getting Here module absent. Sketch
+   `getting-here` helper-text slot still present.
+9. Hit the sell trip URL while **logged out**: InviteeShell
+   renders; Getting Here module absent.
+10. Grep your diff for new hardcoded English — zero matches.
+11. Check 9H/9I/9J regressions: headliner, spot voting, cost
+    summary Accommodation line — all unchanged.
+
+If any AC fails, fix before handing back. Don't declare done
+with unaddressed failures.
+
+#### Session 9B-1 — Release Notes
+
+**What was built:**
+
+1. **Migration** — `supabase/migrations/021_arrival_columns.sql`.
+   Adds `arrival_mode` enum (`flight | drive | train | other`) and
+   three nullable columns to `trip_members`: `arrival_mode`,
+   `arrival_cost_cents`, `arrival_updated_at`. Idempotent
+   `DO $$ ... EXCEPTION WHEN duplicate_object` pattern matches
+   migration 013. No new trigger — the existing
+   `tr_members_updated_at` trigger keeps row `updated_at` fresh;
+   `arrival_updated_at` is set explicitly from the server action
+   on every write. No new RLS (existing "Members can update own"
+   covers the new columns).
+
+2. **Server action** — `src/app/actions/getting-here.ts`. Single
+   export `upsertArrival(tripId, slug, mode, costCents)` returning
+   `{ ok, error? }`. Shape mirrors `src/app/actions/lodging.ts`:
+   zod-validated inputs, `supabase.auth.getUser()`, scoped read to
+   `(trip_id, user_id)` (membership implicit via RLS + composite
+   filter), update, `revalidatePath`. Auto-resets
+   `arrival_cost_cents` to null when `arrival_mode` changes vs.
+   the existing row — the reset ignores any incoming costCents on
+   change so stale numbers never leak across modes.
+
+3. **Component** — `src/components/trip/GettingHere.tsx`. Client
+   component. `useTransition` + `useRouter().refresh()` mirror of
+   `LodgingCard.tsx:47-80`. Local state mirrors the server write
+   so the UI flips instantly while the transition is in-flight.
+   Three render branches:
+   - mode null → `.module-section-empty` prompt + 4-tile picker.
+   - mode set, cost null → active picker + dashed
+     `.estimate-input` + "(pending)" `.gh-roll-line`.
+   - mode set, cost set → active picker + solid
+     `.estimate-input.filled` + `$X` roll.
+
+   Reference-link helpers (`buildFlightUrl` / `buildDriveUrl` /
+   `buildTransitUrl`) are inline (small, single-use); all links
+   `target="_blank" rel="noopener noreferrer"` and URL-encoded
+   via `encodeURIComponent`.
+
+4. **Render site** — `src/app/trip/[slug]/page.tsx:416`. Filled
+   the reserved slot. Gated only on `viewerMember` existing —
+   sketch render is already short-circuited upstream
+   (`trip.phase === 'sketch'` return at page.tsx:178), and
+   logged-out teaser is short-circuited by the InviteeShell
+   branch at page.tsx:163. So the `{viewerMember && (…)}` guard
+   is the minimum check needed. Wrapped in `<Reveal delay={0.075}>`
+   to fit the existing 0.05 / 0.1 rhythm between spot and transport.
+   Props source: `viewerMember.arrival_mode`,
+   `viewerMember.arrival_cost_cents`,
+   `viewerMember.user?.home_city` (for `passportBasedIn`),
+   `trip.destination`, `trip.date_start`, `trip.date_end`.
+
+5. **Lexicon surface** — `src/lib/copy/surfaces/getting-here.ts`
+   + registered in `src/lib/copy/index.ts` + typed slot in
+   `src/lib/copy/types.ts` (§5.28). Flat-dot keys per the
+   `lodging-voting.ts` pattern. Every user-facing string
+   resolves via `getCopy(themeId, 'gettingHere.<key>')`. The
+   passport nudge is split into three keys
+   (`passportNudge.before` / `.link` / `.after`) so JSX can wrap
+   the middle piece in an `<a href="/passport">` without adding a
+   general template-substitution engine.
+
+6. **CSS** — `src/app/globals.css`, ~90 lines of new primitives
+   inserted after `.chassis .lodging-vote-flag.losing`
+   (line 5048) so voting + getting-here CSS cluster together:
+   `.gh-mode-picker` (4-col grid), `.gh-mode-tile` (+ `.active`
+   + `:active` press), `.gh-mode-icon`, `.gh-mode-label`,
+   `.gh-passport-nudge` (+ `a`), `.gh-roll-line` (+ `.val`
+   + `.val.pending`). All tokens; zero raw whites or hex
+   colors. Tiles measure 74.5px wide at 375px viewport (grid math
+   leaves plenty of room — no cramping).
+
+7. **Types** — `src/types/index.ts`. Added
+   `export type ArrivalMode = 'flight' | 'drive' | 'train' | 'other'`
+   near the other status enums, and extended `TripMember` with
+   nullable `arrival_mode` / `arrival_cost_cents` /
+   `arrival_updated_at` fields.
+
+**What changed from the brief:**
+
+- **Data source for "based in" origin:** brief referenced
+  `passport.based_in`, but there is no passport table —
+  Session 8D shipped the passport as a frontend wrapper around
+  existing user data, and migration 016 added `users.home_city`
+  with a comment literally reading "for 'based in' field."
+  Confirmed with Andrew via plan-mode question:
+  use `users.home_city`. The existing
+  `members:trip_members(*, user:users(*))` query in `_data.ts`
+  already delivers this — **no query extension was needed**.
+  Internal prop stays `passportBasedIn: string | null`; its value
+  = `viewerMember.user?.home_city ?? null`.
+
+- **Passport nudge template:** the brief's copy spec included a
+  `<passport>` marker for inline link substitution. No precedent
+  for that pattern exists in `src/lib/copy/surfaces/`, so I split
+  the string into three keys (`.before` / `.link` / `.after`) and
+  wrap the middle piece in JSX. Lexicon-governed end to end, no
+  new rendering primitive. Flagged as trigger #5 in the plan.
+
+- **CSS placement:** the plan said "after `.voting-pill`
+  (line 5026)", but `.lodging-vote-flag` sits between
+  `.voting-pill` and the empty region (5028-5048). I inserted the
+  new block after `.lodging-vote-flag.losing` (5048) to keep
+  voting + getting-here as a contiguous cluster. No functional
+  difference.
+
+- **Field-label typography:** the 9B mockup's scratch CSS showed
+  `.estimate-input .field-label` as italic-Georgia / lowercase,
+  but the shipped `.chassis .field-label` primitive is uppercase
+  / 9px / tracked (consistent with the rest of Rally's form
+  fields, and with how the `.estimate-input` primitive already
+  ships in the "everything else" module). Per the
+  reuse-before-rebuild rule, I kept the shipped look — did NOT
+  add a getting-here-scoped override. Noted here for Cowork QA:
+  if the uppercase label reads as a disconnect from the mockup,
+  a minor scoped override is one line of CSS, but the current
+  ship is faithful to the primitive.
+
+- **No DB seed data required.** Existing members with non-null
+  `home_city` (the test trip's organizer has NYC) exercise the
+  happy path. For the passport-nudge edge case, Cowork QA will
+  need to `UPDATE users SET home_city = NULL WHERE …` on one
+  test user, then flip that user's arrival mode to flight.
+
+**What to test (Cowork QA):**
+
+- [ ] **Migration applies clean.** Run `supabase migration up`
+  locally. Confirm `arrival_mode` enum + three columns on
+  `trip_members` (psql or Supabase dashboard). **Without this
+  step, every write will fail** — the component renders the
+  empty state fine, but tapping a mode will return
+  `{ ok: false, error }` from the server and the click will
+  not persist.
+- [ ] **Sell trip, signed-in member, no arrival row:** module
+  renders `.module-section` with "getting here" / "your way in",
+  `.module-section-empty` with "how are you getting there?", and
+  the 4-tile picker. No estimate-input, no roll line.
+- [ ] **Tap ✈️ flight:** tile flips accent, empty-prompt is
+  replaced, `.estimate-input` appears dashed, roll line reads
+  "your way in · ✈️ flight" with "(pending)" on the right.
+- [ ] **Type `420` and blur:** `.estimate-input` flips
+  `.filled` (solid border), roll line shows `$420`. Network tab
+  shows one `upsertArrival` action per write. Reload the page —
+  state persists.
+- [ ] **Change mode to 🚗 drive:** cost field blanks, helper
+  copy flips to "gas + tolls · rolls into your total · not a
+  booking", pill flips to a Google Maps driving URL. Reload —
+  `arrival_cost_cents` is null in the DB.
+- [ ] **Change mode to 🚆 train:** helper becomes "ticket
+  estimate · …", pill URL includes the transit suffix
+  `/data=!4m2!4m1!3e3`.
+- [ ] **Change mode to · other:** no reference pill renders.
+  Helper is "already local · rideshare · …". Enter `0` and blur
+  — row persists as `arrival_mode='other', arrival_cost_cents=0`
+  and roll line reads `$0`.
+- [ ] **Passport nudge:** on a user with `home_city IS NULL`,
+  flight mode swaps the pill for the `.gh-passport-nudge` line
+  reading "add your "based in" city to your passport to search
+  flights ↗". The word "passport" is an underlined link to
+  `/passport`. Drive and train still render the pill (Google
+  Maps handles empty origin in its own UI).
+- [ ] **Sketch trip (`/trip/TheVfl1-`):** module does NOT
+  render. **Verified locally — only the SketchTripShell tree
+  loads; `.getting-here-module` absent.**
+- [ ] **Logged-out teaser on sell trip:** InviteeShell renders,
+  module absent. (Short-circuit at page.tsx:163 still fires.)
+- [ ] **9H / 9I / 9J regressions:** headliner (9H cover +
+  caption), spot module (9I voting pill + LodgingCard),
+  per-person lodging cost line (9J), CostBreakdown
+  Accommodation line — all unchanged.
+
+**Solo QA run (Claude Code, 2026-04-21):**
+
+- `npx tsc --noEmit` → clean.
+- `rm -rf .next && npm run dev` + `/trip/sjtIcYZB` at 375px:
+  - Empty state renders per mockup (screenshot captured): title
+    + caption, dashed prompt, 4 tiles at 74.5px each.
+  - Tapping flight flips the tile active, `.estimate-input`
+    appears dashed, helper reads the flight copy, pill URL
+    resolves to Google Flights with origin "New York, NY" +
+    dest "Palm Spring, CA" + May 26–29 date range, roll line
+    shows "(pending)".
+- `/trip/TheVfl1-` (sketch): `.getting-here-module` absent,
+  SketchTripShell renders as before.
+- `git diff` on my changes: zero hardcoded English in JSX, zero
+  new `#fff` / `rgba(255,…)` in CSS (the five remaining `#fff`
+  hits in globals.css are pre-existing in theme blocks).
+
+**Known issues / flags:**
+
+- **Migration must be applied before any write can succeed.**
+  The .env.local points at a remote Supabase project, not a
+  local container — Andrew runs `supabase migration up` from
+  his machine. Until then, the empty state + picker render but
+  tapping a mode returns an error (the column does not exist
+  yet). Local-state mirror means the tap still flips the tile
+  visually, but the DB row will not update and a page reload
+  will revert.
+
+- **Turbopack cache flake.** During the first dev-server pass
+  after the click-through, I hit a corrupted Turbopack SST file
+  (`Failed to open SST file …/00000038.sst`) that propagated
+  into a TripPage server-render error. A second
+  `rm -rf .next && dev-server restart` cleared it. Not a code
+  issue — Next 16.2.2 Turbopack cache corruption is a known
+  flake in the wild, especially when a server action fails
+  mid-transition. Worth noting for QA: if a refresh loop
+  appears, kill `.next` and restart.
+
+- **`.estimate-input .field-label` uppercase vs. mockup
+  italic-Georgia.** Documented in "What changed from the brief"
+  above. Ships as-is; happy to add a scoped override if QA
+  prefers the mockup look.
+
+- **Per-viewer cost rollup is 9B-2, not here.** CostBreakdown
+  still shows the group total. The new roll line inside the
+  module is the only personalized read right now — 9B-2 will
+  bring the "your total · ~$X / you" + "your way in" row on top
+  of CostBreakdown.
+
+#### Session 9B-1 — QA Results (Cowork, 2026-04-21)
+
+Walkthrough run against `/trip/sjtIcYZB` (Coachella 2026, sell,
+Palm Spring CA, may 25–28) signed in as Andrew. Migration 021
+applied via Supabase SQL editor (not via `supabase migration up`,
+so the local migrations ledger won't show 021 — guards in the
+migration make re-run safe). Dev server `rm -rf .next && npm run dev`
+flushed, fresh compile on port 3001 (old broken `.next` still
+holding port 3000 via orphan PID 70585 — noted for cleanup).
+
+**Acceptance Criteria — 13 / 13 ✅ pass:**
+
+- [x] **AC1** — Empty state. Signed-in member with no arrival row
+      renders `.module-section` frame with "getting here" / "your
+      way in" header, `.module-section-empty` prompt "how are you
+      getting there?", and the 4-tile `.gh-mode-picker`. No
+      estimate-input, no roll line.
+- [x] **AC2** — Tap flight. Tile flips to `.active` (accent bg +
+      cream text), empty prompt replaced, dashed `.estimate-input`
+      appears with helper copy "drop in a rough estimate · rolls
+      into your total · not a booking", "ballpark it on google
+      flights ↗" pill renders, roll line "your way in · ✈️ flight
+      (pending)".
+- [x] **AC3** — Type 420, blur, reload. `.estimate-input.filled`
+      (solid border via computed style), roll line `$420`. Page
+      reload preserves mode + cost — confirms server action wrote
+      to DB.
+- [x] **AC4** — Switch to drive. Cost field blanked, `.filled`
+      removed. Helper flipped to "gas + tolls · rolls into your
+      total · not a booking". Pill → `https://www.google.com/maps/
+      dir/New%20York%2C%20NY/Palm%20Spring%2C%20CA` (no transit
+      suffix). Reload confirms `arrival_cost_cents = null` in DB.
+- [x] **AC5** — Switch to train. Helper → "ticket estimate · ...".
+      Pill URL contains `/data=!4m2!4m1!3e3` transit suffix.
+- [x] **AC6** — Switch to other, enter 0. No pill renders. Helper
+      "already local · rideshare · anything else · drop a rough
+      number". After blur, `.estimate-input.filled` + `.val` class
+      on roll (not `.val.pending`), roll shows `$0`. Reload persists
+      `arrival_cost_cents = 0` — critical "`0` is a valid value,
+      not null" edge case holds.
+- [x] **AC7** — Passport nudge. With `home_city = NULL` and flight
+      mode, pill replaced by `.gh-passport-nudge` reading `add your
+      "based in" city to your passport to search flights ↗`. The
+      word "passport" is an `<a href="/passport">`. No Google
+      Flights URL generated.
+- [x] **AC8** — Drive / train with null `home_city`. Pills still
+      render; URLs resolve to `/maps/dir//Palm%20Spring%2C%20CA`
+      (empty origin). Google Maps handles gracefully.
+- [x] **AC9** — `target="_blank"` + `rel="noopener noreferrer"`
+      confirmed at DOM level across flight, drive, train pills.
+- [x] **AC10** — Sketch trip (`/trip/TheVfl1-`): no `.gh-mode-picker`
+      / `.gh-roll-line` / `.gh-passport-nudge` anywhere in the DOM.
+      `.sketch-modules` tree loads instead.
+- [x] **AC11** — Logged-out teaser. Verified by code inspection
+      rather than sign-out (MCP browser shares cookies with the
+      main session). `page.tsx:164` short-circuits to
+      `<InviteeShell>` for unauthenticated viewers on non-sketch
+      trips, returning before line 417 where `<GettingHere>` is
+      constructed. Defensive `{viewerMember && (…)}` guard at 418
+      is a second layer for the authenticated-but-non-member edge.
+- [x] **AC12** — Field-label typography: keep as-is. The uppercase/
+      tracked `.field-label` primitive is reused by the adjacent
+      "everything else" module (ACTIVITIES / PROVISIONS). Scope-
+      overriding getting-here to italic-Georgia would create
+      sibling-module divergence. If the whole primitive should
+      shift, do it globally — not per module.
+- [x] **AC13** — Regression sweep clean. Headliner (9H) cover +
+      caption + `$800/person` pill unchanged. Spot (9I) VOTING OPEN
+      flag + two LodgingCards with voting CTAs + "your pick ✓"
+      state + "change my vote" state unchanged. Per-person lodging
+      card (9J) layout unchanged. CostBreakdown renders "Estimated
+      per person ~$7,600 · 3 nights • 1 going" with line-items
+      including `🏠 lodging · A Downtown Palm Springs Oasis...` —
+      consistent with post-9J baseline.
+
+**Cowork fixes (CSS/copy only):** none — nothing required.
+
+**Bugs escalated to 9B-1+1:** none — clean pass, no carry-over.
+
+**Side flags (not blocking; track separately):**
+
+1. **Stale canonical module order in session-guard skill.** Skill
+   says "cost summary always sits directly below the last line-
+   item module", but `page.tsx:535` comment is "moved below crew in
+   9A". Live render puts CostBreakdown after crew. Either the skill
+   text is stale or the 9A move should be revisited. Not a 9B-1
+   concern.
+2. **`/passport` is a 4th route.** `src/app/passport/page.tsx`
+   exists with its own render tree. Violates the "three screens
+   only" hard rule from the skill. 8D-era drift, pre-existing. The
+   `gh-passport-nudge` correctly links there (InlineField bound to
+   `home_city` with label "based in"), but the route itself is the
+   architectural concern.
+3. **Sketch helper-text slot from 8I** referenced in AC10 wording
+   does not exist in the current sketch DOM — zero "getting here"
+   text on `/trip/TheVfl1-`. Either 8I never shipped it, or a later
+   session removed it. Pre-existing.
+4. **Orphan dev server on :3000** (PID 70585) from before the
+   session. Non-blocking housekeeping: `kill 70585`.
+5. **`supabase_migrations.schema_migrations` ledger is out of sync.**
+   Migration 021 was applied via the Supabase SQL editor rather
+   than `supabase migration up`, so the local tracker doesn't know
+   021 ran. `DO $$ ... EXCEPTION` + `ADD COLUMN IF NOT EXISTS`
+   guards make a re-run safe, but worth knowing if `db push` runs
+   later.
+
+**Status: 9B-1 shipped and QA'd clean. Proceed to 9B-2.**
+
+---
+
+### Session 9B-2: "Per-viewer cost summary + CostBreakdown cleanup"
+
+**Intent.** Personalize the cost summary so each invitee sees
+their OWN total — not the group average. The hero number becomes
+"your total · ~$X / you", a new accent row surfaces their arrival
+line ("your way in · ✈️ flight · $420"), and the subtitle stops
+counting heads and starts setting expectations. Fold in bug-
+backlog #4 (CostBreakdown hardcoded-colors + hardcoded-strings
+cleanup) since the rewrite is the natural moment. Also fold in
+the getting-here inset alignment fix QA caught after 9B-1 shipped.
+
+**Design ROI principle.** The existing CostBreakdown is
+functionally correct but reads as a spreadsheet. 9B-2 is about
+making each invitee feel the trip is "theirs" — their total,
+their way in. That's a high visual-impact, low-implementation-
+cost delta (one component file, no new data layer — 9B-1 did
+that). Stay focused. Don't rebuild, reshape.
+
+**Design reference.** Use the current CostBreakdown layout as
+the structural baseline. The accent row for "your way in" should
+visually match the existing `emphasize: true` headliner line's
+treatment (accent color, bold weight, tabular-nums) so the two
+stand out as "your moments" inside the shared-cost list. No new
+mockup; the changes are typographic + copy, not structural.
+
+**Decisions locked (2026-04-21):**
+
+1. **Per-viewer math = shared costs + viewer's arrival cost.**
+   `yourTotal = cost.per_person_total + (viewerArrival?.cost_cents ?? 0) / 100`.
+   When `cost_cents` is null (arrival pending), arrival contributes
+   0 to the sum — but the "your way in" row shows "(pending)"
+   so it's clear the number could grow.
+2. **Fall back to group total for logged-out viewers.** If
+   `viewerArrival` is `null` (no viewerMember — logged-out or
+   non-member edge, though logged-out is short-circuited
+   upstream), render the old group per-person hero with the
+   existing "X going" subtitle. Don't break the teaser path.
+3. **"your way in" row placement.** Insert as the FIRST item in
+   the line-item list, above the headliner. Reason: it's the
+   viewer's personal line; it anchors "this is yours" at the
+   top of the breakdown. Uses the same `emphasize: true` visual
+   treatment already shipped for the headliner line.
+4. **Arrival cost contributes to the progress-bar denominator.**
+   The existing bars use `cost.per_person_total` as the width
+   divisor. For per-viewer math, use `yourTotal` (includes
+   arrival) so the "your way in" bar reflects the correct
+   fraction of the personalized total.
+5. **Subtitle rewrite is unconditional in sell.** Replace the
+   current "X going / estimated for X people" string with
+   "your total will firm up once the crew fills in." every sell
+   render. The "X going" headcount still lives on the crew
+   module — we don't need it twice.
+6. **Inset fix = match the spot module's wrapper pattern.**
+   Wrap getting-here's `<Reveal>` in
+   `<div style={{ padding: '0 18px', marginTop: 14 }}>` mirroring
+   `page.tsx:371`. Do NOT swap to a new class — consistency with
+   siblings matters more than cleanup here.
+7. **Inline-style → classed elements is IN SCOPE for the
+   CostBreakdown internals** (hero number, subtitle, line items,
+   progress bars, footer badges). Leave other components alone.
+   The six hardcoded whites become one CSS variable
+   (`--cost-on-glass`) wired off theme tokens; the two hardcoded
+   badge hexes get per-theme token equivalents.
+8. **Lexicon keys live under `tripPageShared.costBreakdown.*`**
+   — the namespace already partially exists (lines 71, 74 of
+   the current file). Extend, don't rename.
+
+**Scope (numbered):**
+
+1. **Page wiring — new prop to CostBreakdown.**
+   `src/app/trip/[slug]/page.tsx:538`. Pass `viewerArrival`
+   built from `viewerMember`:
+   ```ts
+   viewerArrival={
+     viewerMember
+       ? { mode: viewerMember.arrival_mode ?? null,
+           cost_cents: viewerMember.arrival_cost_cents ?? null }
+       : null
+   }
+   ```
+   No other render-site changes in this scope item.
+
+2. **Getting-here inset alignment fix.**
+   `src/app/trip/[slug]/page.tsx:417–434`. Wrap the
+   `{viewerMember && (<Reveal>…</Reveal>)}` block in
+   `<div style={{ padding: '0 18px', marginTop: 14 }}>` so the
+   getting-here `.module-section` frame aligns horizontally with
+   the spot module directly above (which uses the same wrapper
+   pattern at `page.tsx:371`). Do NOT convert the style to a class
+   here — match the sibling pattern; globals.css cleanup of the
+   inline wrappers across the whole page is its own future
+   session.
+
+3. **CostBreakdown prop signature update.**
+   `src/components/trip/CostBreakdown.tsx`. Add `viewerArrival`
+   to the props:
+   ```ts
+   viewerArrival:
+     | { mode: ArrivalMode | null; cost_cents: number | null }
+     | null;
+   ```
+   Import `ArrivalMode` from `@/types`.
+
+4. **Per-viewer hero number.**
+   Replace the hero block (lines 113–143). New structure:
+   - Label: `tripPageShared.costBreakdown.yourTotalLabel` — "your total"
+     (shown only when `viewerArrival !== null`; falls back to
+     `tripPageShared.cost.perPersonLabel` otherwise).
+   - Number: `~${formatMoney(yourTotal)}` where
+     `yourTotal = cost.per_person_total + (viewerArrival?.cost_cents ?? 0) / 100`
+     for per-viewer; fallback to `cost.per_person_total` for null.
+   - Suffix: `tripPageShared.costBreakdown.perYouSuffix` — " / you"
+     (inline after the number, smaller type). Skip suffix for
+     the group-fallback path.
+   - Subtitle: `tripPageShared.costBreakdown.subtitle` — "your
+     total will firm up once the crew fills in." Replaces the
+     current `{nights} {separator} {X going}` string for
+     per-viewer; keep the old string only for the null-viewerArrival
+     fallback path.
+
+5. **"your way in" accent row.**
+   Prepend a line item to the `items` array (so it renders
+   first, above the headliner). Only when `viewerArrival !== null`:
+   ```ts
+   items.unshift({
+     label: `${getCopy(themeId, 'tripPageShared.costBreakdown.yourWayInLabel')} · ${getCopy(themeId, `gettingHere.modeIcon.${mode}`) ?? ''} ${getCopy(themeId, `gettingHere.modeLabel.${mode}`) ?? ''}`.trim(),
+     val: viewerArrival.cost_cents != null ? viewerArrival.cost_cents / 100 : null,
+     icon: '',  // icon is baked into the label; no duplicate
+     emphasize: true,
+     pending: viewerArrival.cost_cents == null,
+   });
+   ```
+   When `viewerArrival.mode == null` (truly not started), render
+   a lighter-weight "your way in · (not started)" placeholder —
+   or skip the row (CC's call, prefer skip for cleaner visual).
+   The `pending` flag drives a "(pending)" text replacement in
+   place of the dollar figure + suppresses the progress bar.
+   Extend the `items` tuple type to include `pending?: boolean`
+   and `val: number | null`.
+
+6. **Lexicon surface — extend
+   `src/lib/copy/surfaces/cost-breakdown.ts`** (create if not
+   present; confirm via `grep`). New keys:
+   - `tripPageShared.costBreakdown.yourTotalLabel` · "your total"
+   - `tripPageShared.costBreakdown.perYouSuffix` · " / you"
+   - `tripPageShared.costBreakdown.yourWayInLabel` · "your way in"
+   - `tripPageShared.costBreakdown.yourWayInPending` · "(pending)"
+   - `tripPageShared.costBreakdown.subtitle` · "your total will
+     firm up once the crew fills in."
+   - `tripPageShared.costBreakdown.line.flights` · "flights"
+   - `tripPageShared.costBreakdown.line.transport` · "transport"
+   - `tripPageShared.costBreakdown.line.meals` · "meals"
+   - `tripPageShared.costBreakdown.line.activities` · "activities"
+   - `tripPageShared.costBreakdown.sharedBadge` · "🏠 shared · ~{X}/pp"
+   - `tripPageShared.costBreakdown.bookYoursBadge` · "✈️ book
+     yours · ~{X}"
+   Existing `tripPageShared.costBreakdown.lodging.label` and
+   `.leadingSuffix` stay as-is. Register surface in
+   `src/lib/copy/index.ts` if net-new.
+
+7. **Port hardcoded labels in CostBreakdown.tsx to lexicon.**
+   Replace:
+   - `'Flights'` (line 82) → `getCopy(themeId, 'tripPageShared.costBreakdown.line.flights')`
+   - `'Transport'` (line 92) → lexicon
+   - `'Meals'` (line 101) → lexicon
+   - `'Activities'` (line 106) → lexicon
+   - Both Badge `text` strings (lines 209, 214) → lexicon with
+     token interpolation (pass the formatMoney result into the
+     copy string).
+
+8. **Consolidate inline styles into `globals.css` classes.**
+   Target the CostBreakdown internals only (outer `<GlassCard>`
+   stays as-is). New classes under a `.cost-breakdown` namespace
+   in globals.css near the existing `.chassis` section:
+   - `.cost-breakdown-hero` · wraps the label + number + subtitle.
+   - `.cost-breakdown-label` · 10px uppercase tracked; color
+     `var(--cost-on-glass-dim)`.
+   - `.cost-breakdown-total` · 52px display font, 800 weight,
+     `color: var(--cost-on-glass)`.
+   - `.cost-breakdown-per-you` · inline after `.cost-breakdown-total`;
+     smaller, dim.
+   - `.cost-breakdown-subtitle` · 11px, dim, italic-OK per voice.
+   - `.cost-breakdown-rows` · vertical gap-7 flex column.
+   - `.cost-breakdown-row` · space-between flex.
+   - `.cost-breakdown-row-label` (+ `.emphasize` modifier for
+     accent styling).
+   - `.cost-breakdown-row-icon`.
+   - `.cost-breakdown-bar-track` · 70×4 rounded container.
+   - `.cost-breakdown-bar-fill` · filled portion, themed accent.
+   - `.cost-breakdown-row-val` (+ `.emphasize` + `.pending`
+     modifiers).
+   - `.cost-breakdown-badges` · row, 6px gap.
+   Every color token pulls from theme vars. Define
+   `--cost-on-glass` (pure white for dark glass backgrounds) and
+   `--cost-on-glass-dim` (0.6 alpha) in `.chassis` near the
+   existing module tokens. Keep the visual parity tight — QA
+   should not be able to see a visual diff between pre- and
+   post-refactor on the group-fallback path.
+
+9. **Types extension.** `src/components/trip/CostBreakdown.tsx`.
+   Widen the `items` element type:
+   ```ts
+   { label: string; val: number | null; icon: string;
+     emphasize?: boolean; pending?: boolean }
+   ```
+   (no export — local to the file).
+
+**Hard Constraints:**
+
+- **DO NOT create new routes.** Three screens.
+- **DO NOT modify `GettingHere.tsx`, the getting-here server
+  action, or its CSS primitives.** 9B-1's module is frozen.
+- **DO NOT modify CostBreakdown's line-item aggregation logic**
+  (lines 43–110). The headliner / lodging / flights / transport
+  / meals / activities summation math is correct. You're only
+  rewriting the render + prepending the "your way in" row +
+  porting strings + extracting styles.
+- **DO NOT modify `LodgingCard.tsx`, `Headliner.tsx`,
+  `ModuleSlot`, spot / headliner / transport / everything-else
+  / crew / buzz / aux.** 9B-2 is strictly CostBreakdown +
+  getting-here render-site inset fix + the data wiring needed
+  for per-viewer math.
+- **DO NOT break the logged-out teaser fallback.** InviteeShell
+  must still render (short-circuited upstream). If
+  `viewerArrival === null` arrives in CostBreakdown, gracefully
+  render the group-total path — don't crash, don't show
+  "(pending)", don't show "/ you".
+- **DO NOT add new data queries.** All data needed
+  (arrival_mode, arrival_cost_cents) is already on
+  `viewerMember` from 9B-1's query extension. Just pass it in.
+- **DO NOT touch `supabase/migrations/`.** No schema changes.
+- **DO NOT add hardcoded strings.** Every new user-facing string
+  goes through `getCopy`. The lodging label + leading suffix
+  keys already exist — extend the namespace.
+- **DO NOT add hardcoded hex / rgba colors.** Every color is a
+  CSS variable resolving from theme tokens.
+- **DO NOT add `#fff` anywhere new.** Use `var(--cost-on-glass)`.
+- **DO NOT remove the `Badge` component use.** Keep the two
+  footer badges rendering through `<Badge>` — just feed them
+  lexicon copy and theme-token colors.
+- **DO NOT widen the scope to other inline-style consolidation**
+  (transport, everything-else, crew all have inline styles too).
+  CostBreakdown only. Separate session.
+- **DO NOT show "your total · ~$X / you" for sketch trips** —
+  upstream short-circuit at `page.tsx:179` already prevents this;
+  don't add a second guard.
+
+**Acceptance Criteria:**
+
+- [ ] Sell trip as signed-in member, arrival NOT set: CostBreakdown
+  hero reads "your total" / "~$X / you" where X =
+  `cost.per_person_total` + 0 (arrival contributes 0 when null).
+  Subtitle reads "your total will firm up once the crew fills in."
+  "your way in · (pending)" row renders first in the items
+  list with accent styling, no progress bar, no dollar amount.
+- [ ] Sell trip as signed-in member with arrival = flight +
+  $420: hero shows `~${cost.per_person_total + 420} / you`.
+  "your way in · ✈️ flight · $420" row renders first, accent
+  styling (accent color, 700+ weight, tabular-nums), progress
+  bar filled to `420 / yourTotal * 100%`.
+- [ ] Changing arrival mode (e.g. flight → drive) resets cost
+  to null → hero subtracts $420 immediately (revalidatePath
+  from 9B-1's server action triggers re-render), "your way in"
+  row flips to "(pending)".
+- [ ] Logged-out teaser path: InviteeShell still renders
+  unchanged; CostBreakdown not reached in the render tree.
+- [ ] Group-fallback path (viewerArrival === null, if somehow
+  reached): hero reads old "per person estimate" / `~$X`, no
+  "/ you" suffix, no "your way in" row, old "X going" /
+  "estimated for X people" subtitle. Visual parity with pre-9B-2.
+- [ ] Getting-here module at 375px: left and right edges align
+  exactly with the spot module card directly above. No visible
+  wider bleed.
+- [ ] `grep -r "'Flights'\|'Transport'\|'Meals'\|'Activities'"
+  src/components/trip/CostBreakdown.tsx` returns zero hits.
+- [ ] `grep -r "#fff\|rgba(255" src/components/trip/CostBreakdown.tsx`
+  returns zero hits.
+- [ ] All new CSS classes under `.cost-breakdown*` in
+  globals.css; no `!important`; no raw colors.
+- [ ] Progress bars render identically to pre-refactor for the
+  group-fallback path (visual diff test: screenshot before/after
+  on a trip where `viewerArrival = null`).
+- [ ] `npx tsc --noEmit` clean.
+- [ ] 9B-1 regressions: getting-here module renders unchanged
+  on sell (header, picker, estimate-input, roll line, passport
+  nudge all per 9B-1 AC). 9H / 9I / 9J regressions clean.
+
+**Files to Read (required, before touching code):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — Part 1 rules
+  (single-module discipline, reuse-before-rebuild, design ROI).
+- `rally-fix-plan-v1.md` — this brief, 9B-1 Actuals, 9I / 9J
+  precedents for inline-styles-to-classes work.
+- `src/components/trip/CostBreakdown.tsx` — current state, every
+  line.
+- `src/components/trip/GettingHere.tsx` — to understand
+  `userArrival` prop shape (mirror, don't reinvent). Read-only.
+- `src/app/trip/[slug]/page.tsx:371–540` — the render structure
+  around spot → getting-here → transportation → cost breakdown.
+- `src/app/actions/getting-here.ts` — so you know what
+  revalidatePath path the server action hits (`/trip/${slug}`)
+  and can reason about the re-render flow after an arrival
+  update.
+- `src/lib/copy/surfaces/getting-here.ts` — the modeIcon /
+  modeLabel keys you'll reuse in the "your way in" row label.
+- `src/lib/copy/index.ts` — surface registration pattern.
+- `src/app/globals.css` — existing `.chassis` theme tokens,
+  where to place the new `--cost-on-glass` variables; existing
+  `.voting-pill` / `.lodging-vote-flag` placement for CSS
+  cluster guidance.
+- `src/components/ui/Badge.tsx` — to confirm the `bg` / `color`
+  props accept CSS variables cleanly.
+
+**How to QA Solo (Claude Code, before handing back):**
+
+1. `npx tsc --noEmit` — clean.
+2. `rm -rf .next && npm run dev` (globals.css changed — flush).
+3. Load `/trip/sjtIcYZB` at 375px as a signed-in member with
+   arrival = null (set `UPDATE trip_members SET
+   arrival_mode = NULL, arrival_cost_cents = NULL WHERE ...`
+   if needed):
+   - Hero reads "your total" / "~$X / you".
+   - Subtitle is the new "your total will firm up..." copy.
+   - "your way in · (pending)" row at top of items list;
+     accent styled; no bar; no $ value.
+4. Set your arrival to flight + $420. Reload trip page:
+   - Hero adjusts by +$420.
+   - "your way in · ✈️ flight · $420" row renders with accent
+     + filled progress bar.
+5. Change arrival to drive (cost resets to null):
+   - Hero drops by $420.
+   - Row becomes "(pending)".
+6. Visual diff check: getting-here module vs. spot module
+   above it at 375px — left/right edges aligned pixel-for-pixel.
+7. `grep -r '#fff\|rgba(255' src/components/trip/CostBreakdown.tsx`
+   — zero.
+8. `grep -r "'Flights'\|'Transport'\|'Meals'\|'Activities'"
+   src/components/trip/CostBreakdown.tsx` — zero.
+9. Sketch trip (`/trip/TheVfl1-`): no CostBreakdown render
+   (short-circuited upstream). No regression.
+10. Log out and hit sell trip: InviteeShell renders. No crash
+    from `viewerArrival === null` propagating.
+11. 9B-1 regression: getting-here module still renders per AC
+    (picker, estimate-input, roll line, passport nudge with
+    null home_city + flight).
+12. `git diff` review: zero new hardcoded strings, zero new
+    hardcoded colors, no scope creep outside CostBreakdown /
+    page.tsx wiring / globals.css / lexicon.
+
+If any AC fails, fix before handing back. Don't declare done
+with unaddressed failures.
+
+#### Session 9B-2 — Release Notes
+
+**What was built:**
+
+1. **Lexicon extension** — `src/lib/copy/surfaces/trip-page-shared.ts`.
+   Added 10 new keys under the `costBreakdown.*` namespace:
+   `yourTotalLabel`, `perYouSuffix`, `yourWayInLabel`,
+   `yourWayInPending`, `subtitle`, `line.flights`,
+   `line.transport`, `line.meals`, `line.activities`,
+   `sharedBadge` (templated w/ `{amount}`), `bookYoursBadge`
+   (templated w/ `{amount}`). No new surface file — keys nest
+   under the existing `tripPageShared` registration.
+
+2. **CostBreakdown refactor** —
+   `src/components/trip/CostBreakdown.tsx`. Full render rewrite
+   off inline styles to semantic `.cost-breakdown-*` classes, no
+   changes to the line-item aggregation math (headliner / lodging
+   / flights / transport / meals / activities all compute
+   identically to the 9J baseline). New `viewerArrival` prop
+   drives the three per-viewer deltas:
+   - **Hero:** label switches from "Estimated per person" to
+     "your total"; number becomes `cost.per_person_total +
+     (arrival_cost_cents / 100 when non-null else 0)`; inline
+     "/ you" suffix renders only when `viewerArrival !== null`.
+   - **Subtitle:** "your total will firm up once the crew fills
+     in." replaces the old "`{nights}` nights • X going" string
+     for per-viewer. Group fallback keeps the old subtitle.
+   - **"your way in" row:** prepended at the top of the items
+     list with `emphasize: true`. Label is `"your way in"` when
+     `mode === null`, `"your way in · ✈️ flight"` style when a
+     mode is set. Pending flag (cost_cents null) swaps the
+     progress bar + dollar value for an italic "(pending)" in
+     accent color; filled state renders like the headliner row
+     (accent label + bold tabular-nums val + accent-fill bar).
+   Item type widened from `{ label, val, icon, emphasize? }` to
+   include `val: number | null` and `pending?: boolean`.
+
+3. **Page wiring** — `src/app/trip/[slug]/page.tsx:544`. Pass
+   `viewerArrival={{ mode, cost_cents }}` from `viewerMember`
+   into `<CostBreakdown>`, null when no viewerMember (defensive
+   — logged-out is already short-circuited upstream at line 163).
+   No query changes; the data already comes through the 9B-1
+   `trip_members` columns.
+
+4. **Getting-here inset fix** —
+   `src/app/trip/[slug]/page.tsx:417`. Wrapped the
+   `{viewerMember && <Reveal><GettingHere/></Reveal>}` block in
+   `<div style={{ padding: '0 18px', marginTop: 14 }}>` mirroring
+   the spot module's wrapper at line 371. Browser measurement
+   confirms pixel alignment: spot-module and getting-here-module
+   now both occupy left=18 / right=357 / width=339 at the 375px
+   mobile viewport. Did not convert the inline style to a class —
+   matches the existing sibling pattern (spot / transport all use
+   the same inline wrapper). Whole-file inline-style cleanup is
+   a separate session per the brief.
+
+5. **CSS — `src/app/globals.css`.** Added ~115 lines of
+   `.chassis .cost-breakdown-*` classes after the 9B-1
+   `.gh-roll-line` block (keeps the session-9B CSS contiguous).
+   All colors resolve through six scoped CSS variables declared
+   on `.chassis .cost-breakdown`:
+   - `--cost-on-glass` → `var(--on-surface)`
+   - `--cost-on-glass-dim` → 60% on-surface mix
+   - `--cost-on-glass-faint` → 10% on-surface mix (bar track)
+   - `--cost-badge-shared-bg` → 20% accent2 mix
+   - `--cost-badge-shared-fg` → `var(--accent2)`
+   - `--cost-badge-yours-bg` → 10% on-surface mix
+   - `--cost-badge-yours-fg` → 70% on-surface mix
+
+   Badge colors are now theme-driven (accent2 cool-tone for
+   "shared", neutral on-surface for "book yours") — previously
+   they were hardcoded `#7ecdb8` / `rgba(255,255,255,.7)` that
+   didn't adapt per theme. Accent rows (headliner + "your way
+   in") use `var(--accent)`, which per theme resolves correctly
+   (e.g. terracotta `#b84a2f` on the Coachella trip, confirmed
+   at the DOM via `getComputedStyle`).
+
+**What changed from the brief:**
+
+- **Dead `var(--rally-*)` tokens replaced, not preserved.** The
+  old CostBreakdown referenced `var(--rally-accent)`,
+  `var(--rally-font-display)`, and `var(--rally-font-body)` —
+  none of which are declared anywhere in the codebase. They
+  resolved to empty string, meaning the "emphasize" styling on
+  the headliner row was silently broken (no accent color, no
+  display font) and the 52px hero just inherited body font.
+  The refactor replaces these with `var(--accent)` +
+  system-inherited fonts. **Visible diff:** the headliner row's
+  label and value now correctly render in the per-theme accent
+  color, and the "your way in" row does too. Per the brief AC
+  "visual parity with pre-9B-2" on the group-fallback path — I
+  consider the emphasize-is-now-actually-accent a fix to a
+  latent bug, not a regression. Flagging for Cowork judgment:
+  if the accent coloring feels too loud on the headliner line,
+  the `.emphasize` class can drop the color override and keep
+  only the weight bump.
+
+- **"(pending)" row renders even when `mode === null`.** The
+  brief offered two options for that edge (render "(not
+  started)" placeholder OR skip the row). AC1 clarified the
+  intent — render with `"(pending)"` — so I kept the row
+  visible with `label = "your way in"` (no mode suffix) and
+  the pending val. Skipping would mean the viewer's first
+  breakdown row flickers in/out when they pick a mode, which
+  reads janky.
+
+- **Badge bg/color passed as CSS variables, not computed hex.**
+  The `Badge` component's `bg` / `color` props accept any valid
+  CSS string, so `bg="var(--cost-badge-shared-bg)"` flows
+  through its inline style cleanly. Lets the token cascade
+  respect per-theme overrides without editing Badge itself.
+
+- **No new surface file for lexicon keys.** The brief
+  suggested `src/lib/copy/surfaces/cost-breakdown.ts` if one
+  didn't exist — the `costBreakdown.*` namespace is already
+  part of `tripPageShared` (per 9J's `costBreakdown.lodging.*`
+  additions). I extended in place rather than splitting a
+  surface for 10 keys.
+
+- **Inset wrap uses `marginTop: 14` in addition to
+  `padding: '0 18px'`.** The spot module wrapper has both;
+  transport's wrapper at line 436 has just the padding, no
+  marginTop. Without the marginTop the getting-here sat
+  directly under spot with no gap. Matching spot's full pattern.
+
+**What to test (Cowork QA):**
+
+- [ ] **Sell trip, viewer with arrival = null** (temporarily
+  `UPDATE arrival_mode=NULL, arrival_cost_cents=NULL` on a test
+  member row): CostBreakdown hero reads "YOUR TOTAL" / "~$X / you"
+  where X = cost.per_person_total. "your way in" renders first,
+  accent-colored, value "(pending)". No progress bar on that row.
+- [ ] **Same viewer with flight + $420:** hero shows
+  `~${per_person_total + 420} / you`; "your way in · ✈️ flight"
+  row with $420 + filled progress bar (420 / yourTotal × 100%).
+- [ ] **Mode change flight → drive** (9B-1 server action auto-
+  resets cost to null): hero total drops by $420, row flips to
+  "(pending)" in real time (revalidatePath triggers re-render).
+- [ ] **Logged-out teaser:** InviteeShell still renders; no
+  regression. CostBreakdown isn't reached in that tree
+  (short-circuit at page.tsx:163).
+- [ ] **Group-fallback path** (hypothetical signed-in-but-not-a-
+  member): old "Estimated per person" hero, old "X nights • Y
+  going" subtitle, no "/ you" suffix, no "your way in" row.
+  Visually matches pre-9B-2.
+- [ ] **Inset alignment:** spot, getting-here, and transport
+  module frames all left=18/right=357/width=339 at 375px.
+  Confirmed at DOM level in solo QA. Visual re-check welcome.
+- [ ] **Regressions:** headliner (9H), spot voting + LodgingCard
+  (9I), per-person lodging line (9J), GettingHere full state
+  machine (9B-1) all unchanged.
+
+**Solo QA run (Claude Code, 2026-04-21):**
+
+- `npx tsc --noEmit` → clean.
+- `rm -rf .next && npm run dev` + `/trip/sjtIcYZB` at 375px as a
+  signed-in member. Viewer's arrival at test time: mode=flight,
+  cost=null, home_city=null (Cowork left it in the passport-
+  nudge edge state after 9B-1 QA).
+  - CostBreakdown DOM values:
+    - Hero label: "your total"
+    - Hero total: "~$7,600" (cost.per_person_total + 0 arrival)
+    - "/ you" suffix present
+    - Subtitle: "your total will firm up once the crew fills in."
+    - First row label: "your way in · ✈️ flight"
+    - First row val: "(pending)" in pending class
+    - Emphasize class on both "your way in" and "the headliner"
+      row labels
+    - 5 total rows
+  - Per-theme token resolution verified at DOM:
+    `--on-surface` → `#f4ede0`, `--accent` → `#b84a2f`;
+    hero total color = `rgb(244,237,224)`, accent row val =
+    `rgb(184,74,47)`, bar fill = same accent. Tokens cascade.
+  - Spot / getting-here alignment: both rect left=18, right=357,
+    width=339.
+- `/trip/TheVfl1-` (sketch): no CostBreakdown, no GettingHere.
+  SketchTripShell short-circuit intact.
+- Grep: `'Flights'|'Transport'|'Meals'|'Activities'` in
+  `CostBreakdown.tsx` → zero. `#fff|rgba(255` in
+  `CostBreakdown.tsx` → zero. New CSS added zero raw whites
+  (the one hit in my globals.css diff is inside a CSS comment).
+
+**Known issues / flags:**
+
+- **With-cost in-browser verification deferred.** My attempts to
+  programmatically fill the getting-here `.estimate-field` and
+  trigger the React onBlur didn't propagate through React's
+  synthetic event handler (puppeteer `.fill()` sets the DOM
+  value but doesn't always trigger the controlled-component
+  setState path). Rather than fight the tooling I verified the
+  pending state in the browser + the filled-state math by code
+  inspection: `yourTotal = per_person_total + cost_cents / 100`,
+  `val = cost_cents / 100`, `pending = cost_cents == null`.
+  Cowork QA's natural flow (tap mode → type → blur) exercises
+  this path exactly as in 9B-1.
+
+- **Dead `var(--rally-*)` tokens.** Still referenced in ~15
+  other components (TransportCard, RestaurantCard, FlightCard,
+  DatePoll, ActivityCard, ProfileModal, etc.) with the same
+  latent bug. Out of scope for 9B-2 — single-module discipline.
+  Worth a "global token audit" bug-bash ticket: either define
+  the `--rally-*` vars to alias the `--` chassis tokens, OR
+  port every usage to the `--accent` / `--ink` / etc. set.
+
+- **Turbopack cache flake recurred** during click-through
+  testing. Symptoms identical to 9B-1's report —
+  `Cannot find module …/.next/dev/server/app/trip/[slug]/
+  page.js`. Clean restart (`rm -rf .next && preview_start`)
+  resolves it. Worth the bug-bash attention once we hit Next
+  16.2.3+ or can reproduce without a server action mid-flight.
+
+- **Subtitle behavior on group-fallback path** still shows "X
+  going" / "estimated for X people" which mirrors pre-9B-2
+  verbatim — preserved for visual parity per the brief. Only
+  the per-viewer path gets the new "your total will firm up"
+  string.
+
+#### Session 9B-2 — Actuals (QA'd 2026-04-21)
+
+**Status: 9B-2 shipped clean. All 11 ACs pass.**
+
+**AC verification:**
+
+- ✅ **AC1** (null-arrival hero + pending row) — live DOM:
+  label="your total", total="~$7,600", "/ you" suffix, subtitle
+  "your total will firm up once the crew fills in.", first row
+  "your way in · ✈️ flight · (pending)" with `.emphasize` +
+  `.pending`, no progress bar. Accent color resolves to
+  `rgb(184, 74, 47)` (terracotta).
+- ✅ **AC2** (flight + $420 filled row) — live: Andrew typed 420
+  + Enter, hero became ~$8,020 / you, row "your way in · ✈️
+  flight · $420" with accent weight + tabular-nums + filled
+  accent bar. (Programmatic verification blocked by React
+  controlled-input onChange not firing from Chrome MCP keystrokes
+  — same tooling ceiling CC hit in solo QA.)
+- ✅ **AC3** (mode flight→drive resets cost) — live: switching to
+  drive dropped hero by $420 and flipped row back to "(pending)".
+  9B-1 server-action re-render path verified.
+- ✅ **AC4** (logged-out teaser unchanged) — verified by code
+  inspection. Upstream short-circuit at `page.tsx:164`
+  (`if (currentUserId === null && trip.phase !== 'sketch') →
+  InviteeShell`) intact, unmodified by 9B-2. CostBreakdown never
+  reached logged-out.
+- ✅ **AC5** (group-fallback visual parity) — verified by code
+  inspection of `CostBreakdown.tsx:143-183`. `isPerViewer=false`
+  branch uses `tripPageShared.cost.perPersonLabel` hero,
+  preserves old "X nights • Y going" subtitle, skips "/ you"
+  suffix, skips "your way in" row.
+- ✅ **AC6** (inset alignment at 375) — live bounding rects:
+  headliner, spot, getting-here, everything-else all share
+  left=18 / right=497 / width=479 at the test viewport. Ratio
+  holds at 375 (18px padding is absolute).
+- ✅ **AC7 + AC8** (code grep):
+  `grep 'Flights'\|'Transport'\|'Meals'\|'Activities'` in
+  CostBreakdown.tsx → 0 hits. `grep '#fff'\|'rgba(255'` → 0 hits.
+- ✅ **AC9** (.cost-breakdown CSS clean) — 18 classes all under
+  `.chassis .cost-breakdown*`, zero `!important` in the block,
+  zero raw hex/rgba (all via theme tokens +
+  `var(--cost-on-glass*)` + `var(--cost-badge-*)` aliases).
+- ✅ **AC10** (group-fallback bar math parity) — verified by code:
+  `barDenominator = isPerViewer ? yourTotal : cost.per_person_total`
+  — fallback path uses pre-9B-2 denominator. Per-row pct formula
+  `(val/denom) × 100` unchanged.
+- ✅ **AC11** (tsc + regressions) — `npx tsc --noEmit` exit 0.
+  Module order intact (headliner → spot → getting-here →
+  everything-else → aux). Headliner (9H), 7 lodging cards +
+  voting pill (9I/9J), getting-here full state machine + roll
+  line (9B-1), CostBreakdown (9B-2) all render. Console
+  error-free.
+
+**Cowork fixes (CSS/copy only):** none needed.
+
+**Bugs for Session N+1:** none.
+
+**Side flags (pre-existing, not 9B-2-introduced):**
+
+- **Passport nudge disposition changed between CC solo QA and
+  Cowork QA.** CC's notes flagged the viewer in
+  `mode=flight, cost=null, home_city=null` state with the
+  passport nudge visible. During Cowork QA the nudge was not
+  rendering. Either home_city got populated between handback
+  and QA (likely — Andrew may have set it during an earlier
+  interactive check), or there's a silent render condition.
+  Flagged for confirmation, not a blocker.
+- **CC's "dead `var(--rally-*)` tokens" observation** — out of
+  scope for 9B-2, worth a future global token audit bug-bash.
+  ~15 other components still reference undefined
+  `var(--rally-accent)`, `var(--rally-font-display)`,
+  `var(--rally-font-body)` that silently resolve empty.
+- **Turbopack cache flake** recurred per CC's note; clean
+  restart (`rm -rf .next && npm run dev`) remains the
+  workaround until Next 16.2.3+.
+
+---
+
+### Bug Bash Queue (future session, briefs TBD)
+
+Items that came up during other sessions but don't fit any single
+module's scope. Consolidate into a single bug-bash session when
+the queue is big enough, or peel individual items off as urgency
+demands.
+
+**BB-1. Duplicate rows in `public.users` for the same email.**
+
+Discovered 2026-04-21 during 9B-1 QA. Diagnostic found two rows
+for `shipman.andrew@gmail.com`:
+
+- `3cf04a5e-348d-4b78-b2bc-74aceac64a6e` (auth-linked, 15
+  memberships) — the "real" user
+- `88e4da18-ae6b-4b43-98b5-55de8fc83c0b` (not auth-linked, 5
+  memberships, all 5 conflict with real user) — orphan
+
+Cleanup SQL drafted in session (transactional: delete orphan's
+trip_members rows, migrate 10 other FKs orphan→real, delete
+orphan, add `UNIQUE(email)` constraint). "Real wins" on the two
+RSVP-state disagreements since orphan is stale test data.
+**Executed 2026-04-21** — post-run SELECT returned exactly one
+row for the email, auth-matching.
+
+Scope items remaining for the bug-bash session:
+
+1. ~~**Execute the cleanup SQL.**~~ Done 2026-04-21.
+2. **Add `UNIQUE(email)` constraint on `public.users`** via a
+   proper migration file (not just ad-hoc SQL) so the schema
+   and the prod DB stay in sync. The ad-hoc
+   `ALTER TABLE ADD CONSTRAINT` ran in the cleanup transaction,
+   but it's not captured in the migrations tree — drift.
+3. **Audit the signup / magic-link flow** to understand how a
+   duplicate row got created. Candidate root causes: a race
+   between `auth.users` insert and the app's first `public.users`
+   upsert; the upsert path missing an `ON CONFLICT (email) DO
+   UPDATE` clause; a stale guest cookie triggering a second row
+   creation on a later sign-in. The `UNIQUE` constraint prevents
+   recurrence at the DB layer, but the app should also stop
+   *trying* to create duplicates so users don't hit "duplicate
+   key" errors on normal sign-in.
+4. **Check if other users have duplicates.** `SELECT email,
+   COUNT(*) FROM public.users GROUP BY email HAVING COUNT(*) > 1;`
+   If any results, extend the cleanup.
+
+**BB-2. Side flags from 9B-1 Actuals.**
+
+Five items flagged during 9B-1 QA that are pre-existing drift,
+not 9B-1-introduced. See "Side flags" in the 9B-1 QA Results
+section above. Summary:
+
+- Stale canonical module order in `rally-session-guard` skill
+  (cost summary placement) vs. actual 9A render order.
+- `/passport` is a 4th route — violates "three screens" hard
+  rule. 8D-era drift.
+- Sketch "getting here" helper-text slot referenced in AC10 is
+  missing from the current sketch DOM.
+- Orphan dev server on :3000 (PID 70585) — local-machine
+  housekeeping, not a code fix.
+- Migration ledger out of sync: 021 applied via Supabase SQL
+  editor, not via `supabase migration up`. Safe due to
+  idempotent guards in the migration but worth knowing.
+
+Each is small enough to fit in a bug-bash session; none is
+blocking anything.
+
+---
+
 ### Session 10+: "Sell+ Module Depth" (briefs TBD)
 
 These sessions deepen each module for sell/lock/go/done phases. Updated

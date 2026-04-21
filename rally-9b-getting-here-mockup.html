@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9B: Getting Here module (sell+ only)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9B SCOPE — splits 9B-1 + 9B-2 (locked 2026-04-21)
+
+     9B-1: new module component + DB migration + server actions
+           + render on sell. NO cost-summary changes.
+     9B-2: CostBreakdown rewrite → per-viewer personalized total
+           + "your way in" line + backlog-#4 cleanup.
+
+     PRINCIPLE: visually consistent with headliner + spot. All
+     primitives reuse the existing design vocabulary:
+     - `.module-section` + `.module-section-header` (shipped,
+       same outer frame as headliner/spot)
+     - `.module-section-empty` + `.module-section-empty-text`
+       (shipped, dashed ink container w/ Caveat text — used for
+       the pick-a-mode prompt when no mode set)
+     - `.estimate-input` (shipped, dashed-empty / solid-filled
+       pattern with $ prefix + field — used for cost entry)
+     - `.estimate-input-hint` (shipped, small italic muted)
+     - `.module-card-pill` (shipped, accent-fill pill CTA w/
+       offset shadow — used for the "ballpark it" reference link)
+
+     NEW primitives (scoped to `.getting-here-module`):
+     - `.gh-mode-picker` / `.gh-mode-tile` — 4-column grid of
+       mode tiles. Deliberately modeled on `.module-card-pill`'s
+       visual DNA (2px ink border, 2px offset shadow, accent-fill
+       on active). NOT an alien primitive — a sibling of pills
+       sized for the grid.
+     - `.gh-roll-line` — small Georgia-italic muted echo at
+       card bottom showing "your way in · {mode} — $X | (pending)".
+       Matches the caption style used elsewhere.
+
+     DECISIONS LOCKED (2026-04-21):
+     1. Single number input.
+     2. Passport "based in" required for flight deep-link; inline
+        nudge replaces the link when missing.
+     3. Personal per-viewer only (no roster on sell).
+     4. Personalized rollup in 9B-2 (each viewer their own total).
+     5. "Other" mode = catch-all; no reference link; same form.
+     6. Required-soft: nudge + "(pending)" state, no RSVP gate.
+     7. Reset cost to blank when mode changes.
+     8. Reference links: flight → Google Flights, drive → Google
+        Maps directions, train → Google Maps transit mode, other
+        → no link.
+     9. State model: `mode null` = not started; `mode set, cost
+        null` = in progress; `mode + cost both set (incl. cost=0)`
+        = complete.
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    /* Mockup rendered on a theme with rust/terracotta accent
+       (representative of e.g. reunion-weekend / couples-trip).
+       Real shipped module inherits whatever --accent the trip's
+       theme sets — these values are illustrative only. */
+    --bg: #f5f1ea;
+    --ink: #1a2a33;
+    --surface: #ffffff;
+    --accent: #b84a2f;   /* rust/terracotta — NOT the generic yellow */
+    --accent2: #5bb7d8;
+    --hot: #c97565;      /* muted salmon for the cost-pill accent tone */
+    --stroke: #1a2a33;
+    --muted: #7a8a90;
+    --font-hand: 'Caveat', cursive;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #2a2a2a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .doc-header {
+    max-width: 1100px;
+    margin: 0 auto 20px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: #faf8f5;
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.5;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .row {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+  .row-label {
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-top: 32px;
+    margin-bottom: 8px;
+  }
+
+  .frame {
+    width: 340px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 18px 0 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+  }
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+  .context-stub {
+    opacity: .28;
+    pointer-events: none;
+    padding: 10px 18px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-bottom: 1px dashed rgba(26,42,51,.3);
+    margin: 0 0 16px;
+  }
+  .context-stub.below {
+    border-bottom: none;
+    border-top: 1px dashed rgba(26,42,51,.3);
+    margin: 16px 0 0;
+  }
+
+  /* ─── SHIPPED PRIMITIVES (mirrored from globals.css for mockup preview) ─── */
+
+  /* .module-section — 9H/9I outer frame */
+  .module-section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px 20px;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    margin: 0 18px;
+    background: transparent;
+  }
+  .module-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px;
+  }
+  .module-section-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.1;
+    color: var(--ink);
+    text-transform: lowercase;
+  }
+  .module-section-caption {
+    font-family: var(--font-hand), Georgia, serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink);
+    opacity: 0.5;
+  }
+
+  /* .module-section-empty + .module-section-empty-text (shipped) */
+  .module-section-empty {
+    padding: 16px 14px;
+    border: 2.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+    border-radius: 14px;
+    text-align: center;
+  }
+  .module-section-empty-text {
+    font-family: var(--font-hand), Georgia, serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--ink);
+    opacity: 0.5;
+    margin: 0;
+  }
+
+  /* .estimate-input (shipped, reused verbatim) */
+  .estimate-input {
+    padding: 14px 16px;
+    border: 2.5px dashed var(--ink);
+    border-radius: 16px;
+  }
+  .estimate-input.filled {
+    border-style: solid;
+  }
+  .estimate-input .field-label {
+    margin-bottom: 8px;
+    font-family: var(--font-hand), Georgia, serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink);
+    opacity: 0.55;
+    line-height: 1.35;
+  }
+  .estimate-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .estimate-prefix {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+    opacity: 0.6;
+  }
+  .estimate-field {
+    all: unset;
+    flex: 1;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .estimate-field::placeholder {
+    color: var(--ink);
+    opacity: 0.4;
+    font-weight: 400;
+  }
+  .estimate-input-hint {
+    margin: 8px 0 0;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--ink);
+    opacity: 0.55;
+  }
+
+  /* .module-card-pill (shipped CTA shape — used for reference link) */
+  .module-card-pill {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 18px;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 30px;
+    text-decoration: none;
+    box-shadow: 2px 2px 0 var(--stroke);
+  }
+
+  /* ─── NEW for 9B (but visually rooted in shipped vocabulary) ─── */
+
+  /* Mode picker — 4-column grid of tiles.
+     Visual DNA from .module-card-pill: 2px ink border, offset shadow,
+     accent-fill on active. Sized for grid (square-ish tiles). */
+  .gh-mode-picker {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .gh-mode-tile {
+    all: unset;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px 4px;
+    background: transparent;
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    box-shadow: 2px 2px 0 var(--stroke);
+    font-family: Georgia, serif;
+    text-align: center;
+  }
+  .gh-mode-tile.active {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .gh-mode-tile:active {
+    transform: translateY(1px);
+    box-shadow: 0 0 0 var(--stroke);
+  }
+  .gh-mode-icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+  .gh-mode-label {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: lowercase;
+    color: inherit;
+  }
+
+  /* Passport nudge — swaps in for reference pill when flight mode + origin missing */
+  .gh-passport-nudge {
+    font-size: 11px;
+    color: var(--hot);
+    margin-top: 10px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.4;
+  }
+  .gh-passport-nudge a {
+    color: var(--hot);
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 2px;
+    font-weight: 700;
+  }
+
+  /* Roll line — Georgia-italic caption matching .headliner-caption vibe */
+  .gh-roll-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0 2px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink);
+    opacity: 0.85;
+  }
+  .gh-roll-line .val {
+    font-weight: 900;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .gh-roll-line .val.pending {
+    color: var(--ink);
+    opacity: 0.5;
+    font-weight: 600;
+    font-size: 13px;
+    font-style: normal;
+  }
+
+  /* Annotations */
+  .annotation {
+    max-width: 1100px;
+    margin: 44px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 18px 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: #faf8f5;
+    margin: 16px 0 10px;
+  }
+  .annotation h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .annotation table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 12px;
+    font-size: 12px;
+  }
+  .annotation th, .annotation td {
+    border: 1px solid rgba(255,255,255,.12);
+    padding: 6px 10px;
+    text-align: left;
+  }
+  .annotation th {
+    background: rgba(255,216,77,.08);
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--accent); }
+  .callout-red {
+    background: rgba(230,57,70,.08);
+    border-left: 3px solid var(--hot);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout-red strong { color: var(--hot); }
+  .phase-badge {
+    display: inline-block;
+    background: rgba(91,183,216,.15);
+    color: #5bb7d8;
+    border: 1px solid rgba(91,183,216,.4);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .phase-badge.two {
+    background: rgba(255,216,77,.15);
+    color: #ffd84d;
+    border-color: rgba(255,216,77,.4);
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9b · sell · getting here · visually consistent w/ headliner + spot</div>
+  <div class="doc-title">getting here — module wireframe (v2, primitive-aligned)</div>
+  <div class="doc-sub">
+    Net-new sell+ module. Reuses shipped primitives (<code>.module-section</code>,
+    <code>.module-section-empty</code>, <code>.estimate-input</code>,
+    <code>.module-card-pill</code>) for visual continuity with headliner + spot.
+    Adds one novel grid (<code>.gh-mode-picker</code>) modeled on the pill visual DNA.
+  </div>
+</div>
+
+<!-- ═══ ROW 1: State progression (flight mode, single viewer) ═══ -->
+<div class="row-label">row 1 · state progression · not started → mode picked → complete</div>
+<div class="row">
+
+  <!-- STATE 1: NOT STARTED -->
+  <div class="frame">
+    <div class="frame-label">state 1 · mode null · pick-a-mode prompt</div>
+    <div class="context-stub">▲ the spot ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">getting here</div>
+        <div class="module-section-caption">your way in</div>
+      </div>
+      <div class="module-section-empty">
+        <p class="module-section-empty-text">how are you getting there?</p>
+      </div>
+      <div class="gh-mode-picker">
+        <button class="gh-mode-tile"><span class="gh-mode-icon">✈️</span><span class="gh-mode-label">flight</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚗</span><span class="gh-mode-label">drive</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚆</span><span class="gh-mode-label">train</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">·</span><span class="gh-mode-label">other</span></button>
+      </div>
+    </div>
+    <div class="context-stub below">▼ transportation ...</div>
+  </div>
+
+  <!-- STATE 2: MODE PICKED, COST PENDING -->
+  <div class="frame">
+    <div class="frame-label">state 2 · mode picked · cost blank</div>
+    <div class="context-stub">▲ the spot ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">getting here</div>
+        <div class="module-section-caption">your way in</div>
+      </div>
+      <div class="gh-mode-picker">
+        <button class="gh-mode-tile active"><span class="gh-mode-icon">✈️</span><span class="gh-mode-label">flight</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚗</span><span class="gh-mode-label">drive</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚆</span><span class="gh-mode-label">train</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">·</span><span class="gh-mode-label">other</span></button>
+      </div>
+      <div class="estimate-input">
+        <div class="field-label">drop in a rough estimate · rolls into your total · not a booking</div>
+        <div class="estimate-input-row">
+          <span class="estimate-prefix">$</span>
+          <input class="estimate-field" type="text" placeholder="0" />
+        </div>
+        <a class="module-card-pill">ballpark it on google flights ↗</a>
+      </div>
+      <div class="gh-roll-line">
+        <span>your way in · ✈️ flight</span>
+        <span class="val pending">(pending)</span>
+      </div>
+    </div>
+    <div class="context-stub below">▼ transportation ...</div>
+  </div>
+
+  <!-- STATE 3: COMPLETE -->
+  <div class="frame">
+    <div class="frame-label">state 3 · complete · rolls into your total</div>
+    <div class="context-stub">▲ the spot ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">getting here</div>
+        <div class="module-section-caption">your way in</div>
+      </div>
+      <div class="gh-mode-picker">
+        <button class="gh-mode-tile active"><span class="gh-mode-icon">✈️</span><span class="gh-mode-label">flight</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚗</span><span class="gh-mode-label">drive</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚆</span><span class="gh-mode-label">train</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">·</span><span class="gh-mode-label">other</span></button>
+      </div>
+      <div class="estimate-input filled">
+        <div class="field-label">drop in a rough estimate · rolls into your total · not a booking</div>
+        <div class="estimate-input-row">
+          <span class="estimate-prefix">$</span>
+          <input class="estimate-field" type="text" value="420" />
+        </div>
+        <a class="module-card-pill">ballpark it on google flights ↗</a>
+      </div>
+      <div class="gh-roll-line">
+        <span>your way in · ✈️ flight</span>
+        <span class="val">$420</span>
+      </div>
+    </div>
+    <div class="context-stub below">▼ transportation ...</div>
+  </div>
+
+</div>
+
+<!-- ═══ ROW 2: Mode variants ═══ -->
+<div class="row-label">row 2 · mode-variant copy + reference link · drive · train · other</div>
+<div class="row">
+
+  <!-- DRIVE -->
+  <div class="frame">
+    <div class="frame-label">drive · google maps driving link</div>
+    <div class="context-stub">▲ the spot ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">getting here</div>
+        <div class="module-section-caption">your way in</div>
+      </div>
+      <div class="gh-mode-picker">
+        <button class="gh-mode-tile"><span class="gh-mode-icon">✈️</span><span class="gh-mode-label">flight</span></button>
+        <button class="gh-mode-tile active"><span class="gh-mode-icon">🚗</span><span class="gh-mode-label">drive</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚆</span><span class="gh-mode-label">train</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">·</span><span class="gh-mode-label">other</span></button>
+      </div>
+      <div class="estimate-input filled">
+        <div class="field-label">gas + tolls · rolls into your total · not a booking</div>
+        <div class="estimate-input-row">
+          <span class="estimate-prefix">$</span>
+          <input class="estimate-field" type="text" value="85" />
+        </div>
+        <a class="module-card-pill">ballpark it on google maps ↗</a>
+      </div>
+      <div class="gh-roll-line">
+        <span>your way in · 🚗 drive</span>
+        <span class="val">$85</span>
+      </div>
+    </div>
+    <div class="context-stub below">▼ transportation ...</div>
+  </div>
+
+  <!-- TRAIN -->
+  <div class="frame">
+    <div class="frame-label">train · google maps transit mode link</div>
+    <div class="context-stub">▲ the spot ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">getting here</div>
+        <div class="module-section-caption">your way in</div>
+      </div>
+      <div class="gh-mode-picker">
+        <button class="gh-mode-tile"><span class="gh-mode-icon">✈️</span><span class="gh-mode-label">flight</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚗</span><span class="gh-mode-label">drive</span></button>
+        <button class="gh-mode-tile active"><span class="gh-mode-icon">🚆</span><span class="gh-mode-label">train</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">·</span><span class="gh-mode-label">other</span></button>
+      </div>
+      <div class="estimate-input filled">
+        <div class="field-label">ticket estimate · rolls into your total · not a booking</div>
+        <div class="estimate-input-row">
+          <span class="estimate-prefix">$</span>
+          <input class="estimate-field" type="text" value="140" />
+        </div>
+        <a class="module-card-pill">ballpark it on google maps ↗</a>
+      </div>
+      <div class="gh-roll-line">
+        <span>your way in · 🚆 train</span>
+        <span class="val">$140</span>
+      </div>
+    </div>
+    <div class="context-stub below">▼ transportation ...</div>
+  </div>
+
+  <!-- OTHER -->
+  <div class="frame">
+    <div class="frame-label">other · no reference link · catch-all</div>
+    <div class="context-stub">▲ the spot ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">getting here</div>
+        <div class="module-section-caption">your way in</div>
+      </div>
+      <div class="gh-mode-picker">
+        <button class="gh-mode-tile"><span class="gh-mode-icon">✈️</span><span class="gh-mode-label">flight</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚗</span><span class="gh-mode-label">drive</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚆</span><span class="gh-mode-label">train</span></button>
+        <button class="gh-mode-tile active"><span class="gh-mode-icon">·</span><span class="gh-mode-label">other</span></button>
+      </div>
+      <div class="estimate-input filled">
+        <div class="field-label">already local · rideshare · anything else · drop a rough number</div>
+        <div class="estimate-input-row">
+          <span class="estimate-prefix">$</span>
+          <input class="estimate-field" type="text" value="0" />
+        </div>
+        <!-- no .module-card-pill for "other" — no reference link -->
+      </div>
+      <div class="gh-roll-line">
+        <span>your way in · other</span>
+        <span class="val">$0</span>
+      </div>
+    </div>
+    <div class="context-stub below">▼ transportation ...</div>
+  </div>
+
+</div>
+
+<!-- ═══ ROW 3: Passport edge case ═══ -->
+<div class="row-label">row 3 · edge case · flight mode with passport origin not set</div>
+<div class="row">
+  <div class="frame">
+    <div class="frame-label">flight · no passport · pill swaps to passport nudge</div>
+    <div class="context-stub">▲ the spot ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">getting here</div>
+        <div class="module-section-caption">your way in</div>
+      </div>
+      <div class="gh-mode-picker">
+        <button class="gh-mode-tile active"><span class="gh-mode-icon">✈️</span><span class="gh-mode-label">flight</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚗</span><span class="gh-mode-label">drive</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">🚆</span><span class="gh-mode-label">train</span></button>
+        <button class="gh-mode-tile"><span class="gh-mode-icon">·</span><span class="gh-mode-label">other</span></button>
+      </div>
+      <div class="estimate-input">
+        <div class="field-label">drop in a rough estimate · rolls into your total · not a booking</div>
+        <div class="estimate-input-row">
+          <span class="estimate-prefix">$</span>
+          <input class="estimate-field" type="text" placeholder="0" />
+        </div>
+        <!-- Reference link replaced by passport nudge -->
+        <div class="gh-passport-nudge">
+          add your "based in" city to your <a>passport</a> to search flights ↗
+        </div>
+      </div>
+      <div class="gh-roll-line">
+        <span>your way in · ✈️ flight</span>
+        <span class="val pending">(pending)</span>
+      </div>
+    </div>
+    <div class="context-stub below">▼ transportation ...</div>
+  </div>
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+
+  <h3>Primitive reuse · how 9B stays visually consistent with headliner + spot</h3>
+  <table>
+    <tr><th>Piece</th><th>Primitive used</th><th>Source</th></tr>
+    <tr><td>Outer frame</td><td><code>.module-section</code></td><td>Shipped (9H / 9I)</td></tr>
+    <tr><td>Header row</td><td><code>.module-section-header</code> + <code>.module-section-title</code> + <code>.module-section-caption</code></td><td>Shipped</td></tr>
+    <tr><td>Pick-a-mode empty prompt</td><td><code>.module-section-empty</code> + <code>.module-section-empty-text</code></td><td>Shipped (sketch pattern, dashed ink + Caveat)</td></tr>
+    <tr><td>Cost input</td><td><code>.estimate-input</code> (dashed-empty / solid-filled), <code>.field-label</code>, <code>.estimate-prefix</code>, <code>.estimate-field</code></td><td>Shipped (activities/provisions use this)</td></tr>
+    <tr><td>Reference link CTA</td><td><code>.module-card-pill</code> (accent fill, offset shadow, ink text)</td><td>Shipped (headliner's "view site →")</td></tr>
+    <tr><td>Mode picker tiles</td><td><code>.gh-mode-tile</code> — NEW, but visual DNA borrowed from <code>.module-card-pill</code>: same 2px ink border, 2px offset shadow, accent fill on active, Georgia-italic lowercase type</td><td>New, rooted in shipped vocabulary</td></tr>
+    <tr><td>Passport missing nudge</td><td><code>.gh-passport-nudge</code> — NEW, small italic hot-colored inline warning</td><td>New, minimal</td></tr>
+    <tr><td>Roll line ("your way in · mode — $X")</td><td><code>.gh-roll-line</code> — NEW, Georgia-italic caption matching the <code>.headliner-caption</code> vibe</td><td>New, matches caption style</td></tr>
+  </table>
+
+  <h3>What's in scope for 9B-1 <span class="phase-badge">9B-1</span></h3>
+
+  <h4>1 · Data model</h4>
+  <p>Migration adds three columns to the member/invitee table (CC to
+  verify correct table — likely <code>trip_members</code>):</p>
+  <ul>
+    <li><code>arrival_mode</code> — enum (<code>flight | drive | train | other</code>) · nullable</li>
+    <li><code>arrival_cost_cents</code> — integer · nullable</li>
+    <li><code>arrival_updated_at</code> — timestamp · nullable</li>
+  </ul>
+  <table>
+    <tr><th><code>arrival_mode</code></th><th><code>arrival_cost_cents</code></th><th>Meaning</th><th>UI</th></tr>
+    <tr><td>null</td><td>null</td><td>not started</td><td>empty prompt + mode picker only (no input yet)</td></tr>
+    <tr><td>set</td><td>null</td><td>in progress</td><td>active mode + dashed <code>.estimate-input</code> + "(pending)" roll line</td></tr>
+    <tr><td>set</td><td>set (incl. 0)</td><td>complete</td><td>active mode + solid <code>.estimate-input.filled</code> + $X roll line</td></tr>
+  </table>
+  <p>Changing mode resets <code>arrival_cost_cents</code> to null
+  (server action or DB trigger — CC's call).</p>
+
+  <h4>2 · Server actions</h4>
+  <ul>
+    <li><code>upsertArrival(tripId, mode, costCents)</code> — single action, handles mode-change cost reset.</li>
+    <li><code>revalidatePath(/trip/[slug])</code> after mutation.</li>
+    <li>Auth: caller must be a trip member (any RSVP state — they're writing their own row).</li>
+  </ul>
+
+  <h4>3 · Component · <code>GettingHere.tsx</code></h4>
+  <ul>
+    <li>Location: <code>src/components/trip/GettingHere.tsx</code> (NOT <code>builder/</code> — this is sell-only, no sketch counterpart).</li>
+    <li>Props: <code>tripId</code>, <code>slug</code>, <code>themeId</code>, <code>userArrival: { mode, cost_cents } | null</code>, <code>passportBasedIn: string | null</code>, <code>tripDestination: string</code>, <code>dateStart: string</code>, <code>dateEnd: string</code>.</li>
+    <li>Client component (interactive mode selection + input via <code>useTransition</code>). Mirror <code>LodgingCard</code>'s server-action pattern.</li>
+    <li>Renders only when <code>currentUserId</code> is non-null (logged-out teaser view Session 10 will handle visibility differently).</li>
+  </ul>
+
+  <h4>4 · Render on sell</h4>
+  <ul>
+    <li>Fill the reserved comment slot at <code>page.tsx:415</code>: <code>{/* 3 · Getting Here — Session 9B */}</code>.</li>
+    <li>Query viewer's own arrival (via <code>currentUserId</code>) and pass in.</li>
+  </ul>
+
+  <h4>5 · Reference links per mode</h4>
+  <table>
+    <tr><th>Mode</th><th>Destination</th><th>URL template</th></tr>
+    <tr><td>✈️ flight</td><td>Google Flights</td><td><code>https://www.google.com/travel/flights?q=Flights%20from%20{origin}%20to%20{dest}%20on%20{dateStart}%20through%20{dateEnd}</code></td></tr>
+    <tr><td>🚗 drive</td><td>Google Maps driving</td><td><code>https://www.google.com/maps/dir/{origin}/{dest}</code></td></tr>
+    <tr><td>🚆 train</td><td>Google Maps transit</td><td><code>https://www.google.com/maps/dir/{origin}/{dest}/data=!4m2!4m1!3e3</code></td></tr>
+    <tr><td>· other</td><td colspan="2">no reference link</td></tr>
+  </table>
+  <p>Origin = viewer's <code>passport.based_in</code>. If missing AND mode
+  is flight, the <code>.module-card-pill</code> is replaced by the
+  <code>.gh-passport-nudge</code> inline warning. Drive + train use empty-
+  origin fallback (Google Maps handles gracefully — user types origin in the
+  map UI).</p>
+
+  <h4>6 · Lexicon · new surface <code>getting-here.ts</code></h4>
+  <ul>
+    <li><code>sectionTitle</code> · "getting here"</li>
+    <li><code>sectionCaption</code> · "your way in"</li>
+    <li><code>emptyPrompt</code> · "how are you getting there?"</li>
+    <li><code>modeLabel.flight</code> / <code>.drive</code> / <code>.train</code> / <code>.other</code></li>
+    <li><code>inputHelper.flight</code> · "drop in a rough estimate · rolls into your total · not a booking"</li>
+    <li><code>inputHelper.drive</code> · "gas + tolls · rolls into your total · not a booking"</li>
+    <li><code>inputHelper.train</code> · "ticket estimate · rolls into your total · not a booking"</li>
+    <li><code>inputHelper.other</code> · "already local · rideshare · anything else · drop a rough number"</li>
+    <li><code>refLinkLabel.flight</code> · "ballpark it on google flights ↗"</li>
+    <li><code>refLinkLabel.drive</code> / <code>.train</code> · "ballpark it on google maps ↗"</li>
+    <li><code>passportNudge</code> · "add your "based in" city to your passport to search flights ↗"</li>
+    <li><code>rollLine.pending</code> · "(pending)"</li>
+  </ul>
+
+  <h4>7 · CSS · <code>globals.css</code></h4>
+  <ul>
+    <li><strong>Reused (no new CSS):</strong> <code>.module-section</code>, <code>.module-section-header</code>, <code>.module-section-title</code>, <code>.module-section-caption</code>, <code>.module-section-empty</code>, <code>.module-section-empty-text</code>, <code>.estimate-input</code>, <code>.estimate-input.filled</code>, <code>.field-label</code>, <code>.estimate-prefix</code>, <code>.estimate-field</code>, <code>.module-card-pill</code>.</li>
+    <li><strong>New, ~60 lines total:</strong> <code>.gh-mode-picker</code> + <code>.gh-mode-tile</code> + <code>.gh-mode-tile.active</code> + <code>.gh-mode-icon</code> + <code>.gh-mode-label</code>, <code>.gh-passport-nudge</code>, <code>.gh-roll-line</code> + <code>.gh-roll-line .val</code> + <code>.gh-roll-line .val.pending</code>.</li>
+    <li>Every new declaration uses theme tokens. No raw whites.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Why I kept the <code>gh-*</code> prefix on the three new
+    primitives.</strong> They are Getting-Here-specific shapes with no
+    existing precedent (mode-picker grid, passport-origin nudge, personal
+    roll line). Using a namespaced prefix marks them as "new to this
+    module" rather than promoting them to global primitives prematurely.
+    If a later module reuses one (e.g. transport grows its own mode
+    picker), we can generalize then.
+  </div>
+
+  <h3>What's in scope for 9B-2 <span class="phase-badge two">9B-2</span></h3>
+  <ul>
+    <li>CostBreakdown REWRITE: per-viewer hero number ("your total · ~$X / you").</li>
+    <li>"your way in · {mode}" accent row in itemized list.</li>
+    <li>"(pending)" state when arrival not set.</li>
+    <li>Bundles bug-backlog #4: CostBreakdown hardcoded-colors/strings cleanup. Natural timing.</li>
+  </ul>
+
+  <h3>Out of scope (later sessions)</h3>
+  <ul>
+    <li>Lock-phase roster ("how everyone's arriving")</li>
+    <li>Flight times, actual bookings, confirmations</li>
+    <li>Email/notification nudges on blank arrivals</li>
+    <li>API integrations (Amadeus, SerpAPI, scraping)</li>
+    <li>Multi-leg arrival</li>
+    <li>Range entry</li>
+    <li>Free-text note on "other"</li>
+    <li>Organizer editing others' arrivals</li>
+    <li>Group roster on sell</li>
+  </ul>
+
+  <h3>Required-soft enforcement</h3>
+  <p>Per Andrew's call: arrival must be filled in, but not as a hard
+  gate. Behavior:</p>
+  <ul>
+    <li>Empty state (<code>mode = null</code>): <code>.module-section-empty</code>
+      + mode picker visible. No input yet.</li>
+    <li>In-progress (<code>mode set, cost null</code>): picker active +
+      dashed <code>.estimate-input</code> + roll line reads "(pending)".</li>
+    <li>Complete: solid <code>.estimate-input.filled</code> + roll line
+      shows amount. 9B-2 will also flip the cost summary's "your way in"
+      row from pending → real number.</li>
+    <li>No RSVP button disable. No red-outline blocker. Friction is
+      visual only.</li>
+  </ul>
+
+  <div class="callout-red">
+    <strong>Escalation triggers for the brief.</strong>
+    (a) If the target table for migration isn't <code>trip_members</code>
+    (could be <code>members</code>, <code>trip_invitees</code>, etc. —
+    schema-dependent), flag before running the migration.
+    (b) If <code>passport.based_in</code> isn't already queryable from the
+    trip page's existing query (8D shipped it, but join shape matters),
+    flag — may need a query extension.
+    (c) If the reference-link URL templates fail-open on odd destinations
+    ("palm spring, ca" — spaces, no country), Google still opens but link
+    quality may vary. Accept URL-encode + hope. Not a blocker.
+    (d) If mode-picker tiles feel too cramped at 375px, flag — may need
+    2×2 grid instead of 1×4. Keep current design as preferred.
+    (e) If "other" mode with cost=0 feels visually dead (no link, no hint),
+    consider a minor variant. DO NOT add a note field in 9B-1.
+  </div>
+
+  <h3>Files touched (9B-1 only)</h3>
+  <ul>
+    <li><strong>New:</strong> <code>supabase/migrations/NNNN_arrival_columns.sql</code></li>
+    <li><strong>New:</strong> <code>src/components/trip/GettingHere.tsx</code></li>
+    <li><strong>New:</strong> <code>src/app/actions/getting-here.ts</code> (or extend an existing actions file)</li>
+    <li><strong>New:</strong> <code>src/lib/copy/surfaces/getting-here.ts</code></li>
+    <li><strong>Modify:</strong> <code>src/app/trip/[slug]/page.tsx</code> — fill the 9B slot + query viewer arrival</li>
+    <li><strong>Modify:</strong> <code>src/app/globals.css</code> — add <code>.gh-*</code> primitives (~60 lines)</li>
+    <li><strong>Modify:</strong> <code>src/types/index.ts</code> — add arrival fields to member type</li>
+    <li><strong>NOT touched:</strong> <code>CostBreakdown.tsx</code> (9B-2), <code>SketchModules.tsx</code>, <code>LodgingCard.tsx</code>, any other module</li>
+  </ul>
+</div>
+
+</body>
+</html>

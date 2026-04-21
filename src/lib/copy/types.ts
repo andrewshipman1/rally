@@ -44,6 +44,8 @@ export interface Lexicon {
   buzz: Record<string, Templated>;
   /** §5.27 — profile inline editing */
   profile: Record<string, Templated>;
+  /** §5.28 — Getting Here (per-viewer arrival estimator, Session 9B-1) */
+  gettingHere: Record<string, Templated>;
 }
 
 export type SurfaceKey = keyof Lexicon;

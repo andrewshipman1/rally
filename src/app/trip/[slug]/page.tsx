@@ -32,6 +32,7 @@ import { Description } from '@/components/trip/Description';
 import { ExtrasSections } from '@/components/trip/ExtrasSections';
 import { TransportCard } from '@/components/trip/TransportCard';
 import { SellHeadliner } from '@/components/trip/SellHeadliner';
+import { GettingHere } from '@/components/trip/GettingHere';
 import { PlaylistCard } from '@/components/trip/PlaylistCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
@@ -413,7 +414,28 @@ export default async function TripPage({ params }: Props) {
         )}
       </Reveal>
 
-      {/* 3 · Getting Here — Session 9B */}
+      {/* 3 · Getting Here — Session 9B. 9B-2 wraps the Reveal in the
+             padding-18 inset used by spot above so the .module-section
+             edges align with its siblings. */}
+      {viewerMember && (
+        <div style={{ padding: '0 18px', marginTop: 14 }}>
+          <Reveal delay={0.075}>
+            <GettingHere
+              tripId={trip.id}
+              slug={slug}
+              themeId={themeId}
+              userArrival={{
+                mode: viewerMember.arrival_mode ?? null,
+                cost_cents: viewerMember.arrival_cost_cents ?? null,
+              }}
+              passportBasedIn={viewerMember.user?.home_city ?? null}
+              tripDestination={trip.destination ?? ''}
+              dateStart={trip.date_start ?? ''}
+              dateEnd={trip.date_end ?? ''}
+            />
+          </Reveal>
+        </div>
+      )}
 
       <div style={{ padding: '0 18px' }}>
         {/* 4 · Transportation — "getting around" */}
@@ -514,12 +536,33 @@ export default async function TripPage({ params }: Props) {
           />
         </Reveal>
 
-        {/* 7 · Cost breakdown — moved below crew in 9A */}
+        {/* 7 · Cost breakdown — moved below crew in 9A. Session 9B-2
+               takes the current viewer's arrival (joined on the
+               trip_members query in _data.ts via 9B-1) and passes it
+               down so the hero + "your way in" row personalize to the
+               reader. viewerArrival = null (logged-out / non-member
+               edge — logged-out is short-circuited upstream at page
+               line 163, so this fallback only fires for the narrow
+               signed-in-but-not-a-member case) keeps the old
+               group-average hero. */}
         <Reveal delay={0.25}>
           <div style={{ marginTop: 14 }}>
-            <CostBreakdown trip={trip} cost={cost} themeId={themeId} dateStr={trip.date_start && trip.date_end
-              ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
-              : ''} />
+            <CostBreakdown
+              trip={trip}
+              cost={cost}
+              themeId={themeId}
+              dateStr={trip.date_start && trip.date_end
+                ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
+                : ''}
+              viewerArrival={
+                viewerMember
+                  ? {
+                      mode: viewerMember.arrival_mode ?? null,
+                      cost_cents: viewerMember.arrival_cost_cents ?? null,
+                    }
+                  : null
+              }
+            />
           </div>
         </Reveal>
 

@@ -10,6 +10,8 @@ export type PollType = 'date_range' | 'option_vote';
 export type PollStatus = 'open' | 'closed';
 export type SplitType = 'equal' | 'custom' | 'specific';
 export type TransportSubtype = 'car_rental' | 'taxi' | 'public_transit';
+// Session 9B-1 — per-member arrival mode for the Getting Here module.
+export type ArrivalMode = 'flight' | 'drive' | 'train' | 'other';
 // Session 8M — 7-value tag replacing the legacy subtype enum for sketch entry.
 export type TransportTypeTag =
   | 'flight'
@@ -291,6 +293,10 @@ export interface TripMember {
   decline_reason: string | null;
   arrival_flight: string | null;
   arrival_time: string | null;
+  // Session 9B-1 — Getting Here module (per-member arrival).
+  arrival_mode: ArrivalMode | null;
+  arrival_cost_cents: number | null;
+  arrival_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }
