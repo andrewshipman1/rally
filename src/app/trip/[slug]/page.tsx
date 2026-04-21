@@ -189,6 +189,7 @@ export default async function TripPage({ params }: Props) {
         organizerId={organizer.id}
         coverImageUrl={trip.cover_image_url}
         members={members}
+        crewCount={cost.divisor_used}
         lodging={lodging}
         transport={transport}
         groceries={groceries}
@@ -388,7 +389,7 @@ export default async function TripPage({ params }: Props) {
                       slug={slug}
                       dateStart={trip.date_start}
                       dateEnd={trip.date_end}
-                      crewCount={cost.confirmed_count}
+                      crewCount={cost.divisor_used}
                       voting={{
                         currentUserId,
                         isOrganizer,

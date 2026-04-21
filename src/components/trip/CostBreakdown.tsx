@@ -5,6 +5,28 @@ import { Badge } from '@/components/ui/Badge';
 import { formatMoney } from '@/lib/money';
 import { getCopy } from '@/lib/copy/get-copy';
 
+// Session 9J — priority selector for the rollup's Accommodation line.
+// Strict `>` keeps the first-added spot on ties, which matches AC.
+function pickLodgingForRollup(
+  lodging: TripWithDetails['lodging'],
+): { spot: TripWithDetails['lodging'][number]; status: 'locked' | 'leading' | 'only-one' | 'first-added' } | null {
+  if (lodging.length === 0) return null;
+  const locked = lodging.find((l) => l.is_selected);
+  if (locked) return { spot: locked, status: 'locked' };
+  if (lodging.length === 1) return { spot: lodging[0], status: 'only-one' };
+  let leader = lodging[0];
+  let leaderVotes = leader.votes?.length ?? 0;
+  for (const l of lodging) {
+    const v = l.votes?.length ?? 0;
+    if (v > leaderVotes) {
+      leader = l;
+      leaderVotes = v;
+    }
+  }
+  if (leaderVotes > 0) return { spot: leader, status: 'leading' };
+  return { spot: lodging[0], status: 'first-added' };
+}
+
 export function CostBreakdown({
   trip,
   cost,
@@ -29,8 +51,12 @@ export function CostBreakdown({
     });
   }
 
-  const selectedLodging = trip.lodging.find((l) => l.is_selected) || trip.lodging[0];
-  if (selectedLodging) {
+  // Session 9J — priority-ordered display-spot for the Accommodation
+  // rollup line: locked winner → leading vote (ties: first-added) →
+  // single option → first-added. Status drives the "(so far)" suffix.
+  const pick = pickLodgingForRollup(trip.lodging);
+  if (pick) {
+    const { spot: selectedLodging, status } = pick;
     const nights =
       selectedLodging.num_nights ||
       (trip.date_start && trip.date_end
@@ -41,7 +67,15 @@ export function CostBreakdown({
     const lodgingCost =
       selectedLodging.total_cost || (selectedLodging.cost_per_night || 0) * nights;
     const perPerson = Math.round(lodgingCost / (cost.divisor_used));
-    if (perPerson > 0) items.push({ label: 'Accommodation', val: perPerson, icon: '🏠' });
+    if (perPerson > 0) {
+      const baseLabel = getCopy(themeId, 'tripPageShared.costBreakdown.lodging.label');
+      const suffix =
+        status === 'leading'
+          ? ` ${getCopy(themeId, 'tripPageShared.costBreakdown.lodging.leadingSuffix')}`
+          : '';
+      const label = `${baseLabel} · ${selectedLodging.name}${suffix}`;
+      items.push({ label, val: perPerson, icon: '🏠' });
+    }
   }
 
   const flightsTotal = trip.flights.reduce((s, f) => s + (f.estimated_price || 0), 0);

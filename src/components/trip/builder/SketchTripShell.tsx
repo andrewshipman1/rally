@@ -51,6 +51,9 @@ type Props = {
   organizerId: string;
   coverImageUrl: string | null;
   members: { id: string; user_id: string; role: string; user: { display_name: string | null; email: string | null; phone: string } | null }[];
+  /** Session 9J — divisor for per-person cost math. Sourced from
+   * `cost.divisor_used` in page.tsx (in+holding, fallback to group_size). */
+  crewCount: number;
   lodging: Lodging[];
   transport: Transport[];
   groceries: Grocery[];
@@ -88,6 +91,7 @@ export function SketchTripShell({
   organizerId,
   coverImageUrl,
   members,
+  crewCount,
   lodging,
   transport,
   groceries,
@@ -246,7 +250,7 @@ export function SketchTripShell({
         lodging={lodging}
         transport={transport}
         groceries={groceries}
-        crewCount={members.length}
+        crewCount={crewCount}
         headliner={headliner}
         activitiesEstimate={activitiesEstimate}
       />

@@ -978,6 +978,16 @@ button:active {
   margin-top: 2px;
 }
 
+/* Session 9J — per-person tail under the cost math. Hand-lettered to
+   match house-meta but sized down + accent2 so it reads as a
+   derivation of the line above, not a second primary statement. */
+.chassis .lodging-card-per-person {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--accent2, var(--accent));
+  margin-top: 1px;
+}
+
 .chassis .lodging-link-pill {
   display: inline-block;
   margin-top: 10px;

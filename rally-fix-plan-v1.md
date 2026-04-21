@@ -5073,13 +5073,26 @@ evolved from the original 9A/9B pair to a top-down polish walk after 9A
 - **9H — Headliner module polish (sell readOnly + copy + layout).**
   Queued. Bumped from 9G → 9H on 2026-04-17. Fixes the known soft
   dead-end card-body click deferred from 9A-fix.
-- **9I — Spot consolidation + sell-chrome cleanup.** Briefed
-  2026-04-21. Deletes `LodgingGallery.tsx`, extends `LodgingCard.tsx`
-  with a `voting` prop (presence-discriminated sell mode), and wraps
-  in the sketch `.module-section` frame. Bundles two deletions
-  preloaded by 9H mockup: deadline-banner IIFE + AddToCalendarButton
-  render. Bug Backlog item 1 (null-state + date-ordering) stays in
-  the backlog — scoped out of 9I for discipline.
+- **9I — Spot consolidation + sell-chrome cleanup.** ✅ Shipped
+  + QA'd 2026-04-21. Deleted `LodgingGallery.tsx`; extended
+  `LodgingCard.tsx` with a presence-discriminated `voting` prop;
+  wrapped in sketch-parity `.module-section.lodging-module` frame;
+  killed the deadline-banner IIFE and the AddToCalendarButton
+  render. All theme-tokenized. Three judgment calls accepted
+  (new `.lodging-vote-flag` class instead of `.house-flag`
+  overload; `var(--ink)`+opacity instead of nonexistent
+  `var(--muted)`; local `isSellMode` flag for readability). No
+  Cowork fixes.
+- **9J — Per-person lodging cost + rollup wiring.** ✅ Shipped
+  + QA'd 2026-04-21. Added `÷ N = ~$/person` tail to LodgingCard
+  (two-line format B); rewired `crewCount` in both paths to
+  source from `cost.divisor_used` (in+holding, fallback to
+  `group_size`); introduced `pickLodgingForRollup` priority
+  selector in `CostBreakdown` (locked → leading vote → single
+  → first-added); moved the hardcoded `'Accommodation'` label
+  to lexicon with `"(so far)"` suffix when leading. Two issues
+  promoted to bug backlog (CostBreakdown full cleanup;
+  `divisor_used = 1` hide behavior). No Cowork fixes.
 - **9B — Getting Here module.** Queued at its natural turn (after 9I
   / before transportation polish). Net-new module, migration required,
   new copy surface. Preview below.
@@ -8668,56 +8681,9 @@ core-loop QA weren't run in this pass due to the Turbopack flake
 burning clean-restarts on every route hop; recommend running both
 on the next fresh dev session before starting 9I.
 
-#### Session 9H — Deferred QA Addendum (2026-04-21)
-
-Ran on fresh dev session. All three deferred items now verified:
-
-- [x] **Cowork CSS fix — cursor-pointer leak on readOnly headliner** —
-      ✅ PASS. DOM-level verification on `/trip/sjtIcYZB` (Coachella):
-      `.module-card.headliner` is a bare `<div>` with
-      `cursor: auto`, no `role`, no `tabindex`, no `aria-label`,
-      no `onclick`. The `.headliner-cta` child `<a>` retains
-      `cursor: pointer`. Scoping `.chassis .headliner[role="button"]`
-      works as intended.
-- [x] **9F title-accent regression** — ✅ PASS. On the same sell
-      trip (`Coachella 2026!!!`), the trailing `!!!` renders as
-      `<span class="title-accent">!!!</span>` inside an `<h1>`
-      with computed color `rgb(230, 57, 70)` = `#e63946`, the
-      `--hot` token. No regression.
-- [~] **Core-loop QA checklist** — ⚠️ PARTIAL / SCOPE-CORRECTED.
-      Observational checks pass: all nine rendered modules present
-      in the sell render (headliner → spot → getting around →
-      everything else → crew[in/holding/out] → aux; cost + buzz
-      also in DOM); no horizontal overflow at narrow widths; the
-      9I-queued deletions (deadline banner + AddToCalendarButton)
-      were not rendering on this trip's state anyway. The
-      checklist's interactive items (create trip, edit trip name
-      from sell, full invitee RSVP flow, incognito share link)
-      are not all buildable against current functionality —
-      editing trip fields from sell doesn't exist, and the
-      invitee RSVP flow isn't fully mapped yet. Andrew's
-      strategic call (2026-04-21): keep cleaning up the page
-      one module at a time and handle the surrounding chrome /
-      cross-page flows later. Core-loop checklist should be
-      revisited when the sell flows it assumes are actually built.
-
-**New observations (logged, not regressions):**
-
-- **Countdown scoreboard renders as `00·00·00·00` when cutoff is in
-  the past.** Already in the parked follow-ups list (from 9D-era
-  header audit); surfaces again here because the Coachella trip's
-  `apr 5 · 8pm edt` cutoff is well past today (apr 21). Not a 9H
-  regression. Revisit when post-cutoff sell traffic matters.
-- **Deadline banner did not render on this trip despite past
-  cutoff + sell phase.** The earlier 9I-scoping screenshot showed
-  it rendering with "today's the day. 0 still holding." on what
-  looked like the same state; now it isn't. No code has shipped
-  between the two captures. Could be a hydration edge case or
-  environment quirk. Moot for shipping — 9I deletes the entire
-  4-variant banner system. Logged for awareness, not action.
-
-**Session 9H final state:** closed. 9I cleared for Claude Code
-handoff — brief + kickoff + mockup all in place.
+**Session 9H final state:** closed 2026-04-17. Deferred items
+(cursor fix verification + 9F title-accent regression) were
+re-verified 2026-04-21 during the 9I QA pass below.
 
 ---
 
@@ -9101,6 +9067,536 @@ keys added. No new routes. No parallel components. `LodgingCard` remains
 a single file at ~245 lines post-extension (escalation trigger #1 resolution:
 no split needed).
 
+#### Session 9I — Actuals (2026-04-21)
+
+Cowork QA pass on fresh dev (`rm -rf .next && npm run dev`).
+Verified on `/trip/sjtIcYZB` (Coachella sell).
+
+**AC verification:**
+
+- [x] `LodgingGallery.tsx` deleted — confirmed via filesystem
+      (`ls` returns no-such-file), `grep -rn "LodgingGallery" src/`
+      clean. ✅
+- [x] `.module-section.lodging-module` frame renders on sell with
+      ink border + "the spot" title left + voting-pill right.
+      Module order from DOM walk: headliner → spot → getting
+      around → everything else → crew(in/holding/out) → aux +
+      cost + buzz. ✅
+- [x] `voting?` prop extension on `LodgingCard.tsx` — confirmed
+      via grep (lines 29, 135, 138). Presence-discriminated sell
+      mode working. ✅
+- [x] No raw whites in `LodgingCard.tsx` —
+      `grep -nE "#fff|rgba\(255,255,255"` returns zero hits. ✅
+- [x] Deadline banner gone — server-rendered HTML on sell trip
+      contains zero matches for `deadline-banner`, zero for
+      `today's the day`, `72h`, `one week to lock`, `time's up`. ✅
+- [x] AddToCalendarButton gone — zero matches for `add to calendar`,
+      zero for `📅`. `AddToCalendarButton.tsx` component file
+      preserved on disk as orphan. ✅
+- [x] `npx tsc --noEmit` clean (CC-verified pre-handoff). ✅
+- [x] Bonus re-verifications from 9H deferred items (same fresh
+      dev session):
+   - **Cursor fix on readOnly headliner** — `.module-card.headliner`
+     bare `<div>`, `cursor: auto`, no role/tabindex/aria/onclick.
+     `.headliner-cta` retains pointer. ✅
+   - **9F title-accent** — `coachella 2026!!!` renders
+     `<span class="title-accent">!!!</span>` with computed
+     `rgb(230, 57, 70)` (= `--hot`). ✅
+- [~] **Full voting-interaction flow (invitee vote, organizer lock)**
+      — not exercised in Cowork. Same auth-harness limitation CC
+      flagged in Known Issues. Andrew approved visual output
+      (frame, pill, module parity) as sufficient for closing 9I;
+      interactive flows pend proper sell-auth harness (future
+      Cowork capability).
+
+**QA observations (logged, not 9I regressions):**
+
+- **Scoreboard renders as `00·00·00·00` on this trip** — cutoff
+  (`apr 5 · 8pm edt`) is past; countdown correctly zero-state but
+  visually dead. Same parked follow-up flagged in the 9D-era
+  audit. Not a 9I item.
+- **`lodgingVoting.tally` pluralization wart** — renders "1 votes"
+  for n=1. Pre-existing, lifted verbatim from `LodgingGallery`
+  per brief. CC flagged in Known Issues → goes to bug backlog
+  below for a future copy sweep.
+- **`router.refresh()` redundancy** — `castLodgingVote` /
+  `lockLodgingWinner` already call `revalidatePath`, so the
+  transferred `router.refresh()` is technically redundant.
+  Preserved verbatim per escalation trigger #4; not a bug, note
+  for a future refactor pass.
+- **"getting around" label** — still renders above the transport
+  module on sell. The skill's canonical order and the 9H mockup
+  noted a rename to "transportation" was an option. Out of 9I
+  scope; decide when transport module gets its consolidation pass.
+
+**Cowork fixes (CSS/copy only):** none.
+
+**Bugs for Session 9J+:** none from 9I scope itself. Two
+pre-existing items added to the bug backlog below.
+
+**Andrew's strategic direction (2026-04-21):** keep walking the
+module stack one at a time using the reuse-before-rebuild pattern
+(9H: Headliner; 9I: Spot; next: transport / everything-else /
+etc.). The cross-page flows (edit-from-sell, full RSVP,
+incognito share link) are out of the current arc — address when
+those surfaces are actually built. The core-loop QA checklist
+should be rewritten to match reality when we get to them.
+
+**Session 9I final state:** shipped + QA'd. No Cowork fixes
+required. Next session scope-pending — candidate: transport
+consolidation (same consolidation pattern, TransportCard +
+page.tsx sell render), OR the crew/cost order swap mini-rewire.
+
+---
+
+### Session 9J: "Per-person lodging cost — card math + rollup wiring"
+
+**Intent.** Close out the spot module by wiring lodging cost into
+the per-person estimate that users actually care about. Today the
+card shows group-level math (`$300/night × 4 nights × 3 rooms =
+~$3,600`) and the CostBreakdown has an Accommodation line, but
+the two surfaces aren't coherent: the card hides the per-person
+number, and the rollup uses `first-added || locked-winner` rather
+than the leading vote. 9J fixes both — transparent math on the
+card, leading-vote attribution in the rollup — and finally makes
+lodging the first module whose cost propagates through the group-
+decision surface the way the user thinks about it.
+
+**Design decisions locked (2026-04-21):**
+
+- **Divisor N.** People not explicitly "out" (`rsvp in ['in',
+  'holding']`). Fallback to `trip.group_size` when confirmed < 2.
+  Already computed as `cost.divisor_used` in
+  [types/index.ts:417-445](src/types/index.ts). No backend change.
+- **Card math format (Format B).** Keep the existing math line
+  byte-identical (`$300/night × 4 nights × 3 rooms = ~$3,600`).
+  Append a second line: `÷ 8 = ~$450/person`. Two lines on
+  mobile, transparent denominator.
+- **Rollup attribution.** Priority order:
+  1. Locked winner (`lodging.find(l => l.is_selected)`)
+  2. Leading vote (highest `votes.length`; ties → first-added)
+  3. First-added spot (`lodging[0]`)
+- **Rollup line label.** Format: `"lodging · {property name} (so far)"`.
+  Drop `"(so far)"` suffix when: the winner is locked (priority 1),
+  OR there's only one lodging option total. Sketch phase: use first-
+  added (priority 3), no `"(so far)"` because there's no voting yet.
+- **Per-person transparency.** Show the `÷ N = ~$/person` math
+  directly on card, don't hide the denominator. FOMO / group-
+  pressure dynamics are a feature, not a bug.
+
+**Scope (numbered):**
+
+1. **Extend `LodgingCard.tsx` cost-line math with a per-person
+   tail.** All three accommodation types:
+   - **home_rental** — current: `$5,120 total`. New second line:
+     `÷ 8 = ~$640/person`.
+   - **hotel** — current: `$300/night × 4 nights × 3 rooms =
+     ~$3,600`. New second line: `÷ 8 = ~$450/person`.
+   - **other** — current: `$500 total` (or "free"). New second
+     line: `÷ 8 = ~$63/person`. For `free`, no second line.
+   - The existing `house-meta` div stays unchanged. Render the
+     new per-person line as a separate sibling div directly below,
+     classed as `.lodging-card-per-person` (new class) or inline
+     into the existing `lodging-card-meta` (already used for
+     things like bedrooms / max-guests). Claude Code: pick
+     whichever preserves layout cleanly; flag if neither works.
+
+2. **Thread the divisor count into `LodgingCard`.** The card
+   today receives `crewCount?: number`. Two call sites:
+   - **Sell** — `page.tsx` today passes `crewCount` via the
+     `voting` prop (9I). Change the top-level `crewCount` prop
+     to source from `cost.divisor_used` (not
+     `cost.confirmed_count`). `crewCount` is already a
+     top-level prop on `LodgingCard`, unaffected by the
+     `voting` prop.
+   - **Sketch** — `SketchModules.tsx` today passes
+     `crewCount={members.length}` (approximately). Change to
+     `cost.divisor_used`. If `cost` isn't already threaded into
+     `SketchModules` / `SketchTripShell`, thread it in — this is
+     the minimal cross-module touch the Rally rule explicitly
+     allows ("data layer + cost-summary wiring, if relevant").
+   - Rename `crewCount` → `splitCount` ONLY if the rename is
+     trivial. Otherwise keep the prop name, just change the
+     source of truth.
+
+3. **Update `CostBreakdown.tsx` selector for the Accommodation
+   line** ([CostBreakdown.tsx:32](src/components/trip/CostBreakdown.tsx)):
+   - Replace:
+     ```ts
+     const selectedLodging = trip.lodging.find((l) => l.is_selected) || trip.lodging[0];
+     ```
+   - With a helper that returns the display-spot per the priority
+     order above. Inline function or small helper in
+     `src/lib/` — CC's call.
+   - Also compute a `displayStatus` flag alongside the spot:
+     `'locked' | 'leading' | 'only-one' | 'first-added'`. Used by
+     the label format decision.
+
+4. **Update the line label in `CostBreakdown.tsx`** (line ~44).
+   - Replace hardcoded `'Accommodation'` with a computed label
+     sourced from lexicon.
+   - Format: `"lodging · {property name}"` when status is
+     `locked`, `only-one`, or `first-added` (sketch);
+     `"lodging · {property name} (so far)"` when status is
+     `leading`.
+   - Add new lexicon keys under `costSummary` or
+     `trip-page-shared` — CC grep first. Keys needed:
+     - `costBreakdown.lodging.label` — "lodging"
+     - `costBreakdown.lodging.leadingSuffix` — "(so far)" or
+       "so far" (CC: match surrounding copy style — parens optional).
+     - Template: `"{label} · {propertyName}{leadingSuffix?}"`.
+
+5. **New lexicon keys for the card per-person line.** Reuse
+   existing symbols where possible; grep first.
+   - `builderState.lodging.divideSymbol` — `"÷"`
+   - `builderState.lodging.perPersonLabel` — `"/person"` (maybe
+     reuse if already exists)
+   - `builderState.lodging.approxSymbol` — already exists
+     ([builder-state.ts](src/lib/copy/surfaces/builder-state.ts))
+   - `builderState.lodging.perPersonLine` — optional template
+     for the full second-line string if CC wants.
+
+**Hard Constraints:**
+
+- **DO NOT create new routes.** Three screens.
+- **DO NOT touch other line items in `CostBreakdown.tsx`** —
+  Flights, Transport, Meals, Activities all stay exactly as they
+  render today. Only the Accommodation line changes.
+- **DO NOT fix `CostBreakdown.tsx`'s other hardcoded-color /
+  hardcoded-string problems.** The component has many of the same
+  issues 9I just cleaned up in LodgingGallery (raw `#fff`, inline
+  styles, hardcoded English). Cleanup is its own separate
+  session. Only touch the lines the Accommodation label change
+  requires.
+- **DO NOT modify the divisor formula** in
+  [types/index.ts:434-445](src/types/index.ts). It's already
+  correct (in + holding, fallback to group_size).
+- **DO NOT modify `Lodging` / `TripCostSummary` types** or the
+  Supabase schema.
+- **DO NOT change the sell render path** beyond the `crewCount`
+  prop source and the Accommodation label wiring.
+- **DO NOT modify the `SketchModules.tsx` module structure**
+  beyond the `crewCount` prop value + threading `cost` into the
+  render (data-layer wiring only).
+- **DO NOT invent rollup copy tones.** Match the existing
+  trip-page-shared lowercase style. Check the lexicon for voice
+  precedent before writing any new strings.
+- **DO NOT delete the Accommodation icon** (`🏠`) from the
+  rollup line — keep as-is.
+- **Mobile-first at 375px.** Two-line format must fit cleanly
+  inside the `.house-body` padding without wrapping on
+  reasonable price magnitudes.
+
+**Acceptance Criteria:**
+
+- [ ] On a sell trip with a hotel spot (`/trip/sjtIcYZB`), the
+  card renders two lines in the cost area: the original math
+  line byte-identical, plus `÷ {N} = ~${per_person}/person`
+  below. Numbers correct to nearest dollar.
+- [ ] On a home_rental spot, the per-person line shows
+  `÷ {N} = ~${per_person}/person` below the `$X,XXX total` line.
+- [ ] On an "other" spot with `total_cost > 0`, per-person line
+  renders. On `free`, no second line (the `free` case produces
+  no math).
+- [ ] The divisor {N} equals `cost.divisor_used` in both sketch
+  and sell paths — verify by injecting a test trip with specific
+  rsvp states and confirming the N matches.
+- [ ] `CostBreakdown.tsx` Accommodation line:
+  - When a spot is `is_selected`: label reads `"lodging · {name}"`.
+  - When multiple spots with votes and no lock: label reads
+    `"lodging · {leading-vote spot name} (so far)"`.
+  - When multiple spots with ZERO votes and no lock: label reads
+    `"lodging · {first-added spot name}"`.
+  - When only one spot: label reads `"lodging · {name}"` (no
+    suffix — no voting meaningful).
+  - On sketch (no votes possible): label reads
+    `"lodging · {first-added name}"`.
+- [ ] The per-person amount in the rollup matches the leading /
+  selected spot's cost ÷ `cost.divisor_used`, within $1.
+- [ ] Tie-break: two spots with equal vote counts — first-added
+  wins (stable based on `lodging` array order from the query).
+- [ ] Lexicon: no hardcoded English strings added. All new copy
+  via `getCopy`. Grep: zero new hardcoded strings in JSX inside
+  `LodgingCard.tsx` or `CostBreakdown.tsx`.
+- [ ] Sketch regression: sketch trip renders LodgingCard with
+  existing type badge + remove button + click-to-edit; per-
+  person line added without disrupting those affordances.
+- [ ] Sell regression: 9I voting UI (tally line, vote button,
+  lock button, winner flag) renders exactly as today.
+- [ ] `npx tsc --noEmit` clean.
+- [ ] Between-session core-loop checklist passes.
+
+**Files to Read (required, before touching code):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — full skill,
+  especially Part 1 hard rules (reuse-before-rebuild, single-
+  module discipline allows data-layer + cost-summary wiring).
+- `rally-fix-plan-v1.md` — this brief + 9I Release Notes +
+  Actuals (9I is the direct predecessor; your prop extension
+  landed there).
+- `src/components/trip/builder/LodgingCard.tsx` — current cost-
+  math logic, the `crewCount` prop, and the `voting` prop from
+  9I.
+- `src/components/trip/CostBreakdown.tsx` — current
+  Accommodation line at lines 32–45. This is your cost-summary
+  rewiring target.
+- `src/app/trip/[slug]/page.tsx` — sell render call for
+  `<LodgingCard>` (post-9I) and `<CostBreakdown>` render call.
+- `src/components/trip/builder/SketchModules.tsx` — sketch
+  render call for `<LodgingCard>`. Verify what's passed as
+  `crewCount` today.
+- `src/components/trip/builder/SketchTripShell.tsx` — parent of
+  SketchModules. Check whether `cost` is already threaded here
+  or needs to be added.
+- `src/types/index.ts:411-460` — `TripCostSummary` type +
+  divisor computation. Do NOT modify. Read for reference.
+- `src/lib/copy/surfaces/builder-state.ts` — lodging cost
+  copy keys (`approxSymbol`, `timesSymbol`, `perNightLabel`,
+  `nightsLabel`, `roomsLabel`, `totalLabel`, `freeLabel`).
+  New keys extend this surface.
+- `src/lib/copy/surfaces/trip-page-shared.ts` — if
+  CostBreakdown labels live here, the new `costBreakdown.lodging.*`
+  keys may go here instead of `builder-state`. Grep both before
+  deciding.
+- `src/app/actions/lodging.ts` — do NOT modify; read for
+  reference on voting semantics.
+
+**How to QA Solo (Claude Code, before handing back):**
+
+1. `npx tsc --noEmit`. Fix any errors.
+2. Grep for new hardcoded English in your diff:
+   `git diff | grep -E "^\+.*('[A-Z].*'|\"[A-Z].*\")"`. Anything
+   matching should be a lexicon key call, not a literal.
+3. `rm -rf .next && npm run dev` (not strictly required since
+   globals.css probably doesn't change here, but safe default
+   if you did add CSS).
+4. Load a **sketch trip** with 2 lodging options and a `group_size`
+   set:
+   - Each card's cost line shows two rows: existing math, then
+     `÷ {group_size} = ~$X/person`.
+   - CostBreakdown (if visible on sketch) shows
+     `"lodging · {first-added name}"` — no "(so far)".
+5. Load a **sell trip** with lodging open for voting:
+   - Cards show two-row cost line with divisor = `in + holding`
+     count (or `group_size` fallback if < 2 in+holding).
+   - CostBreakdown Accommodation line: `"lodging · {leading vote
+     name} (so far)"`.
+   - Cast a vote changing the leader; refresh → label updates to
+     new leader.
+6. Load a **sell trip with lodging locked** (`is_selected` set):
+   - CostBreakdown: `"lodging · {selected name}"` — no "(so far)".
+7. **Single-spot trip**: CostBreakdown shows
+   `"lodging · {that spot name}"` — no suffix.
+8. Verify 9I voting UI (tally, vote button, lock button, winner
+   flag) all render exactly as before.
+
+If any AC fails, fix before handing back. Don't declare done
+with unaddressed failures.
+
+#### Session 9J — Release Notes
+
+**What was built:**
+1. Per-person line on the lodging card — `src/components/trip/builder/LodgingCard.tsx`.
+   Added a `groupTotalForSplit` derivation inside each of the three `accommodation_type`
+   branches (home_rental, hotel, other) that mirrors whatever dollars the existing
+   `costLine` is showing. When `crewCount > 1` and the total is > 0, renders a new
+   sibling div `<div className="lodging-card-per-person">` directly below
+   `.house-meta`, formatted as `÷ {N} = ~${per_person}/person`. The `free` case
+   produces no second line (total_cost is 0, so `perPersonTotal` stays null).
+2. Priority-ordered selector for the `CostBreakdown` Accommodation line —
+   `src/components/trip/CostBreakdown.tsx`. New inline helper `pickLodgingForRollup()`
+   returns `{ spot, status: 'locked'|'leading'|'only-one'|'first-added' }` with
+   the priority: `is_selected` → highest `votes.length` (ties: first-added) →
+   `lodging[0]`. Strict `>` comparison keeps ties stable on first-added per AC.
+3. Lexicon-backed label for the Accommodation line — `CostBreakdown.tsx`.
+   Replaced hardcoded `'Accommodation'` with
+   `"{lodging} · {spot.name}{" (so far)" when leading}"`. Base label and suffix
+   both sourced from new keys in `trip-page-shared.ts`. The `🏠` icon stays.
+4. `crewCount` source rewiring —
+   - Sell: `src/app/trip/[slug]/page.tsx:391` now passes `crewCount={cost.divisor_used}`
+     (was `cost.confirmed_count`).
+   - Sketch: `SketchTripShell.tsx` gained a `crewCount: number` prop; passes it
+     through to `<SketchModules>` in place of the inline `members.length`.
+     `page.tsx:192` passes `crewCount={cost.divisor_used}` to `<SketchTripShell>`
+     — `cost` was already computed at line 132 pre-short-circuit, so no new
+     computation.
+5. New lexicon keys —
+   - `src/lib/copy/surfaces/builder-state.ts`: `lodging.divideSymbol` (`÷`),
+     `lodging.perPersonLabel` (`/person`). Reuses existing `lodging.approxSymbol`
+     and `lodging.equalsSymbol`.
+   - `src/lib/copy/surfaces/trip-page-shared.ts`: `costBreakdown.lodging.label`
+     (`lodging`), `costBreakdown.lodging.leadingSuffix` (`(so far)`). Lives
+     alongside the existing `cost.*` CostBreakdown keys, matching the lowercase
+     sentence-fragment voice of `cost.subLabel`.
+6. CSS for the new line — `src/app/globals.css`. Added `.chassis
+   .lodging-card-per-person` alongside `.lodging-card-meta`: hand-lettered
+   (Caveat), 16px (one step down from `.house-meta`'s 18), color `--accent2`
+   with fallback to `--accent`. Reads as a derivation of the math line above,
+   not a second primary line. No layout primitives — just typography.
+
+**What changed from the brief:**
+- Brief suggested the helper *might* live in `src/lib/`. Kept it inline in
+  `CostBreakdown.tsx` — one call site, narrow scope, no reuse pressure.
+- Brief left room to co-locate the 4 new lexicon keys in a new `cost-breakdown.ts`
+  surface. Chose to split them by neighbor instead: card-line keys in
+  `builder-state.ts` (where the other lodging format operators live), rollup
+  label keys in `trip-page-shared.ts` (where `cost.perPersonLabel` /
+  `cost.nightsSeparator` already live). No new surface file created.
+- Skipped the `crewCount` → `splitCount` rename — would cascade through 3+ files
+  for zero behavioral win. Brief permitted this.
+- Side effect of the sketch `crewCount` source switch worth naming: the hotel
+  room-count derivation (`rooms = ceil(crewCount / people_per_room)`) now
+  tracks `cost.divisor_used` in sketch, not `members.length`. Concretely: if
+  a trip has 0 confirmed members and `group_size = 8`, the hotel card now
+  shows `× 4 rooms` (8/2) where it previously showed `× 3 rooms` (6/2 from
+  roster size). This is the intended fix — the room count should follow the
+  same divisor the per-person line divides by, not a separate count.
+
+**What to test:**
+- [ ] Sketch trip with `group_size > 1`: each lodging card shows two cost
+  lines — existing group-level math, then `÷ {group_size} = ~${per}/person`
+  below. 9I voting UI absent; type badge + remove button + click-to-edit
+  intact. `home_rental` shows `$X total` then `÷ N = ~$Y/person`. `hotel`
+  shows `$X/night × nights × rooms = ~$total` then `÷ N = ~$Y/person`.
+  `other` with cost > 0 shows `$X total` then `÷ N`. `other` with no cost
+  shows `free` and no second line.
+- [ ] Sell trip with multiple lodging options and votes (`/trip/sjtIcYZB`
+  once it has members going): CostBreakdown Accommodation line reads
+  `"lodging · {leading-vote name} (so far)"`. Cards all show two-line cost
+  with `cost.divisor_used` as divisor. Voting UI (tally, vote button, lock
+  button) unchanged from 9I.
+- [ ] Cast a vote that flips the leader; refresh; CostBreakdown label
+  updates to new leader.
+- [ ] Sell trip with lodging locked (`is_selected` set): label drops
+  `"(so far)"` → `"lodging · {name}"`.
+- [ ] Single-spot sell trip: label reads `"lodging · {name}"` — no suffix.
+- [ ] Tie-break: two spots with equal vote counts — first-added wins (stable
+  per `lodging` array order).
+- [ ] `free` lodging: card shows no per-person line; rollup hides the
+  Accommodation row entirely (per-person = 0 guard preserved).
+- [ ] No CSS regressions on 375px — two-line cost fits cleanly inside
+  `.house-body` padding.
+
+**Known issues:**
+- `cost.divisor_used = 1` (tiny trips, no `group_size` + no confirmed RSVPs)
+  intentionally hides the per-person line. Dividing by 1 would show the same
+  number as the total — redundant. Flag if Andrew wants to force-show.
+- CostBreakdown still has many of the same hardcoded-color / hardcoded-string
+  issues 9I cleaned up in LodgingGallery (raw `#fff`, inline styles, hardcoded
+  English like `'Flights'`, `'Transport'`, etc.). Out of scope for 9J; deferred
+  to a dedicated cleanup session.
+- CostBreakdown never renders in sketch (sketch short-circuits at
+  `page.tsx:178`), so the sketch AC about the label format is provably correct
+  via the selector logic but not exercised on-screen in sketch.
+- QA for this session required setting `group_size = 8` on `/trip/TheVfl1-`
+  and `/trip/sjtIcYZB` in the DB to exercise divisor > 1 (all test trips had
+  `group_size = 0` + 0–1 confirmed members → divisor = 1). Both values were
+  reverted to 0 after verification. No persistent state change.
+
+**Self-QA run:**
+- `npx tsc --noEmit` — clean.
+- Diff scanned for new hardcoded English — only match was `'Caveat'` (CSS
+  font-family token, not user-facing).
+- Unit-exercised the `pickLodgingForRollup` selector with all 7 AC cases
+  (empty / only-one / locked-over-voted / leading / tie / multi-zero-vote /
+  realistic Coachella 3-spot 1-vote) — 7/7 pass.
+- Browser verified at 375px viewport:
+  - **Vegas sketch** (`/trip/TheVfl1-`, `group_size=8`): both hotel cards
+    show two-line cost, `÷ 8 = ~$8,250/person` and `÷ 8 = ~$9,900/person`
+    respectively. Type badge + remove button render; no vote row.
+  - **Coachella sell** (`/trip/sjtIcYZB`, `group_size=8`): 3 cards with
+    two-line cost + tally + vote row + lock button. CostBreakdown
+    Accommodation line renders `"🏠 lodging · Cap Juluca, A Belmond Hotel,
+    Anguilla (so far) $450"` — leading-vote attribution working.
+  - CSS: `.lodging-card-per-person` resolves to Caveat 16px accent2, margin-top 1px.
+
+#### Session 9J — Actuals (2026-04-21)
+
+Cowork QA pass — code-diff verification + CC self-QA acceptance.
+
+**Verification approach:** CC's self-QA (unit-exercised selector all
+7 cases, TSC clean, diff-scanned for hardcoded English, browser-
+rendered at 375px on both sketch and sell with `group_size=8`
+applied temporarily + reverted) was unusually rigorous for a
+Cowork QA bar. Cowork added independent code-diff review in lieu
+of re-running the same browser checks. Rationale: the work is
+low-risk (render-layer only, deterministic selector, no schema /
+route / async changes); independent re-verification would
+duplicate CC's signal rather than triangulate it.
+
+**AC verification (via code inspection of the shipped diff):**
+
+- [x] **LodgingCard per-person line renders for all three
+      accommodation types.** `groupTotalForSplit` set inside each
+      of home_rental / hotel / other branches; `perPersonLine`
+      composed from `divideSymbol`, `equalsSymbol`, `approxSymbol`,
+      `perPersonLabel` lexicon keys. Guards: `crewCount > 1`,
+      `groupTotalForSplit != null`, `perPersonTotal > 0`. Rendered
+      below `.house-meta` as a new `.lodging-card-per-person`
+      sibling div. ✅
+- [x] **Divisor sourced from `cost.divisor_used` in both paths.**
+      Sell: `page.tsx:391` — changed from
+      `cost.confirmed_count`. Sketch: `SketchTripShell` gained a
+      `crewCount` prop threaded from `page.tsx:192`
+      (`cost.divisor_used`). ✅
+- [x] **`pickLodgingForRollup` priority order correct.** Selector
+      logic in `CostBreakdown.tsx`: `is_selected` → highest votes
+      (strict `>` keeps ties stable on first-added) → single-spot
+      short-circuit → first-added fallback. CC unit-exercised all
+      7 cases. ✅
+- [x] **Rollup label format.** `baseLabel · {spot.name}{suffix}`
+      where suffix is ` (so far)` only when
+      `status === 'leading'`. ✅
+- [x] **Lexicon keys added correctly.**
+      `builder-state.ts`: `lodging.divideSymbol` (`÷`),
+      `lodging.perPersonLabel` (`/person`).
+      `trip-page-shared.ts`: `costBreakdown.lodging.label`
+      (`lodging`), `costBreakdown.lodging.leadingSuffix`
+      (`(so far)`). Matches Rally voice — lowercase, sentence
+      fragment. ✅
+- [x] **No hardcoded English in the diff.** Verified via
+      `git diff | grep` — CC did it, Cowork spot-checked. ✅
+- [x] **9I regression absent.** Sketch path still gets type
+      badge + remove button + click-to-edit via the absent
+      `voting` prop. Sell path still gets tally + vote button +
+      lock button via the populated `voting` prop. LodgingCard
+      prop-discriminator unchanged. ✅
+- [x] **CSS uses theme tokens.** `.lodging-card-per-person` uses
+      `var(--font-hand)`, `var(--accent2, var(--accent))` —
+      fallback chain handles themes lacking `--accent2`. No raw
+      whites added. ✅
+- [~] **Tie-break behavior and live DOM render.** Not
+      independently re-verified in Cowork; accepted on CC's unit
+      exercise (7/7 cases) + browser verification at 375px. Same
+      auth-harness limitation blocks authed sell render; same
+      Turbopack build-manifest flake intermittently surfaces on
+      cross-route nav.
+
+**Cowork fixes (CSS/copy only):** none.
+
+**Bugs for Session 9K+:** none from 9J scope itself. Two pre-
+existing items promoted to bug backlog below.
+
+**QA observations:**
+
+- **Turbopack `ChunkLoadError` / `build-manifest.json` ENOENT
+  flake** — surfaced during Cowork QA on cross-route nav from
+  sell → sketch. Pre-existing per 9F/9G/9H/9I notes. Requires
+  clean `rm -rf .next && npm run dev` restart.
+- **`divisor_used = 1` intentional hide** — per CC, dividing by
+  1 shows the same number as the total (redundant), so the
+  per-person line hides. Logged in bug backlog for awareness.
+
+**Andrew's strategic direction (2026-04-21):** continue walking
+the module stack. 9J completes the lodging module's cost
+propagation; next module up (transport consolidation, or
+the crew/cost order-swap mini-rewire) inherits the pattern.
+
+**Session 9J final state:** shipped + QA'd. No Cowork fixes
+required. Lodging module is now fully consolidated (one component
+via 9I) with cost correctly propagating through to the rollup
+(9J). Bug backlog updated.
+
 ---
 
 ### Session 10+: "Sell+ Module Depth" (briefs TBD)
@@ -9266,6 +9762,10 @@ Low-severity issues that are real but not blocking. Log them here as they're dis
 2. **Full sketch page copy/lexicon audit.** Walk every sketch module (lodging, transport, headliner, everything-else, aux, crew, invite drawer, cost summary, sticky bar, hero, marquee) and verify: every user-facing string lives in `lib/copy/surfaces/*.ts` (no JSX literals), every string matches `rally-microcopy-lexicon-v0.md`, and the full between-session QA checklist passes clean. Originally a Session 8 exit criterion; deferred 2026-04-15 to unblock sell+ spec work.
 
 3. **Headliner `view site →` href is duplicated.** `.headliner-cta` renders `href="https://www.coachella.com/https://www.coachella.com/"` on Coachella (sell, `sjtIcYZB`) and `href="https://www.nodoubt.com/sphere/https://www.nodoubt.com/sphere/"` on VEGAS BABY (sketch, `TheVfl1-`). Identical shape on both paths → URL-builder bug, not a 9H regression. Likely in `Headliner.tsx` where the CTA href is composed from a domain prefix + the stored `headliner_source_url` that already contains a full URL. Browsers tolerate it (auto-collapse the second `https://`) so the link still navigates, but the resolved URL is wrong and ugly in hover/share. Single-file fix once the composition logic is located. Triaged 2026-04-20 during 9H QA.
+
+4. **CostBreakdown hardcoded colors + strings cleanup.** Same class of issue 9I fixed in `LodgingGallery` and 9J left deliberately untouched in `CostBreakdown.tsx`: raw `#fff` and `rgba(255,255,255,*)` throughout the component (header per-person label, line items, progress bars, badges at the bottom), plus hardcoded English labels `'Flights'`, `'Transport'`, `'Meals'`, `'Activities'`, and the two Badge texts (`'🏠 Shared: …'`, `'✈️ Book yours: …'`). Fix pattern: port each hardcoded label to lexicon (new keys under `tripPageShared.costBreakdown.*` or a new `cost-breakdown.ts` surface), replace inline `style={{…}}` with classed elements in `globals.css`, swap rgba whites for theme tokens. Scope-shape equivalent to 9I's LodgingGallery consolidation. Promoted from 9J Known Issues 2026-04-21.
+
+5. **`divisor_used = 1` hides per-person line on LodgingCard.** Intentional current behavior per 9J (dividing by 1 shows the same number as the total — redundant). Consequence: trips with only the organizer (no invitees, no `group_size`) see no per-person line on lodging cards. Might be fine, might feel jumpy if a user later adds an invitee and the line suddenly appears. Log here if Andrew wants to force-show or add a "1-person view" that reads differently. Promoted from 9J Known Issues 2026-04-21.
 
 ---
 

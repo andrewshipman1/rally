@@ -107,6 +107,10 @@ export const builderState: Record<string, Templated> = {
   'lodging.closeSymbol':              '✕',
   'lodging.enrichingIndicator':       '...',
 
+  // Per-person cost-line operators (Session 9J)
+  'lodging.divideSymbol':             '÷',
+  'lodging.perPersonLabel':           '/person',
+
   // Crew-aware + edit flow (Session 8B)
   'lodging.roomsLabel':               'rooms',
   'lodging.editButton':               'save changes',

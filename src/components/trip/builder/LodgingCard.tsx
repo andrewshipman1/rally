@@ -91,11 +91,15 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
     : 'lodging.typeOther';
   const typeBadge = `${getCopy(themeId, `builderState.${emojiKey}`)} ${getCopy(themeId, `builderState.${typeNameKey}`)}`;
 
-  // Cost display varies by type
+  // Cost display varies by type. Also compute a group-level total so
+  // the per-person tail (Session 9J) can derive the same dollars the
+  // primary line is already showing — kept in sync by construction.
   let costLine: string | null = null;
+  let groupTotalForSplit: number | null = null;
   if (spot.accommodation_type === 'home_rental') {
     if (spot.total_cost != null && spot.total_cost > 0) {
       costLine = `$${spot.total_cost.toLocaleString()} ${getCopy(themeId, 'builderState.lodging.totalLabel')}`;
+      groupTotalForSplit = spot.total_cost;
     }
   } else if (spot.accommodation_type === 'hotel') {
     if (spot.cost_per_night != null) {
@@ -108,6 +112,7 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
         const estimate = Math.round(spot.cost_per_night * nights * rooms);
         const roomsPart = rooms > 1 ? ` ${times} ${rooms} ${getCopy(themeId, 'builderState.lodging.roomsLabel')}` : '';
         costLine = `$${spot.cost_per_night}${getCopy(themeId, 'builderState.lodging.perNightLabel')} ${times} ${nights} ${getCopy(themeId, 'builderState.lodging.nightsLabel')}${roomsPart} ${eq} ${approx}$${estimate.toLocaleString()}`;
+        groupTotalForSplit = estimate;
       } else {
         costLine = `$${spot.cost_per_night}${getCopy(themeId, 'builderState.lodging.perNightLabel')}`;
       }
@@ -116,10 +121,21 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
     // Other
     if (spot.total_cost != null && spot.total_cost > 0) {
       costLine = `$${spot.total_cost.toLocaleString()} ${getCopy(themeId, 'builderState.lodging.totalLabel')}`;
+      groupTotalForSplit = spot.total_cost;
     } else {
       costLine = getCopy(themeId, 'builderState.lodging.freeLabel');
     }
   }
+
+  // Per-person tail (Session 9J). Hidden when: no split (< 2 crew),
+  // no group total (free / rate-only hotel), or result would be <$1.
+  const splitCount = crewCount && crewCount > 1 ? crewCount : null;
+  const perPersonTotal = splitCount && groupTotalForSplit
+    ? Math.round(groupTotalForSplit / splitCount)
+    : null;
+  const perPersonLine = (splitCount && perPersonTotal != null && perPersonTotal > 0)
+    ? `${getCopy(themeId, 'builderState.lodging.divideSymbol')} ${splitCount} ${getCopy(themeId, 'builderState.lodging.equalsSymbol')} ${getCopy(themeId, 'builderState.lodging.approxSymbol')}$${perPersonTotal.toLocaleString()}${getCopy(themeId, 'builderState.lodging.perPersonLabel')}`
+    : null;
 
   // Meta line
   let metaParts: string[] = [];
@@ -217,6 +233,7 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
       <div className="house-body">
         <div className="house-title">{spot.name}</div>
         {costLine && <div className="house-meta">{costLine}</div>}
+        {perPersonLine && <div className="lodging-card-per-person">{perPersonLine}</div>}
         {metaLine && <div className="lodging-card-meta">{metaLine}</div>}
 
         {/* Prominent link */}

@@ -55,6 +55,10 @@ export const tripPageShared: Record<string, Templated> = {
   'cost.perPersonLabel': 'Estimated per person',
   'cost.nightsSeparator': 'nights \u2022',
 
+  // CostBreakdown — lodging line (Session 9J)
+  'costBreakdown.lodging.label':         'lodging',
+  'costBreakdown.lodging.leadingSuffix': '(so far)',
+
   // FlightCard
   'flight.perPerson':    'per person',
   'flight.searchCta':    'Search flights \u2192',
