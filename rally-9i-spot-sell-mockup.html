@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9I: Spot consolidation (LodgingGallery → LodgingCard)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9I SCOPE — PATH A: CONSOLIDATION (locked 2026-04-21)
+
+     PRINCIPLE: sell page = sketch page, populated. Applies the
+     "reuse before rebuild" rule (skill, Part 1) to the spot module.
+     Follows the 9H precedent that added readOnly to Headliner.tsx.
+
+     SCOPE (spot module only):
+     1. DELETE `src/components/trip/LodgingGallery.tsx`. It's a
+        parallel sell-only component that duplicates LodgingCard's
+        responsibilities. Its voting logic (tallies, buttons, lock)
+        moves into LodgingCard.
+
+     2. EXTEND `src/components/trip/builder/LodgingCard.tsx` with
+        a `voting` prop (object; presence = sell mode):
+          voting?: {
+            currentUserId: string | null;
+            isOrganizer: boolean;
+            votingLocked: boolean;
+            votes: (LodgingVote & { user: User })[];
+            allLodging: LodgingWithVotes[];
+            totalVotes: number;
+          }
+        When `voting` is undefined → sketch mode (current behavior).
+        When `voting` is present → sell mode: hide remove button,
+        hide type-badge edit affordance, hide click-to-edit cursor;
+        show winner/losing flag, tally line + voter names, vote
+        button, lock button (if organizer).
+
+     3. REWIRE `src/app/trip/[slug]/page.tsx`:
+        - Remove `<LodgingGallery />` import + render call.
+        - Add `<LodgingCard mode="sell" />` rendering inside a new
+          `.module-section.lodging-module` wrapper with header.
+        - Wrap maps `lodging` to `LodgingCard` with the voting prop
+          populated from the existing query data.
+        - Null-state (lodging.length === 0) keeps its ModuleSlot.
+
+     4. LIFT any inline styles from the old voting UI (pill, vote
+        button, lock button) into CSS classes in globals.css.
+        Kill every `#fff` / `rgba(255,255,255,*)` that leaked in
+        from the old LodgingGallery. Use theme tokens only.
+
+     5. COPY. All lexicon keys already exist:
+        - `tripPageShared.lodging.h2` → "the spot" (section title)
+        - `lodgingVoting.pill.open` / `.pill.locked` (status pill)
+        - `lodgingVoting.vote.cta` / `.vote.cta.voted` /
+          `.vote.changeCta` (vote button)
+        - `lodgingVoting.organizer.lockCta` / `.lockDisabledTooltip`
+          (lock button)
+        - `lodgingVoting.tally` / `.tally.zero` / `.voters`
+          (tally line + voter names)
+        - `lodgingVoting.winnerStamp` / `.loserLabel` (image flag)
+        No new keys needed unless Claude Code finds a gap.
+
+     6. SELL-CHROME CLEANUP (carve-out from single-module rule —
+        preloaded in the 9H mockup for 9I). In `page.tsx`, remove:
+        - The entire deadline-banner IIFE block
+          (lines ~301-324) — all four T-7 / T-3 / T-0 / passed
+          banner variants. Scoreboard already signals the countdown;
+          banners are redundant on top. Note: lexicon keys in
+          `cutoff.ts` stay (orphan is fine; may be reused later).
+        - The `<AddToCalendarButton>` render call (line ~345) plus
+          its wrapping `<Reveal>` + center div. DO NOT delete the
+          `AddToCalendarButton.tsx` component file itself — leave
+          as orphan; may return on a different surface.
+        - The `import { AddToCalendarButton } from '…'` line at
+          top of page.tsx (line 38).
+        These touch `page.tsx` outside the lodging module block.
+        Acceptable scope bundle because: (a) page.tsx is already
+        being touched for the LodgingGallery removal, (b) 9H
+        explicitly preloaded both deletions as 9I items.
+
+     OUT OF SCOPE (later sessions):
+     - Bug Backlog item 1 (null-state + date-ordering for `?
+       nights`) — separate session.
+     - Transport consolidation (TransportCard equivalent).
+     - Everything-else consolidation.
+     - Module-order fix (crew/cost swap) — next mini-rewire.
+     - Voting mechanic changes (tallies, vote UX, lock flow).
+     - Organizer edit-on-sell (future dedicated session).
+     - Bidirectional reuse: do NOT add voting to sketch. Voting
+       is sell-phase only.
+
+     PATTERN LOCKED:
+     Single LodgingCard, presence-of-`voting`-prop discriminator.
+     No new Sell wrapper component. No mode: "enum" string.
+     Same frame treatment 9H applied to headliner.
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg: #f5f1ea;
+    --ink: #1a2a33;
+    --surface: #ffffff;
+    --on-surface: #1a2a33;
+    --accent: #ffd84d;
+    --accent2: #5bb7d8;
+    --hot: #e63946;
+    --stroke: #1a2a33;
+    --muted: #7a8a90;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #2a2a2a;
+    color: #faf8f5;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .doc-header {
+    max-width: 900px;
+    margin: 0 auto 20px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: #faf8f5;
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.5;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+  .row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+  .row-label {
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 18px 0 28px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+  }
+  .frame.sketch { background: #fce5ec; }
+  .frame.before { background: #e8ddd0; }
+
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+
+  .context-stub {
+    opacity: .28;
+    pointer-events: none;
+    padding: 10px 18px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-bottom: 1px dashed rgba(26,42,51,.3);
+    margin: 0 0 16px;
+  }
+  .context-stub.below {
+    border-bottom: none;
+    border-top: 1px dashed rgba(26,42,51,.3);
+    margin: 16px 0 0;
+  }
+
+  /* .module-section — existing primitive */
+  .module-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 20px;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    margin: 0 18px;
+    background: transparent;
+  }
+  .module-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px;
+  }
+  .module-section-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.1;
+    color: var(--ink);
+    text-transform: lowercase;
+  }
+
+  /* Sketch-side: count + collapse (existing) */
+  .sketch-count-wrap { display: flex; align-items: center; gap: 6px; }
+  .module-section-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .collapse-toggle {
+    background: transparent;
+    border: 1.5px solid var(--ink);
+    border-radius: 100px;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--ink);
+  }
+
+  /* Sell-side: voting status pill (new classed element) */
+  .voting-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    border: 1.5px solid var(--ink);
+  }
+  .voting-pill.open { background: var(--surface); color: var(--on-surface); }
+  .voting-pill.locked { background: var(--accent); color: var(--ink); }
+
+  /* Card shell (existing .house) */
+  .lodging-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .house {
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .house-img {
+    height: 120px;
+    background-image: linear-gradient(135deg, rgba(230,57,70,.25), rgba(91,183,216,.25)),
+      linear-gradient(180deg, #a8b8c8, #7a8a99);
+    position: relative;
+  }
+  .house-body {
+    padding: 10px 12px;
+  }
+  .house-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .house-meta {
+    font-size: 12px;
+    color: var(--ink);
+    opacity: .85;
+    margin-top: 2px;
+  }
+  .lodging-link-pill {
+    display: inline-flex;
+    margin-top: 8px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1.5px solid var(--ink);
+    border-radius: 100px;
+    color: var(--ink);
+    text-decoration: none;
+    background: transparent;
+  }
+
+  /* Sketch-only affordances */
+  .lodging-type-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 100px;
+    border: 1.5px solid var(--ink);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .lodging-remove-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    background: var(--bg);
+    border: 1.5px solid var(--ink);
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Sell-only affordances */
+  .house-flag {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--accent);
+    color: var(--ink);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 100px;
+    border: 1.5px solid var(--ink);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .house-flag.losing { background: var(--muted); color: var(--surface); opacity: .7; }
+
+  .tally-line {
+    padding: 0 12px 4px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .tally-line .voters { opacity: .8; }
+
+  .vote-row {
+    padding: 0 12px 12px;
+    display: flex;
+    gap: 6px;
+  }
+  .btn-vote,
+  .btn-lock {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-family: inherit;
+    cursor: pointer;
+    border: 1.5px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+  }
+  .btn-vote { flex: 1; }
+  .btn-vote[data-voted="true"] {
+    background: var(--accent);
+    color: var(--ink);
+  }
+  .btn-lock {
+    flex: 0 0 auto;
+  }
+  .btn-lock[disabled] {
+    opacity: .4;
+    cursor: not-allowed;
+  }
+
+  /* Before state — show current LodgingGallery shape */
+  .before-gallery {
+    padding: 0 18px;
+  }
+  .before-gallery h2 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--ink);
+    text-transform: lowercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .before-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.1); /* hardcoded — the bug */
+    color: rgba(255,255,255,0.6);       /* hardcoded — the bug */
+    text-transform: uppercase;
+  }
+  .before-gallery .tally-line {
+    color: rgba(255,255,255,0.6); /* hardcoded — INVISIBLE on light themes */
+  }
+  .before-gallery .btn-vote {
+    border: 1px solid rgba(255,255,255,0.15); /* hardcoded */
+    background: rgba(255,255,255,0.05);        /* hardcoded */
+    color: #fff;                               /* hardcoded — INVISIBLE on light */
+  }
+
+  /* Annotations */
+  .annotation {
+    max-width: 900px;
+    margin: 40px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 18px 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: #faf8f5;
+    margin: 16px 0 10px;
+  }
+  .annotation h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin: 14px 0 6px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--accent); }
+  .locked-badge {
+    display: inline-block;
+    background: rgba(46,196,182,.15);
+    color: #2ec4b6;
+    border: 1px solid rgba(46,196,182,.4);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9i · sell · spot consolidation · path a (locked)</div>
+  <div class="doc-title">the spot — one component, two modes</div>
+  <div class="doc-sub">
+    Delete <code>LodgingGallery</code>. Extend <code>LodgingCard</code>
+    with a <code>voting</code> prop. Single component serves sketch
+    (edit flow) and sell (voting flow). Applies the reuse-before-rebuild
+    rule and the 9H readOnly precedent.
+  </div>
+</div>
+
+<!-- ═══ ROW 1: SAME CARD, TWO MODES ═══ -->
+<div class="row-label">row 1 · same component — sketch mode vs sell mode (voting open)</div>
+<div class="row">
+
+  <!-- SKETCH MODE -->
+  <div class="frame sketch">
+    <div class="frame-label">sketch mode · no `voting` prop · edit affordances</div>
+    <div class="context-stub">▲ headliner ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">the spot</div>
+        <div class="sketch-count-wrap">
+          <span class="module-section-count">2 spots</span>
+          <button class="collapse-toggle">▾</button>
+        </div>
+      </div>
+      <div class="lodging-cards">
+        <div class="house" style="cursor: pointer">
+          <div class="house-img">
+            <div class="lodging-type-badge">🏠 home</div>
+            <button class="lodging-remove-btn">✕</button>
+          </div>
+          <div class="house-body">
+            <div class="house-title">The Observatory House</div>
+            <div class="house-meta">$5,120 total</div>
+            <a class="lodging-link-pill">view listing →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="context-stub below">▼ getting here · transport ...</div>
+  </div>
+
+  <!-- SELL MODE · voting open -->
+  <div class="frame">
+    <div class="frame-label">sell mode · `voting` prop present · vote affordances</div>
+    <div class="context-stub">▲ headliner ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">the spot</div>
+        <div class="voting-pill open">open</div>
+      </div>
+      <div class="lodging-cards">
+        <div class="house">
+          <div class="house-img">
+            <!-- no type badge, no remove button in sell mode -->
+          </div>
+          <div class="house-body">
+            <div class="house-title">The Observatory House</div>
+            <div class="house-meta">$5,120 total</div>
+            <a class="lodging-link-pill">view listing →</a>
+          </div>
+          <div class="tally-line">
+            2 votes <span class="voters">· maya, jordan</span>
+          </div>
+          <div class="vote-row">
+            <button class="btn-vote" data-voted="true">voted</button>
+          </div>
+        </div>
+        <div class="house">
+          <div class="house-img"></div>
+          <div class="house-body">
+            <div class="house-title">Palm Desert Hideout</div>
+            <div class="house-meta">$275/night</div>
+          </div>
+          <div class="tally-line">
+            1 vote <span class="voters">· sam</span>
+          </div>
+          <div class="vote-row">
+            <button class="btn-vote">change vote</button>
+            <button class="btn-lock">lock winner</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="context-stub below">▼ getting here · transport ...</div>
+  </div>
+
+</div>
+
+<!-- ═══ ROW 2: SELL LOCKED ═══ -->
+<div class="row-label">row 2 · sell mode · organizer locked a winner</div>
+<div class="row">
+  <div class="frame">
+    <div class="frame-label">sell mode · `voting.votingLocked=true` · winner + losing flags</div>
+    <div class="context-stub">▲ headliner ...</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">the spot</div>
+        <div class="voting-pill locked">locked in</div>
+      </div>
+      <div class="lodging-cards">
+        <div class="house">
+          <div class="house-img">
+            <div class="house-flag">winner</div>
+          </div>
+          <div class="house-body">
+            <div class="house-title">The Observatory House</div>
+            <div class="house-meta">$5,120 total</div>
+            <a class="lodging-link-pill">view listing →</a>
+          </div>
+        </div>
+        <div class="house">
+          <div class="house-img">
+            <div class="house-flag losing">not chosen</div>
+          </div>
+          <div class="house-body">
+            <div class="house-title">Palm Desert Hideout</div>
+            <div class="house-meta">$275/night</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="context-stub below">▼ getting here · transport ...</div>
+  </div>
+</div>
+
+<!-- ═══ ROW 3: BEFORE (current sell) ═══ -->
+<div class="row-label">row 3 · before · current sell · LodgingGallery with rgba whites (deleted in 9i)</div>
+<div class="row">
+  <div class="frame before">
+    <div class="frame-label">before · LodgingGallery.tsx · duplicate component, hardcoded colors</div>
+    <div class="context-stub">▲ headliner ...</div>
+    <div class="before-gallery">
+      <h2>
+        the spot
+        <span class="before-pill">open</span>
+      </h2>
+      <div class="lodging-cards">
+        <div class="house">
+          <div class="house-img"></div>
+          <div class="house-body">
+            <div class="house-title">The Observatory House</div>
+            <div class="house-meta">$320/night</div>
+          </div>
+          <div class="tally-line">2 votes · maya, jordan</div>
+          <div class="vote-row">
+            <button class="btn-vote">vote</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="context-stub below">▼ getting here · transport ...</div>
+  </div>
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+
+  <h3>The principle</h3>
+  <p>One spot module. One component. The fact that sell renders a
+  different surface from sketch is a <em>prop difference</em>, not
+  a <em>component difference</em>. This is the same pattern 9H
+  applied to Headliner (readOnly prop) and the same pattern later
+  sessions will apply to transport, everything-else, and beyond.</p>
+
+  <h3>What's in scope for 9I <span class="locked-badge">locked · path a</span></h3>
+
+  <h4>1 · Delete <code>LodgingGallery.tsx</code></h4>
+  <ul>
+    <li>
+      Remove <code>src/components/trip/LodgingGallery.tsx</code>
+      entirely. It's 273 lines of parallel component + its internal
+      unnamed <code>LodgingCard</code> function. All gone.
+    </li>
+    <li>
+      Remove the import + render call from
+      <code>src/app/trip/[slug]/page.tsx</code> (~lines 395–413).
+    </li>
+  </ul>
+
+  <h4>2 · Extend <code>LodgingCard.tsx</code> with a <code>voting</code> prop</h4>
+  <ul>
+    <li>
+      New optional prop:
+      <pre><code>voting?: {
+  currentUserId: string | null;
+  isOrganizer: boolean;
+  votingLocked: boolean;
+  votes: (LodgingVote &amp; { user: User })[];
+  allLodging: LodgingWithVotes[];
+  totalVotes: number;
+}</code></pre>
+    </li>
+    <li>
+      Presence of <code>voting</code> = sell mode. Absence = sketch
+      mode (current behavior). No <code>mode: 'sketch' | 'sell'</code>
+      string enum — the presence discriminator is cleaner and
+      type-inference-friendly.
+    </li>
+    <li>
+      When <code>voting</code> is present:
+      <ul>
+        <li>Hide type badge (<code>.lodging-type-badge</code>),
+          remove button (<code>.lodging-remove-btn</code>), click-to-
+          edit cursor.</li>
+        <li>Show <code>.house-flag</code> (winner / "not chosen")
+          on the image when <code>votingLocked</code> + based on
+          <code>spot.is_selected</code>.</li>
+        <li>Show <code>.tally-line</code> (vote count + voter names)
+          below body.</li>
+        <li>Show <code>.vote-row</code> with the vote button
+          (and organizer lock button if applicable), unless
+          <code>votingLocked</code>.</li>
+      </ul>
+    </li>
+    <li>
+      Move the <code>castLodgingVote</code> + <code>lockLodgingWinner</code>
+      server action imports + <code>useTransition</code> + handlers
+      from the deleted LodgingGallery into LodgingCard.
+    </li>
+    <li>
+      The existing cost-math logic (<code>computeNights</code>,
+      hotel per-night × rooms, etc.) applies in both modes —
+      invitees on sell should see the same cost line as the
+      organizer saw on sketch. <strong>Do not remove or gate it.</strong>
+    </li>
+  </ul>
+
+  <h4>3 · Rewire <code>page.tsx</code> sell render</h4>
+  <ul>
+    <li>
+      Replace the <code>&lt;LodgingGallery /&gt;</code> block with:
+      <pre><code>&lt;div className="module-section lodging-module"&gt;
+  &lt;div className="module-section-header"&gt;
+    &lt;span className="module-section-title"&gt;
+      {getCopy(themeId, 'tripPageShared.lodging.h2')}
+    &lt;/span&gt;
+    &lt;span className={`voting-pill ${votingLocked ? 'locked' : 'open'}`}&gt;
+      {getCopy(themeId, votingLocked
+        ? 'lodgingVoting.pill.locked'
+        : 'lodgingVoting.pill.open')}
+    &lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div className="lodging-cards"&gt;
+    {lodging.map((spot) =&gt; (
+      &lt;LodgingCard
+        key={spot.id}
+        spot={spot}
+        themeId={themeId}
+        tripId={trip.id}
+        slug={slug}
+        dateStart={trip.date_start}
+        dateEnd={trip.date_end}
+        crewCount={cost.confirmed_count}
+        voting={{
+          currentUserId,
+          isOrganizer,
+          votingLocked,
+          votes: spot.votes,
+          allLodging: lodging,
+          totalVotes,
+        }}
+      /&gt;
+    ))}
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+    </li>
+    <li>
+      Null-state (<code>lodging.length === 0</code>) keeps its
+      existing <code>ModuleSlot</code> fallback. No changes.
+    </li>
+  </ul>
+
+  <h4>4 · CSS — classes, theme tokens, no raw whites</h4>
+  <ul>
+    <li>
+      Add to <code>globals.css</code> (beside existing module-section
+      primitives):
+      <ul>
+        <li><code>.voting-pill</code>, <code>.voting-pill.open</code>, <code>.voting-pill.locked</code></li>
+        <li><code>.tally-line</code>, <code>.tally-line .voters</code></li>
+        <li><code>.vote-row</code></li>
+        <li><code>.btn-vote</code>, <code>.btn-vote[data-voted="true"]</code></li>
+        <li><code>.btn-lock</code>, <code>.btn-lock[disabled]</code></li>
+      </ul>
+    </li>
+    <li>
+      Every style uses theme tokens (<code>--ink</code>, <code>--accent</code>,
+      <code>--surface</code>, <code>--on-surface</code>, <code>--muted</code>).
+      ZERO raw <code>#fff</code> / <code>rgba(255,255,255,*)</code>
+      survives the refactor.
+    </li>
+    <li>
+      CSS flush rule: <code>rm -rf .next && npm run dev</code> before
+      QA. Mandatory — globals.css change.
+    </li>
+  </ul>
+
+  <h4>5 · Sell-chrome cleanup (carve-out)</h4>
+  <ul>
+    <li>
+      Delete the <strong>deadline-banner IIFE block</strong> in
+      <code>page.tsx:301-324</code>. All four banner variants go
+      (T-7, T-3, T-0, passed). The countdown scoreboard already
+      conveys cutoff urgency; banners are redundant chrome.
+    </li>
+    <li>
+      Delete the <strong>AddToCalendarButton render call</strong>
+      in <code>page.tsx:343-347</code> (the whole
+      <code>&lt;Reveal&gt;</code> with its centering div) and the
+      <code>import</code> at <code>page.tsx:38</code>.
+      <strong>Do NOT delete</strong> the component file at
+      <code>src/components/trip/AddToCalendarButton.tsx</code> —
+      leave orphaned. Andrew may re-introduce on a different
+      surface.
+    </li>
+    <li>
+      <strong>Lexicon:</strong> keys in <code>cutoff.ts</code>
+      (<code>banner.t7</code>, <code>banner.t3</code>,
+      <code>banner.t0</code>, <code>banner.passed</code>) can stay
+      as orphans. Same for <code>trip-page-shared.ts</code>
+      <code>calendar.cta</code>. Do not mass-delete copy; a future
+      session may reintroduce similar surfaces.
+    </li>
+    <li>
+      <strong>Carve-out justification:</strong> single-module
+      discipline says each session touches ONE module. This
+      cleanup adds two non-module deletions in <code>page.tsx</code>.
+      Accepted because (a) <code>page.tsx</code> is already being
+      modified for the LodgingGallery-&gt;LodgingCard swap — same
+      file, contiguous edits; (b) the 9H mockup explicitly
+      preloaded both deletions as 9I items; (c) they are
+      deletions only — no new logic, no new components, no new
+      data — so QA surface is minimal.
+    </li>
+  </ul>
+
+  <h4>6 · Copy audit — lexicon keys</h4>
+  <ul>
+    <li>
+      All needed keys already exist. No lexicon additions expected.
+      Claude Code should grep to verify:
+      <ul>
+        <li><code>tripPageShared.lodging.h2</code> → "the spot"</li>
+        <li><code>lodgingVoting.pill.open</code> / <code>.pill.locked</code></li>
+        <li><code>lodgingVoting.vote.cta</code> / <code>.vote.cta.voted</code> / <code>.vote.changeCta</code></li>
+        <li><code>lodgingVoting.organizer.lockCta</code> / <code>.lockDisabledTooltip</code></li>
+        <li><code>lodgingVoting.tally</code> / <code>.tally.zero</code> / <code>.voters</code></li>
+        <li><code>lodgingVoting.winnerStamp</code> / <code>.loserLabel</code></li>
+      </ul>
+    </li>
+    <li>
+      If a key is missing, escalate — don't invent new strings.
+    </li>
+  </ul>
+
+  <h3>Files touched</h3>
+  <ul>
+    <li><strong>Delete:</strong> <code>src/components/trip/LodgingGallery.tsx</code></li>
+    <li><strong>Extend:</strong> <code>src/components/trip/builder/LodgingCard.tsx</code> — add <code>voting</code> prop + behavior branching</li>
+    <li><strong>Rewire:</strong> <code>src/app/trip/[slug]/page.tsx</code> — (a) remove LodgingGallery import/render, add LodgingCard-based sell render; (b) delete deadline-banner IIFE (lines ~301-324); (c) delete AddToCalendarButton render call + its import (lines ~38, ~343-347)</li>
+    <li><strong>Add classes:</strong> <code>src/app/globals.css</code> — voting pill + tally + vote/lock button classes</li>
+    <li><strong>NOT touched:</strong> <code>SketchModules.tsx</code> (sketch render call unchanged — presence-of-prop discriminator keeps current behavior), <code>LodgingAddForm.tsx</code> (sketch-only, untouched), server actions (unchanged), <code>AddToCalendarButton.tsx</code> (orphaned component file preserved), <code>cutoff.ts</code> lexicon (orphaned keys preserved)</li>
+  </ul>
+
+  <h3>Acceptance criteria (preview)</h3>
+  <ul>
+    <li><code>LodgingGallery.tsx</code> deleted; no references remain (grep clean).</li>
+    <li>On a sell trip with <code>lodging.length &gt; 0</code>, the module renders wrapped in <code>.module-section.lodging-module</code> with 2.5px ink border, 16px radius, transparent bg — byte-identical frame to 9H's headliner.</li>
+    <li>Section header: "the spot" left (Georgia italic lowercase 18px), voting status pill right ("open" / "locked in"). Pill uses theme tokens, no raw whites.</li>
+    <li>Cards render via <code>LodgingCard</code> with <code>voting</code> prop populated; in sell mode the type badge, remove button, and edit-cursor are hidden; tally line, voter names, vote button, lock button appear.</li>
+    <li>Vote click → <code>castLodgingVote</code> fires and the UI updates (toggles voted state or switches to new spot).</li>
+    <li>Organizer lock click → <code>lockLodgingWinner</code> fires; page refreshes with winner flag + losing flags on other cards + pill flips to "locked in".</li>
+    <li>Sketch trip regression: sketch path renders LodgingCard exactly as today (type badge visible, remove button visible, click-to-edit works). No <code>voting</code> prop flowing from sketch.</li>
+    <li>Null-state (<code>lodging.length === 0</code>) on sell: ModuleSlot fallback renders unchanged.</li>
+    <li>Every color inside the lodging module on sell resolves from a CSS variable. Grep for <code>#fff</code> / <code>rgba(255,255,255</code> in LodgingCard.tsx returns zero hits.</li>
+    <li><strong>Deadline banner gone:</strong> sell-phase trip at T-7, T-3, T-0, and past-cutoff no longer renders any banner between scoreboard and module stack. Scroll goes scoreboard → description → module stack.</li>
+    <li><strong>AddToCalendarButton gone from sell:</strong> the calendar-icon CTA no longer renders between scoreboard and description. Component file still exists on disk (orphaned).</li>
+    <li><code>npx tsc --noEmit</code> clean.</li>
+    <li>Core-loop QA checklist passes (see between-session checklist in fix plan).</li>
+  </ul>
+
+  <h3>Out of scope (later sessions)</h3>
+  <ul>
+    <li>Bug Backlog item 1 — null-state + date-ordering for "? nights"</li>
+    <li>Module-order rewire (swap crew / cost) — own mini-session</li>
+    <li>Transport consolidation (TransportCard equivalent) — next module in sequence</li>
+    <li>Everything-else consolidation — later</li>
+    <li>Voting mechanic changes (tallies, vote UX, lock flow)</li>
+    <li>Organizer edit-on-sell (future dedicated session)</li>
+    <li>Deadline banner / AddToCalendarButton deletion (noted in 9H mockup, hold)</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Escalation triggers for the brief.</strong>
+    (a) If the combined prop surface on <code>LodgingCard</code> grows
+    uncomfortably large (sketch edit + voting props in one place),
+    consider splitting into <code>LodgingCard</code> (pure
+    presentation) + <code>LodgingCardContainer</code> (voting
+    interaction wrapper) rather than bloating the single file.
+    Flag before splitting — Andrew may prefer one-file simplicity.
+    (b) If the existing <code>useTransition</code> pattern in
+    LodgingGallery has behaviors not captured in LodgingCard's
+    (e.g. separate pending states for vote vs. lock), preserve
+    them in the consolidated component — don't simplify.
+    (c) If a lexicon key is missing, STOP and escalate — do not
+    invent copy.
+    (d) If the union type (<code>Lodging</code> vs.
+    <code>LodgingWithVotes</code>) causes TypeScript issues in the
+    sketch call site (which passes plain <code>Lodging</code>),
+    narrow via the <code>voting</code> prop's presence — do not
+    modify the <code>Lodging</code> type or add optional vote
+    fields to it.
+    (e) If any sketch-only behavior (click-to-edit, remove, type
+    badge) accidentally leaks into sell mode during the refactor,
+    treat as a blocker, not a polish-later.
+  </div>
+</div>
+
+</body>
+</html>

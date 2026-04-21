@@ -16,7 +16,7 @@ import { getCopy } from '@/lib/copy/get-copy';
 // New chassis components
 import { PostcardHero } from '@/components/trip/PostcardHero';
 import { CountdownScoreboard } from '@/components/trip/CountdownScoreboard';
-import { LodgingGallery } from '@/components/trip/LodgingGallery';
+import { LodgingCard } from '@/components/trip/builder/LodgingCard';
 import { StickyRsvpBarChassis } from '@/components/trip/StickyRsvpBarChassis';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
 import { SketchTripShell } from '@/components/trip/builder/SketchTripShell';
@@ -35,7 +35,6 @@ import { SellHeadliner } from '@/components/trip/SellHeadliner';
 import { PlaylistCard } from '@/components/trip/PlaylistCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
-import { AddToCalendarButton } from '@/components/trip/AddToCalendarButton';
 import { Reveal } from '@/components/ui/Reveal';
 import { PassportProvider } from '@/components/trip/PassportContext';
 
@@ -298,31 +297,6 @@ export default async function TripPage({ params }: Props) {
         />
       )}
 
-      {/* T-3 / T-0 deadline nudge banners (sell phase only) */}
-      {(() => {
-        if (trip.phase !== 'sell' || !cutoffIso) return null;
-        const daysToDeadline = Math.ceil(
-          // eslint-disable-next-line react-hooks/purity -- server component renders once
-          (new Date(cutoffIso).getTime() - Date.now()) / 86_400_000,
-        );
-        const holdingCount = members.filter((m) => m.rsvp === 'holding').length;
-        if (daysToDeadline <= 0) {
-          return (
-            <div className="deadline-banner deadline-banner--urgent">
-              {getCopy(themeId, 'cutoff.banner.t0', { n_hold: holdingCount })}
-            </div>
-          );
-        }
-        if (daysToDeadline <= 3) {
-          return (
-            <div className="deadline-banner">
-              {getCopy(themeId, 'cutoff.banner.t3')}
-            </div>
-          );
-        }
-        return null;
-      })()}
-
       {/* Post-lock banner */}
       {trip.phase === 'lock' && (
         <div className="lock-banner">
@@ -339,13 +313,6 @@ export default async function TripPage({ params }: Props) {
           is the single crew surface on sell / lock / go. */}
 
       <div style={{ padding: '0 18px' }}>
-        {/* Add-to-calendar — secondary action */}
-        <Reveal delay={0}>
-          <div style={{ textAlign: 'center', marginTop: 12 }}>
-            <AddToCalendarButton trip={trip} themeId={themeId} />
-          </div>
-        </Reveal>
-
         {trip.description && (
           <Reveal delay={0.1}>
             <div style={{ marginTop: 10 }}>
@@ -391,19 +358,52 @@ export default async function TripPage({ params }: Props) {
         </Reveal>
       )}
 
-      {/* 2 · Spot (lodging) */}
+      {/* 2 · Spot (lodging) — 9I: consolidated into LodgingCard with voting prop.
+             Sketch renders LodgingCard without the prop; sell passes it to
+             branch into voting UI. Wrap matches 9H headliner pattern. */}
       <Reveal delay={0.05}>
-        {lodging.length > 0 ? (
-          <LodgingGallery
-            themeId={themeId}
-            lodging={lodging}
-            currentUserId={currentUserId}
-            isOrganizer={isOrganizer}
-            slug={slug}
-            tripId={trip.id}
-            votingLocked={lodging.some((l) => l.is_selected)}
-          />
-        ) : (
+        {lodging.length > 0 ? (() => {
+          const votingLocked = lodging.some((l) => l.is_selected);
+          const totalVotes = lodging.reduce((sum, l) => sum + l.votes.length, 0);
+          return (
+            <div style={{ padding: '0 18px', marginTop: 14 }}>
+              <div className="module-section lodging-module">
+                <div className="module-section-header">
+                  <span className="module-section-title">
+                    {getCopy(themeId, 'tripPageShared.lodging.h2')}
+                  </span>
+                  <span className={`voting-pill ${votingLocked ? 'locked' : 'open'}`}>
+                    {getCopy(themeId, votingLocked
+                      ? 'lodgingVoting.pill.locked'
+                      : 'lodgingVoting.pill.open')}
+                  </span>
+                </div>
+                <div className="lodging-cards">
+                  {lodging.map((spot) => (
+                    <LodgingCard
+                      key={spot.id}
+                      spot={spot}
+                      themeId={themeId}
+                      tripId={trip.id}
+                      slug={slug}
+                      dateStart={trip.date_start}
+                      dateEnd={trip.date_end}
+                      crewCount={cost.confirmed_count}
+                      voting={{
+                        currentUserId,
+                        isOrganizer,
+                        votingLocked,
+                        votes: spot.votes,
+                        allLodging: lodging,
+                        totalVotes,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })() : (
           <ModuleSlot
             title={getCopy(themeId, 'tripPageShared.lodging.h2')}
             emptyText={getCopy(themeId, 'emptyStates.lodging')}

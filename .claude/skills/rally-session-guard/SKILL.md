@@ -51,16 +51,23 @@ When complete, the trip page scrolls through these sections top to bottom:
 marquee strip → trip header / hero → countdown
 MODULE: the headliner (optional, singular trip-level premise — 8J)
 MODULE: lodging ("the spot")
+MODULE: getting here (sell+ only — per-crew arrival estimator; branches by
+  mode: flight / drive / train / other; flight uses Google Flights
+  deep-link, passport-aware — Session 9B)
 MODULE: transportation (flight-as-type, multi-leg, per-line cost unit — 8I)
 MODULE: everything else (activities + provisions + other — single per-person estimates each — 8P)
-cost summary (aggregates all modules → per-person estimate)
-(sell+ only) per-crew arrival estimator — branches by mode (flight / drive /
-  train / other); flight uses Google Flights deep-link, passport-aware
-MODULE: crew (who's in / holding / out)
+cost summary (aggregates all line-item modules above → per-person estimate)
+MODULE: crew (who's in / holding / out — shows RSVP status per person)
 MODULE: buzz (activity feed)
-MODULE: extras (packing list, playlist, rules, album)
+MODULE: aux / extras (playlist now; packing list, rules, album later)
 footer + [sticky RSVP bar]
 ```
+
+**Ordering rule: cost summary always sits directly below the last line-item
+module.** Any module that contributes a cost estimate (headliner, spot,
+getting here, transportation, everything else) renders above cost summary;
+anything that doesn't contribute a cost (crew, buzz, aux) renders below.
+Locked 2026-04-21.
 
 **Canonical sketch-page design reference:** `rally-sketch-modules-v2-mockup.html`.
 Pre-8I wireframes (`rally-sketch-form-wireframe.html`,
@@ -117,6 +124,23 @@ targets `date_start`.
   scope. If a fix "feels obvious" while working in an unrelated file —
   STOP, log it, move on. This rule is what keeps sessions shippable and
   QA-able.
+- **Reuse before rebuild.** Before creating a new component, copy
+  surface, CSS primitive, or server action, check whether an existing
+  one can serve the need with an added prop, mode, or small extension.
+  Two things doing the same job is debt: they drift, they double the
+  test surface, and they force every change to be made twice. This
+  applies project-wide — not just sketch → sell. Concrete patterns to
+  favor: adding a `readOnly` / `mode` / `phase` prop to an existing
+  component instead of forking a parallel one (as 9H did with
+  `Headliner.tsx`, as 9I does with `LodgingCard.tsx`); extending a
+  lexicon surface rather than adding a new one; using existing CSS
+  primitives (`.module-section`, `.module-card`, etc.) over new
+  classes. Build-new is fine when genuinely new — but "slight
+  variation of a thing that already exists" usually isn't. Rule of
+  thumb: if you're about to create `Sell<X>` or `V2<X>` or
+  `<X>Alt`, stop and ask whether a prop on the existing `<X>`
+  would do. This is how we ship faster and keep quality high: one
+  component tested once, one source of truth.
 
 ### Local Environment
 

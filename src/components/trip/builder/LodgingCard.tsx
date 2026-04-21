@@ -1,16 +1,21 @@
 'use client';
 
-// LodgingCard — .house-style card for a lodging option in sketch phase.
-// Reuses the existing .house CSS pattern from LodgingGallery (sell phase).
-// Session 8A + 8B (getCopy cleanup, edit flow, crew-aware hotel cost).
+// LodgingCard — .house-style card for a lodging option.
+// One component, two modes: sketch (edit affordances) and sell (voting).
+// Presence of the `voting` prop is the discriminator — absent = sketch
+// mode (current behavior), present = sell mode (hide edit affordances,
+// show tally + vote/lock + winner/losing flag).
 
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
-import type { Lodging } from '@/types';
+import type { Lodging, LodgingVote, User } from '@/types';
 import { removeLodgingOption } from '@/app/actions/sketch-modules';
+import { castLodgingVote, lockLodgingWinner } from '@/app/actions/lodging';
+
+type LodgingWithVotes = Lodging & { votes: (LodgingVote & { user: User })[] };
 
 type Props = {
   spot: Lodging;
@@ -21,6 +26,14 @@ type Props = {
   dateEnd: string | null;
   onEdit?: (spot: Lodging) => void;
   crewCount?: number;
+  voting?: {
+    currentUserId: string | null;
+    isOrganizer: boolean;
+    votingLocked: boolean;
+    votes: (LodgingVote & { user: User })[];
+    allLodging: LodgingWithVotes[];
+    totalVotes: number;
+  };
 };
 
 function computeNights(dateStart: string | null, dateEnd: string | null): number | null {
@@ -31,19 +44,11 @@ function computeNights(dateStart: string | null, dateEnd: string | null): number
   return diff > 0 ? diff : null;
 }
 
-function truncateUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    const path = u.pathname.length > 20 ? u.pathname.slice(0, 20) + '...' : u.pathname;
-    return u.hostname + path;
-  } catch {
-    return url.length > 40 ? url.slice(0, 40) + '...' : url;
-  }
-}
-
-export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, onEdit, crewCount }: Props) {
+export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, onEdit, crewCount, voting }: Props) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+
+  const isSellMode = voting !== undefined;
 
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -54,7 +59,24 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
   };
 
   const handleEdit = () => {
+    if (isSellMode) return;
     if (onEdit) onEdit(spot);
+  };
+
+  const handleVote = () => {
+    if (!voting || !voting.currentUserId || voting.votingLocked) return;
+    startTransition(async () => {
+      const res = await castLodgingVote(tripId, slug, spot.id);
+      if (res.ok) router.refresh();
+    });
+  };
+
+  const handleLock = () => {
+    if (!voting || !voting.isOrganizer) return;
+    startTransition(async () => {
+      const res = await lockLodgingWinner(tripId, slug, spot.id);
+      if (res.ok) router.refresh();
+    });
   };
 
   const nights = computeNights(dateStart, dateEnd);
@@ -109,26 +131,72 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
   }
   const metaLine = metaParts.length > 0 ? metaParts.join(getCopy(themeId, 'builderState.lodging.separatorDot')) : null;
 
+  // Sell-mode voting derived values
+  const userVotedHere = voting?.currentUserId
+    ? voting.votes.some((v) => v.user_id === voting.currentUserId)
+    : false;
+  const userVotedAnywhere = voting?.currentUserId
+    ? voting.allLodging.some((l) => l.votes.some((v) => v.user_id === voting.currentUserId))
+    : false;
+
+  const tallyText = voting
+    ? voting.votes.length > 0
+      ? getCopy(themeId, 'lodgingVoting.tally', { n: voting.votes.length })
+      : getCopy(themeId, 'lodgingVoting.tally.zero')
+    : null;
+
+  let voterText: string | null = null;
+  if (voting && voting.votes.length > 0) {
+    const names = voting.votes.map((v) => v.user?.display_name ?? '?');
+    if (names.length <= 2) {
+      voterText = names.join(', ');
+    } else {
+      voterText = getCopy(themeId, 'lodgingVoting.voters', {
+        name1: names[0],
+        name2: names[1],
+        n: names.length - 2,
+      });
+    }
+  }
+
+  const canClickEdit = !isSellMode && !!onEdit;
+
   return (
     <div
       className="house lodging-card"
-      style={{ opacity: pending ? 0.5 : 1, cursor: onEdit ? 'pointer' : 'default' }}
-      onClick={handleEdit}
+      style={{ opacity: pending ? 0.5 : 1, cursor: canClickEdit ? 'pointer' : 'default' }}
+      onClick={canClickEdit ? handleEdit : undefined}
     >
       {/* Image header */}
       <div className="house-img" style={{ position: 'relative' }}>
-        {/* Type badge */}
-        <div className="house-flag lodging-type-badge">{typeBadge}</div>
-        {/* Remove button */}
-        <button
-          className="lodging-remove-btn"
-          onClick={handleRemove}
-          disabled={pending}
-          type="button"
-          aria-label={`Remove ${spot.name}`}
-        >
-          {getCopy(themeId, 'builderState.lodging.closeSymbol')}
-        </button>
+        {/* Sketch-only: type badge + remove button */}
+        {!isSellMode && (
+          <>
+            <div className="house-flag lodging-type-badge">{typeBadge}</div>
+            <button
+              className="lodging-remove-btn"
+              onClick={handleRemove}
+              disabled={pending}
+              type="button"
+              aria-label={`Remove ${spot.name}`}
+            >
+              {getCopy(themeId, 'builderState.lodging.closeSymbol')}
+            </button>
+          </>
+        )}
+
+        {/* Sell-only: winner / losing flag when voting is locked */}
+        {isSellMode && voting!.votingLocked && spot.is_selected && (
+          <div className="lodging-vote-flag winner">
+            {getCopy(themeId, 'lodgingVoting.winnerStamp')}
+          </div>
+        )}
+        {isSellMode && voting!.votingLocked && !spot.is_selected && (
+          <div className="lodging-vote-flag losing">
+            {getCopy(themeId, 'lodgingVoting.loserLabel')}
+          </div>
+        )}
+
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -164,6 +232,48 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
           </a>
         )}
       </div>
+
+      {/* Sell-only: tally line */}
+      {isSellMode && tallyText && (
+        <div className="tally-line">
+          <span>{tallyText}</span>
+          {voterText && <span className="voters">· {voterText}</span>}
+        </div>
+      )}
+
+      {/* Sell-only: vote / lock row (hidden when voting is locked) */}
+      {isSellMode && !voting!.votingLocked && (voting!.currentUserId || voting!.isOrganizer) && (
+        <div className="vote-row">
+          {voting!.currentUserId && (
+            <button
+              className="btn-vote"
+              data-voted={userVotedHere ? 'true' : undefined}
+              onClick={handleVote}
+              disabled={pending}
+              aria-label={`Vote for ${spot.name}${userVotedHere ? ' (voted)' : ''}`}
+              type="button"
+            >
+              {userVotedHere
+                ? getCopy(themeId, 'lodgingVoting.vote.cta.voted')
+                : userVotedAnywhere
+                  ? getCopy(themeId, 'lodgingVoting.vote.changeCta')
+                  : getCopy(themeId, 'lodgingVoting.vote.cta')}
+            </button>
+          )}
+          {voting!.isOrganizer && (
+            <button
+              className="btn-lock"
+              onClick={handleLock}
+              disabled={pending || voting!.totalVotes < 2}
+              title={voting!.totalVotes < 2 ? getCopy(themeId, 'lodgingVoting.organizer.lockDisabledTooltip') : undefined}
+              aria-label={`Lock ${spot.name} as winner`}
+              type="button"
+            >
+              {getCopy(themeId, 'lodgingVoting.organizer.lockCta')}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

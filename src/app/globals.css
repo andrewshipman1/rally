@@ -4991,6 +4991,93 @@ button:active {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   Session 9I — voting affordances for sell-mode LodgingCard.
+   These live beside the .module-section primitives. All tokens, no raw
+   whites — replaces the inline styles from the deleted parallel
+   sell-voting component.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.chassis .voting-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1.5px solid var(--ink);
+}
+.chassis .voting-pill.open {
+  background: var(--surface);
+  color: var(--on-surface);
+}
+.chassis .voting-pill.locked {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.chassis .lodging-vote-flag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  background: var(--accent);
+  color: var(--ink);
+  border: 2px solid var(--stroke);
+  border-radius: 100px;
+  padding: 4px 10px;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.chassis .lodging-vote-flag.losing {
+  background: var(--surface);
+  color: var(--ink);
+  opacity: 0.5;
+}
+
+.chassis .tally-line {
+  padding: 6px 12px 4px;
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.6;
+}
+.chassis .tally-line .voters {
+  margin-left: 6px;
+  font-size: 11px;
+}
+
+.chassis .vote-row {
+  padding: 0 12px 12px;
+  display: flex;
+  gap: 6px;
+}
+.chassis .btn-vote,
+.chassis .btn-lock {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.chassis .btn-vote { flex: 1; }
+.chassis .btn-vote[data-voted="true"] {
+  background: var(--accent);
+  color: var(--ink);
+}
+.chassis .btn-lock { flex: 0 0 auto; }
+.chassis .btn-lock[disabled],
+.chassis .btn-vote[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    Session 8Q — "the aux" playlist module.
    Adopts the 8N .module-section frame; adds personality inside:
    equalizer bars in the header, hero card with OG art, fallback tile.

@@ -5073,8 +5073,13 @@ evolved from the original 9A/9B pair to a top-down polish walk after 9A
 - **9H — Headliner module polish (sell readOnly + copy + layout).**
   Queued. Bumped from 9G → 9H on 2026-04-17. Fixes the known soft
   dead-end card-body click deferred from 9A-fix.
-- **9I — Spot / Lodging polish.** Queued (bumped from 9H → 9I). Bug
-  Backlog item 1 (null-state + date-ordering) lives here.
+- **9I — Spot consolidation + sell-chrome cleanup.** Briefed
+  2026-04-21. Deletes `LodgingGallery.tsx`, extends `LodgingCard.tsx`
+  with a `voting` prop (presence-discriminated sell mode), and wraps
+  in the sketch `.module-section` frame. Bundles two deletions
+  preloaded by 9H mockup: deadline-banner IIFE + AddToCalendarButton
+  render. Bug Backlog item 1 (null-state + date-ordering) stays in
+  the backlog — scoped out of 9I for discipline.
 - **9B — Getting Here module.** Queued at its natural turn (after 9I
   / before transportation polish). Net-new module, migration required,
   new copy surface. Preview below.
@@ -8662,6 +8667,439 @@ logged in the bug backlog below, not a 9H regression.
 core-loop QA weren't run in this pass due to the Turbopack flake
 burning clean-restarts on every route hop; recommend running both
 on the next fresh dev session before starting 9I.
+
+#### Session 9H — Deferred QA Addendum (2026-04-21)
+
+Ran on fresh dev session. All three deferred items now verified:
+
+- [x] **Cowork CSS fix — cursor-pointer leak on readOnly headliner** —
+      ✅ PASS. DOM-level verification on `/trip/sjtIcYZB` (Coachella):
+      `.module-card.headliner` is a bare `<div>` with
+      `cursor: auto`, no `role`, no `tabindex`, no `aria-label`,
+      no `onclick`. The `.headliner-cta` child `<a>` retains
+      `cursor: pointer`. Scoping `.chassis .headliner[role="button"]`
+      works as intended.
+- [x] **9F title-accent regression** — ✅ PASS. On the same sell
+      trip (`Coachella 2026!!!`), the trailing `!!!` renders as
+      `<span class="title-accent">!!!</span>` inside an `<h1>`
+      with computed color `rgb(230, 57, 70)` = `#e63946`, the
+      `--hot` token. No regression.
+- [~] **Core-loop QA checklist** — ⚠️ PARTIAL / SCOPE-CORRECTED.
+      Observational checks pass: all nine rendered modules present
+      in the sell render (headliner → spot → getting around →
+      everything else → crew[in/holding/out] → aux; cost + buzz
+      also in DOM); no horizontal overflow at narrow widths; the
+      9I-queued deletions (deadline banner + AddToCalendarButton)
+      were not rendering on this trip's state anyway. The
+      checklist's interactive items (create trip, edit trip name
+      from sell, full invitee RSVP flow, incognito share link)
+      are not all buildable against current functionality —
+      editing trip fields from sell doesn't exist, and the
+      invitee RSVP flow isn't fully mapped yet. Andrew's
+      strategic call (2026-04-21): keep cleaning up the page
+      one module at a time and handle the surrounding chrome /
+      cross-page flows later. Core-loop checklist should be
+      revisited when the sell flows it assumes are actually built.
+
+**New observations (logged, not regressions):**
+
+- **Countdown scoreboard renders as `00·00·00·00` when cutoff is in
+  the past.** Already in the parked follow-ups list (from 9D-era
+  header audit); surfaces again here because the Coachella trip's
+  `apr 5 · 8pm edt` cutoff is well past today (apr 21). Not a 9H
+  regression. Revisit when post-cutoff sell traffic matters.
+- **Deadline banner did not render on this trip despite past
+  cutoff + sell phase.** The earlier 9I-scoping screenshot showed
+  it rendering with "today's the day. 0 still holding." on what
+  looked like the same state; now it isn't. No code has shipped
+  between the two captures. Could be a hydration edge case or
+  environment quirk. Moot for shipping — 9I deletes the entire
+  4-variant banner system. Logged for awareness, not action.
+
+**Session 9H final state:** closed. 9I cleared for Claude Code
+handoff — brief + kickoff + mockup all in place.
+
+---
+
+### Session 9I: "Spot consolidation — LodgingGallery → LodgingCard + sell-chrome cleanup"
+
+**Intent.** Apply the reuse-before-rebuild rule (Rally skill, Part 1)
+to the spot module. Today, sketch renders lodging through
+`LodgingCard.tsx` and sell renders it through a parallel
+`LodgingGallery.tsx` — two components, two codepaths, same concept.
+9I collapses them into one. Follows the same pattern 9H used on
+`Headliner.tsx` (add a readOnly/mode-style prop, delete the
+parallel surface).
+
+Bundled in the same session: two sell-chrome deletions preloaded
+by the 9H mockup for 9I — the deadline-banner block and the
+AddToCalendarButton render. Both are contiguous edits in
+`page.tsx` and are deletions only (no new logic), so QA surface
+stays minimal.
+
+**Design reference.** `rally-9i-spot-sell-mockup.html`
+(locked 2026-04-21). Read this file before writing any code —
+it shows the three target states (sketch, sell-voting-open,
+sell-locked), lists every lexicon key, and defines the locked
+prop discriminator pattern.
+
+**Scope (numbered):**
+
+1. **Delete `src/components/trip/LodgingGallery.tsx`.** The whole
+   file (273 lines, includes a nested unnamed `LodgingCard`
+   function). Remove the import + render call from
+   `src/app/trip/[slug]/page.tsx` (~lines 395–413).
+
+2. **Extend `src/components/trip/builder/LodgingCard.tsx` with a
+   `voting` prop.** New optional prop object:
+   ```ts
+   voting?: {
+     currentUserId: string | null;
+     isOrganizer: boolean;
+     votingLocked: boolean;
+     votes: (LodgingVote & { user: User })[];
+     allLodging: LodgingWithVotes[];
+     totalVotes: number;
+   }
+   ```
+   Presence of `voting` is the sell-mode discriminator. Absence
+   preserves current sketch behavior.
+
+   When `voting` is present:
+   - Hide `.lodging-type-badge`, `.lodging-remove-btn`,
+     click-to-edit cursor (drop `onClick` wiring on the card
+     wrapper).
+   - Show `.house-flag` winner / "not chosen" on the image when
+     `voting.votingLocked` is true, keyed off `spot.is_selected`.
+   - Show `.tally-line` below body with `lodgingVoting.tally`
+     (or `.tally.zero`) text + voter names via
+     `lodgingVoting.voters`.
+   - Show `.vote-row` with a vote button (states: vote / voted /
+     change vote via `lodgingVoting.vote.cta*`) and — if
+     `voting.isOrganizer` — a lock button
+     (`lodgingVoting.organizer.lockCta`, disabled when
+     `totalVotes < 2`). Hide entire `.vote-row` when
+     `votingLocked`.
+   - Move `castLodgingVote` + `lockLodgingWinner` server-action
+     imports, `useTransition`, `useRouter`, and the handlers from
+     deleted LodgingGallery into LodgingCard.
+
+   Existing cost-math (computeNights, hotel × rooms, etc.) runs
+   in both modes — invitees on sell see the same cost line the
+   organizer saw on sketch. Do NOT gate or remove it.
+
+3. **Rewire sell render in `src/app/trip/[slug]/page.tsx`.**
+   Replace the `<LodgingGallery>` block with:
+   - `<div className="module-section lodging-module">` frame
+   - `<div className="module-section-header">` with:
+     - Left: `<span className="module-section-title">` reading
+       `getCopy(themeId, 'tripPageShared.lodging.h2')` (= "the spot")
+     - Right: `<span className={`voting-pill ${votingLocked ? 'locked' : 'open'}`}>` reading
+       `getCopy(themeId, votingLocked ? 'lodgingVoting.pill.locked' : 'lodgingVoting.pill.open')`
+   - `<div className="lodging-cards">` iterating `lodging.map` to
+     `<LodgingCard>` with the `voting` prop populated from existing
+     query data (`currentUserId`, `isOrganizer`, `votingLocked`,
+     `spot.votes`, `lodging`, `totalVotes`).
+
+   Null-state (`lodging.length === 0`) keeps the current
+   `<ModuleSlot>` fallback. No change.
+
+4. **Add voting-related CSS classes to `src/app/globals.css`.**
+   Place beside existing `.module-section` primitives:
+   - `.voting-pill`, `.voting-pill.open`, `.voting-pill.locked`
+   - `.tally-line`, `.tally-line .voters`
+   - `.vote-row`
+   - `.btn-vote`, `.btn-vote[data-voted="true"]`
+   - `.btn-lock`, `.btn-lock[disabled]`
+
+   Every declaration uses theme tokens (`--ink`, `--accent`,
+   `--surface`, `--on-surface`, `--muted`). No raw `#fff`,
+   `#ffffff`, or `rgba(255,255,255,*)` survives. Apply the
+   globals.css flush rule (`rm -rf .next && npm run dev`)
+   before QA — mandatory.
+
+5. **Sell-chrome cleanup in `page.tsx` (carve-out).**
+   - Delete the deadline-banner IIFE block (approximately
+     `page.tsx:301–324`). All four banners go: T-7, T-3, T-0,
+     passed. The countdown scoreboard already conveys urgency;
+     banners are redundant.
+   - Delete the `<AddToCalendarButton>` render call (approximately
+     `page.tsx:343–347`) including its wrapping `<Reveal>` and
+     center-align div, plus its `import` at line 38.
+   - Do **NOT** delete:
+     - `src/components/trip/AddToCalendarButton.tsx` — leave
+       orphaned on disk
+     - `src/lib/copy/surfaces/cutoff.ts` banner keys — orphan
+       fine
+     - `src/lib/copy/surfaces/trip-page-shared.ts:calendar.cta`
+       — orphan fine
+
+   **Carve-out justification:** this violates the letter of
+   single-module discipline but is accepted because (a)
+   `page.tsx` is already being modified in scope items 1 + 3
+   (contiguous edits, same file); (b) the 9H mockup explicitly
+   preloaded both deletions as 9I items; (c) deletions only,
+   no new logic — minimal QA surface.
+
+**Hard Constraints:**
+
+- **DO NOT create new routes.** Three screens. That's it.
+- **DO NOT build a parallel `SellLodgingCard.tsx` / `Sell<Anything>.tsx`** component. The entire point of 9I is to delete the existing parallel (`LodgingGallery`). Adding another one is the opposite of done.
+- **DO NOT invent new lexicon keys.** Every string needed already exists — if a gap appears, STOP and escalate.
+- **DO NOT modify** `SketchModules.tsx` (sketch render call site), `LodgingAddForm.tsx`, the server actions (`castLodgingVote`, `lockLodgingWinner`, `removeLodgingOption`), or the `Lodging` / `LodgingVote` types.
+- **DO NOT add voting UI to sketch.** Voting is sell-only.
+- **DO NOT touch** the header/hero chrome, scoreboard, marquee, postcard, headliner module, transportation module, everything-else module, cost breakdown, crew, buzz, aux — any other module.
+- **DO NOT delete** `AddToCalendarButton.tsx` (file itself) or any lexicon keys. Orphan is fine; we may revive them.
+- **DO NOT "fix" Bug Backlog item 1** (null-state + date-ordering for "? nights") — separate session.
+- **DO NOT change** the module render order in `page.tsx` (crew/cost swap is its own mini-session).
+- **No hardcoded strings in JSX.** All user-facing text through `getCopy`.
+- **No hardcoded colors inside `[data-theme]`.** Only CSS variables.
+
+**Acceptance Criteria:**
+
+- [ ] `LodgingGallery.tsx` deleted — `grep -r "LodgingGallery" src/` returns zero matches.
+- [ ] On a sell trip with `lodging.length > 0`, the spot module renders wrapped in `.module-section.lodging-module` with 2.5px ink border, 16px radius, transparent bg — byte-identical frame to 9H headliner — verify on `/trip/sjtIcYZB` (Coachella, sell).
+- [ ] Section header: "the spot" left (Georgia italic lowercase 18px), `.voting-pill` right showing "open" when `votingLocked` is false, "locked in" when true — verify DOM via devtools.
+- [ ] Cards render through `LodgingCard` with `voting` prop populated. In sell mode: no `.lodging-type-badge`, no `.lodging-remove-btn`, no edit cursor on the card wrapper.
+- [ ] Tally line + voter names render on each card matching existing copy logic (1 vote / 2 votes / 3 voters with "+N more" compression).
+- [ ] Vote button click fires `castLodgingVote`, UI updates (voted state or switches spots). Tested as a signed-in non-organizer invitee.
+- [ ] Organizer lock button click fires `lockLodgingWinner` when `totalVotes >= 2`; disabled with tooltip otherwise. Tested as organizer.
+- [ ] After lock, cards show `.house-flag` = "winner" on the selected spot and `.house-flag.losing` = "not chosen" on others; `.voting-pill` reads "locked in"; `.vote-row` is hidden.
+- [ ] Sketch regression: sketch trip (`/trip/TheVfl1-`) still renders `LodgingCard` with type badge, remove button, click-to-edit flow — no `voting` prop flowing, no voting UI visible.
+- [ ] Null-state sell: on a sell trip with no lodging options, existing `<ModuleSlot>` fallback still renders with `emptyStates.lodging` copy.
+- [ ] No raw `#fff` / `rgba(255,255,255,*)` / hardcoded hex inside the lodging module. Verify: `grep -nE "#fff|rgba\(255,255,255" src/components/trip/builder/LodgingCard.tsx` returns zero matches.
+- [ ] Deadline banner gone: on a sell-phase trip at any cutoff distance (T-7 / T-3 / T-0 / passed), no `.deadline-banner` element renders between scoreboard and module stack.
+- [ ] AddToCalendarButton gone: no `.add-to-calendar` or `📅 Add to Calendar` text renders between scoreboard and description. Component file `src/components/trip/AddToCalendarButton.tsx` still exists on disk.
+- [ ] `npx tsc --noEmit` returns clean.
+- [ ] Full between-session core-loop QA checklist passes (see checklist elsewhere in this file).
+
+**Files to Read (required, before touching code):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — full skill, especially updated Part 1 (module order + "Reuse before rebuild" rule).
+- `rally-fix-plan-v1.md` — this session's brief + 9H Actuals (the pattern 9I mirrors).
+- `rally-9i-spot-sell-mockup.html` — design target + annotations (five escalation triggers live here).
+- `rally-9h-headliner-sell-mockup.html` — the precedent pattern, including Variant A (section wraps card) treatment.
+- `src/components/trip/LodgingGallery.tsx` — read in full before deleting; understand what's being consolidated.
+- `src/components/trip/builder/LodgingCard.tsx` — current prop surface + cost-math logic.
+- `src/components/trip/builder/SketchModules.tsx` lines ~183–260 — sketch call site (do NOT modify, but understand it).
+- `src/app/trip/[slug]/page.tsx` lines 38, ~300–413 — current sell render + chrome to delete.
+- `src/lib/copy/surfaces/lodging-voting.ts` (if exists, else grep `lodgingVoting.` keys) — every voting copy string.
+- `src/lib/copy/surfaces/trip-page-shared.ts` line 27 — `lodging.h2`.
+- `src/lib/copy/surfaces/cutoff.ts` — banner keys we're NOT deleting, just to confirm they're orphans.
+- `src/app/actions/lodging.ts` — `castLodgingVote`, `lockLodgingWinner` signatures.
+
+**How to QA Solo (Claude Code, before handing back):**
+
+1. Run `npx tsc --noEmit`. Fix any errors before proceeding.
+2. Run `grep -rn "LodgingGallery" src/`. Expect zero hits.
+3. Run `grep -nE "#fff|rgba\(255,255,255" src/components/trip/builder/LodgingCard.tsx`. Expect zero hits.
+4. `rm -rf .next && npm run dev` (mandatory — globals.css changed).
+5. Load a **sell trip** with 2+ lodging options, signed in as a non-organizer:
+   - Spot section renders inside a bordered frame with "the spot" title + "open" pill.
+   - Each card has tally line + vote button, no type badge, no remove button.
+   - Click vote → button toggles to "voted" (or "change vote" if already voted elsewhere), tally increments.
+   - No deadline banner between scoreboard and module stack.
+   - No Add-to-Calendar button.
+6. Switch to **sell trip as organizer**:
+   - Lock button appears next to vote button; disabled until total votes ≥ 2.
+   - Click lock → page refreshes; "winner" flag on selected, "not chosen" on others, pill flips to "locked in", vote row hidden.
+7. Load the **sketch trip** (`/trip/TheVfl1-`):
+   - Spot section renders with type badge, remove button, click-to-edit cursor (sketch behavior).
+   - No voting UI visible.
+8. Run the full between-session core-loop QA checklist in `rally-fix-plan-v1.md`.
+
+If any AC fails, either fix it before handing back or flag it as a known issue in the release notes — don't declare done with unaddressed failures.
+
+---
+
+#### Session 9I — Release Notes
+
+**What was built:**
+
+1. **Scope #1 — `LodgingGallery.tsx` deleted.** All 273 lines of the parallel
+   sell-only component (including its nested unnamed `LodgingCard` function)
+   removed from `src/components/trip/LodgingGallery.tsx`. Import + render call
+   dropped from [page.tsx](src/app/trip/[slug]/page.tsx). `grep -rn "LodgingGallery" src/`
+   returns zero hits.
+2. **Scope #2 — `LodgingCard.tsx` extended with a `voting` prop.** New optional
+   prop object on [LodgingCard.tsx](src/components/trip/builder/LodgingCard.tsx)
+   matching the locked shape from the brief (`currentUserId`, `isOrganizer`,
+   `votingLocked`, `votes`, `allLodging`, `totalVotes`). Presence of `voting` is
+   the sell-mode discriminator — absence preserves current sketch behavior
+   byte-for-byte. When `voting` is present:
+   - Click-to-edit wrapper gated off (no `onClick`, cursor stays default)
+   - `.lodging-type-badge` + `.lodging-remove-btn` hidden (sketch-only branch)
+   - `.lodging-vote-flag` (winner / losing variants) render at top-right of
+     `.house-img` when `voting.votingLocked`
+   - `.tally-line` with vote count + voter names (existing compression logic
+     preserved — `≤2` names → join comma, `>2` → `lodgingVoting.voters` template)
+   - `.vote-row` with `.btn-vote` (always when `currentUserId`) and `.btn-lock`
+     (when `isOrganizer`), hidden entirely when `votingLocked`
+   - Single shared `useTransition` for both vote and lock handlers — matches
+     deleted `LodgingGallery`'s semantics (both pending → card `opacity: 0.5`)
+   - `castLodgingVote` + `lockLodgingWinner` imports lifted verbatim from the
+     deleted gallery
+   - Link pill + cost math (`computeNights`, hotel × rooms, etc.) run unchanged
+     in both modes — invitees see the same cost line the organizer saw on sketch
+3. **Scope #3 — sell render rewired in `page.tsx`.** Replaced the
+   `<LodgingGallery>` branch with a `.module-section.lodging-module` wrap
+   mirroring the 9H headliner pattern: `.module-section-header` with
+   `.module-section-title` ("the spot" via `tripPageShared.lodging.h2`) on the
+   left, `.voting-pill.open` / `.locked` on the right. Inner `.lodging-cards`
+   iterates `lodging.map` to `<LodgingCard>` passing a fully-populated `voting`
+   prop. Null-state falls through to the existing `<ModuleSlot>` unchanged.
+4. **Scope #4 — voting CSS primitives added to `globals.css`.** New `.chassis`-
+   scoped classes placed beside existing `.module-section` primitives (near
+   [globals.css:4993](src/app/globals.css:4993)):
+   `.voting-pill` / `.open` / `.locked`, `.lodging-vote-flag` / `.losing`,
+   `.tally-line` / `.voters`, `.vote-row`, `.btn-vote` / `[data-voted="true"]`,
+   `.btn-lock` / `[disabled]`. Every declaration resolves through theme tokens
+   (`--ink`, `--accent`, `--surface`, `--on-surface`, `--stroke`). Verified via
+   live DOM probe: on VEGAS theme the voting-pill resolves to
+   `rgb(42, 16, 24)` / `rgb(253, 233, 237)`, vote button voted state resolves
+   to `rgb(255, 46, 126)` / `rgb(26, 10, 18)`. Zero raw whites.
+5. **Scope #5 — sell-chrome cleanup.** Deleted from `page.tsx`:
+   - Deadline-banner IIFE block (old lines ~301–324). All banner branches go;
+     `cutoff.ts` lexicon keys stay as orphans per brief.
+   - `<AddToCalendarButton>` render (old lines ~343–347) plus its wrapping
+     `<Reveal>` and `textAlign: 'center'` div.
+   - `import { AddToCalendarButton } from '…'` at the top of the file.
+   Component file [AddToCalendarButton.tsx](src/components/trip/AddToCalendarButton.tsx)
+   and `tripPageShared.calendar.cta` lexicon key left on disk as orphans.
+
+**What changed from the brief:**
+
+1. **Judgment call #1 — `.lodging-vote-flag` (new class) instead of the
+   mockup's `.house-flag.winner` / `.house-flag.losing` combo classes.** The
+   existing `.house-flag` primitive at
+   [globals.css:891](src/app/globals.css:891) is top-left positioned and
+   already in use by sketch's `.lodging-type-badge`. Overloading it for the
+   sell right-positioned winner/losing flag would require combo-class
+   positioning overrides and risk visual collisions. New class = clean
+   separation with no mode interaction. Flagged in the plan's "Two naming
+   deviations" section — approved at plan time.
+2. **Judgment call #2 — `var(--ink)` + `opacity` instead of `var(--muted)`.**
+   The mockup CSS referenced `var(--muted)`. No `--muted` token exists in the
+   chassis (verified via grep across `globals.css`). Followed the
+   `.lodging-card-meta` precedent ([globals.css:977](src/app/globals.css:977)):
+   `color: var(--ink); opacity: 0.5` for muted text, and `var(--surface)` bg +
+   opacity 0.5 on `.lodging-vote-flag.losing`. Flagged in the plan.
+3. **Judgment call #3 — `isSellMode` local flag (computed from
+   `voting !== undefined`)** to keep branch conditions readable. Same
+   discriminator the plan specified; just a local alias. No behavior change.
+4. **Observation, not deviation — only two banner branches deleted, not four.**
+   The brief description mentions T-7 / T-3 / T-0 / passed variants. The
+   pre-9I IIFE actually only rendered T-3 and T-0 (and a null return for the
+   other cases). The whole IIFE block went regardless. Lexicon keys for all
+   four (`cutoff.banner.t7` / `.t3` / `.t0` / `.passed`) remain orphaned as
+   the brief directed.
+
+**Verification:**
+
+- **`npx tsc --noEmit` exit 0.** Verified after final edits; no output on
+  clean runs.
+- **Grep clean.** `grep -rn "LodgingGallery" src/` → zero hits (verified after
+  scrubbing a transient mention from a new CSS comment).
+  `grep -nE "#fff|rgba\(255,255,255" src/components/trip/builder/LodgingCard.tsx`
+  → zero hits.
+- **CSS flush applied.** `pkill -f "next dev"; pkill -f "next-server";
+  pkill -f "node.*next"` → `rm -rf .next && npm run dev` before preview probe.
+  No server errors, no console errors during probe.
+- **Sketch regression (`/trip/TheVfl1-` VEGAS BABY).** DOM probe confirms
+  `.lodging-module` renders with 2 `.house` cards, 2 `.lodging-type-badge`
+  elements ("🏨 hotel"), 2 `.lodging-remove-btn` elements, 0 `.tally-line`,
+  0 `.vote-row`, 0 `.lodging-vote-flag`, 0 `.voting-pill`. Sketch path is
+  byte-identical — no voting UI leaking.
+- **Sell trip 200 status (`/trip/sjtIcYZB` Coachella).** Server responds 200;
+  server-rendered HTML contains zero matches for `deadline-banner` /
+  `AddToCalendar` / `📅` (curl + grep). Auth-gated sell render itself needs
+  Cowork eyeballs (same limitation as 9A–9H).
+- **Simulated sell-mode visual probe.** Injected `.voting-pill.open`,
+  `.tally-line`, `.vote-row` with voted `.btn-vote` + disabled `.btn-lock`,
+  and both `.lodging-vote-flag` winner + `.losing` variants into the live
+  VEGAS BABY DOM (sketch page's lodging-module). All computed styles resolve
+  through theme tokens:
+  - `.voting-pill.open`: bg `rgb(42, 16, 24)` (`--surface`), color
+    `rgb(253, 233, 237)` (`--on-surface`)
+  - `.btn-vote[data-voted="true"]`: bg `rgb(255, 46, 126)` (`--accent`),
+    color `rgb(26, 10, 18)` (`--ink`)
+  - `.btn-lock[disabled]`: `opacity: 0.4`, `cursor: not-allowed`
+  - `.lodging-vote-flag` (winner): bg `rgb(255, 46, 126)` (`--accent`),
+    `top: 12px`, `right: 12px`
+  - `.lodging-vote-flag.losing`: bg `rgb(42, 16, 24)` (`--surface`), opacity
+    `0.5`
+  - `.tally-line`: color `rgb(26, 10, 18)` (`--ink`), opacity `0.6`
+  Screenshot captured; the simulated sell render matches the mockup's Row 1
+  (voting open) + Row 2 (locked winner) treatments.
+
+**What to test (Cowork QA):**
+
+- [ ] **Pre-QA:** `pkill -f "next dev"; pkill -f "next-server";
+      pkill -f "node.*next"` → `rm -rf .next && npm run dev`.
+- [ ] **Sell trip, invitee (not organizer)** — sign in on Coachella
+      (`/trip/sjtIcYZB`) as a non-organizer crew member with `lodging.length > 0`.
+      Confirm:
+   - `.module-section.lodging-module` frame (2.5px ink border, 16px radius,
+     transparent bg). "the spot" title left, `.voting-pill.open` "voting open"
+     right.
+   - Each card: no `.lodging-type-badge`, no `.lodging-remove-btn`, default
+     cursor on wrapper (no pointer).
+   - `.tally-line` renders below `.house-body` with count + voter names.
+   - `.vote-row` with `.btn-vote` only (no `.btn-lock` for non-organizer).
+     Tap → button flips to "your pick ✓" or "change my vote"; tally increments.
+- [ ] **Sell trip, organizer** — `.btn-lock` renders next to `.btn-vote`.
+      Disabled (`[disabled]`, opacity 0.4) until `totalVotes >= 2`. Tap when
+      enabled → page refreshes; winner card shows `.lodging-vote-flag`
+      ("🗝️"), others show `.lodging-vote-flag.losing` ("not it"), pill flips
+      to "locked in", `.vote-row` hidden.
+- [ ] **Sketch regression** — `/trip/TheVfl1-`: cards show type badge +
+      remove button + click-to-edit cursor; no voting UI. (Verified
+      structurally in the harness; Cowork eyeball for visual parity.)
+- [ ] **Null-state sell** — sell trip with `lodging.length === 0` →
+      `<ModuleSlot>` fallback renders with `emptyStates.lodging` copy
+      (unchanged).
+- [ ] **Deadline banner gone** — sell trip at any cutoff distance (T-7 / T-3
+      / T-0 / passed): scroll goes scoreboard → description → module stack,
+      no `.deadline-banner` element between them.
+- [ ] **AddToCalendarButton gone from sell** — no `.add-to-calendar` / "📅
+      Add to Calendar" between scoreboard and description.
+      [AddToCalendarButton.tsx](src/components/trip/AddToCalendarButton.tsx)
+      still exists on disk (orphaned).
+- [ ] **`npx tsc --noEmit`** exit 0.
+- [ ] **`git diff src/components/trip/builder/SketchModules.tsx`** empty.
+- [ ] **`git diff src/app/actions/lodging.ts`** empty.
+- [ ] Core-loop regression: between-session QA checklist from this file's
+      Step 4b.
+
+**Known issues:**
+
+- **Authed sell render not verified in harness.** Same blocker as 9A / 9C /
+  9D / 9D-fix / 9E / 9F / 9G / 9H — the preview browser has no Supabase
+  session, so `/trip/sjtIcYZB` short-circuits to `InviteeShell`. Verified
+  structurally via (1) 200-status server response, (2) server-rendered HTML
+  grep confirming banner + AddToCalendar are gone, (3) DOM-injection
+  simulation of sell-mode voting elements into the sketch page probing all
+  new CSS classes for theme-token resolution.
+- **Turbopack `ChunkLoadError` flake** not observed this session (first run
+  on a clean `.next`), but pre-existing per 9F/9G/9H — may recur on cross-
+  route navigation and require another clean-restart.
+- **Lexicon wart pre-existing, not 9I scope.** `lodgingVoting.tally` renders
+  "1 votes" for n=1 (no singular form). Pre-existing behavior, moved
+  verbatim from `LodgingGallery` per brief's "match existing copy logic"
+  directive. Log in bug backlog if QA wants it fixed.
+- **Old LodgingGallery used `useRouter().refresh()`** after server actions;
+  however both `castLodgingVote` and `lockLodgingWinner` already call
+  `revalidatePath(/trip/${slug})` ([lodging.ts:76,131](src/app/actions/lodging.ts:76)).
+  The `router.refresh()` call is technically redundant but preserved
+  verbatim because the brief's escalation trigger #4 directs preserving the
+  `useTransition` semantics. No behavior change.
+
+**Status:** 9I shipped. Single-module discipline respected for the spot
+consolidation proper; the two sell-chrome deletions (banner IIFE + AddToCalendar)
+were bundled per the carve-out the 9H mockup pre-approved. No new lexicon
+keys added. No new routes. No parallel components. `LodgingCard` remains
+a single file at ~245 lines post-extension (escalation trigger #1 resolution:
+no split needed).
 
 ---
 
