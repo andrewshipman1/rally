@@ -1,14 +1,17 @@
-// Inline crew section for the trip page. Extracted from the former
-// /trip/[slug]/crew route page. Shows members grouped by RSVP state
-// with summary strip and invite button.
+'use client';
 
+// Inline crew section for the trip page. Rebuilt in 9M:
+// - Wrapped in `.module-section.crew-module` (sibling-pattern bordered container).
+// - Per-state collapsibles with avatar-pile preview + chevron.
+// - States with zero members are hidden entirely (no empty-state
+//   placeholders inside collapsed shells).
+
+import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
 import type { RallyRsvp } from '@/lib/rally-types';
 import type { TripMember, User } from '@/types';
-import { Reveal } from '@/components/ui/Reveal';
-import { CrewInviteButton } from './CrewInviteButton';
 import { CrewAvatarTap } from './CrewAvatarTap';
 
 type MemberRow = TripMember & { user: User };
@@ -23,25 +26,22 @@ type Props = {
   slug: string;
 };
 
-const STATE_ORDER: readonly RallyRsvp[] = ['in', 'holding', 'out'] as const;
-
-const EMPTY_KEY: Record<RallyRsvp, string> = {
-  in: 'crew.emptyStateIn',
-  holding: 'crew.emptyStateHolding',
-  out: 'crew.emptyStateOut',
-  pending: 'crew.emptyStatePending',
-};
+const STATE_ORDER: readonly RallyRsvp[] = ['in', 'holding', 'out', 'pending'] as const;
+const PILE_LIMIT = 5;
 
 export function CrewSection({
   members,
   organizerId,
   currentUserId,
   themeId,
-  tripName,
-  tripId,
-  slug,
 }: Props) {
-  // Group by RSVP state. Organizer first within each bucket.
+  const [expanded, setExpanded] = useState<Record<RallyRsvp, boolean>>({
+    in: false,
+    holding: false,
+    out: false,
+    pending: false,
+  });
+
   const buckets: Record<RallyRsvp, MemberRow[]> = {
     in: [],
     holding: [],
@@ -60,57 +60,98 @@ export function CrewSection({
   }
 
   const inCount = buckets.in.length;
-  const holdingCount = buckets.holding.length;
-  const outCount = buckets.out.length;
+  const total = members.length;
+  const eyebrowKey =
+    total > inCount ? 'crew.eyebrowRalliedPartial' : 'crew.eyebrowRalliedAll';
+
+  const toggle = (state: RallyRsvp) =>
+    setExpanded((prev) => ({ ...prev, [state]: !prev[state] }));
 
   return (
-    <div className="crew-inline">
-      <Reveal delay={0}>
-        <h2 className="module-title">{getCopy(themeId, 'crew.pageTitle')}</h2>
-        <p className="crew-subtitle">
-          {getCopy(themeId, 'crew.pageSubtitle', { n: inCount, trip_name: tripName })}
-        </p>
-
-        <div className="crew-summary">
-          <span className="crew-tally">
-            <strong>{inCount}</strong> {getCopy(themeId, 'crew.summaryIn')}
-          </span>
-          <span className="crew-tally">
-            <strong>{holdingCount}</strong> {getCopy(themeId, 'crew.summaryHolding')}
-          </span>
-          <span className="crew-tally">
-            <strong>{outCount}</strong> {getCopy(themeId, 'crew.summaryOut')}
-          </span>
-        </div>
-      </Reveal>
-
-      {STATE_ORDER.map((state, i) => (
-        <Reveal key={state} delay={0.05 + i * 0.05} direction="left">
-          <section className="crew-section">
-            <h3 className="crew-section-title">
-              {getCopy(themeId, `rsvp.crew.section.${state}`)}
-            </h3>
-            {buckets[state].length === 0 ? (
-              <p className="crew-empty">{getCopy(themeId, EMPTY_KEY[state])}</p>
-            ) : (
-              <ul className="crew-rows">
-                {buckets[state].map((m) => (
-                  <CrewRow
-                    key={m.id}
-                    member={m}
-                    state={state}
-                    isOrganizer={m.user_id === organizerId}
-                    isViewer={m.user_id === currentUserId}
-                    themeId={themeId}
-                  />
+    <div className="module-section crew-module">
+      <div className="module-section-header">
+        <span className="module-section-title">
+          {getCopy(themeId, 'crew.pageTitle')}
+        </span>
+        <span className="module-section-count">
+          {getCopy(themeId, eyebrowKey, { n: inCount, total })}
+        </span>
+      </div>
+      {STATE_ORDER.map((state) => {
+        const rows = buckets[state];
+        if (rows.length === 0) return null;
+        const isExpanded = expanded[state];
+        const pileRows = rows.slice(0, PILE_LIMIT);
+        const overflow = Math.max(0, rows.length - PILE_LIMIT);
+        return (
+          <div
+            key={state}
+            className={`crew-state-collapsible${isExpanded ? ' expanded' : ''}`}
+          >
+            <button
+              type="button"
+              className="crew-state-header"
+              aria-expanded={isExpanded}
+              onClick={() => toggle(state)}
+            >
+              <span className="crew-state-header-left">
+                <span className={`crew-tally-pill ${state}`}>
+                  <strong>{rows.length}</strong>{' '}
+                  {getCopy(themeId, `rsvp.crew.section.${state}`)}
+                </span>
+              </span>
+              <span className="crew-state-pile">
+                {pileRows.map((m) => (
+                  <PileAvatar key={m.id} member={m} />
                 ))}
-              </ul>
+                {overflow > 0 && (
+                  <span className="crew-pile-more">+{overflow}</span>
+                )}
+              </span>
+              <span className="crew-chevron" aria-hidden="true">
+                ›
+              </span>
+            </button>
+            {isExpanded && (
+              <div className="crew-state-rows-wrap">
+                <ul className="crew-rows">
+                  {rows.map((m) => (
+                    <CrewRow
+                      key={m.id}
+                      member={m}
+                      state={state}
+                      isOrganizer={m.user_id === organizerId}
+                      isViewer={m.user_id === currentUserId}
+                      themeId={themeId}
+                    />
+                  ))}
+                </ul>
+              </div>
             )}
-          </section>
-        </Reveal>
-      ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
-      <CrewInviteButton tripId={tripId} slug={slug} themeId={themeId} />
+function PileAvatar({ member }: { member: MemberRow }) {
+  const name = member.user?.display_name ?? '?';
+  const initial = name.slice(0, 1).toUpperCase();
+  if (member.user?.profile_photo_url) {
+    return (
+      <div
+        className="crew-pile-av"
+        style={{
+          background: `url(${member.user.profile_photo_url}) center/cover`,
+        }}
+        aria-hidden="true"
+      />
+    );
+  }
+  return (
+    <div className="crew-pile-av" aria-hidden="true">
+      {initial}
     </div>
   );
 }

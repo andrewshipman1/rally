@@ -18,6 +18,12 @@ export const crew: Record<string, Templated> = {
   'summaryHolding':       'holding',
   'summaryOut':           'out',
 
+  // ─── Sell-module eyebrow (9M — module-section header count slot).
+  //     "n" is the count in `in`; "total" is total invited. Two keys
+  //     so the component can pick based on rallied === total.
+  'eyebrowRalliedAll':     ({ n }: ThemeVars) => `${n ?? '?'} rallied`,
+  'eyebrowRalliedPartial': ({ n, total }: ThemeVars) => `${n ?? '?'} rallied · ${total ?? '?'} total`,
+
   // ─── Row details ────────────────────────────────────────────────
   'hostMarker':           '👑',
   'youTag':               'you',

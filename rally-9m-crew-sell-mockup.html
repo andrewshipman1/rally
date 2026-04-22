@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9M: Crew sell-phase design</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9M SCOPE — CREW SELL-PHASE DESIGN (Cowork draft, 2026-04-22)
+
+     THE QUESTION:
+     CrewSection is the only sell-page module that does NOT sit
+     inside the .module-section bordered container. Every other
+     module (headliner, spot, getting-here, transport, everything-
+     else, cost summary) uses the same primitive: bordered rounded
+     container with .module-section-header (title + right-side
+     eyebrow). Crew uses .crew-inline (24px top margin, no border,
+     no container) with its own custom class namespace (.crew-title,
+     .crew-subtitle, .crew-summary, .crew-tally, etc.) that
+     predates the module-section pattern.
+
+     Is that distinction INTENTIONAL (crew is a "human" module,
+     deliberately lighter visual weight) or DRIFT (crew never got
+     aligned to the primitive)?
+
+     This mockup presents both directions as paths for Andrew
+     to choose between:
+     - Path A: join the pattern — crew gets a bordered container
+       matching its siblings.
+     - Path B: stay distinct — crew keeps the borderless
+       treatment, gets polish (tally-pill restyling, tighter
+       hierarchy, cleaner empty states).
+
+     HYGIENE FINDINGS (all paths):
+     - CrewSection.tsx is lexicon-compliant (no hardcoded English)
+     - No raw hex/rgba
+     - No dead var(--rally-*) tokens
+     - Three inline style={{…}} blocks (all token-based or layout
+       utilities; could be lifted to classes but minor)
+     - members={members as any} cast at page.tsx:487 — likely
+       a prop-type mismatch being papered over; unrelated to
+       visual design, needs its own investigation
+
+     OUT OF SCOPE HERE (deferred to eventual brief):
+     - Per-row sell-only affordances (edit from passport drawer,
+       etc.) — Session 10+ organizer-edit-on-sell territory.
+     - Sketch-side crew surface — different component, separate pass.
+     - Passport drawer content (CrewAvatarTap opens it unchanged).
+     - Invite modal flow itself (CrewInviteButton wraps the
+       existing InviteModal; no changes proposed).
+     - Members-prop type fix (`as any` cleanup) — follow-up bug
+       bash item, not tied to this visual session.
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --doc-bg: #2a2a2a;
+    --doc-text: #faf8f5;
+    --doc-muted: #888;
+    --doc-accent: #ffd84d;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .doc-header {
+    max-width: 900px;
+    margin: 0 auto 16px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: var(--doc-text);
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: var(--doc-muted);
+    line-height: 1.5;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+
+  .row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+  .row-label {
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-top: 36px;
+    margin-bottom: 8px;
+  }
+
+  /* Phone scaffold with per-frame theme tokens */
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 18px 0 28px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+
+    /* Default theme (neutral cream) */
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --surface: #ffffff;
+    --on-surface: #1a1a1a;
+    --accent: #ffd84d;
+    --accent2: #5bb7d8;
+    --muted: #8a8680;
+    --sticker-bg: #f2e0d0;
+    --border: #1a1a1a;
+  }
+  .frame.current { background: #e8ddd0; --bg: #e8ddd0; }
+
+  /* Coachella variant */
+  .frame.coachella {
+    --bg: #f5e6d3;
+    --ink: #2a1810;
+    --surface: #fffaf0;
+    --on-surface: #2a1810;
+    --accent: #b84a2f;
+    --accent2: #d4a574;
+    --muted: #8a6b55;
+    --sticker-bg: #ead4bc;
+    --border: #2a1810;
+    background: #f5e6d3;
+  }
+
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+
+  .context-stub {
+    opacity: .28;
+    pointer-events: none;
+    padding: 10px 18px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-bottom: 1px dashed rgba(26,26,26,.3);
+    margin: 0 0 16px;
+  }
+  .context-stub.below {
+    border-bottom: none;
+    border-top: 1px dashed rgba(26,26,26,.3);
+    margin: 16px 0 0;
+  }
+
+  /* ─── Path A: joined to .module-section primitive ─── */
+  .module-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 24px;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    margin: 0 18px;
+    background: transparent;
+  }
+  .module-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px;
+  }
+  .module-section-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.1;
+    color: var(--ink);
+    text-transform: lowercase;
+  }
+  .module-section-count {
+    font-family: 'Caveat', 'Georgia', serif;
+    font-size: 16px;
+    color: var(--ink);
+    opacity: 0.5;
+  }
+
+  /* ─── Path B: inline / borderless (current direction, refined) ─── */
+  .crew-inline {
+    padding: 0 18px;
+    margin-top: 14px;
+  }
+  .crew-inline-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--ink);
+    text-transform: lowercase;
+  }
+  .crew-inline-sub {
+    font-family: 'Caveat', 'Georgia', serif;
+    font-size: 16px;
+    color: var(--ink);
+    opacity: 0.5;
+    margin-top: 2px;
+  }
+
+  /* Summary tally (shared by both paths, different treatments) */
+  .crew-summary-new {
+    display: flex;
+    gap: 6px;
+    margin: 10px 0 8px;
+    flex-wrap: wrap;
+  }
+  .crew-tally-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ink) 8%, transparent);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .crew-tally-pill strong {
+    font-weight: 700;
+  }
+  .crew-tally-pill.in strong { color: var(--ink); }
+  .crew-tally-pill.holding strong { color: color-mix(in srgb, var(--ink) 70%, transparent); }
+  .crew-tally-pill.out strong { color: color-mix(in srgb, var(--ink) 50%, transparent); }
+
+  /* Per-state sections */
+  .crew-state-section {
+    margin-top: 12px;
+  }
+  .crew-state-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink);
+    text-transform: lowercase;
+    margin-bottom: 6px;
+  }
+  .crew-state-title.dim {
+    opacity: 0.5;
+  }
+  .crew-empty {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .crew-rows {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .crew-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .crew-row-av {
+    width: 36px;
+    height: 36px;
+    border-radius: 100px;
+    background: var(--sticker-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Georgia, serif;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+  .crew-row-av.photo {
+    background-image: linear-gradient(135deg, #9cb4d8, #c8a4d6);
+  }
+  .crew-row-body {
+    min-width: 0;
+    flex: 1;
+  }
+  .crew-row-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .crew-row-host {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 4px;
+    font-weight: 400;
+  }
+  .crew-row-you {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .crew-row-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .crew-invite-btn {
+    display: block;
+    width: 100%;
+    margin: 14px 0 0;
+    padding: 11px 16px;
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    text-transform: lowercase;
+    font-family: inherit;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+
+  /* ─── Path C: Collapsible state sections w/ avatar pile preview ─── */
+  .crew-state-collapsible {
+    border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+    padding: 10px 0;
+  }
+  .crew-state-collapsible:last-of-type {
+    border-bottom: none;
+  }
+  .crew-state-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .crew-state-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+  .crew-state-pile {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+  }
+  .crew-pile-av {
+    width: 28px;
+    height: 28px;
+    border-radius: 100px;
+    background: var(--sticker-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Georgia, serif;
+    font-weight: 800;
+    font-size: 12px;
+    color: var(--ink);
+    border: 2px solid var(--bg);
+    margin-left: -8px;
+    flex-shrink: 0;
+  }
+  .crew-pile-av:first-child {
+    margin-left: 0;
+  }
+  .crew-pile-av.photo {
+    background-image: linear-gradient(135deg, #9cb4d8, #c8a4d6);
+  }
+  .crew-pile-more {
+    margin-left: -8px;
+    background: var(--sticker-bg);
+    border: 2px solid var(--bg);
+    border-radius: 100px;
+    padding: 0 9px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .crew-chevron {
+    font-size: 14px;
+    color: var(--muted);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .crew-state-collapsible.expanded .crew-chevron {
+    transform: rotate(90deg);
+  }
+  .crew-state-rows-wrap {
+    display: none;
+    margin-top: 10px;
+    padding-left: 0;
+  }
+  .crew-state-collapsible.expanded .crew-state-rows-wrap {
+    display: block;
+  }
+  .crew-state-empty {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    margin-left: auto;
+  }
+
+  /* ─── Current ("before") render — borderless, older tally treatment ─── */
+  .current-crew-container {
+    padding: 24px 18px 0;
+  }
+  .current-module-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 24px;
+    color: var(--ink);
+    text-transform: lowercase;
+    margin-bottom: 4px;
+  }
+  .current-subtitle {
+    font-family: 'Caveat', 'Georgia', serif;
+    font-size: 15px;
+    color: var(--ink);
+    opacity: 0.7;
+    margin-bottom: 12px;
+  }
+  .current-summary {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0 18px;
+  }
+  .current-tally {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .current-tally strong { font-weight: 700; }
+
+  /* Annotations */
+  .annotation {
+    max-width: 980px;
+    margin: 44px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 20px 24px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: var(--doc-text);
+    margin: 16px 0 8px;
+  }
+  .annotation h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--doc-accent);
+    margin: 14px 0 4px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--doc-accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--doc-accent); }
+  .frame-caption {
+    width: 375px;
+    margin: 8px auto 0;
+    padding: 8px 14px;
+    background: rgba(255,255,255,.04);
+    color: #a8a29a;
+    font-size: 11px;
+    line-height: 1.5;
+    border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9m · sell · crew design (draft)</div>
+  <div class="doc-title">the crew — pick a direction</div>
+  <div class="doc-sub">
+    Crew is the only sell-page module without a bordered
+    <code>.module-section</code> container. Intentional? Drift?
+    Two paths side-by-side, both refined. Pick one; the brief
+    gets written against it.
+  </div>
+</div>
+
+<!-- ═══ ROW 1: CURRENT (BEFORE) — for context ═══ -->
+<div class="row-label">row 1 · what sell shows today</div>
+<div class="row">
+  <div class="frame current">
+    <div class="frame-label">current · crew-inline · no border · old tally treatment</div>
+    <div class="context-stub">▲ everything else</div>
+    <div class="current-crew-container">
+      <div class="current-module-title">the crew</div>
+      <div class="current-subtitle">1 rallied · coachella 2026!!!</div>
+      <div class="current-summary">
+        <span class="current-tally"><strong>1</strong> in</span>
+        <span class="current-tally"><strong>0</strong> holding</span>
+        <span class="current-tally"><strong>0</strong> out</span>
+      </div>
+
+      <div class="crew-state-section">
+        <div class="crew-state-title">in</div>
+        <ul class="crew-rows">
+          <li class="crew-row">
+            <div class="crew-row-av photo"></div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Andrew Shipman <span class="crew-row-host">👑 host</span> <span class="crew-row-you">· you</span></div>
+              <div class="crew-row-sub">rsvp'd about 14 hours ago</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="crew-state-section">
+        <div class="crew-state-title dim">holding</div>
+        <p class="crew-empty">everyone's decided</p>
+      </div>
+      <div class="crew-state-section">
+        <div class="crew-state-title dim">out</div>
+        <p class="crew-empty">nobody's out — knock on wood 👌</p>
+      </div>
+
+    </div>
+    <div class="context-stub below">▼ cost summary</div>
+  </div>
+  <div class="frame-caption">
+    Borderless. Title is 24px Georgia (larger than sibling module
+    titles at 18px). Subtitle in Caveat at 0.7 opacity. Summary
+    pills are solid dark ink with bg-color text — same loud
+    treatment we just retired from transport in 9K. No visual
+    container; crew floats in page gutter.
+  </div>
+</div>
+
+<!-- ═══ ROW 2: PATH A — aligned to .module-section ═══ -->
+<div class="row-label">row 2 · path a · aligned to .module-section (match siblings)</div>
+<div class="row">
+
+  <div class="frame">
+    <div class="frame-label">path a · bordered container · sibling pattern</div>
+    <div class="context-stub">▲ everything else</div>
+    <div class="module-section" style="margin-top: 14px;">
+      <div class="module-section-header">
+        <span class="module-section-title">the crew</span>
+        <span class="module-section-count">1 rallied</span>
+      </div>
+
+      <div class="crew-summary-new">
+        <span class="crew-tally-pill in"><strong>1</strong> in</span>
+        <span class="crew-tally-pill holding"><strong>0</strong> holding</span>
+        <span class="crew-tally-pill out"><strong>0</strong> out</span>
+      </div>
+
+      <div class="crew-state-section">
+        <div class="crew-state-title">in</div>
+        <ul class="crew-rows">
+          <li class="crew-row">
+            <div class="crew-row-av photo"></div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Andrew Shipman <span class="crew-row-host">👑 host</span> <span class="crew-row-you">· you</span></div>
+              <div class="crew-row-sub">rsvp'd about 14 hours ago</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="crew-state-section">
+        <div class="crew-state-title dim">holding</div>
+        <p class="crew-empty">everyone's decided</p>
+      </div>
+      <div class="crew-state-section">
+        <div class="crew-state-title dim">out</div>
+        <p class="crew-empty">nobody's out — knock on wood 👌</p>
+      </div>
+
+    </div>
+    <div class="context-stub below">▼ cost summary</div>
+  </div>
+
+  <!-- Path A populated state -->
+  <div class="frame">
+    <div class="frame-label">path a · populated · 3 in, 1 holding, 1 out</div>
+    <div class="context-stub">▲ everything else</div>
+    <div class="module-section" style="margin-top: 14px;">
+      <div class="module-section-header">
+        <span class="module-section-title">the crew</span>
+        <span class="module-section-count">3 rallied</span>
+      </div>
+
+      <div class="crew-summary-new">
+        <span class="crew-tally-pill in"><strong>3</strong> in</span>
+        <span class="crew-tally-pill holding"><strong>1</strong> holding</span>
+        <span class="crew-tally-pill out"><strong>1</strong> out</span>
+      </div>
+
+      <div class="crew-state-section">
+        <div class="crew-state-title">in</div>
+        <ul class="crew-rows">
+          <li class="crew-row">
+            <div class="crew-row-av photo"></div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Andrew Shipman <span class="crew-row-host">👑 host</span> <span class="crew-row-you">· you</span></div>
+              <div class="crew-row-sub">rsvp'd about 14 hours ago</div>
+            </div>
+          </li>
+          <li class="crew-row">
+            <div class="crew-row-av">K</div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Kira Patel</div>
+              <div class="crew-row-sub">rsvp'd 2 days ago · +1 Sam</div>
+            </div>
+          </li>
+          <li class="crew-row">
+            <div class="crew-row-av">M</div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Marcus Lee</div>
+              <div class="crew-row-sub">rsvp'd 3 days ago</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="crew-state-section">
+        <div class="crew-state-title">holding</div>
+        <ul class="crew-rows">
+          <li class="crew-row">
+            <div class="crew-row-av">J</div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Jess Rodriguez</div>
+              <div class="crew-row-sub">rsvp'd 1 day ago</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="crew-state-section">
+        <div class="crew-state-title">out</div>
+        <ul class="crew-rows">
+          <li class="crew-row">
+            <div class="crew-row-av">D</div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Dani Kim</div>
+              <div class="crew-row-sub">can't swing the dates 😔</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="context-stub below">▼ cost summary</div>
+  </div>
+
+</div>
+<div class="frame-caption">
+  <strong>Path A reads like the rest of the page.</strong> Same
+  bordered rounded container. Same title/eyebrow header treatment.
+  Same spacing rhythm. Tally pills softened to subtle ink-on-ink
+  (no more loud black-with-white). Empty states in small italic.
+  Visual weight: moderate — bordered but not aggressive.
+</div>
+
+<!-- ═══ ROW 3: PATH B — stay distinct, polish only ═══ -->
+<div class="row-label">row 3 · path b · stay distinct · borderless · polish</div>
+<div class="row">
+
+  <div class="frame">
+    <div class="frame-label">path b · borderless · refined · crew is "human"</div>
+    <div class="context-stub">▲ everything else</div>
+    <div class="crew-inline">
+      <div class="crew-inline-title">the crew</div>
+      <div class="crew-inline-sub">1 rallied · coachella 2026!!!</div>
+
+      <div class="crew-summary-new">
+        <span class="crew-tally-pill in"><strong>1</strong> in</span>
+        <span class="crew-tally-pill holding"><strong>0</strong> holding</span>
+        <span class="crew-tally-pill out"><strong>0</strong> out</span>
+      </div>
+
+      <div class="crew-state-section">
+        <div class="crew-state-title">in</div>
+        <ul class="crew-rows">
+          <li class="crew-row">
+            <div class="crew-row-av photo"></div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Andrew Shipman <span class="crew-row-host">👑 host</span> <span class="crew-row-you">· you</span></div>
+              <div class="crew-row-sub">rsvp'd about 14 hours ago</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="crew-state-section">
+        <div class="crew-state-title dim">holding</div>
+        <p class="crew-empty">everyone's decided</p>
+      </div>
+      <div class="crew-state-section">
+        <div class="crew-state-title dim">out</div>
+        <p class="crew-empty">nobody's out — knock on wood 👌</p>
+      </div>
+
+    </div>
+    <div class="context-stub below">▼ cost summary</div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-label">path b · populated · borderless flow</div>
+    <div class="context-stub">▲ everything else</div>
+    <div class="crew-inline">
+      <div class="crew-inline-title">the crew</div>
+      <div class="crew-inline-sub">3 rallied · coachella 2026!!!</div>
+
+      <div class="crew-summary-new">
+        <span class="crew-tally-pill in"><strong>3</strong> in</span>
+        <span class="crew-tally-pill holding"><strong>1</strong> holding</span>
+        <span class="crew-tally-pill out"><strong>1</strong> out</span>
+      </div>
+
+      <div class="crew-state-section">
+        <div class="crew-state-title">in</div>
+        <ul class="crew-rows">
+          <li class="crew-row">
+            <div class="crew-row-av photo"></div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Andrew Shipman <span class="crew-row-host">👑 host</span> <span class="crew-row-you">· you</span></div>
+              <div class="crew-row-sub">rsvp'd about 14 hours ago</div>
+            </div>
+          </li>
+          <li class="crew-row">
+            <div class="crew-row-av">K</div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Kira Patel</div>
+              <div class="crew-row-sub">rsvp'd 2 days ago · +1 Sam</div>
+            </div>
+          </li>
+          <li class="crew-row">
+            <div class="crew-row-av">M</div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Marcus Lee</div>
+              <div class="crew-row-sub">rsvp'd 3 days ago</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="crew-state-section">
+        <div class="crew-state-title">holding</div>
+        <ul class="crew-rows">
+          <li class="crew-row">
+            <div class="crew-row-av">J</div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Jess Rodriguez</div>
+              <div class="crew-row-sub">rsvp'd 1 day ago</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="crew-state-section">
+        <div class="crew-state-title">out</div>
+        <ul class="crew-rows">
+          <li class="crew-row">
+            <div class="crew-row-av">D</div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Dani Kim</div>
+              <div class="crew-row-sub">can't swing the dates 😔</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="context-stub below">▼ cost summary</div>
+  </div>
+
+</div>
+<div class="frame-caption">
+  <strong>Path B keeps crew distinct.</strong> No bordered container
+  — crew "breathes" in the page gutter. Title matches sibling
+  18px/Georgia/italic (not the current oversized 24px). Subtitle
+  in Caveat at 0.5 opacity (matches everything-else's "rough estimate"
+  eyebrow style). Same tally/row/invite treatment as Path A —
+  only the outer shell differs.
+</div>
+
+<!-- ═══ ROW 4: PATH C — collapsible at scale ═══ -->
+<div class="row-label">row 4 · path c · collapsible at scale · 12-person crew</div>
+<div class="row">
+
+  <!-- Path C default (collapsed) -->
+  <div class="frame">
+    <div class="frame-label">path c · default · all states collapsed · avatar pile preview</div>
+    <div class="context-stub">▲ everything else</div>
+    <div class="module-section" style="margin-top: 14px; gap: 6px;">
+      <div class="module-section-header">
+        <span class="module-section-title">the crew</span>
+        <span class="module-section-count">9 rallied · 12 total</span>
+      </div>
+
+      <div class="crew-state-collapsible">
+        <div class="crew-state-header">
+          <div class="crew-state-header-left">
+            <span class="crew-tally-pill in"><strong>9</strong> in</span>
+          </div>
+          <div class="crew-state-pile">
+            <div class="crew-pile-av photo"></div>
+            <div class="crew-pile-av">K</div>
+            <div class="crew-pile-av">M</div>
+            <div class="crew-pile-av">P</div>
+            <div class="crew-pile-av">L</div>
+            <div class="crew-pile-more">+4</div>
+          </div>
+          <span class="crew-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="crew-state-collapsible">
+        <div class="crew-state-header">
+          <div class="crew-state-header-left">
+            <span class="crew-tally-pill holding"><strong>2</strong> holding</span>
+          </div>
+          <div class="crew-state-pile">
+            <div class="crew-pile-av">J</div>
+            <div class="crew-pile-av">R</div>
+          </div>
+          <span class="crew-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="crew-state-collapsible">
+        <div class="crew-state-header">
+          <div class="crew-state-header-left">
+            <span class="crew-tally-pill out"><strong>1</strong> out</span>
+          </div>
+          <div class="crew-state-pile">
+            <div class="crew-pile-av">D</div>
+          </div>
+          <span class="crew-chevron">›</span>
+        </div>
+      </div>
+    </div>
+    <div class="context-stub below">▼ cost summary</div>
+  </div>
+
+  <!-- Path C: "in" expanded -->
+  <div class="frame">
+    <div class="frame-label">path c · "in" expanded · shows roster · others stay collapsed</div>
+    <div class="context-stub">▲ everything else</div>
+    <div class="module-section" style="margin-top: 14px; gap: 6px;">
+      <div class="module-section-header">
+        <span class="module-section-title">the crew</span>
+        <span class="module-section-count">9 rallied · 12 total</span>
+      </div>
+
+      <div class="crew-state-collapsible expanded">
+        <div class="crew-state-header">
+          <div class="crew-state-header-left">
+            <span class="crew-tally-pill in"><strong>9</strong> in</span>
+          </div>
+          <div class="crew-state-pile">
+            <div class="crew-pile-av photo"></div>
+            <div class="crew-pile-av">K</div>
+            <div class="crew-pile-av">M</div>
+            <div class="crew-pile-av">P</div>
+            <div class="crew-pile-av">L</div>
+            <div class="crew-pile-more">+4</div>
+          </div>
+          <span class="crew-chevron">›</span>
+        </div>
+        <div class="crew-state-rows-wrap">
+          <ul class="crew-rows">
+            <li class="crew-row">
+              <div class="crew-row-av photo"></div>
+              <div class="crew-row-body">
+                <div class="crew-row-name">Andrew Shipman <span class="crew-row-host">👑 host</span> <span class="crew-row-you">· you</span></div>
+                <div class="crew-row-sub">rsvp'd about 14 hours ago</div>
+              </div>
+            </li>
+            <li class="crew-row">
+              <div class="crew-row-av">K</div>
+              <div class="crew-row-body">
+                <div class="crew-row-name">Kira Patel</div>
+                <div class="crew-row-sub">rsvp'd 2 days ago · +1 Sam</div>
+              </div>
+            </li>
+            <li class="crew-row">
+              <div class="crew-row-av">M</div>
+              <div class="crew-row-body">
+                <div class="crew-row-name">Marcus Lee</div>
+                <div class="crew-row-sub">rsvp'd 3 days ago</div>
+              </div>
+            </li>
+            <li class="crew-row">
+              <div class="crew-row-av">P</div>
+              <div class="crew-row-body">
+                <div class="crew-row-name">Priya Raman</div>
+                <div class="crew-row-sub">rsvp'd 3 days ago</div>
+              </div>
+            </li>
+            <li class="crew-row">
+              <div class="crew-row-av">L</div>
+              <div class="crew-row-body">
+                <div class="crew-row-name">Lucas Wei</div>
+                <div class="crew-row-sub">rsvp'd 4 days ago</div>
+              </div>
+            </li>
+            <li class="crew-row" style="opacity: 0.55; font-size: 12px;">
+              <div class="crew-row-body" style="text-align: center; padding: 4px 0;">
+                + 4 more — still loading …
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="crew-state-collapsible">
+        <div class="crew-state-header">
+          <div class="crew-state-header-left">
+            <span class="crew-tally-pill holding"><strong>2</strong> holding</span>
+          </div>
+          <div class="crew-state-pile">
+            <div class="crew-pile-av">J</div>
+            <div class="crew-pile-av">R</div>
+          </div>
+          <span class="crew-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="crew-state-collapsible">
+        <div class="crew-state-header">
+          <div class="crew-state-header-left">
+            <span class="crew-tally-pill out"><strong>1</strong> out</span>
+          </div>
+          <div class="crew-state-pile">
+            <div class="crew-pile-av">D</div>
+          </div>
+          <span class="crew-chevron">›</span>
+        </div>
+      </div>
+    </div>
+    <div class="context-stub below">▼ cost summary</div>
+  </div>
+
+</div>
+<div class="frame-caption">
+  <strong>Path C: state sections collapse into pile-previews.</strong>
+  Each state shows tally pill + overlapping avatar row (first 5)
+  + chevron. Tap the state header → expands to the full roster.
+  Others stay collapsed. At 12 people the whole module is ~220px
+  tall collapsed vs ~760px fully expanded (Path A populated). Scales
+  cleanly — same shape at 3 people or 30. Works with Path A
+  (bordered, shown here) or Path B (borderless) — the
+  collapsible behavior is orthogonal to container choice.
+  <br><br>
+  <em>Interaction</em>: the "+ 4 more — still loading…" row in
+  the expanded frame is a stand-in for whatever progressive-
+  disclosure treatment we want (lazy-load, "show more" link,
+  or render-all once expanded). Decide during brief.
+</div>
+
+<!-- ═══ ROW 5: PATH A — Coachella theme variant ═══ -->
+<div class="row-label">row 5 · path a · coachella theme variant</div>
+<div class="row">
+
+  <div class="frame coachella">
+    <div class="frame-label">path a · coachella palette · terracotta accent</div>
+    <div class="context-stub">▲ everything else</div>
+    <div class="module-section" style="margin-top: 14px;">
+      <div class="module-section-header">
+        <span class="module-section-title">the crew</span>
+        <span class="module-section-count">2 rallied</span>
+      </div>
+
+      <div class="crew-summary-new">
+        <span class="crew-tally-pill in"><strong>2</strong> in</span>
+        <span class="crew-tally-pill holding"><strong>0</strong> holding</span>
+        <span class="crew-tally-pill out"><strong>0</strong> out</span>
+      </div>
+
+      <div class="crew-state-section">
+        <div class="crew-state-title">in</div>
+        <ul class="crew-rows">
+          <li class="crew-row">
+            <div class="crew-row-av photo"></div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Andrew Shipman <span class="crew-row-host">👑 host</span> <span class="crew-row-you">· you</span></div>
+              <div class="crew-row-sub">rsvp'd about 14 hours ago</div>
+            </div>
+          </li>
+          <li class="crew-row">
+            <div class="crew-row-av">J</div>
+            <div class="crew-row-body">
+              <div class="crew-row-name">Jordan Park</div>
+              <div class="crew-row-sub">rsvp'd 5 days ago</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="context-stub below">▼ cost summary</div>
+  </div>
+</div>
+<div class="frame-caption">
+  Theme tokens only — no hardcoded colors. Invite button picks
+  up <code>var(--ink)</code> (deep brown on Coachella); tally
+  pills use <code>color-mix(var(--ink) 8%, transparent)</code>
+  for the subtle surface; empty-state muted text is
+  <code>var(--muted)</code>. Works across every theme the app
+  supports without per-theme overrides.
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+
+  <h3>Two design questions, orthogonal to each other</h3>
+
+  <p><strong>Question 1: container (rows 2 vs 3).</strong> Does crew
+  sit in a bordered <code>.module-section</code> like its siblings
+  (Path A), or stay borderless by design (Path B)?</p>
+  <ul>
+    <li><strong>Path A (bordered)</strong> — crew reads as "another trip page module." Visually consistent with headliner / spot / transport / everything-else. The container signals equal weight.</li>
+    <li><strong>Path B (borderless)</strong> — crew reads as "the humans section." The absence of a border makes it feel less mechanical. Aligns with a design philosophy where "content about people" doesn't belong in the same container as "content about stuff."</li>
+  </ul>
+
+  <p><strong>Question 2: scale (row 4).</strong> What happens when a
+  crew has 10+ people? Paths A and B both render every row
+  vertically — a 15-person crew creates ~900px of crew alone,
+  dominating the page. Path C collapses each state into a
+  tally-pill + avatar-pile + chevron header. Tap to expand.
+  At scale the whole module is ~220px tall (collapsed) vs
+  ~760px (all expanded). Same shape at 3 people or 30.</p>
+  <ul>
+    <li><strong>Path C can layer on top of A or B.</strong> The collapsible behavior is independent of the container choice. You could have "bordered + collapsible" (shown in row 4) or "borderless + collapsible."</li>
+    <li><strong>Mobile-scroll friendly.</strong> 375px viewport users don't want to thumb past 12 avatar rows to see cost summary.</li>
+    <li><strong>Signals "there's more" explicitly.</strong> The "+4" pile and chevron are unambiguous — you know there are 9 in, you see the first 5 as avatars, tap to see all.</li>
+  </ul>
+
+  <p>Current render (row 1) has Path B's borderless stance with
+  rough typography and a loud tally treatment, and no
+  collapsibility. Three aspects that can be picked independently.</p>
+
+  <h3>What's shared across both paths</h3>
+  <ul>
+    <li><strong>Title + eyebrow treatment.</strong> "the crew" at 18px Georgia italic lowercase, matching siblings. Eyebrow "N rallied" in Caveat at 0.5 opacity, matching "rough estimate" / "your way in" style.</li>
+    <li><strong>Tally pills softened.</strong> The current solid-ink-with-bg-color treatment (same loud styling we retired from transport count in 9K) becomes subtle ink-on-ink pills. Same data, lower visual volume.</li>
+    <li><strong>Row structure.</strong> 36px avatar circle (photo or initial on <code>var(--sticker-bg)</code>), name + host/you markers inline, subtext with RSVP timing / plus-one / decline reason. Same as today.</li>
+    <li><strong>Empty states.</strong> Small italic muted text: "everyone's decided" / "nobody's out — knock on wood 👌". Same lexicon keys as today.</li>
+    <li><strong>Invite button REMOVED from this session (Andrew, 2026-04-22).</strong> The end-to-end invite flow isn't fully mapped yet (invite delivery is scheduled for Session 11). Pulling the "copy the invite link" button out of the crew module until the flow is sound. When invite delivery lands, the button comes back in a deliberate design pass — likely not as a pill at the bottom of crew.</li>
+    <li><strong>All themed via tokens.</strong> No raw hex/rgba. <code>color-mix(var(--ink) N%, transparent)</code> for alpha steps. Works across themes.</li>
+  </ul>
+
+  <h3>What changes from today (either path)</h3>
+  <ul>
+    <li><strong>Title size.</strong> 24px → 18px — matches siblings, stops crew from visually dominating cost summary above it.</li>
+    <li><strong>Subtitle font / weight.</strong> Caveat at 0.5 opacity instead of 0.7 — matches sibling eyebrow treatment.</li>
+    <li><strong>Tally pill volume.</strong> Solid dark → subtle. No more shouting pills.</li>
+    <li><strong>State-section titles.</strong> "in" / "holding" / "out" in 14px Georgia italic. Empty states get a <code>dim</code> class that drops opacity to 0.5, signaling "nobody here" without making the section invisible.</li>
+    <li><strong>Class naming (if Path A).</strong> <code>.crew-inline</code> root → wrapped in <code>.module-section.crew-module</code>. Internal <code>.crew-*</code> classes stay.</li>
+    <li><strong>Invite button removed</strong> (per above).</li>
+  </ul>
+
+  <h3>Path C specifics (if picked)</h3>
+  <ul>
+    <li><strong>Default expand behavior.</strong> All three states collapsed by default. Exception (optional): "in" auto-expands when ≤3 people total (the whole module fits without scroll anyway — force-collapsing it hides useful info for free). Decide during brief.</li>
+    <li><strong>Interaction.</strong> Tap the state-header row (tally pill + pile + chevron) to toggle. State persists per-session via React state — no localStorage.</li>
+    <li><strong>Pile preview size.</strong> Mockup shows first 5 avatars + "+N" chip if more. 5 is arbitrary — could be 3 or 7. Flag for brief; depends on what reads well at 375px.</li>
+    <li><strong>Empty state while collapsed.</strong> State with zero members — skip the pile, show the empty-state text inline with the tally pill ("0 holding · everyone's decided"). Or hide the state entirely. Decide during brief.</li>
+    <li><strong>Expanded state lazy-load.</strong> The mockup's "+ 4 more — still loading…" row is a stand-in. If the server already passes all members (which it does today per page.tsx:487), no lazy-load needed; render all at once. Keep it simple.</li>
+    <li><strong>Accessibility.</strong> Collapsible headers should be <code>&lt;button&gt;</code> elements with <code>aria-expanded</code>, not <code>&lt;div&gt;</code> with onClick. Keyboard toggle via space/enter.</li>
+  </ul>
+
+  <h3>Open questions</h3>
+  <ul>
+    <li><strong>Host marker.</strong> Mockup uses 👑 + "host". Current lexicon has <code>crew.hostMarker</code> — check what string it returns and match. Crown emoji might feel too pageant-y; alternatives: star, ★, nothing (just "host" in muted gray).</li>
+    <li><strong>"N rallied" eyebrow copy.</strong> Current subtitle text is "N rallied · Coachella 2026!!!". The trip name in the eyebrow feels redundant (trip name is already in the hero above). Proposal: drop it, just "N rallied" — or "N rallied · M total" when invited count differs from rsvp'd count (as row 4 shows). Lexicon change — not unilateral.</li>
+    <li><strong>"Pending" state.</strong> Invited but hasn't RSVP'd. Should it render as its own collapsible section ("pending: 2") below "out"? Current code handles it but the mockup shows only in/holding/out — check if pending renders today and match. Especially important with Path C's scale story — pending invitees are a common state.</li>
+    <li><strong>The <code>members={members as any}</code> cast at page.tsx:487.</strong> Not a visual issue but signals a type mismatch. Out of scope for this visual session; logged for follow-up as its own bug-bash item.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Your call — three independent picks:</strong>
+    <ol style="margin: 6px 0 0 18px;">
+      <li>Container: Path A (bordered) or Path B (borderless)?</li>
+      <li>Scale: Path C (collapsible) or flat listing (current)?</li>
+      <li>Open questions above — decide or defer per item.</li>
+    </ol>
+    Once picked, we scope the session brief against the combination.
+    Expected size: similar to 9L if container-only change; bigger
+    if collapsibility (Path C) is in scope since it needs real
+    state management, ARIA wiring, and interaction plumbing.
+  </div>
+
+</div>
+
+</body>
+</html>

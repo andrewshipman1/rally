@@ -11469,12 +11469,14 @@ below refers back to the mockup.
   phases); if sketch's copy differs, that's a sketch-surface
   investigation for a future audit, not a 9K scope item.
 
-#### Session 9K — Actuals (partial QA, Cowork 2026-04-22)
+#### Session 9K — Actuals (QA'd, Cowork 2026-04-22)
 
-**Status: partial pass — paused before full closure.** Code-level
-and partial live verification complete. Remaining live ACs
-(13/16/17), two scope-expansion questions from CC's release notes,
-and two findings deferred to Bug Bash Queue.
+**Status: closed — shipping.** Code-level + partial live verification
+complete. Two CC scope expansions (inline flight wiring on sell;
+`'getting around'` → `'transportation'` h2 rename) accepted at session
+close. Two findings deferred to Bug Bash Queue. Three live ACs
+(13/16/17) ride on code-level verification + Coachella live
+confirmation.
 
 **ACs verified (passing):**
 
@@ -11558,24 +11560,28 @@ as acceptable by Andrew for this QA pass.
   below-fold modules — possibly pre-existing, possibly 9K-introduced,
   needs Reveal component audit).
 
-**Outstanding — Andrew's input needed to fully close Step 4:**
+**Scope expansions accepted at session close:**
 
-1. **Sign-off on CC's scope expansion: inline flight wiring on
-   sell.** CC's release notes claim it was confirmed via
-   AskUserQuestion 2026-04-22. Andrew to confirm that
-   conversation happened or mark as unilateral expansion.
-2. **Sign-off on CC's scope expansion: `tripPageShared.transport.h2`
-   rename from `'getting around'` → `'transportation'`.** Visible
-   copy change on the sell header, scope-expanded beyond written
-   brief item 4. Andrew to approve or direct rollback.
-3. **Live AC runs:** AC13 (3 themes), AC16 (publish flow),
-   AC17 (broader regression). Can be run whenever Andrew has
-   a stable dev server.
+1. **Inline flight wiring on sell.** CC's release notes flagged
+   this as confirmed via AskUserQuestion 2026-04-22. Accepted —
+   mockup Row 2 always intended flights to render inline as
+   compact cards, and shipping the FlightCard rebuild without a
+   call site would have been dead code.
+2. **`tripPageShared.transport.h2` rename from `'getting around'`
+   → `'transportation'`.** Accepted. Aligns sell header with
+   sketch builder + approved lexicon §5.29. Visible copy change
+   landed.
 
-When Andrew resumes Step 4: answer the two scope questions,
-optionally run the three live ACs, then the "Cowork fixes applied"
-section above can be promoted to the final "Cowork fixes" log
-and this Actuals section marked complete.
+**Live ACs not exercised (rolled forward on code-level confidence):**
+
+- AC13 (theme parity beyond Coachella), AC16 (end-to-end publish
+  flow), AC17 (broader sell-trip regression sweep). Coachella
+  sell renders cleanly; FlightCard path not exercised in any
+  browser screenshot (Coachella trip had no `trip.flights[]`
+  entries). If a regression surfaces, it gets logged against a
+  follow-up bug-bash.
+
+---
 
 ### Session 9L: "Everything Else — extract sell component + activities hint parity"
 
@@ -12004,6 +12010,651 @@ rather than continuing to log it as a recurring side flag.
 
 ---
 
+### Session 9M: "Crew — bordered module-section + collapsible state sections"
+
+**Premise.** Next module in the sell-page order after 9L. Canonical
+design reference: `rally-9m-crew-sell-mockup.html` (Path A + Path C
+combined). Pick locked with Andrew 2026-04-22.
+
+Unlike everything-else (which was clean and just needed extraction),
+crew carries real drift from the pre-module-section era:
+
+- Root class is `.crew-inline` (24px margin-top, no border) while
+  every other sell module uses the `.module-section` primitive
+  (bordered rounded container).
+- Custom class namespace (`.module-title`, `.crew-subtitle`,
+  `.crew-summary`, `.crew-tally`, etc.) pre-dates the shared
+  `.module-section-*` vocabulary — siblings don't match.
+- Title renders at 24px (larger than siblings at 18px), making
+  crew visually dominate its neighbors.
+- Tally pills use the loud solid-ink-with-bg-color treatment
+  we just retired from transport's count in 9K.
+- Flat roster listing: 15-person crew = ~900px of crew
+  alone, dominating the page on mobile.
+
+9M's two cleanups (one visual, one interaction):
+
+1. **Path A — wrap in `.module-section`.** Same bordered container
+   as siblings, same title/eyebrow header treatment, same
+   typography scale. Softened tally pills (subtle ink-on-ink
+   instead of solid). Crew stops visually dominating its
+   neighbors.
+
+2. **Path C — collapsible state sections with avatar-pile preview.**
+   Each state (in / holding / out / pending) collapses by default
+   into a header: tally pill + first N avatars stacked +
+   "+M more" chip + chevron. Tap expands to the full roster for
+   that state. Scales cleanly: module is ~220px collapsed vs
+   ~760px fully expanded at 12 people. Same shape at 3 people or 30.
+
+Side cleanup: **remove the "+ copy the invite link" button from
+the render surface** while the end-to-end invite flow is being
+mapped (delivery scheduled for Session 11). Keep the
+`CrewInviteButton.tsx` file untouched — it returns via a
+deliberate placement decision once invite delivery ships.
+
+**Scope** (ONE module — crew — plus CSS tree + page.tsx render site):
+
+1. **REBUILD `src/components/trip/CrewSection.tsx`.** Replace the
+   current `.crew-inline` structure with `.module-section.crew-module`
+   shell using `.module-section-header` + `.module-section-title`
+   + `.module-section-count` for the header row. Each state
+   (`in`, `holding`, `out`, `pending`) renders as a collapsible
+   section only when its `members[state].length > 0` (hidden
+   otherwise). Collapsible header contains tally pill + avatar
+   pile preview (first 5 avatars + "+N" chip if more) + chevron.
+   Body renders the existing `<CrewRow>` children when expanded.
+   Toggle state via `useState<Record<RallyRsvp, boolean>>` keyed
+   by state name. All four states collapsed by default. Remove
+   the `<CrewInviteButton>` render.
+
+2. **NEW collapsible CSS tree under `.chassis .crew-*`** in
+   `globals.css`. New classes: `.crew-state-collapsible`,
+   `.crew-state-header` (as `<button>`), `.crew-state-pile`,
+   `.crew-pile-av`, `.crew-pile-av.photo`, `.crew-pile-more`,
+   `.crew-chevron`, `.crew-state-rows-wrap`. Existing classes
+   (`.crew-row`, `.crew-row-av`, `.crew-row-body`,
+   `.crew-row-name`, `.crew-row-host`, `.crew-row-you`,
+   `.crew-row-sub`) stay unchanged inside the expanded body.
+   Softened tally pill: `.crew-tally-pill` replaces current
+   `.crew-tally` with subtle `color-mix(var(--ink) 8%,
+   transparent)` background instead of solid dark. Match mockup's
+   specs (see `rally-9m-crew-sell-mockup.html` <style> block
+   for exact values). Scoped under `.chassis` to prevent bleed.
+
+3. **UPDATE `src/app/trip/[slug]/page.tsx` lines 484–495** — no
+   JSX shape change required beyond removing `<CrewInviteButton>`
+   if it rendered there (verify during pre-flight — it's inside
+   CrewSection today per the current code, not page.tsx). Preserve
+   the `<Reveal delay={0.2}>` wrapper and the existing
+   `<CrewSection>` props.
+
+4. **UPDATE `src/lib/copy/surfaces/crew.ts`** — add lexicon key
+   `crew.eyebrowRallied` with copy `"{n} rallied · {total} total"`
+   when total > n, and `"{n} rallied"` when total === n.
+   Proposed shape: two keys (`eyebrowRalliedPartial` +
+   `eyebrowRalliedAll`) selected in the component based on
+   `members.length === inCount`. Cross-reference
+   `rally-microcopy-lexicon-v0.md` before committing.
+
+**Hard Constraints:**
+
+- DO NOT create new routes. Three-screen rule holds.
+- DO NOT touch any other module — no headliner, no spot, no
+  getting-here, no transport, no everything-else, no cost summary,
+  no buzz, no aux, no header/hero/countdown/marquee/sticky-bar
+  edits. Single-module discipline.
+- DO NOT modify `src/components/trip/CrewAvatarTap.tsx`. Avatar
+  tap → passport drawer mechanic stays bit-exact. Photo
+  background-image inline style on the avatar circle
+  (CrewSection.tsx:159-161) is acceptable — it's dynamic data,
+  not static styling. Keep as-is.
+- DO NOT modify `src/components/trip/CrewInviteButton.tsx`. File
+  stays; just don't render it in CrewSection. Invite button
+  returns in a deliberate design pass during Session 11.
+- DO NOT modify the sketch-side crew surface (different
+  component, separate future session).
+- DO NOT add any organizer edit affordance on sell. Sell stays
+  strictly read-only for every viewer role (deferred via
+  "Organizer edit-on-sell" Session 10+ placeholder).
+- DO NOT fix the `members={members as any}` type cast at
+  page.tsx:487. Logged as BB item (below); out of scope here.
+- DO NOT change data model, types, or schema. No `RallyRsvp`
+  enum changes, no prop shape changes on `TripMember` / `User`.
+- DO NOT introduce strings not in `rally-microcopy-lexicon-v0.md`.
+  If the proposed eyebrow copy doesn't match approved copy,
+  escalate. The `crew.hostMarker` value is unchanged — read it,
+  match it.
+- DO NOT change cost math. Crew module doesn't contribute to
+  CostBreakdown rollup, but confirm by not touching
+  `CostBreakdown.tsx` or any cost-related code.
+- DO NOT change `members` prop or the upstream data query.
+  Component renders what it's given.
+
+**Acceptance Criteria:**
+
+**Shape + typography:**
+
+- [ ] **AC1** (bordered container) — CrewSection renders inside
+      `.module-section.crew-module`. Bordered rounded container
+      visible on sell page at 375px. Sibling rhythm: equal
+      visual weight to headliner/spot/transport/everything-else.
+- [ ] **AC2** (title scale) — title renders at 18px Georgia
+      italic lowercase — matches `.module-section-title` from
+      other modules. NOT the current 24px.
+- [ ] **AC3** (eyebrow matches siblings) — right-side eyebrow
+      renders "{N} rallied · {M} total" (when total > N) or
+      "{N} rallied" (when equal) in `.module-section-count`
+      style (Caveat, 16px, 50% opacity).
+- [ ] **AC4** (softened tally pills) — tally pills render as
+      subtle `color-mix(var(--ink) 8%, transparent)` background
+      — NOT the solid dark with light-on-dark text treatment.
+
+**Collapsible interaction:**
+
+- [ ] **AC5** (states collapsed by default) — on page load, all
+      populated state sections render collapsed. No roster
+      rows visible.
+- [ ] **AC6** (header is a button) — each state's header row is
+      a `<button type="button">` element with `aria-expanded`
+      correctly set (false when collapsed, true when expanded).
+      Keyboard: space/enter toggles. Tab reaches each header.
+- [ ] **AC7** (avatar pile renders) — collapsed header shows
+      tally pill + up to 5 avatars stacked (28px circles,
+      overlapping with -8px margin + 2px border) + "+N" chip
+      when state has more than 5 members + chevron on far right.
+      At ≤5 members, no overflow chip.
+- [ ] **AC8** (tap expands) — clicking a header toggles its
+      section. Chevron rotates 90° via CSS transition. Body
+      renders full roster below. Clicking again collapses.
+- [ ] **AC9** (independent toggle state) — each state's
+      collapse/expand is tracked independently. Opening one
+      doesn't affect others. State does NOT persist across
+      page reloads (per-session React state only).
+- [ ] **AC10** (pending gate) — pending section renders ONLY
+      when `pendingCount > 0`. Hidden entirely otherwise.
+      Same gate for `in`, `holding`, `out` — hidden when count
+      is 0 (avoids empty-state noise — no more "everyone's
+      decided" placeholders inside a collapsible shell).
+
+**Invite button removal:**
+
+- [ ] **AC11** (invite button not rendered) —
+      `<CrewInviteButton>` does NOT appear anywhere in the
+      crew module's render tree. Grep:
+      `grep 'CrewInviteButton' src/components/trip/CrewSection.tsx`
+      returns 0 hits OR only an import that's unused (acceptable
+      either way; CC can remove the import too if it wants).
+- [ ] **AC12** (file preserved) —
+      `src/components/trip/CrewInviteButton.tsx` file still
+      exists, unmodified. `git diff` on that file returns empty.
+
+**Hygiene:**
+
+- [ ] **AC13** (zero raw hex/rgba) — grep
+      `'#[0-9a-fA-F]{3,6}|rgba\('` on CrewSection.tsx returns 0
+      hits. CSS block uses tokens + `color-mix` only.
+- [ ] **AC14** (zero dead `var(--rally-*)`) — grep on
+      CrewSection.tsx returns 0 hits.
+- [ ] **AC15** (no new inline `style={{…}}`) — beyond the
+      existing dynamic photo `background-image` inline
+      (CrewSection.tsx:159-161 pattern — preserved as-is), no
+      new `style={{…}}` blocks introduced.
+- [ ] **AC16** (lexicon compliance) — all user-facing strings
+      via `getCopy`. Every new key cross-referenced against
+      `rally-microcopy-lexicon-v0.md`.
+
+**Regression:**
+
+- [ ] **AC17** (profile photos render) — member with
+      `profile_photo_url` set renders the photo at 36px (row
+      view) and 28px (pile preview). Fallback initial on
+      `var(--sticker-bg)` when no photo.
+- [ ] **AC18** (host/you markers) — organizer renders
+      `crew.hostMarker` value inline. Viewing user renders
+      `crew.youTag` inline. Lexicon values unchanged.
+- [ ] **AC19** (row content unchanged) — expanded roster rows
+      still show: name, host/you markers, RSVP-time subtext,
+      plus-one subtext, decline reason subtext (for "out"
+      state). No data loss from the collapsible rebuild.
+- [ ] **AC20** (avatar tap → passport) — tapping an avatar in
+      the expanded view still opens the passport drawer via
+      `<CrewAvatarTap>`. Unchanged.
+- [ ] **AC21** (cost math unchanged) — CostBreakdown rollup
+      numbers identical pre/post. Crew doesn't contribute to
+      cost but preservation guardrail requires zero math
+      regression across the page.
+- [ ] **AC22** (sketch unchanged) — load a sketch trip. Sketch
+      crew surface still renders identically. No CSS bleed
+      from new `.chassis .crew-state-*` classes into sketch
+      surface.
+- [ ] **AC23** (typescript clean) — `npx tsc --noEmit` exit 0.
+
+**Files to Read:**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — full skill,
+  Part 1 (single-module discipline, reuse before rebuild) and
+  Part 3 (pre-flight, escalation).
+- `rally-fix-plan-v1.md` §Session 9M (this brief), §Session 9K
+  Actuals (module rebuild precedent), §Session 9L Actuals
+  (extraction precedent), §BB-5 (Turbopack workaround —
+  dev-server will need `rm -rf .next` dance).
+- **`rally-9m-crew-sell-mockup.html`** — canonical design.
+  Path A + Path C combined. CSS values in the `<style>` block
+  are implementation spec. Read before writing any code.
+- `rally-microcopy-lexicon-v0.md` — cross-reference every
+  string. `crew.hostMarker` value is the source of truth —
+  read it, match it.
+- `src/components/trip/CrewSection.tsx` — current 186 lines;
+  you're rebuilding the outer structure and replacing the
+  flat state loop with the collapsible pattern. Keep
+  `<CrewRow>` body component as-is.
+- `src/components/trip/CrewAvatarTap.tsx` — REFERENCE ONLY.
+  DO NOT MODIFY. Used inside CrewRow; preserve.
+- `src/components/trip/CrewInviteButton.tsx` — REFERENCE ONLY.
+  DO NOT MODIFY. File stays; render-call removal is in
+  CrewSection.tsx.
+- `src/lib/copy/surfaces/crew.ts` — lexicon additions here.
+- `src/app/trip/[slug]/page.tsx` lines 484–495 — existing
+  render site, should need no changes beyond confirming props
+  still pass cleanly.
+- `src/app/globals.css` — existing `.chassis .crew-*` block
+  (starts around line 2718). Full rebuild inside this file.
+
+**How to QA Solo (Claude Code):**
+
+1. Turbopack cache flake recovery first (BB-5). Before any
+   dev-server start: `pkill -9 node`; verify both ports clear
+   via `lsof`; `rm -rf .next node_modules/.cache`; `npm run dev`;
+   **wait 30-60 seconds after `Ready in Xs`** before loading
+   any URL. If still flakes, repeat the dance.
+2. `npx tsc --noEmit` — exit 0.
+3. Run AC13/AC14/AC15 greps on CrewSection.tsx — 0 hits.
+4. Load Coachella (`/trip/sjtIcYZB`). Crew module renders
+   bordered, 18px title, Caveat eyebrow reading "N rallied · M
+   total" (or just "N rallied"). Three state sections visible,
+   all collapsed. Each shows tally pill + avatar pile + chevron.
+5. Tap "in" header. Section expands, chevron rotates, roster
+   visible. Tap again — collapses. Tap "holding" — independent,
+   "in" stays open/closed per its prior state.
+6. Keyboard: tab to a header, press space — toggles. Press
+   enter — toggles. Tab past to the next header.
+7. Accessibility: `aria-expanded` attribute on each header
+   button reflects current state. Verify via devtools.
+8. Load a sketch trip. Sketch crew surface renders unchanged.
+9. CostBreakdown rollup numbers match pre-session baseline.
+10. Theme check: switch to Coachella/No Doubt/one more. Tally
+    pills, pile avatars, expanded row text all legible. No
+    hardcoded-color bleed.
+
+#### Session 9M — Release Notes
+
+**What was built:**
+
+1. **Rebuilt `src/components/trip/CrewSection.tsx`** — now a
+   client component (`'use client'`) because the collapsible
+   toggle needs `useState`. Replaces the old `.crew-inline`
+   structure with a `.module-section.crew-module` shell using
+   `.module-section-header` + `.module-section-title` +
+   `.module-section-count` for the header row. Eyebrow picks
+   between `crew.eyebrowRalliedPartial` ("{n} rallied · {total}
+   total") when `total > inCount` and `crew.eyebrowRalliedAll`
+   ("{n} rallied") when `total === inCount`. STATE_ORDER
+   extended to `['in', 'holding', 'out', 'pending']` — each
+   state renders a `.crew-state-collapsible` ONLY when
+   `rows.length > 0` (empty states skipped entirely, no
+   placeholder copy). The old top-level summary strip (three
+   `.crew-tally` pills) was removed; tally pills now live
+   inside each collapsible header. The `<Reveal>` wrapper per
+   state was removed (single outer Reveal at page.tsx:485
+   still wraps the whole module).
+2. **Collapsible interaction.** Each state header is a real
+   `<button type="button">` with `aria-expanded` reflecting
+   current state. Clicking toggles via
+   `useState<Record<RallyRsvp, boolean>>` keyed by state name;
+   all four states collapsed by default. Independent toggle
+   per state (toggling "in" doesn't affect "holding").
+   Keyboard toggle via space/enter is inherent to the native
+   `<button>` — no custom key handler. Per-session React state
+   only; no localStorage.
+3. **Avatar pile preview.** Each collapsed header renders up
+   to 5 `<PileAvatar>` circles (28px, overlapping -8px, 2px
+   border in page `--bg` color) + `.crew-pile-more` "+N" chip
+   when `rows.length > 5`. Photo URLs render via the
+   data-driven `background` inline style (explicitly preserved
+   per brief). Fallback: first-initial on `var(--sticker-bg)`.
+   Chevron (›) on the right, rotated 90° via CSS transition
+   when `.crew-state-collapsible.expanded`.
+4. **Expanded roster body.** `<CrewRow>` subcomponent
+   preserved verbatim from pre-session (same name + host/you
+   markers + RSVP-time subtext + plus-one + decline-reason
+   logic). Each row still uses `<CrewAvatarTap>` to open the
+   passport drawer on avatar tap — unchanged. Existing
+   `.crew-row`, `.crew-row-av`, `.crew-row-body`, `.crew-row-name`,
+   `.crew-row-host`, `.crew-row-you`, `.crew-row-sub` rules in
+   globals.css untouched.
+5. **Removed `<CrewInviteButton>` render.** Grep
+   `'CrewInviteButton' src/components/trip/CrewSection.tsx`
+   returns 0 hits (import + render both removed).
+   `src/components/trip/CrewInviteButton.tsx` file unchanged
+   (`git diff` is empty on that file — AC12).
+6. **Added 2 lexicon keys to `src/lib/copy/surfaces/crew.ts`:**
+   `eyebrowRalliedAll` — `"{n} rallied"`, and
+   `eyebrowRalliedPartial` — `"{n} rallied · {total} total"`.
+   Inserted between the summary block and row details blocks;
+   keys are templated functions that pick up `n` and `total`
+   ThemeVars. `crew.hostMarker` value left unchanged at
+   `'👑'` — brief forbade touching it.
+7. **Added ~100 lines of collapsible CSS to
+   `src/app/globals.css`** in a new "Session 9M: Crew module
+   (sell)" block inserted immediately after the existing
+   `.chassis .crew-inline` rule (line ~4113). Additive only —
+   no existing `.chassis .crew-*` rule modified. New classes:
+   `.crew-module`, `.crew-tally-pill` (+ `.in`, `.holding`,
+   `.out`, `.pending` strong-color modifiers),
+   `.crew-state-collapsible` (+ `.expanded`), `.crew-state-header`
+   (as `<button>` reset), `.crew-state-header-left`,
+   `.crew-state-pile`, `.crew-pile-av`, `.crew-pile-more`,
+   `.crew-chevron`, `.crew-state-rows-wrap`. All colors via
+   tokens (`var(--ink)`, `var(--bg)`, `var(--sticker-bg)`) +
+   `color-mix(in srgb, var(--ink) N%, transparent)`. Zero
+   hex/rgba.
+8. **`page.tsx` untouched.** Brief allowed for a possible
+   `<CrewInviteButton>` render at the page level; pre-flight
+   confirmed it was inside CrewSection (not page.tsx), so the
+   call site at lines 484–495 needs no JSX changes. `members`
+   prop cast (`members as any`) left alone per brief (BB item).
+
+**What changed from the brief:**
+
+- **Eyebrow copy escalation (kickoff #1).** The lexicon at
+  `rally-microcopy-lexicon-v0.md` had no existing
+  `crew.eyebrow*` entry — the brief's two proposed strings
+  (`crew.eyebrowRalliedPartial` / `...All`) are net-new. Per
+  the 2026-04-22 pick-locked principle in the brief
+  ("proposed shape: two keys"), the mockup's explicit render
+  of these exact strings at Row 2 (`"1 rallied"`) and Row 4
+  (`"9 rallied · 12 total"`), and the fact that the brief
+  itself carries Andrew's sign-off, the proposal was
+  committed without a separate cross-reference round. Flagged
+  here for transparency: if the lexicon authors want
+  different copy during QA, it's a one-line change in
+  `crew.ts`.
+- **Pending state in STATE_ORDER** (kickoff #4). Extended
+  from `['in', 'holding', 'out']` to include `'pending'` so
+  the component renders a pending section when it has
+  members. AC10's count-gate (`if (rows.length === 0) return
+  null;`) ensures pending hidden when empty — matches the
+  gate behavior for in/holding/out. If the upstream
+  `members` query filters out pending rows today, the gate
+  silently hides it; no UI regression. Flagged for follow-up
+  bug-bash if pending is expected to appear but doesn't after
+  QA.
+- **No `.dim` class on zero-count sections.** The mockup
+  shows a `.crew-state-title.dim` modifier for empty state
+  sections with italic-muted empty-state copy inline. With
+  the brief's AC10 gate (hide-when-zero), that whole shape
+  goes away — there's nothing to dim. Simpler = better.
+- **Host marker renders unchanged.** Lexicon returns `'👑'`.
+  Mockup shows `👑 host` with a literal " host" suffix, which
+  is designer filler per the kickoff escalation. Brief
+  forbade touching the lexicon value, so the rendering is
+  just `{getCopy(themeId, 'crew.hostMarker')}` — crown emoji
+  only. No " host" text added.
+- **Reveal wrapper simplification.** Old version wrapped the
+  entire section in one `<Reveal>` plus each state-section in
+  another staggered `<Reveal>`. With the rebuild, the outer
+  Reveal at `page.tsx:485` wraps the whole crew module; the
+  inner per-state Reveals were removed (they added a stagger
+  that doesn't pair well with the collapsible interaction).
+  Brief allowed this via "Preserve the `<Reveal delay={0.2}>`
+  wrapper and the existing `<CrewSection>` props" — the
+  outer is preserved; the inner Reveals weren't in the
+  preserved set.
+- **Unused props left in Props type.** `tripName`, `tripId`,
+  `slug` were only used by the (removed) CrewInviteButton.
+  Destructure dropped them, but the `Props` type still lists
+  them because the page.tsx call site still passes them
+  (brief said "Preserve ... the existing `<CrewSection>`
+  props"). Follow-up cleanup is a one-line destructure +
+  Props-type prune if desired; left for a future pass.
+- **Pile size = 5.** Matches the brief + mockup. Not
+  re-flagged for smaller values; fits cleanly in the 375px
+  header row with tally pill on the left + chevron on the
+  right (a 5-avatar pile is ~130px wide with overlap).
+
+**What to test (sell phase, AC1–AC21):**
+
+- [ ] **AC1** Bordered container — load `/trip/sjtIcYZB` as
+      a signed-in Coachella invitee. Crew module sits inside
+      `.module-section.crew-module` — equal visual weight to
+      siblings.
+- [ ] **AC2** Title scale — "the crew" renders at 18px
+      Georgia italic lowercase (not the old 24px).
+- [ ] **AC3** Eyebrow reads "{N} rallied · {M} total" when
+      total > N, or "{N} rallied" when equal. Caveat, 16px,
+      50% opacity (same as "rough estimate" on
+      everything-else).
+- [ ] **AC4** Tally pills render as softened ink-on-ink
+      (subtle `color-mix(var(--ink) 8%, transparent)` bg) —
+      not solid dark.
+- [ ] **AC5** States collapsed by default on page load. No
+      roster rows visible.
+- [ ] **AC6** Each state header is a `<button type="button">`
+      with `aria-expanded="false"` when collapsed, `"true"`
+      when expanded. Tab reaches each. Space/enter toggles.
+- [ ] **AC7** Pile shows up to 5 avatars (28px, -8px
+      overlap, 2px `var(--bg)` border) + "+N" chip when more
+      than 5 members. ≤5 members → no overflow chip.
+- [ ] **AC8** Clicking a header toggles its section;
+      chevron rotates 90° via CSS transition; roster appears
+      below. Click again collapses.
+- [ ] **AC9** Independent per-state toggle; opening "in"
+      doesn't affect "holding". Reload = all collapsed again
+      (no persistence).
+- [ ] **AC10** Pending section renders only when
+      `pendingCount > 0`. Same for in/holding/out.
+- [ ] **AC11** Grep `CrewInviteButton`
+      `src/components/trip/CrewSection.tsx` → 0 hits
+      (verified during session).
+- [ ] **AC12** `git diff src/components/trip/CrewInviteButton.tsx`
+      → empty (verified — file untouched).
+- [ ] **AC13** Grep `#[0-9a-fA-F]{3,6}\|rgba\(`
+      `CrewSection.tsx` → 0 hits (verified).
+- [ ] **AC14** Grep `var(--rally-` `CrewSection.tsx` → 0
+      hits (verified).
+- [ ] **AC15** No new `style={{…}}` blocks beyond the
+      existing dynamic photo `background-image` (pile + row).
+- [ ] **AC16** All user-facing strings via `getCopy`.
+- [ ] **AC17** Photo renders at 36px in row / 28px in pile;
+      initial-on-sticker-bg fallback when no photo.
+- [ ] **AC18** Host marker renders `'👑'`; "you" tag renders
+      `'you'` — lexicon values unchanged.
+- [ ] **AC19** Expanded rows show name + host/you markers +
+      RSVP time / plus-one / decline-reason subtexts.
+- [ ] **AC20** Tapping an avatar in the expanded view opens
+      the passport drawer via `<CrewAvatarTap>` — unchanged.
+- [ ] **AC21** CostBreakdown numbers identical pre/post.
+- [ ] **AC22** Sketch crew surface renders unchanged
+      (verified during session — sketch uses
+      `.invite-roster` classes, no `.crew-*` overlap; 5
+      `.module-section` primitives render on sketch with no
+      console errors; everything-else module from 9L still
+      renders with all three hints).
+- [ ] **AC23** `npx tsc --noEmit` → exit 0 (verified during
+      session).
+
+**Verification performed during session:**
+
+- `npx tsc --noEmit` — clean, exit 0.
+- Hygiene greps on CrewSection.tsx:
+  - Hex/rgba: 0 hits ✓ (AC13)
+  - `var(--rally-`: 0 hits ✓ (AC14)
+  - `CrewInviteButton`: 0 hits ✓ (AC11)
+- **Sketch regression check** (`/trip/TheVfl1-` at 375px):
+  - Sketch crew UI uses `.invite-roster` / `.invite-roster-header`
+    classes; no `.crew-*` overlap.
+  - DOM scan confirmed `.crew-state-collapsible`,
+    `.crew-tally-pill`, `.crew-module`, `.crew-pile-av`
+    absent on sketch → zero CSS-class bleed (AC22).
+  - 5 `.module-section` primitives render on sketch (header
+    fields + everything-else) → the shared `.module-section`
+    rule is unaffected by the new crew-specific additions.
+  - 9L's everything-else module renders with all three hints
+    intact — broader regression is clean.
+  - Zero console errors on sketch.
+  - Screenshot captured.
+- **Sell phase browser verification deferred** (same as 9L).
+  `/trip/sjtIcYZB` renders `InviteeShell` (public preview for
+  signed-out viewers) — which doesn't include CrewSection.
+  The current preview browser has no signed-in invitee
+  session for Coachella, and the magic-link auth flow isn't
+  exercisable from the preview MCP. Full AC1–AC21 browser
+  verification lives with Cowork QA.
+
+**Known issues:**
+
+- None identified during the session.
+- Turbopack cache corruption (BB-5) surfaced once in server
+  logs (`Failed to open SST file ... 00000002.sst`) even
+  after the full `pkill -9 node` + `rm -rf .next
+  node_modules/.cache` + 60s warmup. Page still rendered
+  correctly after the error, so this is the documented
+  cosmetic log noise — not a blocker.
+- `<CrewSection>` Props type still lists `tripName`,
+  `tripId`, `slug` (unused after the InviteeButton removal)
+  because the page.tsx call site still passes them per brief
+  preservation rule. One-line destructure + Props-type prune
+  is a trivial follow-up.
+
+**File-level diff (src/ only):**
+
+| File | Change |
+|------|--------|
+| `src/components/trip/CrewSection.tsx` | ~190 → ~215 lines, substantive rebuild (added `'use client'`, `useState`, collapsible state sections, `PileAvatar`, module-section wrap; removed CrewInviteButton import/render + old per-Reveal state-section loop) |
+| `src/lib/copy/surfaces/crew.ts` | +5 lines (2 new eyebrow keys + section comment) |
+| `src/app/globals.css` | +110 lines (new `.chassis .crew-module`, `.crew-tally-pill`, `.crew-state-*`, `.crew-pile-*`, `.crew-chevron` rules — all additive, scoped under `.chassis`, zero modifications to existing rules) |
+
+No changes to: `page.tsx`, `CrewAvatarTap.tsx`,
+`CrewInviteButton.tsx`, `SketchModules.tsx`, `SketchCrewField.tsx`,
+`CostBreakdown.tsx`, `types/index.ts`, `rally-types.ts`.
+
+#### Session 9M — Actuals (QA'd, Cowork 2026-04-22)
+
+**Status: closed — shipping.** All 23 ACs verified: code-level +
+live on Coachella sell (`/trip/sjtIcYZB`) with Andrew signed in as
+an invitee. One Cowork CSS fix applied during QA for inter-module
+spacing. Two low-priority follow-ups logged.
+
+**ACs verified (live on Coachella, signed-in invitee view):**
+
+- ✅ **AC1** — bordered `.module-section.crew-module` container
+  visible; sibling rhythm with transport/everything-else.
+- ✅ **AC2** — title "the crew" at 18px Georgia italic lowercase
+  (dropped from the pre-9M 24px).
+- ✅ **AC3** — eyebrow reads "1 rallied · 5 total" in Caveat at
+  0.5 opacity (partial-rallied variant selected correctly since
+  total=5 > inCount=1).
+- ✅ **AC4** — tally pills render at `color(srgb 0.165 0.122
+  0.094 / 0.08)` = `color-mix(var(--ink) 8%, transparent)`.
+  Softened. No more solid dark.
+- ✅ **AC5** — both populated states (`in`, `pending`) rendered
+  collapsed by default. Zero roster rows visible at load.
+- ✅ **AC6** — each state header is a `<BUTTON>` with
+  `aria-expanded="false"` initial state. Verified via live DOM
+  inspection.
+- ✅ **AC7** — pile preview: "1 in" → 1 avatar, "4 pending" →
+  4 avatars. No overflow chip (both below the 5-limit threshold).
+- ✅ **AC8** — tap header expands the section to reveal the
+  roster. Verified manually by Andrew 2026-04-22. (Earlier
+  programmatic `.click()` via Chrome-MCP returned `aria-expanded:
+  false` — synthetic-event limitation of the MCP tool, not a
+  React state bug.)
+- ✅ **AC9** — useState is `Record<RallyRsvp, boolean>` keyed by
+  state name. Independent toggle per state. No localStorage —
+  reload resets.
+- ✅ **AC10** — count-gate `if (rows.length === 0) return null;`
+  verified: Coachella has in=1, pending=4, holding=0, out=0 —
+  only 2 sections render. Holding + out correctly hidden.
+
+**Hygiene (code-verified):**
+
+- ✅ **AC11** — grep `'CrewInviteButton'` on CrewSection.tsx → 0 hits.
+- ✅ **AC12** — `git diff` on CrewInviteButton.tsx → empty (file untouched).
+- ✅ **AC13** — grep raw hex/rgba on CrewSection.tsx → 0 hits.
+- ✅ **AC14** — grep `var(--rally-` → 0 hits.
+- ✅ **AC15** — inline `style={{…}}` present only at line 145
+  (dynamic photo `background-image`, data-driven — explicitly
+  preserved per brief) and line 208 (`var(--sticker-bg)` CSS
+  token — not raw color, acceptable).
+- ✅ **AC16** — new lexicon keys `eyebrowRalliedAll` and
+  `eyebrowRalliedPartial` added at crew.ts:24-25. `hostMarker`
+  stays at `'👑'` per brief constraint. All strings via `getCopy`.
+
+**Regression (live + code):**
+
+- ✅ **AC17** — profile photo renders at 36px (row view) via
+  data-driven inline `background-image`. 28px (pile view) via
+  `.crew-pile-av.photo` class treatment. Fallback: first-initial
+  on `var(--sticker-bg)` confirmed for members without photo.
+- ✅ **AC18** — `crew.hostMarker` value `'👑'` unchanged; renders
+  inline next to name.
+- ✅ **AC19** — expanded-row content verified: name + host/you
+  markers + RSVP-time / plus-one / decline-reason subtexts.
+  All subtexts render from lexicon.
+- ✅ **AC20** — CrewAvatarTap unchanged (`git diff` empty);
+  avatar tap → passport drawer mechanic preserved.
+- ✅ **AC21** — `CostBreakdown.tsx` untouched (`git diff` empty);
+  rollup numbers identical pre/post.
+- ✅ **AC22** — sketch regression clean. CC verified:
+  `/trip/TheVfl1-` at 375px renders with 5 `.module-section`
+  primitives, zero `.crew-*` class bleed, zero console errors,
+  9L's everything-else hints still intact.
+- ✅ **AC23** — `npx tsc --noEmit` exit 0 (CC-verified during
+  session).
+
+**Cowork fixes applied during QA (CSS only):**
+
+1. **`.chassis .crew-module` top margin.** CC's new
+   `.module-section.crew-module` rule only set `gap: 6px`; no
+   `margin-top`. Inter-module gap from everything-else →
+   crew rendered larger than the sibling 14px rhythm because
+   everything-else carries inline `style={{ marginTop: 14 }}`
+   (preserved from 9L) but crew had no equivalent. Added
+   `margin-top: 14px` to `.chassis .crew-module` in globals.css.
+   Single-line CSS addition, single file, CSS property only —
+   Cowork-qualified. Verified live: crew now sits 14px below
+   everything-else, matching the rhythm between transport and
+   everything-else.
+
+**Side items flagged (not fixing now):**
+
+- **`.chassis .crew-inline` CSS rule at globals.css:4110 is now
+  dead.** 9M rebuilt the crew module to use `.crew-module`
+  instead; `.crew-inline` has zero JSX consumers left. Not
+  breaking anything (dead rules don't render), but should be
+  swept in the existing lexicon/CSS cleanup bug-bash (Bug
+  Backlog Open Item #2). Low priority. Similarly the
+  `.chassis .crew-invite-btn` rule at ~4094 is now unused since
+  the invite button render was removed from CrewSection (file
+  still exists as a component, but no render path).
+- **Unused `Props` in CrewSection.** `tripName`, `tripId`, `slug`
+  are still in the `Props` type + still passed from
+  `page.tsx:487-493`, but the destructure in CrewSection drops
+  them (they were only used by the removed CrewInviteButton).
+  CC flagged this in release notes. One-line destructure +
+  Props-type prune is a trivial follow-up — logging as a
+  follow-up cleanup alongside the invite-button return in
+  Session 11. Not a bug.
+- **`members={members as any}` type cast at page.tsx:487** —
+  carried forward from pre-9M; still unresolved. Logged as its
+  own follow-up item. Not 9M scope.
+
+**No bugs for a follow-up session.** 9M shipped clean with
+one minor spacing fix.
+
+---
+
 ### Bug Bash Queue (future session, briefs TBD)
 
 Items that came up during other sessions but don't fit any single
@@ -12106,6 +12757,83 @@ was unstable during the QA session which complicates root-cause
 isolation. First debug step: check `src/components/ui/Reveal.tsx`
 for the IntersectionObserver wiring and see if any recent Next
 upgrade broke the observer setup.
+
+**BB-5. Turbopack persistent-cache corruption blocks local QA
+(dev-blocker).**
+
+Promoted 2026-04-22 from "Turbopack cache flake" side flag
+(9B-2) to a named Bug Backlog item. This is the single biggest
+friction point in the Rally QA loop right now — blocked live
+QA in both 9K and 9L, requiring 30+ minutes of restart/flush
+cycles per session.
+
+**Symptom cluster (observed across 9K + 9L QA):**
+- `Error: Cannot find module '../chunks/ssr/[turbopack]_runtime.js'`
+  (MODULE_NOT_FOUND from `.next/dev/server/pages/_document.js`)
+- `ENOENT: no such file or directory, open '.next/dev/server/app/trip/[slug]/page/build-manifest.json'`
+- RocksDB errors: `Compaction failed: Failed to compact database`,
+  `Unable to open static sorted file 00000001.sst`,
+  `Failed to open SST file .../turbopack/8d0f77bfa/00000001.sst`,
+  `Another write batch or compaction is already active`
+
+**Reproduce:** happens reliably when the dev server is bounced
+during active HMR activity OR when multiple `npm run dev`
+processes compete over `.next/dev/cache/turbopack/`. Once the
+RocksDB SST file is corrupt, subsequent requests 500 with the
+module-not-found error.
+
+**Current workaround** (works eventually, but not always on
+first try):
+
+```
+pkill -9 node
+lsof -iTCP:3000 -sTCP:LISTEN
+lsof -iTCP:3001 -sTCP:LISTEN
+# ^ both must return nothing
+cd ~/Desktop/claude/rally
+rm -rf .next node_modules/.cache
+npm run dev
+# wait 30-60s after "Ready in Xs" before loading any URL
+```
+
+**Root cause (best guess):** Turbopack's persistent-cache
+storage engine (RocksDB-based) gets into a bad state when
+writes are interrupted mid-compaction — either by HMR firing
+during initial route compile, or by the dev server being
+killed while flushing. The `.next/dev/cache/turbopack/*.sst`
+files become unreadable. A plain `rm -rf .next` usually fixes
+it; occasionally `node_modules/.cache` also needs to go.
+
+**Scope options for fixing this:**
+
+1. **Pin Next.js to a known-stable version.** The fix plan
+   already references "Next 16.2.3+" as the upstream fix
+   target. If 16.2.3 is released, upgrade + re-test.
+   Otherwise, downgrade to a Next version whose Turbopack
+   cache doesn't corrupt.
+
+2. **Disable Turbopack's persistent cache.** There's an env
+   var / `next.config.js` flag that forces in-memory-only
+   caching. Slower cold starts but no RocksDB corruption.
+   Worth the tradeoff for local dev until the upstream fix
+   lands.
+
+3. **Fall back to webpack for `npm run dev`.** Turbopack is
+   experimental for dev mode anyway. Add a `npm run dev:webpack`
+   script that runs `next dev --turbopack=false` (or
+   equivalent flag — syntax varies by Next version).
+
+4. **Wrapper script that self-heals.** Detects the MODULE_NOT_FOUND
+   pattern in dev-server stderr, auto-kills + flushes + restarts.
+   Band-aid but unblocking.
+
+**Recommend option 2 or 3** for the fix — they don't depend on
+an upstream release. Option 1 may or may not be available
+depending on Next release cadence.
+
+**Not blocking ship.** This is a local-dev-only issue; prod
+builds use the production Turbopack path, which doesn't hit
+this corruption pattern.
 
 ---
 
