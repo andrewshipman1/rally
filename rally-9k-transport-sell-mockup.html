@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9K: Transportation sell-phase parity</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9K SCOPE — TRANSPORTATION SELL-PHASE PARITY
+     (Cowork draft, 2026-04-22 — pending Andrew sign-off)
+
+     PRINCIPLE: sell page = sketch page, populated. Same pattern
+     9H (Headliner) and 9I (Spot) established — one component,
+     two modes. Applies "reuse before rebuild" (skill Part 1) to
+     the transportation module.
+
+     THE PROBLEM THIS SOLVES:
+     The legacy `src/components/trip/TransportCard.tsx` renders
+     a large two-column hero-style card (64px icon tile, stacked
+     provider/vehicle/route, booking CTA footer). That's the
+     pre-8M design. 8M replaced it in sketch with the compact
+     single-line card (see `rally-transportation-wireframe.html`)
+     but deliberately left the sell version untouched. Result:
+     sketch and sell render the same data in two visually
+     incompatible shapes. 9K closes that gap.
+
+     SCOPE (transportation module only):
+     1. REBUILD `src/components/trip/TransportCard.tsx` to match
+        the compact card shape from the 8M wireframe (Frame 2).
+        Grid: 28px icon · 1fr body (title + meta) · auto link-chip.
+        Read-only — no onEdit, no drawer trigger. Whole-card tap
+        opens `booking_link` in a new tab (when present). When
+        `booking_link` is null, card is non-interactive.
+
+     2. REBUILD `src/components/trip/FlightCard.tsx` to the SAME
+        compact shape. type_tag visually renders as ✈️ icon in
+        the icon slot. Keep reading from `trip.flights` — data-
+        model collapse stays deferred. Visual parity only.
+
+     3. NEW lexicon keys under `tripPageShared.transport.*` (see
+        annotations). Every hardcoded English string in both
+        components ported to lexicon. Cross-reference
+        `rally-microcopy-lexicon-v0.md` before inventing.
+
+     4. NEW `.chassis .transport-card*` class block in globals.css
+        matching the 8M wireframe shape. No raw hex/rgba. No dead
+        `var(--rally-*)` tokens. No inline `style={{…}}`. All
+        color via theme tokens.
+
+     5. SECTION CHROME on sell: wrap the transport list in a
+        `.module-section` with header "transportation" + count pill
+        (matching sketch's `.section-head`). Currently renders via
+        `ModuleSlot` inline in page.tsx — replace with the same
+        section wrapper the sketch builder uses.
+
+     DELIBERATELY OUT OF SCOPE (future session briefs):
+     - `trip.flights` → `trip.transport[type_tag='flight']`
+       data-model collapse.
+     - Full component unification (one `TransportCard` serving
+       both sketch + sell like 9I did for Lodging). Stays two
+       files until the data model collapses.
+     - Organizer edit-on-sell (drawer trigger on organizer's own
+       view). Dedicated future session.
+     - Drawer, add button, edit affordances on sell. Sell is
+       strictly read-only for 9K.
+     - Any change to cost math, divisors, rollup wiring.
+     - Any change to `transitionToSell`.
+
+     PRESERVATION GUARDRAIL:
+     The sketch→sell transition ships every line item the
+     organizer added, with bit-identical cost math. AC12/AC13
+     in the brief enforce this via an end-to-end publish test
+     and an existing-sell-trip regression check.
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --doc-bg: #2a2a2a;
+    --doc-text: #faf8f5;
+    --doc-muted: #888;
+    --doc-accent: #ffd84d;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .doc-header {
+    max-width: 900px;
+    margin: 0 auto 16px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: var(--doc-text);
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: var(--doc-muted);
+    line-height: 1.5;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+
+  .row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+  .row-label {
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-top: 36px;
+    margin-bottom: 8px;
+  }
+
+  /* Phone scaffold — per-frame theme tokens */
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 18px 0 28px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+
+    /* Default theme (neutral cream) */
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --surface: #ffffff;
+    --on-surface: #1a1a1a;
+    --accent: #ffd84d;
+    --accent2: #5bb7d8;
+    --muted: #8a8680;
+    --border: #1a1a1a;
+  }
+  .frame.sketch { background: #fce5ec; --bg: #fce5ec; }
+  .frame.before { background: #e8ddd0; --bg: #e8ddd0; }
+
+  /* Coachella variant (demo theme parity) */
+  .frame.coachella {
+    --bg: #f5e6d3;
+    --ink: #2a1810;
+    --surface: #fffaf0;
+    --on-surface: #2a1810;
+    --accent: #b84a2f;        /* terracotta */
+    --accent2: #d4a574;       /* sand */
+    --muted: #8a6b55;
+    --border: #2a1810;
+    background: #f5e6d3;
+  }
+
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+
+  .context-stub {
+    opacity: .28;
+    pointer-events: none;
+    padding: 10px 18px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-bottom: 1px dashed rgba(26,26,26,.3);
+    margin: 0 0 16px;
+  }
+  .context-stub.below {
+    border-bottom: none;
+    border-top: 1px dashed rgba(26,26,26,.3);
+    margin: 16px 0 0;
+  }
+
+  /* .module-section — existing primitive */
+  .module-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px 16px;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    margin: 0 18px;
+    background: transparent;
+  }
+  .module-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px;
+    margin-bottom: 2px;
+  }
+  .module-section-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.1;
+    color: var(--ink);
+    text-transform: lowercase;
+  }
+  .section-count {
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+  }
+  .sketch-count-wrap { display: flex; align-items: center; gap: 6px; }
+  .collapse-toggle {
+    background: transparent;
+    border: 1.5px solid var(--ink);
+    border-radius: 100px;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--ink);
+  }
+
+  /* ── THE COMPACT CARD — canonical shape from 8M wireframe ── */
+  .transport-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .transport-card {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1.5px solid rgba(26,26,26,.15);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--on-surface);
+    text-decoration: none;
+  }
+  .transport-card.tappable { cursor: pointer; }
+  .transport-card-icon {
+    font-size: 18px;
+    text-align: center;
+  }
+  .transport-card-body { min-width: 0; }
+  .transport-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--on-surface);
+  }
+  .transport-card-meta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .transport-card-meta .split { text-transform: lowercase; }
+  .transport-card-link-chip {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 2px 6px;
+    border: 1px solid rgba(26,26,26,.2);
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  /* Sketch-only affordances */
+  .add-btn {
+    width: 100%;
+    padding: 10px;
+    border: 1.5px dashed rgba(26,26,26,.35);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    margin-top: 4px;
+  }
+
+  /* Legacy "before" card (current sell shape — for comparison) */
+  .legacy-card {
+    display: flex;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.85);
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .legacy-icon-tile {
+    width: 64px; height: 64px;
+    border-radius: 16px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    background: linear-gradient(135deg, rgba(107,76,59,.12), rgba(212,165,116,.18));
+    border: 1px solid rgba(107,76,59,.18);
+  }
+  .legacy-body { flex: 1; min-width: 0; }
+  .legacy-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: #1a3a4a;   /* hardcoded — the bug */
+    line-height: 1.2;
+  }
+  .legacy-badge-row {
+    display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap;
+  }
+  .legacy-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #e0f0eb;   /* hardcoded */
+    color: #2d6b5a;        /* hardcoded */
+    font-weight: 600;
+  }
+  .legacy-meta {
+    font-size: 11px;
+    color: #888;           /* hardcoded */
+    margin-top: 6px;
+  }
+  .legacy-price {
+    font-size: 22px;
+    font-weight: 800;
+    color: #2d6b5a;        /* hardcoded */
+    margin-top: 8px;
+  }
+
+  /* Annotations */
+  .annotation {
+    max-width: 980px;
+    margin: 44px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 20px 24px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: var(--doc-text);
+    margin: 16px 0 8px;
+  }
+  .annotation h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--doc-accent);
+    margin: 14px 0 4px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .annotation table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 12px;
+    font-size: 12px;
+  }
+  .annotation th, .annotation td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .annotation th { color: var(--doc-accent); font-weight: 700; }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--doc-accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--doc-accent); }
+
+  .frame-caption {
+    width: 375px;
+    margin: 8px auto 0;
+    padding: 8px 14px;
+    background: rgba(255,255,255,.04);
+    color: #a8a29a;
+    font-size: 11px;
+    line-height: 1.5;
+    border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9k · sell · transportation parity (draft)</div>
+  <div class="doc-title">transportation — compact card on sell</div>
+  <div class="doc-sub">
+    Rebuild <code>TransportCard</code> + <code>FlightCard</code> to the
+    8M wireframe shape. Read-only on sell. Whole-card tap opens the
+    booking link in a new tab; no drawer. Same section chrome as sketch.
+    Data-model collapse stays deferred.
+  </div>
+</div>
+
+<!-- ═══ ROW 1: SAME SHAPE — SKETCH vs SELL (single entry) ═══ -->
+<div class="row-label">row 1 · same compact card — sketch mode vs sell mode</div>
+<div class="row">
+
+  <!-- SKETCH MODE -->
+  <div class="frame sketch">
+    <div class="frame-label">sketch mode · tap card → drawer · + add button visible</div>
+    <div class="context-stub">▲ getting here (sell+ only)</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">transportation</div>
+        <div class="sketch-count-wrap">
+          <span class="section-count">1</span>
+          <button class="collapse-toggle">▾</button>
+        </div>
+      </div>
+      <div class="transport-cards">
+        <div class="transport-card tappable">
+          <div class="transport-card-icon">🚐</div>
+          <div class="transport-card-body">
+            <div class="transport-card-title">van rental · lax → indio</div>
+            <div class="transport-card-meta">
+              $240 · <span class="split">group split</span> · rental car/van
+            </div>
+          </div>
+          <span class="transport-card-link-chip">↗</span>
+        </div>
+      </div>
+      <button class="add-btn">+ add transportation</button>
+    </div>
+    <div class="context-stub below">▼ everything else ...</div>
+  </div>
+
+  <!-- SELL MODE -->
+  <div class="frame">
+    <div class="frame-label">sell mode · tap card → external booking url · no add button</div>
+    <div class="context-stub">▲ getting here (populated per-viewer)</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">transportation</div>
+        <span class="section-count">1</span>
+      </div>
+      <div class="transport-cards">
+        <a class="transport-card tappable" href="#" target="_blank" rel="noopener noreferrer">
+          <div class="transport-card-icon">🚐</div>
+          <div class="transport-card-body">
+            <div class="transport-card-title">van rental · lax → indio</div>
+            <div class="transport-card-meta">
+              $240 · <span class="split">group split</span> · rental car/van
+            </div>
+          </div>
+          <span class="transport-card-link-chip">↗</span>
+        </a>
+      </div>
+    </div>
+    <div class="context-stub below">▼ everything else ...</div>
+  </div>
+
+</div>
+
+<!-- ═══ ROW 2: SELL · MULTI-LEG (four legs + mixed types) ═══ -->
+<div class="row-label">row 2 · sell · multi-leg · mixed transport + flight</div>
+<div class="row">
+
+  <div class="frame">
+    <div class="frame-label">sell mode · 4 legs (euro summer trip) · flight inline</div>
+    <div class="context-stub">▲ getting here</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">transportation</div>
+        <span class="section-count">4</span>
+      </div>
+      <div class="transport-cards">
+        <a class="transport-card tappable" href="#" target="_blank">
+          <div class="transport-card-icon">✈️</div>
+          <div class="transport-card-body">
+            <div class="transport-card-title">rome → barcelona</div>
+            <div class="transport-card-meta">
+              $120 · <span class="split">individual</span> · flight
+            </div>
+          </div>
+          <span class="transport-card-link-chip">↗</span>
+        </a>
+        <a class="transport-card tappable" href="#" target="_blank">
+          <div class="transport-card-icon">🚆</div>
+          <div class="transport-card-body">
+            <div class="transport-card-title">barcelona → paris (tgv)</div>
+            <div class="transport-card-meta">
+              $90 · <span class="split">individual</span> · train
+            </div>
+          </div>
+          <span class="transport-card-link-chip">↗</span>
+        </a>
+        <div class="transport-card">
+          <div class="transport-card-icon">🚗</div>
+          <div class="transport-card-body">
+            <div class="transport-card-title">tuscany week rental</div>
+            <div class="transport-card-meta">
+              $480 · <span class="split">group split</span> · rental car/van
+            </div>
+          </div>
+        </div>
+        <a class="transport-card tappable" href="#" target="_blank">
+          <div class="transport-card-icon">⛵</div>
+          <div class="transport-card-body">
+            <div class="transport-card-title">amalfi day charter</div>
+            <div class="transport-card-meta">
+              $800 · <span class="split">group split</span> · charter boat
+            </div>
+          </div>
+          <span class="transport-card-link-chip">↗</span>
+        </a>
+      </div>
+    </div>
+    <div class="context-stub below">▼ everything else ...</div>
+  </div>
+  <div class="frame-caption">
+    <strong>Flight line item</strong> renders inline with the rest (row 1, ✈️ icon).
+    Reads from <code>trip.flights[]</code> (data-model collapse deferred);
+    <code>FlightCard.tsx</code> is rebuilt to produce this same shape, fed from
+    flight data instead of transport data. <strong>Tuscany card</strong> has no
+    <code>booking_link</code> → non-tappable, no link-chip rendered. The legacy
+    <code>status='confirmed'</code> badge is dropped in 9K — its meaning was
+    ambiguous and it created asymmetry between flights and ground transport.
+    Revisit as a deliberate commitment-signal feature in a future session.
+  </div>
+
+</div>
+
+<!-- ═══ ROW 3: THEME PARITY — COACHELLA ═══ -->
+<div class="row-label">row 3 · sell · theme parity · coachella palette</div>
+<div class="row">
+
+  <div class="frame coachella">
+    <div class="frame-label">sell mode · coachella theme · terracotta accent</div>
+    <div class="context-stub">▲ getting here</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <div class="module-section-title">transportation</div>
+        <span class="section-count">2</span>
+      </div>
+      <div class="transport-cards">
+        <a class="transport-card tappable" href="#" target="_blank">
+          <div class="transport-card-icon">✈️</div>
+          <div class="transport-card-body">
+            <div class="transport-card-title">lax → palm springs</div>
+            <div class="transport-card-meta">
+              $180 · <span class="split">individual</span> · flight
+            </div>
+          </div>
+          <span class="transport-card-link-chip">↗</span>
+        </a>
+        <a class="transport-card tappable" href="#" target="_blank">
+          <div class="transport-card-icon">🚐</div>
+          <div class="transport-card-body">
+            <div class="transport-card-title">desert shuttle</div>
+            <div class="transport-card-meta">
+              $60 · <span class="split">group split</span> · rental car/van
+            </div>
+          </div>
+          <span class="transport-card-link-chip">↗</span>
+        </a>
+      </div>
+    </div>
+    <div class="context-stub below">▼ everything else ...</div>
+  </div>
+  <div class="frame-caption">
+    Same component, Coachella tokens applied. No raw hex in the card —
+    border uses <code>color-mix(var(--on-surface) 15%, transparent)</code>,
+    text uses <code>var(--on-surface)</code> + <code>var(--muted)</code>.
+    Card surface = <code>var(--surface)</code> (cream),
+    section border = <code>var(--ink)</code> (deep brown).
+  </div>
+
+</div>
+
+<!-- ═══ ROW 4: THE "BEFORE" — current legacy sell card shape ═══ -->
+<div class="row-label">row 4 · what's on sell today (the problem)</div>
+<div class="row">
+
+  <div class="frame before">
+    <div class="frame-label">legacy sell · hero-card shape · raw hex · dead tokens</div>
+    <div class="context-stub">▲ getting here</div>
+    <div style="padding: 0 18px;">
+      <div style="margin-bottom: 12px;">
+        <div style="font-family: Georgia, serif; font-style: italic; font-weight: 700; font-size: 18px; color: #1a3a4a; text-transform: lowercase;">
+          transportation
+        </div>
+      </div>
+      <div class="legacy-card">
+        <div class="legacy-icon-tile">🚐</div>
+        <div class="legacy-body">
+          <div class="legacy-title">Car Rental</div>
+          <div class="legacy-badge-row">
+            <span class="legacy-badge">Split</span>
+          </div>
+          <div class="legacy-meta">Hertz · Van • LAX → Indio</div>
+          <div class="legacy-price">$60</div>
+          <div style="font-size: 9px; color: #999; margin-top: 2px;">Per person</div>
+        </div>
+      </div>
+    </div>
+    <div class="context-stub below">▼ everything else ...</div>
+  </div>
+  <div class="frame-caption">
+    Current <code>TransportCard.tsx</code>. Hero-style card (64px icon
+    tile, stacked body, price block). Hardcoded English (<em>Car Rental</em>,
+    <em>Split</em>, <em>Per person</em>). Hardcoded hex (<code>#1a3a4a</code>,
+    <code>#2d6b5a</code>, <code>#888</code>, <code>#999</code>). Dead
+    <code>var(--rally-font-display)</code> references. This shape never
+    appeared in any 8I/8M wireframe — it's pre-8M legacy.
+  </div>
+
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+
+  <h3>What carries over from sketch to sell</h3>
+  <ul>
+    <li><strong>Card shape.</strong> Grid: <code>28px</code> icon · <code>1fr</code> body · <code>auto</code> link-chip. Single-line title with ellipsis overflow. Two-line meta row.</li>
+    <li><strong>Section chrome.</strong> <code>.module-section</code> wrapper, <code>.module-section-header</code> with lowercase Georgia italic title, count pill on the right.</li>
+    <li><strong>Type-tag emoji mapping.</strong> ✈️ flight · 🚆 train · 🚗 rental_car_van · 🚐 charter_van_bus · ⛵ charter_boat · ⛴ ferry · · other. Same mapping as <code>builder/TransportCard.tsx:19–27</code>.</li>
+    <li><strong>Meta line format.</strong> <code>$cost · split-type · type-label</code>. Cost is <code>formatMoney(estimated_total)</code> for the line; split-type reads from <code>cost_type</code>; type-label reads from the lexicon surface keyed by <code>type_tag</code>.</li>
+    <li><strong>Copy.</strong> Every string via lexicon. No JSX literals.</li>
+  </ul>
+
+  <h3>What drops on sell</h3>
+  <ul>
+    <li><strong>No <code>+ add transportation</code> button.</strong> Sell is read-only.</li>
+    <li><strong>No drawer trigger on whole-card tap.</strong> Sketch's <code>onEdit</code> prop is not passed.</li>
+    <li><strong>No <code>.collapse-toggle</code></strong> — module is always expanded on sell.</li>
+    <li><strong>No remove button</strong> (sketch drawer has this; sell doesn't expose it).</li>
+  </ul>
+
+  <h3>What's added on sell</h3>
+  <ul>
+    <li><strong>Whole-card tap opens <code>booking_link</code></strong> in a new tab (when present). Renders as <code>&lt;a href="…" target="_blank" rel="noopener noreferrer"&gt;</code>. If <code>booking_link</code> is null, card renders as <code>&lt;div&gt;</code> with no cursor — non-interactive.</li>
+    <li><strong>Link-chip (↗)</strong> shown only when <code>booking_link</code> is present. Same rule as sketch.</li>
+  </ul>
+
+  <h3>Lexicon keys required</h3>
+  <table>
+    <thead>
+      <tr><th>Key</th><th>String</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>tripPageShared.transport.h2</code></td><td>transportation</td><td>Already exists — section title.</td></tr>
+      <tr><td><code>tripPageShared.transport.typeLabel.flight</code></td><td>flight</td><td>New. Sketch equivalent is <code>builderState.transport.tagLabel.flight</code>; keep surfaces separate so sell can evolve independently.</td></tr>
+      <tr><td><code>tripPageShared.transport.typeLabel.train</code></td><td>train</td><td>New.</td></tr>
+      <tr><td><code>tripPageShared.transport.typeLabel.rentalCarVan</code></td><td>rental car/van</td><td>New.</td></tr>
+      <tr><td><code>tripPageShared.transport.typeLabel.charterVanBus</code></td><td>charter van/bus</td><td>New.</td></tr>
+      <tr><td><code>tripPageShared.transport.typeLabel.charterBoat</code></td><td>charter boat</td><td>New.</td></tr>
+      <tr><td><code>tripPageShared.transport.typeLabel.ferry</code></td><td>ferry</td><td>New.</td></tr>
+      <tr><td><code>tripPageShared.transport.typeLabel.other</code></td><td>other</td><td>New.</td></tr>
+      <tr><td><code>tripPageShared.transport.splitGroup</code></td><td>group split</td><td>New. Cost-type label.</td></tr>
+      <tr><td><code>tripPageShared.transport.splitIndividual</code></td><td>individual</td><td>New.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <strong>Cross-reference.</strong> Every proposed string above needs a
+    lexicon check against <code>rally-microcopy-lexicon-v0.md</code> before
+    Claude Code commits. If any string doesn't match the approved copy,
+    escalate to Andrew rather than invent.
+  </div>
+
+  <h3>CSS primitives (new class block in <code>globals.css</code>)</h3>
+  <table>
+    <tr><th>Class</th><th>Purpose</th></tr>
+    <tr><td><code>.chassis .transport-card</code></td><td>Grid container. 28px/1fr/auto columns.</td></tr>
+    <tr><td><code>.chassis .transport-card.tappable</code></td><td>Interactive variant — cursor + hover state.</td></tr>
+    <tr><td><code>.chassis .transport-card-icon</code></td><td>18px emoji, centered.</td></tr>
+    <tr><td><code>.chassis .transport-card-body</code></td><td>min-width: 0 for ellipsis clipping.</td></tr>
+    <tr><td><code>.chassis .transport-card-title</code></td><td>13px / 600 / ellipsis.</td></tr>
+    <tr><td><code>.chassis .transport-card-meta</code></td><td>11px / <code>var(--muted)</code>.</td></tr>
+    <tr><td><code>.chassis .transport-card-link-chip</code></td><td>10px / border / pill.</td></tr>
+  </table>
+  <p>All colors via tokens. No raw hex, no <code>rgba()</code> literals except <code>color-mix(in srgb, var(--token) N%, transparent)</code>. Block scoped under <code>.chassis</code> to avoid bleed into builder surface.</p>
+
+  <h3>Design decisions (resolved 2026-04-22)</h3>
+  <ul>
+    <li><strong>Flight card stays separate from TransportCard.</strong> Two files, near-identical JSX, by design. Reason: the <code>trip.flights</code> → <code>transport[type_tag='flight']</code> data-model collapse is tracked as future work; when it lands, <code>FlightCard.tsx</code> is deleted entirely. Extracting a <code>&lt;CompactLineCard&gt;</code> primitive now would be speculative abstraction for a component that's scheduled to disappear. Duplication is managed with an intentional-duplication comment at the top of both files plus a Bug Backlog entry with trigger conditions (drift between files, 3rd consumer, data-model collapse) for revisiting.</li>
+    <li><strong>Should Getting Here adopt the same compact card shape?</strong> It's sell-only and has its own branch-by-mode UI (9B-1). Out of scope for 9K; log as a possible later unification.</li>
+    <li><strong>Confirmed badge dropped.</strong> Legacy <code>FlightCard</code> rendered a "Confirmed" badge when <code>status='confirmed'</code>, but its semantic meaning was ambiguous (whose confirmation? shared flight line) and it created asymmetry — flights have a status field, ground transport doesn't, so the badge appeared unevenly across cards without clear rationale. Dropped in 9K; logged in Bug Backlog for potential redesign as a deliberate commitment-signal feature.</li>
+    <li><strong>Organizer edit-on-sell deferred to a dedicated future session.</strong> Designated direction is a "back to sketch" view toggle (organizer sees a button on sell, tap toggles view to render the sketch UI, reusing the entire sketch edit surface). Client-side view toggle — NOT a new route, per three-screen rule. 9K is strictly read-only on sell for everyone; the organizer affordance gets its own session brief that also handles lodging/headliner/etc. in one pass.</li>
+  </ul>
+
+</div>
+
+</body>
+</html>

@@ -31,6 +31,7 @@ import { getBuzzFeed } from '@/lib/buzz';
 import { Description } from '@/components/trip/Description';
 import { ExtrasSections } from '@/components/trip/ExtrasSections';
 import { TransportCard } from '@/components/trip/TransportCard';
+import { FlightCard } from '@/components/trip/FlightCard';
 import { SellHeadliner } from '@/components/trip/SellHeadliner';
 import { GettingHere } from '@/components/trip/GettingHere';
 import { PlaylistCard } from '@/components/trip/PlaylistCard';
@@ -109,6 +110,7 @@ export default async function TripPage({ params }: Props) {
 
   const lodging = trip.lodging || [];
   const transport = trip.transport || [];
+  const flights = trip.flights || [];
   const groceries = trip.groceries || [];
 
   // Session 9A — "everything else" read-only rows on sell. Values come from
@@ -438,20 +440,33 @@ export default async function TripPage({ params }: Props) {
       )}
 
       <div style={{ padding: '0 18px' }}>
-        {/* 4 · Transportation — "getting around" */}
-        <Reveal delay={0.1}>
-          <ModuleSlot
-            title={getCopy(themeId, 'tripPageShared.transport.h2')}
-            emptyText={getCopy(themeId, 'emptyStates.transport')}
-            hasContent={transport.length > 0}
-          >
-            {transport.map((t) => (
-              <div key={t.id} style={{ marginTop: 12 }}>
-                <TransportCard transport={t} memberCount={cost.confirmed_count} themeId={themeId} />
+        {/* 4 · Transportation — compact-card shape (Session 9K).
+               Flights + transport render as interleaved line items
+               inside one .module-section. Read-only: whole-card tap
+               opens booking_link when present; non-interactive <div>
+               otherwise. Section omits entirely when both lists empty. */}
+        {(transport.length > 0 || flights.length > 0) && (
+          <Reveal delay={0.1}>
+            <div className="module-section transport-module" style={{ marginTop: 14 }}>
+              <div className="module-section-header">
+                <span className="module-section-title">
+                  {getCopy(themeId, 'tripPageShared.transport.h2')}
+                </span>
+                <span className="module-section-count">
+                  {transport.length + flights.length} item{transport.length + flights.length === 1 ? '' : 's'}
+                </span>
               </div>
-            ))}
-          </ModuleSlot>
-        </Reveal>
+              <div className="transport-module-cards">
+                {flights.map((f) => (
+                  <FlightCard key={f.id} flight={f} themeId={themeId} />
+                ))}
+                {transport.map((t) => (
+                  <TransportCard key={t.id} transport={t} themeId={themeId} />
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        )}
 
         {/* 5 · Everything else — inline read-only mirror of sketch 8P shape.
                Uses existing CSS primitives + lexicon keys; no new component. */}

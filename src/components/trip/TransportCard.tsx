@@ -1,172 +1,89 @@
-import type { Transport } from '@/types';
+// ─────────────────────────────────────────────────────────────
+// 9K intentional duplication — SEE ALSO: the sibling file.
+// This component and its sibling (TransportCard ↔ FlightCard)
+// share the compact-card JSX shape by design. We chose
+// duplication over extracting a <CompactLineCard> primitive
+// because flights[] → transport[type_tag='flight'] data-model
+// collapse is tracked as future work; when it lands,
+// FlightCard.tsx is deleted and no primitive survives.
+//
+// Revisit if any of these trigger:
+//   (a) bug appears in one file but not the other (drift)
+//   (b) a third caller wants the compact shape
+//   (c) the data-model collapse session gets scheduled
+// ─────────────────────────────────────────────────────────────
+
+import type { Transport, TransportTypeTag } from '@/types';
 import type { ThemeId } from '@/lib/themes/types';
-import { SolidCard } from '@/components/ui/SolidCard';
-import { Badge } from '@/components/ui/Badge';
-import { formatMoney } from '@/lib/money';
 import { getCopy } from '@/lib/copy/get-copy';
 
-const SUBTYPE_LABELS: Record<string, { label: string; emoji: string }> = {
-  car_rental: { label: 'Car Rental', emoji: '🚗' },
-  taxi: { label: 'Taxi', emoji: '🚕' },
-  public_transit: { label: 'Public Transit', emoji: '🚇' },
+const TAG_EMOJI: Record<TransportTypeTag, string> = {
+  flight: '✈️',
+  train: '🚆',
+  rental_car_van: '🚗',
+  charter_van_bus: '🚐',
+  charter_boat: '⛵',
+  ferry: '⛴',
+  other: '·',
 };
 
-export function TransportCard({
-  transport,
-  memberCount = 0,
-  themeId,
-}: {
+const TAG_COPY_KEY: Record<TransportTypeTag, string> = {
+  flight: 'flight',
+  train: 'train',
+  rental_car_van: 'rentalCarVan',
+  charter_van_bus: 'charterVanBus',
+  charter_boat: 'charterBoat',
+  ferry: 'ferry',
+  other: 'other',
+};
+
+type Props = {
   transport: Transport;
-  memberCount?: number;
   themeId: ThemeId;
-}) {
-  const meta = SUBTYPE_LABELS[transport.subtype ?? ''] || { label: 'Transport', emoji: '🚗' };
-  const costType = transport.cost_type;
-  const splitWays = Math.max(memberCount, 1);
-  const total = transport.estimated_total;
-  const perPerson =
-    costType === 'shared' && total != null ? total / splitWays : total;
+};
 
-  return (
-    <SolidCard style={{ padding: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 16,
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 36,
-            background:
-              'linear-gradient(135deg, rgba(107,76,59,0.12), rgba(212,165,116,0.18))',
-            border: '1px solid rgba(107,76,59,0.18)',
-          }}
-          aria-hidden
-        >
-          {meta.emoji}
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              marginBottom: 3,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div
-              style={{
-                fontFamily: 'var(--rally-font-display)',
-                fontSize: 17,
-                fontWeight: 800,
-                color: '#1a3a4a',
-                lineHeight: 1.2,
-              }}
-            >
-              {meta.label}
-            </div>
-            <Badge
-              text={costType === 'shared' ? 'Split' : 'Individual'}
-              bg={costType === 'shared' ? '#e0f0eb' : '#e0ebf0'}
-              color={costType === 'shared' ? '#2d6b5a' : '#1a3a4a'}
-            />
-          </div>
-
-          {(transport.provider || transport.vehicle_type) && (
-            <div
-              style={{
-                fontSize: 12,
-                color: '#6b4c3b',
-                fontWeight: 600,
-                marginTop: 1,
-              }}
-            >
-              {[transport.provider, transport.vehicle_type].filter(Boolean).join(' • ')}
-            </div>
-          )}
-
-          {transport.route && (
-            <div style={{ fontSize: 11, color: '#888', marginTop: 3 }}>{transport.route}</div>
-          )}
-
-          {transport.daily_rate && transport.num_days && (
-            <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>
-              {formatMoney(transport.daily_rate, '/day')} {'\u00d7'} {transport.num_days} {getCopy(themeId, 'tripPageShared.transport.days')}
-            </div>
-          )}
-
-          {transport.notes && (
-            <div style={{ fontSize: 10, color: '#d4a574', marginTop: 3, fontStyle: 'italic' }}>
-              {transport.notes}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {total != null && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            justifyContent: 'space-between',
-            marginTop: 12,
-            paddingTop: 10,
-            borderTop: '1px solid rgba(107,76,59,0.12)',
-          }}
-        >
-          <div style={{ fontSize: 11, color: '#888', fontWeight: 600 }}>
-            {costType === 'shared'
-              ? `Split ${splitWays} way${splitWays === 1 ? '' : 's'}`
-              : 'Per person'}
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                color: '#2d6b5a',
-                fontFamily: 'var(--rally-font-body)',
-                lineHeight: 1,
-              }}
-            >
-              {formatMoney(perPerson ?? 0)}
-            </div>
-            {costType === 'shared' && (
-              <div style={{ fontSize: 9, color: '#999', marginTop: 2 }}>
-                {formatMoney(total)} {getCopy(themeId, 'tripPageShared.transport.total')}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {transport.booking_link && (
-        <a
-          href={transport.booking_link}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'block',
-            textAlign: 'center',
-            marginTop: 10,
-            padding: 8,
-            borderRadius: 8,
-            border: '1px solid #6b4c3b25',
-            color: '#6b4c3b',
-            fontSize: 11,
-            fontWeight: 600,
-            textDecoration: 'none',
-            background: '#6b4c3b08',
-          }}
-        >
-          {getCopy(themeId, 'tripPageShared.transport.checkCta')}
-        </a>
-      )}
-    </SolidCard>
+export function TransportCard({ transport, themeId }: Props) {
+  const tag: TransportTypeTag = transport.type_tag ?? 'other';
+  const emoji = TAG_EMOJI[tag] ?? '·';
+  const tagLabel = getCopy(themeId, `tripPageShared.transport.typeLabel.${TAG_COPY_KEY[tag]}`);
+  const splitLabel = getCopy(
+    themeId,
+    transport.cost_type === 'shared'
+      ? 'tripPageShared.transport.splitGroup'
+      : 'tripPageShared.transport.splitIndividual',
   );
+  const cost = transport.estimated_total != null
+    ? `$${Math.round(transport.estimated_total)}`
+    : '';
+
+  const body = (
+    <>
+      <span className="transport-card-icon" aria-hidden>{emoji}</span>
+      <span className="transport-card-body">
+        <span className="transport-card-title">{transport.description}</span>
+        <span className="transport-card-meta">
+          {cost && <>{cost} · </>}
+          <span className="split">{splitLabel}</span>
+          {' · '}
+          {tagLabel}
+        </span>
+      </span>
+    </>
+  );
+
+  if (transport.booking_link) {
+    return (
+      <a
+        className="transport-card tappable"
+        href={transport.booking_link}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {body}
+        <span className="transport-card-link-chip" aria-hidden>↗</span>
+      </a>
+    );
+  }
+
+  return <div className="transport-card">{body}</div>;
 }

@@ -10923,6 +10923,662 @@ with unaddressed failures.
 
 ---
 
+### Session 9K: "Transport + Flight cards — rebuild to compact sell shape"
+
+**Premise.** 9H cleaned up the Headliner, 9I/9J cleaned up Lodging,
+9B-1 built Getting Here, 9B-2 cleaned up CostBreakdown. Next module
+in the sell-page order is **transportation** — and the audit that
+preceded this brief revealed the problem is deeper than drift. The
+legacy sell `TransportCard.tsx` still renders a large hero-style card
+(64px icon tile, stacked provider/vehicle/route, booking CTA footer)
+that predates the 8M wireframe rebuild. 8M replaced this shape in
+sketch with a compact single-line card but deliberately left the
+sell version untouched ("The legacy `src/components/trip/TransportCard.tsx`
+continues to render on the non-sketch trip page (sell/lock/go) and
+is intentionally untouched," 8M code comment). Result: sketch and
+sell render the same data in two visually incompatible shapes.
+
+9K rebuilds `TransportCard.tsx` and `FlightCard.tsx` to the compact
+card shape specified in `rally-9k-transport-sell-mockup.html`. The
+token / lexicon / CSS-primitive cleanup falls out naturally as a
+consequence of writing fresh code against the mockup. Cleanup-in-
+place was the earlier framing; rebuild-to-shape is the correct one.
+
+**Preservation guardrail (non-negotiable).** The sketch→sell
+transition must keep shipping every line item the organizer added,
+with bit-identical cost math. This session does NOT change how
+`transitionToSell` writes, how the builder persists, or how
+CostBreakdown rolls up transport/flights. If a change appears to
+require a data-path edit, STOP and escalate per skill Part 3 —
+that's a different session.
+
+**Known architectural tension (out of scope for 9K).** Sketch builder
+(`builder/TransportCard.tsx`, 8M) uses `type_tag` enum (7 values incl.
+`flight`); legacy sell `TransportCard.tsx` uses `subtype` enum (3
+values); sell still reads a separate `trip.flights` array via
+`FlightCard.tsx`. 8M deferred the consolidation deliberately. 9K
+does NOT attempt to collapse this — rebuild-to-shape only, using
+the existing data shapes. When the data-model collapse session
+eventually runs, `FlightCard.tsx` is the intended casualty; until
+then it and `TransportCard.tsx` carry near-identical JSX by design
+(see Design Decisions in the mockup).
+
+**Scope** (ONE module — transportation — plus its two render
+components + supporting surfaces):
+
+**Canonical design reference: `rally-9k-transport-sell-mockup.html`.**
+Read it before writing any code. It specifies: compact card shape
+(grid `28px 1fr auto`), section chrome (`.module-section` wrapper
+with header + count pill), interaction rules (whole-card tap opens
+`booking_link` when present, non-interactive otherwise), theme token
+expectations, and the full lexicon keys table. Every scope item
+below refers back to the mockup.
+
+1. **`src/components/trip/TransportCard.tsx`** — rebuild to the
+   compact shape from the mockup. Grid: 28px icon · 1fr body (title
+   + meta) · auto link-chip. Read-only: no `onEdit`, no drawer
+   trigger. When `booking_link` is present, render as
+   `<a href target="_blank" rel="noopener noreferrer">` with
+   `.transport-card.tappable`. When null, render as non-interactive
+   `<div>` (no cursor, no tap). Icon resolves from `type_tag` via
+   the same emoji map sketch uses (`✈️🚆🚗🚐⛵⛴·`). Title: the
+   transport's display name (e.g., "van rental · lax → indio"). Meta:
+   `$cost · split-type · type-label`, all via lexicon. No legacy
+   hero-card elements: no 64px icon tile, no stacked provider line,
+   no booking CTA footer, no dedicated price block. Drop the
+   `status='confirmed'` badge rendering path entirely (see Design
+   Decisions in the mockup).
+
+2. **`src/components/trip/FlightCard.tsx`** — rebuild to the SAME
+   compact shape. type_tag is implicit (all entries are flights, ✈️
+   icon). Title: `${departure_airport} → ${arrival_airport}`. Meta:
+   `$estimated_price · individual · flight` (flights are individual
+   cost by default per the current data shape). Drop the legacy
+   "Confirmed", "Direct", "Connecting" badges. Same tap-to-booking
+   behavior as TransportCard. Reads from `trip.flights[]` —
+   data-model collapse stays deferred.
+
+3. **Intentional-duplication comment at the top of both files.**
+   Paste this verbatim block at the top of each file:
+
+   ```tsx
+   // ─────────────────────────────────────────────────────────────
+   // 9K intentional duplication — SEE ALSO: the sibling file.
+   // This component and its sibling (TransportCard ↔ FlightCard)
+   // share the compact-card JSX shape by design. We chose
+   // duplication over extracting a <CompactLineCard> primitive
+   // because flights[] → transport[type_tag='flight'] data-model
+   // collapse is tracked as future work; when it lands,
+   // FlightCard.tsx is deleted and no primitive survives.
+   //
+   // Revisit if any of these trigger:
+   //   (a) bug appears in one file but not the other (drift)
+   //   (b) a third caller wants the compact shape
+   //   (c) the data-model collapse session gets scheduled
+   // ─────────────────────────────────────────────────────────────
+   ```
+
+   Any change to the card JSX in one file MUST be mirrored in the
+   other. This is the primary drift guard.
+
+4. **Section chrome on sell (`src/app/trip/[slug]/page.tsx`).** The
+   transport list currently renders inline with `<ModuleSlot>`
+   (lines 440–454). Wrap it in the same `.module-section` shape
+   sketch uses: section header with lowercase Georgia italic title
+   + count pill (matching `.sketch-count-wrap` minus the collapse
+   toggle). Read the exact markup off the mockup's Row 1 sell frame.
+   Do NOT touch any other module's chrome in page.tsx — single-module
+   discipline.
+
+5. **`src/lib/copy/surfaces/trip-page-shared.ts`** — add the lexicon
+   keys enumerated in the mockup's "Lexicon keys required" table:
+   `tripPageShared.transport.typeLabel.{flight,train,rentalCarVan,charterVanBus,charterBoat,ferry,other}`,
+   `tripPageShared.transport.splitGroup`, `tripPageShared.transport.splitIndividual`.
+   Cross-reference `rally-microcopy-lexicon-v0.md` before committing —
+   if any string in the mockup doesn't match approved copy, escalate
+   before inventing. Do NOT add keys for the dropped confirmed
+   badge, the dropped "Direct"/"Connecting" badges, or the legacy
+   `subtype` values.
+
+6. **`src/app/globals.css`** — new `.chassis .transport-card*` block
+   matching the mockup's CSS primitives table. Classes:
+   `.transport-card`, `.transport-card.tappable`, `.transport-card-icon`,
+   `.transport-card-body`, `.transport-card-title`, `.transport-card-meta`,
+   `.transport-card.split` (meta inner), `.transport-card-link-chip`.
+   All colors via theme tokens (`var(--on-surface)`, `var(--muted)`,
+   `var(--surface)`, etc.) or `color-mix(in srgb, var(--token) N%,
+   transparent)`. No raw hex, no `rgba()` literals, no `!important`.
+   Scoped under `.chassis` to avoid bleed into builder surface.
+
+**Hard Constraints:**
+
+- DO NOT create new routes. Three-screen rule holds.
+- DO NOT touch any other module — no headliner, no spot, no getting
+  here, no everything else, no cost summary, no crew/buzz/aux, no
+  header/hero/countdown/marquee/sticky-bar changes. Single-module
+  discipline per skill Part 1. If drift "feels obvious" in an
+  unrelated file, log it in Known Issues and move on.
+- DO NOT touch the sketch builder variants
+  (`src/components/trip/builder/TransportCard.tsx`,
+  `src/components/trip/builder/TransportAddForm.tsx`). Sketch
+  behavior is locked; this session only replaces the sell-render
+  components.
+- DO NOT attempt the `trip.flights` → `transport[type_tag='flight']`
+  data-model collapse, component unification, or any change to
+  `transitionToSell`. Tracked as deferred work. If the rebuild
+  appears to require touching any of these, STOP and escalate per
+  skill Part 3 — don't unilaterally expand.
+- DO NOT add any organizer edit affordance on sell — no pencil
+  icons, no drawer triggers, no whole-card-tap-to-edit when viewer
+  is organizer. The designated direction (back-to-sketch view
+  toggle) is logged in the fix plan and ships in its own dedicated
+  session. 9K is strictly read-only on sell for every viewer role.
+- DO NOT render a confirmed badge, a "Direct"/"Connecting" label,
+  or the legacy `subtype` fallback. These are intentionally dropped
+  from 9K per Design Decisions in the mockup.
+- DO NOT change any cost math. `perPerson`, `splitWays`, the
+  `estimated_total` / `cost_per_person` derivations stay bit-exact.
+  9B-2's CostBreakdown aggregation reads from the same fields — any
+  math change cascades.
+- DO NOT change data model or types. No new columns, no type
+  changes, no prop renames on `Transport` / `Flight`. No reads
+  re-pointed from `trip.flights` to `trip.transport` or vice versa.
+- DO NOT introduce strings not in `rally-microcopy-lexicon-v0.md`
+  without escalating. If a proposed lexicon key in the mockup
+  doesn't match approved copy, stop and ask.
+- The intentional-duplication comment at the top of TransportCard
+  and FlightCard (Scope item 3) is a REQUIREMENT, not a suggestion.
+  Both files must carry the identical block verbatim.
+
+**Acceptance Criteria:**
+
+**Shape match (against the mockup):**
+
+- [ ] **AC1** (TransportCard compact shape) — renders the
+      `grid-template-columns: 28px 1fr auto` shape from the mockup.
+      Icon, body (title + meta), link-chip. Single-line title with
+      `text-overflow: ellipsis`. No hero-card elements: no 64px
+      icon tile, no stacked provider/vehicle/route lines, no
+      dedicated price block, no booking CTA footer.
+- [ ] **AC2** (FlightCard compact shape) — same grid, same title/
+      meta structure as TransportCard. ✈️ icon always. No legacy
+      stacked flight-details block.
+- [ ] **AC3** (section chrome parity) — transport list on sell
+      wraps in `.module-section` with header (lowercase "transportation"
+      title in Georgia italic + count pill). Matches the mockup's
+      Row 1 sell frame. Renders whether list has 1 or N items.
+
+**Hygiene (grep-based, both files):**
+
+- [ ] **AC4** (zero hardcoded English in JSX) —
+      `grep -E "'(Car Rental|Taxi|Public Transit|Transport|Split|Individual|Per person|Flights|Book yours|Confirmed|Direct|Connecting)'"
+      src/components/trip/TransportCard.tsx src/components/trip/FlightCard.tsx`
+      returns 0 hits.
+- [ ] **AC5** (zero raw hex/rgba) — `grep -E '#[0-9a-fA-F]{3,6}|rgba\('
+      src/components/trip/TransportCard.tsx src/components/trip/FlightCard.tsx`
+      returns 0 hits.
+- [ ] **AC6** (zero dead `--rally-*` token refs) —
+      `grep 'var(--rally-' src/components/trip/TransportCard.tsx
+      src/components/trip/FlightCard.tsx` returns 0 hits.
+- [ ] **AC7** (no inline `style={{…}}`) — visual inspection of both
+      files: every style declaration flows through classed elements
+      in globals.css. No `style={{…}}` prop on any JSX element.
+- [ ] **AC8** (CSS block clean) — `.chassis .transport-card*` block
+      in globals.css: zero `!important`, zero raw hex/rgba, every
+      color via theme token or `color-mix(var(--token) N%, transparent)`.
+
+**Interaction:**
+
+- [ ] **AC9** (tap → booking link) — card with `booking_link`
+      renders as `<a href target="_blank" rel="noopener noreferrer">`
+      with `.tappable` class. Tap opens the link in a new tab.
+- [ ] **AC10** (no-link → non-interactive) — card without
+      `booking_link` renders as non-interactive `<div>`. No cursor,
+      no tap handler, no link-chip rendered.
+- [ ] **AC11** (no sell-side edit affordances) — no `onEdit`, no
+      drawer trigger, no pencil icon, no "+ add transportation"
+      button, no organizer-specific rendering. Sell is read-only
+      for every viewer role.
+- [ ] **AC12** (intentional-duplication comment) — top of
+      TransportCard.tsx and FlightCard.tsx both carry the verbatim
+      duplication comment block from Scope item 3.
+
+**Theme + regression:**
+
+- [ ] **AC13** (theme parity at 375px) — load a sell trip with
+      transport + flight items in three themes (Coachella / No Doubt
+      / one more). No clashing colors, no bright-on-bright, no dead
+      contrast. All text legible at 375px. No horizontal scroll.
+- [ ] **AC14** (sketch render unchanged) — load a sketch trip with
+      transport line items, builder path still renders identically
+      to pre-session baseline. No CSS bleed from new
+      `.chassis .transport-card*` into the builder surface.
+- [ ] **AC15** (typescript + lexicon cross-reference) — `npx tsc
+      --noEmit` exit 0. Every new lexicon key matches
+      `rally-microcopy-lexicon-v0.md`; any mismatch escalated to
+      Andrew, not invented.
+
+**Preservation (the sketch→sell transition must not regress):**
+
+- [ ] **AC16** (end-to-end publish test) — fresh sketch trip, add
+      2 transport items (one `rental_car_van`, one other ground
+      type) + 1 flight. Publish (`transitionToSell`). On the
+      resulting sell page: all 3 items render on compact cards,
+      CostBreakdown rolls up transport + flight lines with correct
+      per-person values, hero total matches what sketch calculated.
+      Screenshot pre-session and post-session; cost math must be
+      identical (only layout changes).
+- [ ] **AC17** (existing sell trip regression) — load at least one
+      existing trip already in sell phase (pre-9K data in whatever
+      shape it's in — `trip.flights` entries, legacy `subtype`
+      transport entries, or both). Page renders without error, all
+      line items visible, CostBreakdown rolls up correctly. No 500,
+      no client-side crash, no "cannot read property of undefined."
+
+**Files to Read:**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — full skill, both
+  Part 1 rules and Part 3 execution.
+- **`rally-9k-transport-sell-mockup.html`** — canonical design
+  reference. Defines card shape, interaction rules, lexicon keys,
+  CSS class names, Design Decisions. Read before touching any code.
+- `rally-transportation-wireframe.html` — 8M wireframe that
+  established the compact sketch shape being ported to sell.
+- `rally-fix-plan-v1.md` §Session 9K (this brief), §Session 9I
+  (LodgingGallery precedent for sell-chrome cleanup), §Session 9B-2
+  (CostBreakdown precedent for token/lexicon hygiene).
+- `rally-microcopy-lexicon-v0.md` — cross-reference every new
+  lexicon string.
+- `src/components/trip/TransportCard.tsx`,
+  `src/components/trip/FlightCard.tsx` — the two files to rebuild.
+- `src/components/trip/builder/TransportCard.tsx` — REFERENCE ONLY.
+  This is the 8M sketch card; its shape is what the sell versions
+  must match. Do NOT modify this file.
+- `src/lib/copy/surfaces/trip-page-shared.ts` — where new lexicon
+  keys land.
+- `src/app/globals.css` — existing `.chassis .lodging-card*` and
+  `.chassis .cost-breakdown*` blocks for the token/class pattern
+  to match.
+- `src/app/trip/[slug]/page.tsx` lines 440–454 — where TransportCard
+  renders on sell; also where the `.module-section` wrapper needs
+  to be added for Scope item 4.
+
+**How to QA Solo (Claude Code):**
+
+1. `cd ~/Desktop/claude/rally && rm -rf .next && npm run dev`
+   (flush Turbopack cache — bit us in 8M, 9B-2 re-flagged).
+2. `npx tsc --noEmit` — exit 0.
+3. Run AC4–AC6 greps from repo root. All should return 0 hits.
+4. Load a sell trip with transport + flight items. Compare side-
+   by-side against the mockup's Row 1 sell frame. Shape must match:
+   compact single-line card, grid columns, no hero-card elements.
+5. Tap a card with a `booking_link` — opens in new tab. Tap a card
+   without one — no interaction.
+6. Switch theme 2–3x (marquee sticker or query param). Screenshot
+   each. No broken contrast, all text legible.
+7. Load a sketch trip with transport line items. Confirm builder
+   card visually identical to pre-session baseline (AC14).
+8. Open CostBreakdown on the same sell trip — transport + flights
+   rollup numbers match what the cards show (AC16 cost math).
+9. 375px viewport: no horizontal scroll, no ellipsis failures on
+   long titles, no wrap breaks on the meta row.
+10. **Preservation test (AC16).** Fresh sketch trip, add 2
+    transport items + 1 flight, publish, confirm every item
+    renders on sell with correct CostBreakdown math. Capture
+    pre/post screenshots for the release notes.
+11. **Regression test (AC17).** Load an existing sell trip that
+    has legacy data (`trip.flights` entries and/or legacy `subtype`
+    transport). Page renders, no crash, line items visible,
+    CostBreakdown rolls up.
+
+#### Session 9K — Release Notes
+
+**What was built:**
+
+1. **`src/components/trip/TransportCard.tsx`** — complete rewrite to
+   the 9K compact-card shape. Grid `28px 1fr auto`. Read-only.
+   `<a target="_blank" rel="noopener noreferrer"
+   className="transport-card tappable">` when `booking_link` present
+   (with trailing ↗ link-chip); `<div className="transport-card">`
+   otherwise. Icon resolves from `type_tag` via the same emoji map
+   sketch uses (`✈️🚆🚗🚐⛵⛴·`), duplicated locally rather than
+   extracted (builder stays untouched per brief). Meta is
+   `$cost · group split|individual · <type label>`, all strings
+   via `tripPageShared.transport.*` lexicon. Dropped: 64px icon
+   tile, stacked provider line, `SolidCard`, `Badge`,
+   `formatMoney`, legacy `subtype`-map fallback, inline price
+   block, "Check rates" footer CTA, every hex literal, every
+   `var(--rally-*)` ref, every `style={{…}}`. Intentional-
+   duplication comment block at top.
+
+2. **`src/components/trip/FlightCard.tsx`** — complete rewrite to
+   the same compact shape. ✈️ icon always; title
+   `${departure_airport} → ${arrival_airport}`; meta
+   `$cost · individual · flight`. Same tap-to-booking behavior
+   as TransportCard. Dropped: Badge row (✈️ Flights / Book yours /
+   Confirmed), inline price block, "Search flights" footer CTA,
+   `airline` / `is_direct` (Direct/Connecting) / `duration` /
+   `flight_number` / `notes` render paths. `status` field stays in
+   the `Flight` type — only the render path is removed.
+   Intentional-duplication comment block at top.
+
+3. **`src/app/trip/[slug]/page.tsx`** — swapped `<ModuleSlot>` for
+   the transport list with inline `.module-section` markup. Added
+   `import { FlightCard }` + `const flights = trip.flights || []`.
+   Flights render first, then transport, as interleaved line items
+   inside one `.transport-module-cards` container. Count pill =
+   `transport.length + flights.length`. Section omits entirely when
+   both lists empty. `ModuleSlot` import preserved — still used at
+   the other call site (line 409). No other module touched.
+
+4. **`src/lib/copy/surfaces/trip-page-shared.ts`** — added 9 new
+   keys: `transport.typeLabel.{flight,train,rentalCarVan,
+   charterVanBus,charterBoat,ferry,other}`, `transport.splitGroup`,
+   `transport.splitIndividual`. Strings mirror
+   `builderState.transport.*` verbatim, cross-referenced against
+   `rally-microcopy-lexicon-v0.md` §5.29 — all approved. No keys
+   for the dropped badges (confirmed / direct / connecting) or
+   legacy subtype labels. Also updated `transport.h2` from
+   `'getting around'` to `'transportation'` — see "What changed
+   from the brief" below.
+
+5. **`src/app/globals.css`** — extended the existing
+   `.chassis .transport-card*` block (lines 4486–4549) rather than
+   duplicating it. Deltas: (a) moved `cursor: pointer` off the base
+   rule onto `.chassis button.transport-card, .chassis
+   .transport-card.tappable` so the sell non-tappable `<div>` stays
+   default-cursor while sketch `<button>` behavior is preserved;
+   (b) added `.chassis a.transport-card.tappable { text-decoration:
+   none }` so the `<a>` variant doesn't underline; (c) added
+   `.chassis .transport-card-meta .split { text-transform: lowercase }`
+   per mockup; (d) added `.chassis .transport-module
+   .transport-section-count { background: var(--ink); color:
+   var(--bg); font-size: 11px; padding: 2px 8px; border-radius:
+   999px; font-weight: 700; line-height: 1 }` — scoped pill class
+   for the count on the transportation section only (so the
+   existing `.module-section-count` handwritten eyebrow used by
+   everything-else is untouched). All colors via theme tokens or
+   `color-mix(... var(--ink) N%, transparent)`. No raw hex, no
+   `rgba()` literals, no `!important`.
+
+**What changed from the brief:**
+
+- **Reused the existing `.chassis .transport-card*` CSS block
+  instead of creating a parallel one.** 8M already landed the
+  compact-card block for the sketch builder (`.chassis
+  .transport-card`, `-icon`, `-body`, `-title`, `-meta`,
+  `-link-chip`) with all the right tokens and the exact grid the
+  mockup specifies. Per Skill Part 1 "reuse before rebuild," I
+  extended it with four small scoped deltas (cursor-pointer
+  scoping, `<a>` text-decoration, `.split` text-transform,
+  transport-section-count pill) rather than duplicating a
+  "new `.chassis .transport-card*` block" as the brief literally
+  asked. The brief's phrasing appeared to pre-date awareness that
+  8M shipped this block. Net effect is the same (mockup shape
+  with all-token colors), but with one source of truth.
+
+- **Wired flights inline on sell alongside transport** per Andrew
+  2026-04-22 confirmation. Mockup Row 2 shows flights rendered
+  inline as compact cards (✈️ icon, count pill counts them).
+  Today `FlightCard` renders nowhere on the trip page — only
+  `LockedPlan.tsx` reads `trip.flights[]` for the blurred invitee
+  teaser, and `CostBreakdown.tsx` reads it for cost rollup totals.
+  Without this wiring, the FlightCard rebuild would have shipped
+  as unused code. Scope expansion beyond written brief item 4,
+  confirmed via AskUserQuestion before code was touched. Order:
+  flights first, then transport, within each group by
+  `sort_order ASC`.
+
+- **`tripPageShared.transport.h2` changed from `'getting around'`
+  to `'transportation'`** to align with (a) the mockup's section
+  title, (b) approved lexicon copy §5.29 (`transport.moduleTitle:
+  transportation`), and (c) the sketch builder's section title
+  (single consistent module name across phases). The mockup's
+  lexicon-keys-required table claimed this was "Already exists —
+  section title" which turned out to be wrong; reality said
+  `'getting around'`. Per the kickoff's "mockup wins" rule and
+  the escalation-trigger #1 guidance ("use the lexicon string"),
+  the right call was to align reality. This is a visible copy
+  change on the sell page header for the transportation module.
+
+- **Dropped `memberCount` prop from `TransportCard`.** The legacy
+  card used it for on-card per-person math (`total / splitWays`).
+  The compact shape renders the total only (`$X`), and the per-
+  person aggregation continues to live in `CostBreakdown.tsx`
+  which is untouched. Page.tsx dropped the
+  `memberCount={cost.confirmed_count}` prop correspondingly.
+
+- **`tripPageShared.transport.{days,total,checkCta}` left in place
+  as dead keys.** The legacy card was the only reader; after the
+  rewrite nothing references them. Per single-module discipline,
+  pruning these is cleanup out of scope — Bug Backlog item 2
+  (full sketch page copy/lexicon audit) sweeps them.
+
+- **Sketch `builder/TransportCard.tsx`, `builder/TransportAddForm.tsx`,
+  `CostBreakdown.tsx`, `transitionToSell`, types, and cost math
+  unchanged.** As required.
+
+**What to test:**
+
+- [ ] **AC1 — TransportCard compact shape.** Load any sell trip
+      with transport items; card renders as grid `28px 1fr auto`
+      with icon · title+meta · link-chip. No hero-card elements,
+      no 64px icon tile, no dedicated price block, no booking CTA
+      footer. Long titles ellipsis; meta row no-wrap.
+- [ ] **AC2 — FlightCard compact shape.** Add a flight row to a
+      sell trip's `trip.flights[]` (e.g. via SQL direct insert or
+      an existing trip); card renders at the same compact grid.
+      ✈️ always. Title is `{departure} → {arrival}`. No stacked
+      flight-details block.
+- [ ] **AC3 — Section chrome parity.** Transport list wraps in
+      `.module-section.transport-module`. Header shows `transportation`
+      (lowercase Georgia italic) + count pill (dark ink bg, cream
+      text). Count = transport.length + flights.length. Section
+      omits when both lists empty.
+- [ ] **AC4 — Zero hardcoded English.**
+      `grep -E "'(Car Rental|Taxi|Public Transit|Transport|Split|
+      Individual|Per person|Flights|Book yours|Confirmed|Direct|
+      Connecting)'" src/components/trip/TransportCard.tsx
+      src/components/trip/FlightCard.tsx` → 0 hits. ✅ verified.
+- [ ] **AC5 — Zero raw hex/rgba.** Same files, `grep -E
+      '#[0-9a-fA-F]{3,6}|rgba\('` → 0 hits. ✅ verified.
+- [ ] **AC6 — Zero dead `var(--rally-*)`.** Same files, `grep
+      'var(--rally-'` → 0 hits. ✅ verified.
+- [ ] **AC7 — No inline `style={{…}}`.** Same files, `grep
+      'style={{'` → 0 hits. ✅ verified.
+- [ ] **AC8 — CSS block clean.** `.chassis .transport-card*` +
+      `.transport-section-count` block has zero `!important`,
+      zero raw hex, zero rgba literals. Every color via theme
+      token or `color-mix(... var(--ink/bg) N%, transparent)`. ✅
+      verified at globals.css:4486–4558.
+- [ ] **AC9 — Tap → booking link.** Card with `booking_link`
+      opens the URL in a new tab. Verified on
+      `/trip/sjtIcYZB` — Saint Barths Plane card renders as `<a
+      target="_blank" rel="noopener noreferrer">` with `.tappable`.
+- [ ] **AC10 — No-link → non-interactive.** Card without
+      `booking_link` renders as `<div>` (no cursor, no link-chip).
+      Not yet exercised on a live trip — no existing rows with
+      null `booking_link` on the trips I tested. Cowork QA should
+      add one to confirm.
+- [ ] **AC11 — No sell-side edit affordances.** No `onEdit`, no
+      pencil, no drawer trigger, no "+ add transportation" on
+      sell, no organizer-specific branch. Verified via source
+      read.
+- [ ] **AC12 — Intentional-duplication comment.** Both
+      TransportCard.tsx and FlightCard.tsx carry the verbatim
+      comment block from Scope item 3. ✅ verified.
+- [ ] **AC13 — Theme parity at 375px.** Load a sell trip in
+      three themes (Coachella / No Doubt / one neutral). No
+      bright-on-bright, no dead contrast. Tested on Coachella
+      (terracotta); other themes pending Cowork QA.
+- [ ] **AC14 — Sketch render unchanged.** Load a sketch trip
+      with transport line items (e.g. `/trip/TheVfl1-` after
+      adding a transport row). Builder card visually identical
+      to pre-session baseline. `.chassis button.transport-card`
+      still gets cursor:pointer via the new
+      `button.transport-card` selector; drawer still opens.
+      Verified via DOM inspection — CSS rule reloaded clean.
+- [ ] **AC15 — TypeScript clean.** `npx tsc --noEmit` exit 0. ✅
+      verified.
+- [ ] **AC16 — End-to-end publish test.** Fresh sketch trip, add
+      2 transport items (one `rental_car_van`, one
+      `charter_van_bus`) + 1 flight, publish. Sell page: all 3
+      items render on compact cards; CostBreakdown rolls up
+      transport + flight lines with correct per-person values;
+      hero total identical pre/post. Recommend Cowork runs this
+      during QA.
+- [ ] **AC17 — Existing sell trip regression.** Load an existing
+      sell trip with legacy data. Coachella (`/trip/sjtIcYZB`)
+      verified: renders without error, all items visible, no
+      client-side crash. Cost summary still functional.
+
+**Known issues:**
+
+- **Null `type_tag` fallback not exercised in QA.** The new
+  TransportCard uses `transport.type_tag ?? 'other'` for pre-8I
+  legacy rows where `type_tag` might be null. None of the trips
+  I loaded had null `type_tag` — Saint Barths Plane uses
+  `type_tag='flight'`. If legacy-data sell trips exist with null
+  `type_tag`, they should render as `·` icon + "other" label +
+  the description as title. Cowork QA should load an existing
+  sell trip with a `subtype`-era transport row to confirm.
+
+- **`FlightCard` call sites limited to page.tsx.** I did NOT
+  add FlightCard rendering to `LockedPlan.tsx` (the blurred
+  teaser for unauthenticated invitees) — that component reads
+  `trip.flights[0]` inline, not via FlightCard, and the brief's
+  single-module discipline forbids touching it. The teaser still
+  renders its blurred-preview flight row; that rendering is
+  unrelated to the compact-card shape and is unchanged.
+
+- **Dev-server CSS hot-reload stale.** During QA the first
+  reload did not pick up the new CSS rules until I ran
+  `rm -rf .next && preview_start`. The kickoff and §Session 8M
+  release notes both flagged this — reconfirmed. Cowork should
+  flush `.next` before QA if the session's server is reused.
+
+- **The legacy "Check rates →" lexicon keys
+  (`transport.days/total/checkCta`) are now dead.** Left in
+  place; Bug Backlog item 2 sweeps them alongside the rest of
+  the lexicon cleanup.
+
+- **Sketch-side `builderState.transport.h2` is still whatever
+  the sketch surface uses** — I only changed
+  `tripPageShared.transport.h2`. The two surfaces now both
+  surface "transportation" by design (single module name across
+  phases); if sketch's copy differs, that's a sketch-surface
+  investigation for a future audit, not a 9K scope item.
+
+#### Session 9K — Actuals (partial QA, Cowork 2026-04-22)
+
+**Status: partial pass — paused before full closure.** Code-level
+and partial live verification complete. Remaining live ACs
+(13/16/17), two scope-expansion questions from CC's release notes,
+and two findings deferred to Bug Bash Queue.
+
+**ACs verified (passing):**
+
+- ✅ **AC1** (TransportCard compact shape) — live on Coachella,
+  Saint Barths Plane card renders grid `28px 1fr auto`, no
+  hero-card elements, ellipsis on title.
+- ✅ **AC3** (section chrome parity) — `.module-section.transport-module`
+  wrapper with lowercase Georgia italic "transportation" title
+  and right-side count. (After Cowork fix 1 below.)
+- ✅ **AC4** (zero hardcoded English) — grep both files returns 0 hits.
+- ✅ **AC5** (zero raw hex/rgba) — grep returns 0 hits.
+- ✅ **AC6** (zero dead `var(--rally-*)`) — grep returns 0 hits.
+- ✅ **AC7** (no inline `style={{…}}`) — confirmed in both files.
+- ✅ **AC8** (CSS block clean) — `.chassis .transport-card*` all
+  tokens, no `!important`, no raw hex/rgba.
+- ✅ **AC9** (tap → booking_link) — Saint Barths Plane renders as
+  `<a target="_blank" rel="noopener noreferrer" class="transport-card tappable">`.
+  Confirmed via live DOM inspection.
+- ✅ **AC11** (no sell-side edit affordances) — no `onClick`, no
+  buttons, no pencils, no drawer triggers. Verified via DOM.
+- ✅ **AC12** (intentional-duplication comment) — both files carry
+  the verbatim block at top.
+- ✅ **AC15** (`tsc --noEmit`) — CC verified, confirmed green.
+
+**ACs partially verified:**
+
+- 🟡 **AC14** (sketch render unchanged) — VEGAS BABY sketch loads
+  with correct module order, correct empty-state (collapse toggle
+  + "+ add transportation"), `hasSketchShell: true`. No transport
+  rows in data so populated-sketch card rendering not exercised.
+  Passes on empty state; rides on the fact that `builder/TransportCard.tsx`
+  was not modified.
+
+**ACs not exercised (needs Andrew on live app):**
+
+- ⏸ **AC2** (FlightCard live) — Coachella has no `trip.flights[]`
+  entries, need a different trip with populated flights. Saint
+  Barths Plane card rendered via TransportCard (type_tag='flight'),
+  so compact shape proven; FlightCard code path specifically
+  not exercised in the browser.
+- ⏸ **AC10** (no-link card → non-interactive `<div>`) — no
+  existing transport rows have null `booking_link` on the trips
+  tested. Code verified; live verification pending.
+- ⏸ **AC13** (theme parity — 3 themes) — Coachella (terracotta)
+  only. No Doubt + one more still open.
+- ⏸ **AC16** (end-to-end publish flow) — fresh sketch trip →
+  publish → verify sell rendering + CostBreakdown math. Not run.
+- ⏸ **AC17** (existing sell trip regression) — Coachella verified
+  renders; broader sweep of other sell trips open.
+
+**Cowork fixes applied during QA (CSS/copy/style only):**
+
+1. **Count pill → cursive "N items" eyebrow.** CC's new
+   `.transport-section-count` (bold black pill with `{count}` text)
+   visually clashed with sibling modules' subtle cursive eyebrows
+   (`.module-section-count` used by everything-else, `.module-section-caption`
+   used by getting-here). Changed className from `transport-section-count`
+   → `module-section-count` in `src/app/trip/[slug]/page.tsx:455-456`,
+   added plural-aware "item / items" text, deleted the now-dead
+   `.chassis .transport-module .transport-section-count` CSS rule
+   from `src/app/globals.css` (replaced with a removal comment).
+   Three modules now share the same right-side visual register.
+
+2. **Equalized inter-module spacing.** Transport's
+   `.module-section` div was missing the `style={{ marginTop: 14 }}`
+   that everything-else carries, creating asymmetric gaps
+   (getting-here → transport ~14px; transport → everything-else
+   ~28px). Added `style={{ marginTop: 14 }}` to the transport
+   module-section div in `page.tsx:450` to match the established
+   pattern.
+
+Both fixes qualify as Cowork per skill Part 2 Step 4c (single
+file, CSS/copy/className/style property only, no logic or imports).
+Fix 1 technically touches a one-line plural ternary inline — ruled
+as acceptable by Andrew for this QA pass.
+
+**Bugs deferred to Bug Bash Queue:**
+
+- **BB-3** (cost formatting regression — `$3000` vs `$3,000`).
+- **BB-4** (Reveal animation wrappers stuck at `opacity: 0` on
+  below-fold modules — possibly pre-existing, possibly 9K-introduced,
+  needs Reveal component audit).
+
+**Outstanding — Andrew's input needed to fully close Step 4:**
+
+1. **Sign-off on CC's scope expansion: inline flight wiring on
+   sell.** CC's release notes claim it was confirmed via
+   AskUserQuestion 2026-04-22. Andrew to confirm that
+   conversation happened or mark as unilateral expansion.
+2. **Sign-off on CC's scope expansion: `tripPageShared.transport.h2`
+   rename from `'getting around'` → `'transportation'`.** Visible
+   copy change on the sell header, scope-expanded beyond written
+   brief item 4. Andrew to approve or direct rollback.
+3. **Live AC runs:** AC13 (3 themes), AC16 (publish flow),
+   AC17 (broader regression). Can be run whenever Andrew has
+   a stable dev server.
+
+When Andrew resumes Step 4: answer the two scope questions,
+optionally run the three live ACs, then the "Cowork fixes applied"
+section above can be promoted to the final "Cowork fixes" log
+and this Actuals section marked complete.
+
+---
+
 ### Bug Bash Queue (future session, briefs TBD)
 
 Items that came up during other sessions but don't fit any single
@@ -10989,6 +11645,43 @@ section above. Summary:
 Each is small enough to fit in a bug-bash session; none is
 blocking anything.
 
+**BB-3. Cost formatting regression in 9K compact cards.**
+
+Flagged during Cowork QA 2026-04-22. Both
+`src/components/trip/TransportCard.tsx` (lines 55-57) and
+`src/components/trip/FlightCard.tsx` (lines 28-29) render cost
+as `` `$${Math.round(value)}` `` — no thousands separator. Result:
+`$3000` renders on the Saint Barths Plane card while
+CostBreakdown on the same page renders `$3,600` with comma (via
+`formatMoney`). Visible inconsistency between module card and
+rollup. Single-character fix per file: restore `formatMoney`
+import (dropped during 9K rebuild per CC release notes) and
+swap template literal for `formatMoney(value)`. Strictly a
+logic change (not CSS/copy), so not Cowork-fixable. Log here
+rather than spinning up a dedicated session — low urgency,
+purely cosmetic.
+
+**BB-4. Reveal animation wrappers stuck at `opacity: 0` on
+below-fold modules.**
+
+Flagged during Cowork QA 2026-04-22 for Session 9K. Every
+`.module-section` is wrapped in a `<Reveal>` that should animate
+opacity 0→1 + `translateY(28px)→0` as it enters viewport.
+Above-fold modules (headliner on Coachella) animate in correctly
+on first page load. Modules below the fold (lodging, getting-here,
+transport, everything-else, aux) remain at the initial
+`opacity: 0` state and never animate in — they stay invisible
+until viewport scroll triggers an IntersectionObserver that
+apparently isn't firing. Manually forcing `opacity: 1` via
+devtools reveals the modules are fully rendered and correct.
+Unclear whether introduced by 9K's page.tsx edits (unlikely —
+9K only touched the transport slot) or a pre-existing Next 16 /
+IntersectionObserver / Turbopack interaction. Turbopack cache
+was unstable during the QA session which complicates root-cause
+isolation. First debug step: check `src/components/ui/Reveal.tsx`
+for the IntersectionObserver wiring and see if any recent Next
+upgrade broke the observer setup.
+
 ---
 
 ### Session 10+: "Sell+ Module Depth" (briefs TBD)
@@ -11025,6 +11718,72 @@ direction block when sell ships.
 
 These are placeholders. Exact scope and sequencing depends on what we
 learn shipping Sessions 9–11.
+
+#### Organizer edit-on-sell — "back to sketch" view toggle (direction logged 2026-04-22)
+
+**Problem.** Once a trip is published (sell phase), the organizer has
+no sanctioned way to edit the modules. Current escape valve is to
+transition back to sketch, edit, re-publish — which re-fires invite
+emails and generally feels like reverting a state change to make a
+small edit. The organizer needs a lightweight path to edit their own
+trip without back-transitioning the phase.
+
+**Designated direction.** A "back to sketch" button, visible ONLY to
+the organizer on the sell page. Tap → client-side view toggle that
+renders the sketch UI (drawers, add buttons, type pickers, full edit
+affordances) on top of the live trip data. Organizer edits, saves,
+taps "back to sell" (or similar) to return to the sell view. Trip
+stays in sell phase the entire time — NO phase transition, NO
+re-fire of invite emails, NO publish flow re-run.
+
+This approach wins on **maximum reuse**: the entire sketch surface
+already handles every edit flow across every module (lodging,
+headliner, getting here, transport, everything else, aux). One
+toggle reuses all of it. Per-module edit affordances (pencil icons
+on sell cards etc.) were considered and rejected — they require
+designing edit UX per module, set a cross-module inconsistency
+pattern, and don't scale.
+
+**Non-negotiable: three-screen rule holds.** This is a client-side
+view toggle (state on `/trip/[slug]`), NOT a new `/edit` route. A
+fourth route violates the skill's three-screen constraint.
+
+**Known gotchas to solve in the brief:**
+1. **Sketch sticky-bar.** Has a "publish" button that only makes
+   sense pre-publish. On a sell trip, it needs to become "save
+   changes" or be hidden. Non-trivial copy + logic decision.
+2. **Phase-gated sketch logic.** There's likely `phase === 'sketch'`
+   gating scattered in sketch components — queued-invite-email
+   side effects, publish eligibility, certain validation rules.
+   Needs audit before the view toggle can render sketch UI on a
+   sell-phase trip.
+3. **Save flow.** Sketch autosaves as the organizer edits. Does
+   sell-phase editing also autosave, or does it require explicit
+   "save and return"? Probably explicit, to give the organizer a
+   transactional feel ("I'm editing, then I'm done"). Decide.
+4. **Invite emails on re-publish.** Must NOT re-fire to existing
+   invitees. If the organizer adds NEW invitees during edit, THAT
+   fan-out should fire. Needs a diff of roster before/after edit.
+5. **Viewer visibility of in-flight edits.** If the organizer is
+   mid-edit and an invitee refreshes the sell view, do they see
+   partially edited data? Probably yes (the data layer is the same),
+   but worth an explicit design call — maybe add "X is editing"
+   indicator, or just accept the race.
+
+**Applies across all sell modules** when it ships. Headliner,
+spot/lodging, getting-here (organizer's own card can already be
+edited per 9B-1; crew-level data is read-only), transport,
+everything-else, cost summary (read-only aggregator; no edit).
+
+**Relationship to 9K.** 9K ships sell-phase transport cards as
+strictly read-only for every viewer role. This placeholder session
+adds the organizer edit path later as a cross-module feature. 9K
+must NOT add any organizer-aware rendering — the hard constraint is
+in the 9K brief explicitly.
+
+**Session letter TBD.** Slot between ship-order items based on
+priority. Probably runs after the remaining sell-module cleanup
+sessions and before/alongside Session 12 (RSVP sticky bar depth).
 
 #### Per-crew arrival estimator — sell phase feature (deferred from Session 8 planning)
 
@@ -11155,9 +11914,19 @@ Low-severity issues that are real but not blocking. Log them here as they're dis
 
 3. **Headliner `view site →` href is duplicated.** `.headliner-cta` renders `href="https://www.coachella.com/https://www.coachella.com/"` on Coachella (sell, `sjtIcYZB`) and `href="https://www.nodoubt.com/sphere/https://www.nodoubt.com/sphere/"` on VEGAS BABY (sketch, `TheVfl1-`). Identical shape on both paths → URL-builder bug, not a 9H regression. Likely in `Headliner.tsx` where the CTA href is composed from a domain prefix + the stored `headliner_source_url` that already contains a full URL. Browsers tolerate it (auto-collapse the second `https://`) so the link still navigates, but the resolved URL is wrong and ugly in hover/share. Single-file fix once the composition logic is located. Triaged 2026-04-20 during 9H QA.
 
-4. **CostBreakdown hardcoded colors + strings cleanup.** Same class of issue 9I fixed in `LodgingGallery` and 9J left deliberately untouched in `CostBreakdown.tsx`: raw `#fff` and `rgba(255,255,255,*)` throughout the component (header per-person label, line items, progress bars, badges at the bottom), plus hardcoded English labels `'Flights'`, `'Transport'`, `'Meals'`, `'Activities'`, and the two Badge texts (`'🏠 Shared: …'`, `'✈️ Book yours: …'`). Fix pattern: port each hardcoded label to lexicon (new keys under `tripPageShared.costBreakdown.*` or a new `cost-breakdown.ts` surface), replace inline `style={{…}}` with classed elements in `globals.css`, swap rgba whites for theme tokens. Scope-shape equivalent to 9I's LodgingGallery consolidation. Promoted from 9J Known Issues 2026-04-21.
+4. ~~**CostBreakdown hardcoded colors + strings cleanup.**~~ **Shipped
+   in 9B-2.** The per-viewer cost summary work expanded to include the
+   full strings + color cleanup. AC7/AC8/AC9 explicitly verified: zero
+   `'Flights'|'Transport'|'Meals'|'Activities'` literals in
+   `CostBreakdown.tsx`, zero `#fff`/`rgba(255,…)`, 18 classes in
+   `.chassis .cost-breakdown*` all use theme tokens
+   (`var(--cost-on-glass*)`, `var(--cost-badge-*)`). Struck 2026-04-22.
 
 5. **`divisor_used = 1` hides per-person line on LodgingCard.** Intentional current behavior per 9J (dividing by 1 shows the same number as the total — redundant). Consequence: trips with only the organizer (no invitees, no `group_size`) see no per-person line on lodging cards. Might be fine, might feel jumpy if a user later adds an invitee and the line suddenly appears. Log here if Andrew wants to force-show or add a "1-person view" that reads differently. Promoted from 9J Known Issues 2026-04-21.
+
+6. **Compact card duplication between TransportCard and FlightCard.** `src/components/trip/TransportCard.tsx` and `src/components/trip/FlightCard.tsx` share ~30 lines of near-identical JSX rendering the 9K compact-card shape. Intentionally not abstracted into a shared `<CompactLineCard>` primitive because the data-model collapse (flights[] → transport[type_tag='flight']) is tracked as future work; when it lands, `FlightCard.tsx` is deleted entirely and no primitive survives. Each file carries a verbatim duplication comment at the top documenting this decision. **Revisit triggers** (any one): (a) a bug appears in one file but not the other (actual drift evidence), (b) a third caller wants the compact shape (e.g., getting-here or everything-else adopts it), (c) the data-model collapse session gets scheduled — at which point extracting a primitive or deleting FlightCard becomes the right move. Not a bug today. Promoted from 9K design decisions 2026-04-22.
+
+7. **Flight confirmation signal — design TBD.** 9K drops the legacy `FlightCard` "Confirmed" badge (`status === 'confirmed'` → green pill). Reason: semantic meaning was ambiguous (whose confirmation on a shared flight line?), and it created asymmetry — only flights have a status field, so the badge appeared unevenly across cards without a clear rationale. The underlying `status` field is NOT dropped from the data model; only the render is removed. If Andrew eventually wants a commitment-signal feature on line items ("2 of 5 booked," "locked by organizer," etc.), it gets a deliberate design pass across transport + flights + potentially other modules. Not a regression to fix — a decision to revisit as a feature. Promoted from 9K design decisions 2026-04-22.
 
 ---
 

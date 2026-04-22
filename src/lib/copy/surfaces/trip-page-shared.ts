@@ -20,7 +20,10 @@ export const tripPageShared: Record<string, Templated> = {
 
   // Module section titles
   'flights.h2':          'flights',
-  'transport.h2':        'getting around',
+  // Session 9K — aligned to approved lexicon §5.29 + mockup
+  // section title ("transportation"). Previous value "getting
+  // around" predated the sketch module rename in 8M.
+  'transport.h2':        'transportation',
   'groceries.h2':        'groceries',
 
   // Lodging
@@ -94,6 +97,20 @@ export const tripPageShared: Record<string, Templated> = {
   'transport.days':      'days',
   'transport.total':     'total',
   'transport.checkCta':  'Check rates \u2192',
+
+  // TransportCard + FlightCard (Session 9K) — compact-card sell surface.
+  // Strings mirror builderState.transport.* for visual parity; separate
+  // surface so sell can evolve independently. Cross-referenced against
+  // rally-microcopy-lexicon-v0.md §5.29 (approved).
+  'transport.typeLabel.flight':        'flight',
+  'transport.typeLabel.train':         'train',
+  'transport.typeLabel.rentalCarVan':  'rental car/van',
+  'transport.typeLabel.charterVanBus': 'charter van/bus',
+  'transport.typeLabel.charterBoat':   'charter boat',
+  'transport.typeLabel.ferry':         'ferry',
+  'transport.typeLabel.other':         'other',
+  'transport.splitGroup':              'group split',
+  'transport.splitIndividual':         'individual',
 
   // LockedPlan
   'cost.currencySymbol': '$',

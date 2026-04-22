@@ -4483,10 +4483,13 @@ button:active {
   gap: 6px;
 }
 
-/* Compact single-line card — wireframe Frame 2 grid */
+/* Compact single-line card — wireframe Frame 2 grid.
+   Shared across sketch builder (8M: <button>) and sell (9K:
+   <a class="tappable"> | <div>). Cursor-pointer is scoped to
+   interactive variants so the sell non-tappable <div> stays
+   default-cursor. */
 .chassis .transport-card {
   all: unset;
-  cursor: pointer;
   box-sizing: border-box;
   display: grid;
   grid-template-columns: 28px 1fr auto;
@@ -4498,6 +4501,13 @@ button:active {
   border: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
   border-radius: 10px;
   background: transparent;
+}
+.chassis button.transport-card,
+.chassis .transport-card.tappable {
+  cursor: pointer;
+}
+.chassis a.transport-card.tappable {
+  text-decoration: none;
 }
 .chassis .transport-card:focus-visible {
   outline: 2px solid var(--accent);
@@ -4528,6 +4538,14 @@ button:active {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.chassis .transport-card-meta .split {
+  text-transform: lowercase;
+}
+/* (9K QA fix, 2026-04-22) Removed .chassis .transport-module
+   .transport-section-count — the bold pill styling clashed with
+   siblings' subtle .module-section-count eyebrow (getting-here,
+   everything-else). Transport now uses .module-section-count +
+   "N items" text for visual rhythm with its neighbors. */
 .chassis .transport-card-link-chip {
   font-size: 10px;
   color: color-mix(in srgb, var(--ink) 55%, transparent);
