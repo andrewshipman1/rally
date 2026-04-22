@@ -33,6 +33,7 @@ import { ExtrasSections } from '@/components/trip/ExtrasSections';
 import { TransportCard } from '@/components/trip/TransportCard';
 import { FlightCard } from '@/components/trip/FlightCard';
 import { SellHeadliner } from '@/components/trip/SellHeadliner';
+import { EverythingElse } from '@/components/trip/EverythingElse';
 import { GettingHere } from '@/components/trip/GettingHere';
 import { PlaylistCard } from '@/components/trip/PlaylistCard';
 import { CostBreakdown } from '@/components/trip/CostBreakdown';
@@ -468,73 +469,15 @@ export default async function TripPage({ params }: Props) {
           </Reveal>
         )}
 
-        {/* 5 · Everything else — inline read-only mirror of sketch 8P shape.
-               Uses existing CSS primitives + lexicon keys; no new component. */}
+        {/* 5 · Everything else — extracted to EverythingElse.tsx (9L). */}
         {hasEverythingElse && (
           <Reveal delay={0.15}>
-            <div className="module-section everything-else-module" style={{ marginTop: 14 }}>
-              <div className="module-section-header">
-                <span className="module-section-title">
-                  {getCopy(themeId, 'builderState.everythingElse.title')}
-                </span>
-                <span className="module-section-count">
-                  {getCopy(themeId, 'builderState.everythingElse.eyebrow')}
-                </span>
-              </div>
-              <div className="everything-else-rows">
-                {(activitiesDollars ?? 0) > 0 && (
-                  <div className="estimate-input filled">
-                    <div className="field-label">
-                      {getCopy(themeId, 'builderState.everythingElse.activitiesLabel')}
-                    </div>
-                    <div className="estimate-input-row">
-                      <span className="estimate-prefix">
-                        {getCopy(themeId, 'builderState.estimatePrefix')}
-                      </span>
-                      <span className="estimate-display">
-                        {(activitiesDollars ?? 0).toLocaleString('en-US')}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                {(provisionsDollars ?? 0) > 0 && (
-                  <div className="estimate-input filled">
-                    <div className="field-label">
-                      {getCopy(themeId, 'builderState.everythingElse.provisionsLabel')}
-                    </div>
-                    <div className="estimate-input-row">
-                      <span className="estimate-prefix">
-                        {getCopy(themeId, 'builderState.estimatePrefix')}
-                      </span>
-                      <span className="estimate-display">
-                        {(provisionsDollars ?? 0).toLocaleString('en-US')}
-                      </span>
-                    </div>
-                    <p className="estimate-input-hint">
-                      {getCopy(themeId, 'builderState.everythingElse.provisionsHint')}
-                    </p>
-                  </div>
-                )}
-                {(otherDollars ?? 0) > 0 && (
-                  <div className="estimate-input filled">
-                    <div className="field-label">
-                      {getCopy(themeId, 'builderState.everythingElse.otherLabel')}
-                    </div>
-                    <div className="estimate-input-row">
-                      <span className="estimate-prefix">
-                        {getCopy(themeId, 'builderState.estimatePrefix')}
-                      </span>
-                      <span className="estimate-display">
-                        {(otherDollars ?? 0).toLocaleString('en-US')}
-                      </span>
-                    </div>
-                    <p className="estimate-input-hint">
-                      {getCopy(themeId, 'builderState.everythingElse.otherHint')}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+            <EverythingElse
+              themeId={themeId}
+              activitiesDollars={activitiesDollars}
+              provisionsDollars={provisionsDollars}
+              otherDollars={otherDollars}
+            />
           </Reveal>
         )}
 

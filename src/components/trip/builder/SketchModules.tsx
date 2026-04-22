@@ -377,6 +377,7 @@ export function SketchModules({
             value={activitiesValue}
             onChange={handleActivitiesChange}
             placeholder={getCopy(themeId, 'builderState.everythingElse.placeholder')}
+            hint={getCopy(themeId, 'builderState.everythingElse.activitiesHint')}
           />
           <EstimateInput
             themeId={themeId}

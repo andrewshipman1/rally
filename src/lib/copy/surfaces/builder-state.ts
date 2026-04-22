@@ -185,6 +185,7 @@ export const builderState: Record<string, Templated> = {
   'everythingElse.title':              'everything else',
   'everythingElse.eyebrow':            'rough estimate',
   'everythingElse.activitiesLabel':    'activities',
+  'everythingElse.activitiesHint':     'day trips, tours, shows — the stuff you do',
   'everythingElse.provisionsLabel':    'provisions',
   'everythingElse.provisionsHint':     'groceries, snacks, drinks — the stuff you stock up on',
   'everythingElse.otherLabel':         'other',

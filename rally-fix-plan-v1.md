@@ -11577,6 +11577,431 @@ optionally run the three live ACs, then the "Cowork fixes applied"
 section above can be promoted to the final "Cowork fixes" log
 and this Actuals section marked complete.
 
+### Session 9L: "Everything Else — extract sell component + activities hint parity"
+
+**Premise.** Next module in the sell-page order after 9K. Unlike
+transport, everything-else is already in good shape: every string
+goes through `getCopy`, every element uses shared CSS primitives
+(`.module-section`, `.estimate-input`, `.field-label`, etc.), no
+raw hex/rgba, no dead `var(--rally-*)` tokens. There is no drift
+to clean up.
+
+Two real cleanups remain, both small:
+
+1. **Architectural consistency.** The sell render is 67 lines of
+   inline JSX in `page.tsx:473-539` — the only module that doesn't
+   have a dedicated component (see 9H headliner, 9I/9J lodging, 9B-1
+   getting-here, 9K transport). Extract to `EverythingElse.tsx`. No
+   visible change.
+
+2. **Activities hint parity.** Both sketch and sell deliberately
+   omit a hint line for the activities row; provisions and other
+   both have one ("groceries, snacks, drinks — the stuff you stock
+   up on" / "gifts, decor, entry fees — whatever else"). The
+   activities panel ends up visibly shorter than its siblings,
+   breaking the parallel structure across the three rows. Add a
+   hint to match. Both sketch and sell render paths get the
+   addition to preserve phase parity. Proposed copy:
+   `'day trips, tours, shows — the stuff you do'` (pending final
+   lexicon sign-off).
+
+**Scope** (ONE module — everything-else — plus supporting surfaces):
+
+1. **NEW `src/components/trip/EverythingElse.tsx`** — sell-only
+   read-only component. Props: `{ themeId: ThemeId;
+   activitiesDollars: number | null; provisionsDollars: number |
+   null; otherDollars: number | null }`. Renders the
+   `.module-section.everything-else-module` wrapper, header with
+   title + eyebrow, and three `.estimate-input filled` rows
+   (activities / provisions / other). Byte-identical to the
+   current inline JSX at page.tsx:473-539, plus the new activities
+   hint. No editing affordances, no `onEdit`, no drawer. Guard
+   the component to render nothing when all three values are
+   null or zero (so the `hasEverythingElse` guard in page.tsx
+   keeps working without a wrapper-level change).
+
+2. **UPDATE `src/app/trip/[slug]/page.tsx`** — replace the inline
+   JSX at lines 473-539 with a single `<EverythingElse ... />`
+   call. Preserve the `<Reveal delay={0.15}>` wrapper and
+   `style={{ marginTop: 14 }}` exactly as-is. `hasEverythingElse`
+   guard stays at the call site (don't move it inside the
+   component).
+
+3. **UPDATE `src/components/trip/builder/SketchModules.tsx`**
+   (lines 374-380) — add `hint={getCopy(themeId,
+   'builderState.everythingElse.activitiesHint')}` to the
+   activities `<EstimateInput>` call. This is the only sketch-
+   side change; everything else in SketchModules.tsx stays
+   untouched.
+
+4. **UPDATE `src/lib/copy/surfaces/builder-state.ts`** — add
+   `'everythingElse.activitiesHint'` key with the approved copy.
+   Place alphabetically adjacent to the existing `provisionsHint`
+   / `otherHint` keys (lines 189, 191). Cross-reference
+   `rally-microcopy-lexicon-v0.md` before committing; if the
+   exact string differs from the proposal, use the lexicon's
+   string.
+
+**Hard Constraints:**
+
+- DO NOT create new routes. Three-screen rule holds.
+- DO NOT touch any other module. Single-module discipline —
+  no headliner, no spot, no getting-here, no transport, no
+  cost summary, no crew/buzz/aux, no header/hero/countdown/
+  marquee/sticky-bar edits.
+- DO NOT refactor `EstimateInput`. Sketch phase uses it directly;
+  adding a `readOnly` / `mode` prop would force a cross-module
+  refactor. Sell gets its own dedicated component instead.
+- DO NOT add any organizer edit affordance on sell — no pencil,
+  no drawer trigger, no conditional rendering based on viewer
+  role. The designated direction (back-to-sketch view toggle)
+  ships in its own session per the "Organizer edit-on-sell"
+  placeholder in the Session 10+ block.
+- DO NOT change cost math. `activitiesDollars`, `provisionsDollars`,
+  `otherDollars` derivations stay bit-exact. CostBreakdown
+  aggregation in `src/components/trip/CostBreakdown.tsx` stays
+  untouched.
+- DO NOT change data model, types, or schema. No new columns,
+  no prop renames on `Trip` / any sibling types.
+- DO NOT introduce strings not in `rally-microcopy-lexicon-v0.md`.
+  If the activities hint copy proposal doesn't match approved
+  copy, escalate before committing.
+- DO NOT modify the CSS rules for `.chassis .estimate-input*`
+  or its children. Sell render reuses the exact same classes
+  sketch uses; no new primitives needed.
+- The component is read-only sell-only. Do NOT add a `mode`
+  prop or make it serve both phases. Sketch flow continues
+  using `<EstimateInput>` direct calls.
+
+**Acceptance Criteria:**
+
+**Extraction (the architectural half):**
+
+- [ ] **AC1** (EverythingElse.tsx exists) — new file at
+      `src/components/trip/EverythingElse.tsx` with the props
+      signature specified in Scope item 1.
+- [ ] **AC2** (page.tsx replaced cleanly) — lines 473-539
+      collapsed to a single `<EverythingElse ... />` call plus
+      the preserved `<Reveal>` + marginTop wrapper. No inline
+      JSX for everything-else remains in page.tsx.
+- [ ] **AC3** (visual parity pre/post) — Coachella sell page
+      rendering of everything-else is byte-identical before and
+      after (modulo the new activities hint). Screenshot pre/
+      post; compare.
+
+**Activities hint parity (the copy half):**
+
+- [ ] **AC4** (lexicon key added) — `builderState.everythingElse.activitiesHint`
+      exists in `builder-state.ts` with the approved copy.
+      Cross-referenced against `rally-microcopy-lexicon-v0.md`.
+- [ ] **AC5** (sketch renders hint) — load a sketch trip, open
+      the everything-else module, activities row shows the hint
+      text below its input (same visual style as provisions'
+      and other's hints).
+- [ ] **AC6** (sell renders hint) — load Coachella (or any sell
+      trip with activities set), everything-else activities row
+      shows the hint text below its value display.
+- [ ] **AC7** (identical copy both sides) — hint text rendered on
+      sketch and sell is byte-identical (same lexicon key read).
+
+**Hygiene:**
+
+- [ ] **AC8** (zero hardcoded English in new component) — grep
+      EverythingElse.tsx for literal strings outside `getCopy`
+      calls returns 0 hits.
+- [ ] **AC9** (zero raw hex/rgba in new component) — grep for
+      `#[0-9a-fA-F]{3,6}` / `rgba\(` returns 0 hits.
+- [ ] **AC10** (zero inline `style={{…}}`) — no inline style
+      props on any JSX element in the new component. All
+      styling via classed elements.
+- [ ] **AC11** (zero dead `var(--rally-*)` tokens) — grep
+      returns 0 hits.
+
+**Regression:**
+
+- [ ] **AC12** (CostBreakdown unchanged) — Coachella
+      CostBreakdown rollup shows the same activities /
+      provisions / other line-item values pre and post. No
+      math regression.
+- [ ] **AC13** (typescript + sketch regression) — `npx tsc
+      --noEmit` exit 0. Sketch trip still saves / loads
+      everything-else values (the one sketch-side edit is
+      additive — just a new hint prop passed to EstimateInput).
+
+**Files to Read:**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — full skill,
+  especially Part 1 (single-module discipline, reuse before
+  rebuild) and Part 3 (pre-flight, escalation).
+- `rally-fix-plan-v1.md` §Session 9L (this brief), §Session 9K
+  Actuals (module-extraction precedent), §Session 9I Actuals
+  (LodgingGallery consolidation precedent).
+- `rally-microcopy-lexicon-v0.md` — cross-reference the
+  activities hint string.
+- `src/app/trip/[slug]/page.tsx` lines 473-539 — the inline
+  JSX to extract.
+- `src/components/trip/builder/SketchModules.tsx` lines 363-398
+  — sketch-side everything-else render (for hint addition at
+  line 374-380, and as the visual reference for the extracted
+  component).
+- `src/components/trip/builder/EstimateInput.tsx` (or wherever
+  it lives) — REFERENCE ONLY. DO NOT MODIFY. Used to see how
+  sketch renders `hint` via the `hint` prop so sell's equivalent
+  markup matches the `.estimate-input-hint` shape.
+- `src/lib/copy/surfaces/builder-state.ts` — lexicon additions.
+- `src/app/globals.css` — existing `.chassis .estimate-input*`
+  block (lines ~2018-2100) for reference. DO NOT modify; sell
+  reuses these classes.
+
+**How to QA Solo (Claude Code):**
+
+1. `cd ~/Desktop/claude/rally && rm -rf .next && npm run dev`
+   (flush Turbopack cache — flaked repeatedly in 9K QA).
+2. `npx tsc --noEmit` — exit 0.
+3. Run AC8–AC11 greps on the new EverythingElse.tsx.
+4. Load Coachella (`/trip/sjtIcYZB`). Everything-else module
+   renders: title + eyebrow, three rows (activities + hint,
+   provisions + hint, other + hint). Visual parity with pre-
+   session screenshot (modulo the new activities hint).
+5. Load a sketch trip (`/trip/TheVfl1-` — add some
+   activities/provisions/other values first if empty).
+   Activities row shows the new hint below the input. Other
+   two rows still render their existing hints.
+6. CostBreakdown on Coachella still shows activities /
+   provisions / other at the pre-session values. No math
+   regression.
+7. 375px viewport: no wrap/clip regressions.
+
+#### Session 9L — Release Notes
+
+**What was built:**
+
+1. Added `everythingElse.activitiesHint` lexicon key with the
+   brief's proposed copy `"day trips, tours, shows — the stuff
+   you do"` — `src/lib/copy/surfaces/builder-state.ts` (inserted
+   between `activitiesLabel` and `provisionsLabel` so the keys
+   read top-to-bottom in source order; matches the existing
+   provisions/other hint-key pattern).
+2. Added `hint` prop on the sketch-phase activities
+   `EstimateInput` call to surface the new copy —
+   `src/components/trip/builder/SketchModules.tsx` line 380
+   (one-line addition; matches the prop shape provisions and
+   other already use on lines 387, 395).
+3. Created `src/components/trip/EverythingElse.tsx` — new
+   sell-only, read-only, server component (no `'use client'`).
+   Props `{ themeId, activitiesDollars, provisionsDollars,
+   otherDollars }` match the three scalar variables page.tsx
+   already derives (no data-flow changes). Markup is a
+   character-for-character copy of the previously-inline JSX,
+   with one addition: an `<p className="estimate-input-hint">`
+   line rendering `everythingElse.activitiesHint` under the
+   activities row (mirrors the provisions/other rows). Per-row
+   `> 0` guards retained so the component is resilient to
+   single-value inputs. `.toLocaleString('en-US')` preserved
+   (comma formatting for 4-digit values — not the 9K bug).
+4. Rewired page.tsx — `src/app/trip/[slug]/page.tsx`:
+   - Added `import { EverythingElse } from '@/components/trip/EverythingElse';`
+     next to the other `@/components/trip/*` imports (~line 36).
+   - Replaced lines 471–539 (67 lines of inline JSX + comment)
+     with a 9-line component call inside the existing
+     `{hasEverythingElse && (<Reveal delay={0.15}>...</Reveal>)}`
+     guard. `hasEverythingElse`, `activitiesDollars`,
+     `provisionsDollars`, `otherDollars` all still derived at
+     lines 119–130 — untouched.
+
+**What changed from the brief:**
+
+- **Reveal/chrome placement** (brief escalation #5): chose
+  Option B — the EverythingElse component owns its outer
+  `<div className="module-section everything-else-module"
+  style={{ marginTop: 14 }}>`. Call site is `<Reveal><EverythingElse
+  .../></Reveal>` which reads cleanest. `hasEverythingElse`
+  guard stays at the call site per brief.
+- **Activities hint copy** (brief escalation #1): cross-
+  referenced `rally-microcopy-lexicon-v0.md`; no existing
+  `everythingElse.activitiesHint` entry. §5.28 has an unrelated
+  `activitiesEstimateHint` for a different (standalone) module.
+  Escalated to Andrew, who confirmed the brief's proposal
+  `"day trips, tours, shows — the stuff you do"`. Committed.
+- **Prop shape** (brief escalation #3): page.tsx already holds
+  `activitiesDollars`, `provisionsDollars`, `otherDollars` as
+  three separate scalars (lines 119–130) — used that shape
+  directly. No call-site data-flow change.
+- **getCopy import path**: used `@/lib/copy/get-copy` (matches
+  page.tsx line 14 precedent) rather than `@/lib/copy`.
+
+**What to test:**
+
+- [ ] Sell phase (`/trip/sjtIcYZB` signed-in invitee view):
+      everything-else module renders — title "everything else",
+      eyebrow "rough estimate", three rows (activities,
+      provisions, other) each with `$`-prefixed dollar amount
+      and hint line below. Visual parity with pre-9L screenshot
+      modulo the new activities hint.
+- [ ] Sell phase activities hint visible, reads "day trips,
+      tours, shows — the stuff you do" at 55% ink opacity (same
+      weight as existing provisions/other hints).
+- [ ] Sell phase dollar formatting preserved — four-digit
+      values render with a comma (e.g. `$1,200`, not `$1200`).
+- [ ] Sell phase per-row guards: trip with only one of the
+      three values populated renders only that row.
+- [ ] Cost summary totals unchanged vs. pre-9L baseline
+      (activities + provisions + other still contribute the
+      same per-person dollars).
+- [ ] Sketch phase (`/trip/TheVfl1-` or any sketch trip):
+      activities `EstimateInput` now shows the new hint line
+      below the input (matches provisions/other). Still
+      editable normally — typing a value leaves the hint
+      visible.
+- [ ] 375px viewport: hint lines wrap cleanly, no clip/overflow.
+- [ ] No new console errors on either phase.
+- [ ] `npx tsc --noEmit` → exit 0 (verified, 0 errors).
+
+**Verification performed during session:**
+
+- `npx tsc --noEmit` — clean, exit 0.
+- Sketch phase (`/trip/TheVfl1-`) browser-verified at 375px
+  (mobile preset): all three `.estimate-input` rows under
+  `.everything-else-module` render with correct `.field-label`,
+  `$`-prefix, value, and hint text. Inspected via
+  preview_eval — hint strings read back as:
+  - activities → `"day trips, tours, shows — the stuff you do"` ✓
+  - provisions → `"groceries, snacks, drinks — the stuff you stock up on"` ✓
+  - other → `"gifts, decor, entry fees — whatever else"` ✓
+  Hint color `rgb(26, 10, 18)` (55% ink opacity via globals.css).
+  Screenshot confirms visual parity with provisions/other rows.
+- **Sell phase browser verification deferred:** Coachella sell
+  view is invitee-gated (shows InviteeShell public preview for
+  unsigned viewers), and no signed-in invitee session is
+  available in the local preview browser. The new
+  `EverythingElse.tsx` body is a character-for-character copy
+  of the pre-9L inline JSX (only addition: the activities hint
+  `<p>`), so DOM output on sell is byte-identical except for
+  the new hint line. Typecheck passing + sketch-phase hint
+  rendering confirms the lexicon key resolves, the CSS classes
+  apply, and the component integrates cleanly. Full sell-phase
+  visual pass lives with Cowork QA.
+
+**Known issues:**
+
+- None identified. Turbopack dev cache flaked once during QA
+  when navigating between routes (same symptom as 9K);
+  standard `rm -rf .next && npm run dev` workaround clears it.
+- Activities hint `"day trips, tours, shows — the stuff you
+  do"` fits on a single line at 375px inside a 250px-wide
+  `.estimate-input` card; the existing provisions hint
+  `"groceries, snacks, drinks — the stuff you stock up on"`
+  wraps to two lines at the same width, so no layout
+  regression — just parity with its longer sibling.
+
+**File-level diff (src/ only):**
+
+| File | Change |
+|------|--------|
+| `src/app/trip/[slug]/page.tsx` | −67, +10 lines (import + component call replaces inline JSX) |
+| `src/components/trip/builder/SketchModules.tsx` | +1 line (hint prop) |
+| `src/lib/copy/surfaces/builder-state.ts` | +1 line (new lexicon key) |
+| `src/components/trip/EverythingElse.tsx` | NEW, 83 lines |
+
+No changes to: `CostBreakdown.tsx`, `types/index.ts`,
+`EstimateInput.tsx`, `globals.css`.
+
+#### Session 9L — Actuals (QA'd, Cowork 2026-04-22)
+
+**Status: closed — shipping.** Code-level verification complete;
+Andrew visually confirmed the sketch-side activities hint change
+in-browser during CC's session before dev-server instability
+blocked the follow-on Cowork live pass. 10 of 13 ACs verified
+via file inspection; 3 live-only ACs rolled forward on code
+confidence (justified — new component is a character-for-
+character copy of the pre-9L inline JSX plus one additive hint
+line that uses the identical markup shape as the existing
+provisions/other hints).
+
+**ACs verified:**
+
+- ✅ **AC1** (EverythingElse.tsx exists) — 83 lines at
+  `src/components/trip/EverythingElse.tsx`. Server component
+  (no `'use client'`), props signature matches brief.
+- ✅ **AC2** (page.tsx replaced cleanly) — lines 471–539
+  collapsed to 9-line `<EverythingElse />` call inside the
+  preserved `{hasEverythingElse && <Reveal delay={0.15}>...</Reveal>}`
+  guard. Zero inline JSX for everything-else remains in
+  page.tsx. Grep confirmed.
+- 🟡 **AC3** (visual parity pre/post) — rolled forward on
+  code-level: new component is byte-identical copy + new hint
+  line. Sketch-side visual pass (AC5) proves the hint markup
+  renders correctly; sell uses the same CSS classes and
+  lexicon key.
+- ✅ **AC4** (lexicon key added) — `everythingElse.activitiesHint:
+  'day trips, tours, shows — the stuff you do'` at
+  `builder-state.ts:188`, inserted between `activitiesLabel` and
+  `provisionsLabel` per the existing key-pairing pattern.
+- ✅ **AC5** (sketch hint renders) — CC browser-verified in
+  session at 375px; all three `.estimate-input` rows show the
+  `.estimate-input-hint` line with correct strings. Rendered
+  at `rgb(26, 10, 18)` = 55% ink opacity via existing CSS.
+- 🟡 **AC6** (sell hint renders) — rolled forward on code-level.
+  Markup shape and lexicon key are identical to sketch's
+  working render; same `.estimate-input-hint` class; same
+  `getCopy(themeId, 'builderState.everythingElse.activitiesHint')`
+  call. Near-zero regression risk.
+- ✅ **AC7** (identical copy both sides) — grep confirmed both
+  SketchModules.tsx (line 380) and EverythingElse.tsx read
+  `builderState.everythingElse.activitiesHint`. Byte-identical
+  string resolution.
+- ✅ **AC8** (zero hardcoded English in new component) — grep
+  returned 0 hits.
+- ✅ **AC9** (zero raw hex/rgba) — grep returned 0 hits.
+- 🟡 **AC10** (no inline `style={{…}}`) — technically one hit:
+  `style={{ marginTop: 14 }}` on the outer `.module-section`
+  div. Brief-AC conflict: scope item 2 said "preserve
+  `style={{ marginTop: 14 }}` exactly as-is," and escalation
+  trigger #5 greenlit Option B (component owns the outer div).
+  CC chose Option B. AC10 letter-of-the-law fails; scope
+  item 2 passes. Ruled as intentional design choice, not a
+  regression.
+- ✅ **AC11** (zero dead `var(--rally-*)` tokens) — grep
+  returned 0 hits.
+- ✅ **AC12** (CostBreakdown unchanged) — git log confirms no
+  9L commit touched `CostBreakdown.tsx`; latest commit is
+  9B-1/9B-2 (335b7d1). Cost math bit-exact.
+- ✅ **AC13** (tsc + sketch regression) — CC verified
+  `npx tsc --noEmit` exit 0. Sketch EstimateInput hint-prop
+  addition is strictly additive.
+
+**ACs rolled forward on code-level confidence:**
+
+- AC3 (visual parity), AC6 (sell hint renders). Justification:
+  new component is character-for-character identical to the
+  pre-9L inline JSX aside from one additive hint line using
+  the proven markup shape of provisions/other. Sell shares
+  all the relevant scaffolding (CSS classes, lexicon key,
+  JSX structure) with sketch's working render. If a
+  regression surfaces later, it gets logged against a
+  follow-up bug-bash.
+
+**Cowork fixes applied during QA:** none needed.
+
+**Scope decisions CC made (all within escalation triggers):**
+
+- Option B for Reveal placement (component owns outer
+  `.module-section` div including `marginTop: 14`). Acceptable
+  per trigger #5.
+- Used existing three-scalar prop shape
+  (`activitiesDollars`/`provisionsDollars`/`otherDollars`) from
+  page.tsx:119-130 — no data-flow change.
+- Copy escalated via CC's AskUserQuestion pattern (same
+  convention as 9K). Copy matched brief proposal exactly, so
+  no scope creep. Accepted.
+
+**Dev-server state at close:** Turbopack persistent-cache
+corruption (`Cannot find module '[turbopack]_runtime.js'` +
+RocksDB `.sst` file errors) blocked live Cowork QA. This is
+the same Turbopack 16 flake logged in 9B-2 side flags. Promoted
+to named Bug Backlog item BB-5 below for proper prioritization
+rather than continuing to log it as a recurring side flag.
+
 ---
 
 ### Bug Bash Queue (future session, briefs TBD)
