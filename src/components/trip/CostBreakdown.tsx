@@ -1,29 +1,8 @@
 import type { TripWithDetails, TripCostSummary, ArrivalMode } from '@/types';
+import { pickLodgingForRollup } from '@/types';
 import type { ThemeId } from '@/lib/themes/types';
 import { formatMoney } from '@/lib/money';
 import { getCopy } from '@/lib/copy/get-copy';
-
-// Session 9J — priority selector for the rollup's Accommodation line.
-// Strict `>` keeps the first-added spot on ties, which matches AC.
-function pickLodgingForRollup(
-  lodging: TripWithDetails['lodging'],
-): { spot: TripWithDetails['lodging'][number]; status: 'locked' | 'leading' | 'only-one' | 'first-added' } | null {
-  if (lodging.length === 0) return null;
-  const locked = lodging.find((l) => l.is_selected);
-  if (locked) return { spot: locked, status: 'locked' };
-  if (lodging.length === 1) return { spot: lodging[0], status: 'only-one' };
-  let leader = lodging[0];
-  let leaderVotes = leader.votes?.length ?? 0;
-  for (const l of lodging) {
-    const v = l.votes?.length ?? 0;
-    if (v > leaderVotes) {
-      leader = l;
-      leaderVotes = v;
-    }
-  }
-  if (leaderVotes > 0) return { spot: leader, status: 'leading' };
-  return { spot: lodging[0], status: 'first-added' };
-}
 
 type Item = {
   label: string;
@@ -114,14 +93,10 @@ export function CostBreakdown({
     items.push({ label: transportLabel, val: transportPerPerson, icon: '🚗' });
   }
 
-  // 9O — meals row removed. Restaurants are go-phase data per the skill's
-  // "pre-booked costs only in sketch/sell" rule. The restaurants table is
-  // preserved; the row render is gone. Note: `cost.per_person_total` (the
-  // hero) is server-computed and STILL includes restaurants via
-  // `shared_total` + `individual_total` in calculateTripCost. Removing this
-  // row does NOT change the hero number — the visible-rows-sum vs hero
-  // delta is a known mismatch, logged in Session 9O release notes for a
-  // follow-up server-side cleanup.
+  // 9O — meals row removed. 9P — server rollup now matches: restaurants
+  // are go-phase data per the skill's "pre-booked costs only in sketch/
+  // sell" rule, and calculateTripCost no longer aggregates them. The
+  // restaurants table + queries are preserved for later go-phase work.
 
   if (cost.activities_per_person > 0) {
     items.push({
@@ -131,11 +106,25 @@ export function CostBreakdown({
     });
   }
 
-  // 9O audit — `cost.provisions_per_person` and `cost.other_per_person`
-  // do NOT exist in TripCostSummary (src/types/index.ts:417-436).
-  // calculateTripCost only exposes activities_per_person. Adding those
-  // fields is a data-layer change, out of scope for 9O. Flagged in Known
-  // Issues; follow-up session to expose + render.
+  // 9P — provisions + other rows. Server exposes the per-person values
+  // via calculateTripCost (grouped on groceries.name). Render between
+  // activities and the footer. Icons 🥑/🎁 are placeholders pending
+  // Andrew's review — flagged in release notes.
+  if (cost.provisions_per_person > 0) {
+    items.push({
+      label: getCopy(themeId, 'tripPageShared.costBreakdown.line.provisions'),
+      val: cost.provisions_per_person,
+      icon: '🥑',
+    });
+  }
+
+  if (cost.other_per_person > 0) {
+    items.push({
+      label: getCopy(themeId, 'tripPageShared.costBreakdown.line.other'),
+      val: cost.other_per_person,
+      icon: '🎁',
+    });
+  }
 
   // ─── Per-viewer personalization (Session 9B-2) ──────────────────────
   // "your way in" goes first (above the headliner) so the viewer reads
@@ -148,14 +137,15 @@ export function CostBreakdown({
     viewerArrival?.cost_cents != null ? viewerArrival.cost_cents / 100 : 0;
 
   // AC16 — per-viewer hero total. No double-count because:
-  //   `cost.per_person_total` = per_person_shared + individual_total +
-  //     headliner_per_person + activities_per_person (per calculateTripCost).
+  //   `cost.per_person_total` = per_person_shared + individual_total (9P —
+  //     headliner + activities are now rolled into per_person_shared, not
+  //     added separately).
   //   `individual_total` pulls from `trip.flights` (the shared flight list,
-  //     organizer-entered) and trip.transport[individual] + indRestaurants.
+  //     organizer-entered) + trip.transport[individual]. Restaurants dropped 9P.
   //   `viewerArrival.cost_cents` comes from `trip_members.arrival_cost_cents`
   //     (9B-1), a DISTINCT per-member column with no overlap with trip.flights.
   // The two sources do not intersect, so adding arrivalDollars is additive,
-  // not a double-count. Verified 9O.
+  // not a double-count.
   const yourTotal = isPerViewer
     ? cost.per_person_total + arrivalDollars
     : cost.per_person_total;
@@ -202,21 +192,18 @@ export function CostBreakdown({
     ? getCopy(themeId, 'tripPageShared.costBreakdown.eyebrow.firmingUp')
     : getCopy(themeId, 'tripPageShared.costBreakdown.eyebrow.settled');
 
-  // AC18 — footer split.
-  //   shared (displayed) = cost.per_person_shared =
-  //     round((lodging + shared transport + shared restaurants +
-  //            shared groceries) / divisor_used).
-  //   yours  (displayed) = cost.individual_total =
-  //     trip.flights + individual restaurants + individual transport.
-  // Headliner, activities, and viewerArrival are NOT allocated into either
-  // bucket by the current server math — they're summed directly into
-  // per_person_total. Consequence: shared + yours < hero. Known mismatch
-  // vs. the brief's definition; logged in Session 9O Known Issues.
+  // AC18 — footer split (Session 9P reconciled).
+  //   shared (displayed) = cost.per_person_shared = lodging_pp +
+  //     shared_transport_pp + provisions_pp + other_pp + headliner_pp +
+  //     activities_pp (each already per-person; summed in calculateTripCost).
+  //   yours  (displayed) = cost.individual_total + arrivalDollars =
+  //     trip.flights + trip.transport[individual] + viewer arrival.
+  // By construction: shared + yours = per_person_total + arrivalDollars = hero.
   const sharedFooterText = getCopy(themeId, 'tripPageShared.costBreakdown.footer.shared', {
     amount: formatMoney(cost.per_person_shared),
   });
   const yoursFooterText = getCopy(themeId, 'tripPageShared.costBreakdown.footer.yours', {
-    amount: formatMoney(cost.individual_total),
+    amount: formatMoney(cost.individual_total + arrivalDollars),
   });
 
   return (

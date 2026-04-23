@@ -5447,36 +5447,90 @@ button:active {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Session 8Q — "the aux" playlist module.
-   Adopts the 8N .module-section frame; adds personality inside:
-   equalizer bars in the header, hero card with OG art, fallback tile.
-   All colors via existing theme vars (--ink, --bg, --accent, --surface).
+   Session 8Q → 9Q — "the aux" playlist module (Path C orientation).
+   Mirrors 9O CostBreakdown shape: bordered .module-section wraps a
+   flush-top hero block (OG image or --surface fallback) over a cream
+   body, with a small italic caption at the bottom. Three render states
+   (empty / enriched / fallback) share the same hero + body shell.
    ══════════════════════════════════════════════════════════════════════ */
 
 .chassis .aux-section {
   position: relative;
   /* Match .sketch-modules inset so aux aligns with lodging/transport/etc.
      ExtrasSections renders outside the .sketch-modules flex wrapper, so
-     the horizontal margin has to live on the section itself. */
+     the horizontal margin has to live on the section itself. Sell-phase
+     standalone render overrides this via `.sell-aux-wrap` below. */
   margin: 0 36px 16px;
+  /* Path C: zero padding/gap on the bordered shell so the hero block
+     sits flush with the top border. Mirrors .cost-breakdown-module. */
+  padding: 0;
+  overflow: hidden;
+  gap: 0;
 }
 
-.chassis .aux-header {
-  /* 8N header is already flex row between; add space between title-group
-     (title + equalizer) and the handwritten caption. */
-  gap: 10px;
-  flex-wrap: wrap;
+/* 9Q QA fix 2026-04-23 — Sell-phase standalone aux render sits inside
+   the page's own `padding: 0 18px` wrapper, same as cost summary /
+   crew / everything-else. Stacking the 36px base margin on top of the
+   18px page padding produced a 54px-per-side inset vs siblings' 18px.
+   Scoped to sell-phase via the wrapper class on page.tsx. Preserves
+   lock/go/done phases where ExtrasSections renders PlaylistCard
+   without the page-level padding wrapper. */
+.chassis .sell-aux-wrap .aux-section {
+  margin-left: 0;
+  margin-right: 0;
 }
+
+/* Card-wide <a> for the saved states (enriched + fallback). Keeps the
+   whole hero + body as one tap target opening the playlist URL. */
+.chassis .aux-card-link {
+  display: block;
+  color: var(--ink);
+  text-decoration: none;
+  transition: transform 0.12s ease;
+}
+.chassis .aux-card-link:active {
+  transform: translateY(1px);
+}
+
+/* Hero block — flush with the module-section top border. Default
+   background is --surface (used by empty + fallback states); the
+   enriched state overrides via inline background-image (Option A —
+   OG image IS the background; no darkening overlay by default). */
+.chassis .aux-hero-block {
+  position: relative;
+  min-height: 120px;
+  padding: 14px 18px;
+  background: var(--surface);
+  color: var(--on-surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.chassis .aux-hero-image {
+  background-position: center;
+  background-size: cover;
+  min-height: 140px;
+}
+
+/* Title + equalizer + caption/swap sit on one row at the top of the
+   hero. Title group on the left, top-right slot holds either the
+   caption (viewers) or the swap pill (editors). */
+.chassis .aux-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Title + equalizer group. Colors flip to --on-surface inside the
+   hero so dark-canvas themes keep contrast. */
 .chassis .aux-title-group {
   display: inline-flex;
   align-items: center;
   gap: 10px;
 }
-.chassis .aux-caption {
-  font-family: var(--font-hand), 'Caveat', cursive;
-  font-size: 16px;
-  color: var(--ink);
-  opacity: 0.55;
+.chassis .aux-hero-block .module-section-title {
+  color: var(--on-surface);
 }
 
 /* Equalizer — 4 bars bouncing with staggered delays. Motion disabled
@@ -5490,7 +5544,7 @@ button:active {
 }
 .chassis .aux-eq-bar {
   width: 3px;
-  background: var(--ink);
+  background: var(--on-surface);
   border-radius: 1px;
   opacity: 0.7;
   transform-origin: bottom center;
@@ -5505,7 +5559,62 @@ button:active {
   50%      { transform: scaleY(1); }
 }
 
-/* Empty state — single-line input + "+" submit inside a white card. */
+/* Hero top-right caption (shown to viewers who can't edit). */
+.chassis .aux-hero-caption {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 14px;
+  color: var(--on-surface);
+  opacity: 0.65;
+  line-height: 1.1;
+  text-align: right;
+  max-width: 50%;
+}
+
+/* Hero top-right swap pill (shown to editors on saved states). */
+.chassis .aux-swap-pill {
+  all: unset;
+  cursor: pointer;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--on-surface) 22%, transparent);
+  color: var(--on-surface);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+  flex-shrink: 0;
+}
+.chassis .aux-swap-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Fallback-state centerpiece — ♫ tile floats in the middle of the
+   --surface hero. Gives the hero some visual weight without an image. */
+.chassis .aux-hero-fallback .aux-fallback-icon {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+/* Body — cream (inherits page --bg), --ink text. Sits below the hero
+   inside the bordered shell. */
+.chassis .aux-body {
+  padding: 14px 18px 8px;
+  background: transparent;
+}
+
+/* Empty state — input + "+" submit card + hype hint inside the cream body. */
 .chassis .aux-empty-card {
   display: flex;
   gap: 8px;
@@ -5554,63 +5663,11 @@ button:active {
   color: var(--ink);
   opacity: 0.5;
   text-align: center;
-  margin: 4px 0 0;
+  margin: 8px 0 0;
   line-height: 1.3;
 }
 
-/* Saved + enriched — hero card with OG art as the background. Whole
-   card is the <a>, "swap" pill floats top-right. */
-.chassis .aux-saved {
-  position: relative;
-  display: block;
-  width: 100%;
-  border: 2.5px solid var(--ink);
-  border-radius: 14px;
-  overflow: hidden;
-  background: var(--bg);
-  color: var(--ink);
-  text-decoration: none;
-  transition: transform 0.12s ease;
-}
-.chassis .aux-saved:active {
-  transform: translateY(1px);
-}
-.chassis .aux-hero {
-  display: block;
-  position: relative;
-  width: 100%;
-  height: 140px;
-  background-color: color-mix(in srgb, var(--ink) 12%, transparent);
-  background-position: center;
-  background-size: cover;
-}
-.chassis .aux-hero::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 55%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
-  pointer-events: none;
-}
-.chassis .aux-swap {
-  all: unset;
-  cursor: pointer;
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #fff;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  backdrop-filter: blur(4px);
-}
-.chassis .aux-swap:disabled { opacity: 0.5; cursor: not-allowed; }
-.chassis .aux-body {
-  padding: 12px 14px 14px;
-}
+/* Saved + enriched body — playlist title, domain chip, byline. */
 .chassis .aux-title {
   font-family: Georgia, serif;
   font-style: italic;
@@ -5649,50 +5706,13 @@ button:active {
   opacity: 0.55;
   margin-top: 8px;
 }
-.chassis .aux-open-hint {
-  font-size: 10px;
-  color: var(--ink);
-  opacity: 0.45;
-  text-align: center;
-  margin: 8px 0 0;
-  font-style: italic;
-}
 
-/* Saved + fallback (enrich failed) — compact tile with ♫ glyph. Still
-   a tappable <a>; swap pill inline on the right. */
-.chassis .aux-fallback {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 2.5px solid var(--ink);
-  border-radius: 12px;
-  background: var(--bg);
-  color: var(--ink);
-  text-decoration: none;
-  position: relative;
-}
-.chassis .aux-fallback-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: var(--ink);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  flex-shrink: 0;
-}
-.chassis .aux-fallback-body {
-  flex: 1;
-  min-width: 0;
-}
+/* Saved + fallback body — domain as the primary line + byline. */
 .chassis .aux-fallback-domain {
   font-family: Georgia, serif;
   font-style: italic;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5700,21 +5720,19 @@ button:active {
 }
 .chassis .aux-fallback-byline {
   font-family: var(--font-hand), 'Caveat', cursive;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink);
   opacity: 0.55;
-  margin-top: 2px;
+  margin-top: 4px;
 }
-.chassis .aux-fallback-swap {
-  all: unset;
-  cursor: pointer;
-  padding: 5px 10px;
-  border: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent);
-  border-radius: 999px;
+
+/* Footer caption — small italic hint at the bottom of the shell. */
+.chassis .aux-footer-caption {
+  padding: 0 18px 12px;
+  margin: 0;
   font-size: 10px;
-  font-weight: 600;
   color: var(--ink);
-  opacity: 0.6;
-  flex-shrink: 0;
+  opacity: 0.45;
+  text-align: center;
+  font-style: italic;
 }
-.chassis .aux-fallback-swap:disabled { opacity: 0.35; cursor: not-allowed; }

@@ -24,8 +24,9 @@ import { InviteeShell } from '@/components/trip/InviteeShell';
 // Session 5: inline sections + module slots
 import { ModuleSlot } from '@/components/trip/ModuleSlot';
 import { CrewSection } from '@/components/trip/CrewSection';
-import { BuzzSection } from '@/components/trip/BuzzSection';
-import { getBuzzFeed } from '@/lib/buzz';
+// Session 9Q — buzz section + its feed query removed from the sell page.
+// The component file, query helper, and lexicon surface all remain on disk
+// (unmodified) for when buzz gets a dedicated redesign.
 
 // Carry-over typed component cards from v0
 import { Description } from '@/components/trip/Description';
@@ -260,9 +261,6 @@ export default async function TripPage({ params }: Props) {
     seconds: getCopy(themeId, 'tripPageShared.scoreboard.units.seconds'),
   };
 
-  // Fetch buzz feed for inline section
-  const buzzDays = await getBuzzFeed(trip.id, currentUserId, themeId);
-
   return (
     <PassportProvider>
     <div className="chassis" data-theme={themeId}>
@@ -329,7 +327,7 @@ export default async function TripPage({ params }: Props) {
 
       {/* ─── Module sections — Session 9A canonical order ─────────────
           headliner → spot → (Getting Here 9B) → transportation →
-          everything-else → crew → cost → buzz → aux → extras(lock/go) */}
+          everything-else → crew → cost → aux → extras(lock/go) */}
 
       {/* 1 · Headliner — sketch parity on sell (9H). Wrapped in
              `.module-section` with a `.module-section-header` ("the
@@ -530,16 +528,7 @@ export default async function TripPage({ params }: Props) {
           </Reveal>
         )}
 
-        {/* 8 · Buzz — inline activity feed */}
-        <Reveal delay={0.3}>
-          <BuzzSection
-            buzzDays={buzzDays}
-            currentUserId={currentUserId}
-            themeId={themeId}
-            tripName={trip.name}
-            inCount={inCount}
-          />
-        </Reveal>
+        {/* 9Q — buzz section removed from sell render; files preserved on disk. */}
 
         {/* 9 · Aux (PlaylistCard) — promoted out of ExtrasSections on sell.
                Scoped to sell only: on lock / go / done, <ExtrasSections>
@@ -550,7 +539,7 @@ export default async function TripPage({ params }: Props) {
                a follow-up for the lock-phase depth work. */}
         {trip.phase === 'sell' && (
           <Reveal delay={0.35}>
-            <div style={{ marginTop: 14 }}>
+            <div className="sell-aux-wrap" style={{ marginTop: 14 }}>
               <PlaylistCard
                 url={trip.playlist_url}
                 ogImage={trip.playlist_og_image}

@@ -1,17 +1,30 @@
 'use client';
 
-// Session 8Q — "the aux"
+// Session 8Q → 9Q — "the aux", Path C orientation.
 //
-// Playlist module rebuild. Three visual states:
-//   - Empty (no URL): input + "+" submit + hype hint.
-//   - Saved + enriched (url + ogImage): hero card with OG art background,
-//     ogTitle, domain chip, "set by {name} · {relativeTime}" byline.
-//   - Saved + fallback (url, enrich failed): compact ♫ tile + domain chip
-//     + byline. Still tappable, still opens in new tab.
+// Three visual states (same outer .module-section.aux-section frame):
 //
-// On submit the client calls `/api/enrich` non-blocking; whatever comes
-// back (image/title or nulls) is passed to `setPlaylistUrl` alongside
-// the URL. Enrichment failure never blocks save.
+//   - Empty (no URL): dark hero block ("the aux · who's on?") +
+//     input + "+" submit + hype hint on cream below.
+//   - Saved + enriched (url + ogImage): OG image IS the hero
+//     background (Option A — no darkening overlay by default). Body
+//     on cream shows ogTitle, domain chip, byline. Card-wide <a>.
+//   - Saved + fallback (url, enrich failed): dark hero with a centered
+//     ♫ tile; body on cream shows domain + byline. Card-wide <a>.
+//
+// The brief locks "no dark tint / gradient overlay on the OG image by
+// default" (Andrew 2026-04-23). If an observed OG image ever fails
+// title-contrast, revisit via a scoped top-edge gradient — but not
+// preemptively.
+//
+// Swap-it pill appears only when `canEdit` on saved states. When
+// `canEdit` is false, the hero shows the "aux cord secured" caption
+// instead. This resolves the top-right collision between caption and
+// swap pill at 375px without dropping either signal.
+//
+// On submit the client calls `/api/enrich` non-blocking; whatever
+// comes back (image/title or nulls) is passed to `setPlaylistUrl`
+// alongside the URL. Enrichment failure never blocks save.
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -69,10 +82,13 @@ export function PlaylistCard({
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  const caption = getCopy(
+  const captionCopy = getCopy(
     themeId,
     url ? 'extras.playlist.captionSaved' : 'extras.playlist.captionEmpty',
   );
+  const titleCopy = getCopy(themeId, 'extras.playlist.title');
+  const swapCopy = getCopy(themeId, 'extras.playlist.swap');
+  const openHintCopy = getCopy(themeId, 'extras.playlist.openHint');
 
   const handleSubmit = async () => {
     const trimmed = draft.trim();
@@ -131,79 +147,94 @@ export function PlaylistCard({
       })
     : null;
 
+  // Hero top-row slot: swap pill takes precedence over caption when the
+  // viewer can edit a saved aux. Resolves the 375px collision between
+  // the two top-right signals.
+  const renderHeroTopRight = () => {
+    if (url && canEdit) {
+      return (
+        <button
+          type="button"
+          className="aux-swap-pill"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleSwap();
+          }}
+          disabled={pending}
+        >
+          {swapCopy}
+        </button>
+      );
+    }
+    return <span className="aux-hero-caption">{captionCopy}</span>;
+  };
+
+  const renderHeroTop = () => (
+    <div className="aux-hero-top">
+      <div className="aux-title-group">
+        <span className="module-section-title">{titleCopy}</span>
+        <Equalizer />
+      </div>
+      {renderHeroTopRight()}
+    </div>
+  );
+
   return (
     <section className="module-section aux-section">
-      <header className="module-section-header aux-header">
-        <div className="aux-title-group">
-          <span className="module-section-title">
-            {getCopy(themeId, 'extras.playlist.title')}
-          </span>
-          <Equalizer />
-        </div>
-        <span className="aux-caption">{caption}</span>
-      </header>
-
+      {/* Empty — dark hero + input card on cream. */}
       {!url && canEdit && (
         <>
-          <div className="aux-empty-card">
-            <input
-              type="url"
-              className="aux-empty-input"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void handleSubmit();
-                }
-              }}
-              placeholder={getCopy(themeId, 'extras.playlist.placeholder')}
-              disabled={pending}
-              aria-label={getCopy(themeId, 'extras.playlist.placeholder')}
-            />
-            <button
-              type="button"
-              className="aux-submit"
-              onClick={() => void handleSubmit()}
-              disabled={pending || !draft.trim()}
-              aria-label="save link"
-            >
-              +
-            </button>
+          <div className="aux-hero-block aux-hero-empty">{renderHeroTop()}</div>
+          <div className="aux-body">
+            <div className="aux-empty-card">
+              <input
+                type="url"
+                className="aux-empty-input"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleSubmit();
+                  }
+                }}
+                placeholder={getCopy(themeId, 'extras.playlist.placeholder')}
+                disabled={pending}
+                aria-label={getCopy(themeId, 'extras.playlist.placeholder')}
+              />
+              <button
+                type="button"
+                className="aux-submit"
+                onClick={() => void handleSubmit()}
+                disabled={pending || !draft.trim()}
+                aria-label="save link"
+              >
+                +
+              </button>
+            </div>
+            <p className="aux-hype-hint">
+              {getCopy(themeId, 'extras.playlist.hypeHint')}
+            </p>
           </div>
-          <p className="aux-hype-hint">
-            {getCopy(themeId, 'extras.playlist.hypeHint')}
-          </p>
         </>
       )}
 
+      {/* Saved + enriched — OG image as hero background (Option A). */}
       {url && ogImage && (
         <>
           <a
-            className="aux-saved"
+            className="aux-card-link"
             href={url}
             target="_blank"
             rel="noopener noreferrer"
           >
-            <span
-              className="aux-hero"
+            <div
+              className="aux-hero-block aux-hero-image"
               style={{ backgroundImage: `url(${ogImage})` }}
-              aria-hidden="true"
-            />
-            {canEdit && (
-              <button
-                type="button"
-                className="aux-swap"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleSwap();
-                }}
-                disabled={pending}
-              >
-                {getCopy(themeId, 'extras.playlist.swap')}
-              </button>
-            )}
+            >
+              {renderHeroTop()}
+            </div>
             <div className="aux-body">
               <div className="aux-title">{ogTitle ?? domain ?? url}</div>
               <div className="aux-meta">
@@ -214,45 +245,32 @@ export function PlaylistCard({
               {byline && <div className="aux-byline">{byline}</div>}
             </div>
           </a>
-          <p className="aux-open-hint">
-            {getCopy(themeId, 'extras.playlist.openHint')}
-          </p>
+          <p className="aux-footer-caption">{openHintCopy}</p>
         </>
       )}
 
+      {/* Saved + fallback (enrich failed) — dark hero with ♫ tile centered. */}
       {url && !ogImage && (
-        <a
-          className="aux-fallback"
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span className="aux-fallback-icon" aria-hidden="true">
-            ♫
-          </span>
-          <div className="aux-fallback-body">
-            <div className="aux-fallback-domain">
-              ↗ {domain ?? url}
+        <>
+          <a
+            className="aux-card-link"
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <div className="aux-hero-block aux-hero-fallback">
+              {renderHeroTop()}
+              <span className="aux-fallback-icon" aria-hidden="true">
+                ♫
+              </span>
             </div>
-            {byline && (
-              <div className="aux-fallback-byline">{byline}</div>
-            )}
-          </div>
-          {canEdit && (
-            <button
-              type="button"
-              className="aux-fallback-swap"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleSwap();
-              }}
-              disabled={pending}
-            >
-              {getCopy(themeId, 'extras.playlist.swap')}
-            </button>
-          )}
-        </a>
+            <div className="aux-body">
+              <div className="aux-fallback-domain">↗ {domain ?? url}</div>
+              {byline && <div className="aux-fallback-byline">{byline}</div>}
+            </div>
+          </a>
+          <p className="aux-footer-caption">{openHintCopy}</p>
+        </>
       )}
     </section>
   );

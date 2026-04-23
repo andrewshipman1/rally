@@ -433,6 +433,51 @@ export interface TripCostSummary {
    * Sourced from the single trip-level estimate column. 0 if unset.
    */
   activities_per_person: number;
+  /**
+   * Session 9P — per-person dollars for the groceries row with name 'Provisions'.
+   * CostBreakdown renders this as its own row. 0 if unset.
+   */
+  provisions_per_person: number;
+  /**
+   * Session 9P — per-person dollars for the "other" bucket: the groceries
+   * row named 'Other' PLUS any shared grocery rows with legacy names (pre-8P
+   * data that predates the Provisions/Other split). Rolling legacy rows in
+   * preserves hero numbers on older trips without a schema migration.
+   */
+  other_per_person: number;
+}
+
+/**
+ * Session 9P — priority selector for the rollup's Accommodation line.
+ * Shared between client render (CostBreakdown row label) and server math
+ * (calculateTripCost). Strict `>` on the leader comparison keeps the
+ * first-added spot on ties. Pre-9P the server used
+ * `find(is_selected) || lodging[0]`, which mismatched the client when
+ * a spot was winning votes but not yet locked (Mexico trip, 2026-04).
+ */
+export function pickLodgingForRollup(
+  lodging: TripWithDetails['lodging'],
+):
+  | {
+      spot: TripWithDetails['lodging'][number];
+      status: 'locked' | 'leading' | 'only-one' | 'first-added';
+    }
+  | null {
+  if (lodging.length === 0) return null;
+  const locked = lodging.find((l) => l.is_selected);
+  if (locked) return { spot: locked, status: 'locked' };
+  if (lodging.length === 1) return { spot: lodging[0], status: 'only-one' };
+  let leader = lodging[0];
+  let leaderVotes = leader.votes?.length ?? 0;
+  for (const l of lodging) {
+    const v = l.votes?.length ?? 0;
+    if (v > leaderVotes) {
+      leader = l;
+      leaderVotes = v;
+    }
+  }
+  if (leaderVotes > 0) return { spot: leader, status: 'leading' };
+  return { spot: lodging[0], status: 'first-added' };
 }
 
 export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
@@ -450,7 +495,10 @@ export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
     divisor_is_estimate = false;
   }
 
-  const selectedLodging = trip.lodging.find(l => l.is_selected) || trip.lodging[0];
+  // Session 9P — use the shared `pickLodgingForRollup` util so the server
+  // rollup agrees with the client row (locked → leading-vote → first-added).
+  const pick = pickLodgingForRollup(trip.lodging);
+  const selectedLodging = pick?.spot ?? null;
   const nights = selectedLodging?.num_nights ||
     (trip.date_start && trip.date_end
       ? Math.ceil((new Date(trip.date_end).getTime() - new Date(trip.date_start).getTime()) / 86400000)
@@ -460,22 +508,18 @@ export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
     : 0;
 
   const sharedTransport = trip.transport.filter(t => t.cost_type === 'shared').reduce((s, t) => s + (t.estimated_total || 0), 0);
-  const sharedRestaurants = trip.restaurants.filter(r => r.cost_type === 'shared').reduce((s, r) => s + (r.cost_per_person || 0) * divisor_used, 0);
-  // Session 8K — activities line-items no longer aggregate into the
-  // sketch cost summary. The trip-level `activities_estimate_per_person_cents`
-  // column is the source of truth. The activities table is retained for
-  // future sell/lock work (not read here).
+  // Session 9P — restaurants dropped from the sketch/sell rollup.
+  // Restaurants are go-phase data per the skill's "pre-booked costs only"
+  // rule; they shouldn't contribute to the sell hero. The restaurants
+  // table + queries are preserved for later go-phase work.
   const sharedGroceries = (trip.groceries || [])
     .filter(g => g.cost_type === 'shared')
     .reduce((s, g) => s + (g.estimated_total || 0), 0);
-  const shared_total = lodgingCost + sharedTransport + sharedRestaurants + sharedGroceries;
+  const shared_total = lodgingCost + sharedTransport + sharedGroceries;
 
   const flights = trip.flights.reduce((s, f) => s + (f.estimated_price || 0), 0);
-  const indRestaurants = trip.restaurants.filter(r => r.cost_type === 'individual').reduce((s, r) => s + (r.cost_per_person || 0), 0);
   const indTransport = trip.transport.filter(t => t.cost_type === 'individual').reduce((s, t) => s + (t.estimated_total || 0), 0);
-  const individual_total = flights + indRestaurants + indTransport;
-
-  const per_person_shared = Math.round(shared_total / divisor_used);
+  const individual_total = flights + indTransport;
 
   // Session 8J — headliner contribution. `per_person` unit adds
   // directly, `total` unit divides by divisor_used. Stored in cents,
@@ -494,8 +538,42 @@ export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
       ? Math.round(trip.activities_estimate_per_person_cents / 100)
       : 0;
 
-  const per_person_total =
-    per_person_shared + individual_total + headliner_per_person + activities_per_person;
+  // Session 9P — surface Provisions + Other as their own per-person rows.
+  // `other` sweeps up legacy shared grocery rows (pre-8P data) so we never
+  // silently drop money from an existing trip's hero.
+  const sharedGroceryRows = (trip.groceries || []).filter((g) => g.cost_type === 'shared');
+  const provisionsTotal = sharedGroceryRows
+    .filter((g) => g.name === 'Provisions')
+    .reduce((s, g) => s + (g.estimated_total || 0), 0);
+  const otherTotal = sharedGroceryRows
+    .filter((g) => g.name !== 'Provisions')
+    .reduce((s, g) => s + (g.estimated_total || 0), 0);
+  const provisions_per_person = Math.round(provisionsTotal / divisor_used);
+  const other_per_person = Math.round(otherTotal / divisor_used);
+
+  // Per-row per-person values for the shared bucket. Computing each row
+  // independently is what makes the visible CostBreakdown rows sum (by
+  // construction) to `per_person_shared` — the pre-9P `round(sum/divisor)`
+  // shape introduced rounding drift vs the rendered rows.
+  const lodging_per_person = Math.round(lodgingCost / divisor_used);
+  const shared_transport_per_person = Math.round(sharedTransport / divisor_used);
+
+  // Session 9P — per_person_shared now holds the shared bucket total that
+  // the footer displays: lodging + shared transport + provisions + other +
+  // headliner + activities (each already per-person). Viewer arrival is
+  // the one remaining component, added into `yours` at render time since
+  // it's per-viewer (trip_members.arrival_cost_cents), not trip-level.
+  const per_person_shared =
+    lodging_per_person +
+    shared_transport_per_person +
+    provisions_per_person +
+    other_per_person +
+    headliner_per_person +
+    activities_per_person;
+
+  // Session 9P — hero is just shared + individual. Headliner + activities
+  // already rolled into `per_person_shared` above; don't double-count.
+  const per_person_total = per_person_shared + individual_total;
 
   return {
     shared_total,
@@ -507,6 +585,8 @@ export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
     divisor_is_estimate,
     headliner_per_person,
     activities_per_person,
+    provisions_per_person,
+    other_per_person,
   };
 }
 

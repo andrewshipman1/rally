@@ -13749,6 +13749,1164 @@ existing trips.
    per-person input, not shared), flag before implementing
    and re-scope.
 
+#### Session 9P — Release Notes
+
+**What was built:**
+
+1. **Shared `pickLodgingForRollup` util** — `src/types/index.ts`.
+   Extracted from `CostBreakdown.tsx` and exported alongside
+   `calculateTripCost`. `calculateTripCost` now calls it so the
+   server's Accommodation line picks the same spot the client row
+   renders (locked → leading-vote → only-one → first-added).
+   Resolves the Mexico trip's pre-9P $10,200 vs $5,000 split.
+
+2. **`TripCostSummary` new fields** — `src/types/index.ts`. Added
+   `provisions_per_person` + `other_per_person`. Purely additive
+   (AC10) — no existing field types changed. `provisions_per_person`
+   comes from shared grocery rows with `name = 'Provisions'`.
+   `other_per_person` sweeps up the `name = 'Other'` row AND any
+   shared grocery rows with legacy names so hero totals are
+   preserved on pre-8P trips without a data migration (see Cape
+   Cod in the delta table below).
+
+3. **Shared/yours bucket reallocation** — `calculateTripCost`
+   rewritten so the footer reconciles to the hero by construction.
+   New `per_person_shared` = `lodging_pp + shared_transport_pp +
+   provisions_pp + other_pp + headliner_pp + activities_pp`
+   (each value already per-person). `per_person_total` simplifies
+   to `per_person_shared + individual_total`. Viewer arrival is
+   added into the "yours" footer amount at render time
+   (`CostBreakdown.tsx`) since it's a per-member column, not a
+   trip-level one.
+
+4. **Restaurants dropped from the sell rollup** — `calculateTripCost`.
+   Removed `sharedRestaurants` and `indRestaurants` from both
+   `shared_total` and `individual_total`. The restaurants table,
+   queries, and schema are untouched. Rationale: restaurants are
+   go-phase data per the skill's "pre-booked costs only in
+   sketch/sell" rule. No live trips currently have restaurants
+   (SQL-verified), so no user-facing dollar drops from this change
+   alone.
+
+5. **CostBreakdown renders provisions + other rows** — `src/components/
+   trip/CostBreakdown.tsx`. Two new rows between activities and the
+   footer, gated on `>0`. Uses new lexicon keys
+   `tripPageShared.costBreakdown.line.provisions` / `.line.other`.
+   Icons 🥑 and 🎁 per the brief — flagged as TBD below.
+
+6. **Footer yours now includes viewer arrival** — `CostBreakdown.tsx`.
+   Yours footer amount is `cost.individual_total + arrivalDollars`,
+   so per-viewer viewers see their arrival contribution included in
+   the "yours" total and the footer reconciles to the hero exactly.
+
+7. **Lexicon additions** — `src/lib/copy/surfaces/trip-page-shared.ts`.
+   Two new keys (`costBreakdown.line.provisions` / `.line.other`)
+   following the existing `costBreakdown.line.*` pattern.
+
+**What changed from the brief:**
+
+- **Brief assumed `pickLodgingForRollup` lived in
+  `LodgingCard.tsx`;** it actually lived in `CostBreakdown.tsx`
+  (added there in 9J per its release notes). Moved to
+  `src/types/index.ts` so both client render + server math can
+  import it. Same behavior, cleaner location.
+- **Brief's `other_per_person` assumed only `name = 'Other'` rows
+  contributed.** Expanded semantics so `other` sweeps all shared
+  grocery rows that aren't `Provisions`. This preserves hero
+  totals on trips with legacy grocery data (Cape Cod 4th of July
+  has a $500 grocery row with neither name — silently dropping
+  it would have regressed that trip's hero by $500). Documented
+  in the `TripCostSummary` JSDoc.
+- **AC6's shared-bucket formula interpretation.** Brief wrote
+  `round((lodging + headliner + shared_transport + activities +
+  provisions + other) / divisor)`. The literal formula would
+  require multiplying already-per-person `headliner_per_person` /
+  `activities_per_person` back up to totals, then dividing —
+  introducing round-trip rounding error. Implemented the
+  semantic intent instead: each component's own per-person value
+  summed. Footer reconciles to hero exactly by construction.
+
+**What to test:**
+
+- [ ] **Coachella (`sjtIcYZB`)** — hero is `~$8,100 / you`.
+      Lodging row shows "A Downtown Palm Springs Oasis | Ace
+      Hotel Palm Springs (so far)" at $3,000 (was "Parker" pre-9P
+      because of the pre-9P selector mismatch; dollars are the
+      same since both had cost_per_night=$1000 × 3 nights). Rows
+      include: your way in $500 · headliner $800 · lodging $3,000
+      · transport $3,000 · activities $400 · provisions $200 ·
+      other $200. Footer: 🏠 shared · $7,600 · ✈️ yours · $500.
+      Row sum (excluding your way in) = per_person_total $7,600.
+      Footer sum = $8,100 = hero. Eyebrow "firming up" visible
+      (lodging leading-vote-unlocked).
+- [ ] **Mexico (`k5PbSJff`)** — hero DROPS from $10,200 to $5,000.
+      Lodging row switches from "Maroma, A Belmond Hotel" to
+      "Home in Falmouth (so far)". This is the pre-9P mismatch
+      bug being fixed — AC8. See delta table below.
+- [ ] **Cape Cod (`zVf9nvgG`)** — hero stays at $4,950. The $500
+      legacy grocery row now surfaces as a rendered "🎁 other"
+      row at $500.
+- [ ] **All other sell+ trips (9 more)** — heroes stay at their
+      pre-9P values. Delta table below.
+- [ ] **`tsc --noEmit`** — exit 0 (verified).
+- [ ] **No schema / migration changes** — `git diff` for 9P
+      excludes `supabase/migrations/**` (verified).
+
+**Pre/post hero delta table** (all 12 sell+ trips — SQL source
+of truth, not just Coachella):
+
+| Slug | Name | Pre-9P hero | Post-9P hero | Δ | Driver |
+|------|------|-------------|--------------|---|--------|
+| `sjtIcYZB` | Coachella 2026!!! | $7,600 | $7,600 | $0 | Lodging sync (Parker→Ace, same $3k) · provisions + other now rendered |
+| `k5PbSJff` | Mexico!!! | $10,200 | $5,000 | **-$5,200** | **Lodging sync (Maroma→Falmouth, leading-vote)** |
+| `zVf9nvgG` | Cape Cod 4th of July! | $4,950 | $4,950 | $0 | $500 legacy grocery row surfaces as "other" |
+| `9seF50oY` | Thanksgiving in Tortola! | $2,989 | $2,989 | $0 | No change |
+| `izCL3z2W` | Menorca Adventure | $1,940 | $1,940 | $0 | Provisions row ($300) now renders |
+| `CF3i-ATr` | Test est | $1,897 | $1,897 | $0 | Provisions row ($997) now renders |
+| `QL0cfr_d` | Tulum 2026! | $0 | $0 | $0 | Empty |
+| `J3PWqRZM` | 3A QA Test Trip | $0 | $0 | $0 | Empty |
+| `eDh1Y1EH` | (unnamed) | $0 | $0 | $0 | Empty |
+| `WLmYX-Rt` | Spain 2027!!! | $0 | $0 | $0 | Empty |
+| `XBtv588i` | untitled rally | $0 | $0 | $0 | Empty |
+| `55iOSnbu` | Test | $0 | $0 | $0 | Empty |
+
+Footer math reconciles to hero exactly on every non-zero trip ✓.
+
+**SQL / code verification for each AC:**
+
+- **AC1** (fields added) — code diff, `git diff src/types/index.ts` shows only additions to `TripCostSummary`.
+- **AC2** (provisions/other split) — `calculateTripCost` filters `trip.groceries` by `cost_type = 'shared'`, then partitions by `name = 'Provisions'` vs everything else. Verified with probe.
+- **AC3** (rows render) — live on Coachella: "🥑 provisions · $200" + "🎁 other · $200" between activities and footer.
+- **AC4** (rows sum to hero minus arrival) — Coachella: $800+$3000+$3000+$400+$200+$200=$7,600=`per_person_total`. Live verified.
+- **AC5** (shared + yours = hero) — all 12 trips (probe output): `per_person_shared + individual_total + arrival === per_person_total + arrival`. By construction (`per_person_total = per_person_shared + individual_total`).
+- **AC6** (shared bucket composition) — `per_person_shared = lodging_pp + shared_transport_pp + provisions_pp + other_pp + headliner_pp + activities_pp` per `src/types/index.ts:537-543`.
+- **AC7** (yours bucket) — `cost.individual_total + arrivalDollars` in `CostBreakdown.tsx` footer render. `individual_total = flights + indTransport` (restaurants dropped).
+- **AC8** (lodging selector sync) — `pickLodgingForRollup` called in `calculateTripCost`. Coachella + Mexico both showed pre-9P server/client mismatches (Parker vs Ace, Maroma vs Falmouth); post-9P both agree.
+- **AC9** (restaurants removed) — `sharedRestaurants` + `indRestaurants` deleted from `calculateTripCost`. SQL: `SELECT slug, COUNT(*) FROM restaurants r JOIN trips t ON t.id=r.trip_id GROUP BY slug` returned zero rows — no live trips have restaurants, so no user-visible dollar drops from this change alone.
+- **AC10** (no schema / migration) — `git diff --name-only` for 9P: `src/types/index.ts`, `src/components/trip/CostBreakdown.tsx`, `src/lib/copy/surfaces/trip-page-shared.ts`, `rally-fix-plan-v1.md`. Zero files under `supabase/migrations/`.
+- **AC11** (Coachella hero preserved) — $7,600 → $7,600 + $500 arrival = $8,100. Live verified.
+- **AC12** (regression sweep) — delta table above covers all 12 sell+ trips.
+- **AC13** (`tsc --noEmit` exit 0) — verified.
+- **AC14** (CostBreakdown CSS unchanged) — `.chassis .cost-breakdown-*` block untouched in `globals.css`. New rows use existing `.cost-breakdown-row` / `-row-icon` / `-row-label` / `-row-val` classes.
+
+**Known issues:**
+
+1. **🥑 / 🎁 row icons are placeholders.** Brief called them
+   "TBD — flag for Andrew". Chose the brief's own suggestions
+   as starting values. Swap via the `icon:` string in the two
+   new `items.push({...})` blocks at
+   `src/components/trip/CostBreakdown.tsx:113-127` if Andrew
+   wants different glyphs. No lexicon change required since
+   icons live in the component (matches `lodging 🏠` / `transport
+   🚗` / `activities 🤿` precedent).
+
+2. **Mexico trip's hero number visibly dropped by $5,200.**
+   This is the AC8 selector-sync fix landing. Pre-9P the server
+   rollup was summing the Maroma's $10,200 per-person cost
+   while the lodging ROW displayed "Home in Falmouth" (the
+   leading-vote pick) at $5,000 — a real bug, not a regression.
+   Post-9P the two agree at $5,000. Two lodging options are
+   locked-vote-open on this trip; once an organizer locks a
+   winner the number firms up. Worth pinging the Mexico
+   organizer if outreach makes sense before the change is
+   observed.
+
+3. **Cape Cod 4th of July has a legacy grocery row with a
+   non-standard `name`.** Handled by rolling all non-Provisions
+   shared grocery rows into `other_per_person`. Hero stays at
+   $4,950; the $500 previously hidden in `sharedGroceries` now
+   renders as a visible "🎁 other" row. Not a regression — just
+   newly visible. If Andrew wants to rename that row to
+   "Other" via the sketch UI, it'd render identically.
+
+4. **BB-4 (Reveal wrappers stuck at `opacity:0`) still active.**
+   The cost breakdown module is below the fold on Coachella and
+   renders invisible until manually forced visible via devtools.
+   Confirmed during live QA. Pre-existing; no 9P regression.
+   Dev server ran clean — no module-not-found / RocksDB errors
+   this session (BB-5 quiet).
+
+#### Session 9P — Actuals (QA'd, Cowork 2026-04-23)
+
+**Status: closed — shipping.** Server math reconciliation landed
+clean. 14 ACs verified via code + CC's SQL probe + multi-trip
+regression sweep. Resolved all four findings from 9O's audit.
+Zero net new bugs introduced.
+
+**AC verification summary:**
+
+- **Code-verified by Cowork:**
+  - AC1 ✅ `provisions_per_person` + `other_per_person` added to
+    `TripCostSummary` at `types/index.ts:440, 447`. Purely
+    additive.
+  - AC2 ✅ Groceries partition: `name === 'Provisions'` vs
+    `name !== 'Provisions'` for `other` (the widened semantics
+    — see CC's scope note below).
+  - AC6 ✅ `per_person_shared = lodging_per_person +
+    shared_transport_per_person + provisions_per_person +
+    other_per_person + headliner_per_person +
+    activities_per_person`. Verified in `calculateTripCost`
+    at lines 566–572.
+  - AC8 ✅ `pickLodgingForRollup` exported from
+    `types/index.ts:458`. Imported by both `calculateTripCost`
+    (line 500) and `CostBreakdown.tsx` (line 42). Shared util
+    confirmed.
+  - AC9 ✅ `sharedRestaurants` / `indRestaurants` grep returns
+    0 hits — restaurants removed from rollup. Table + queries
+    + schema untouched.
+  - AC10 ✅ Zero migration files in 9P's working tree. `git
+    status` shows only: `rally-fix-plan-v1.md`,
+    `CostBreakdown.tsx`, `trip-page-shared.ts`,
+    `types/index.ts`.
+  - AC13 ✅ `tsc --noEmit` exit 0 (CC).
+  - AC14 ✅ `globals.css` NOT in 9P's diff. `.chassis
+    .cost-breakdown-*` block unchanged.
+
+- **SQL-verified by CC (pre/post delta table in release notes):**
+  - AC3 ✅ Provisions + other rows render on Coachella
+    (`🥑 provisions · $200` + `🎁 other · $200`).
+  - AC4 ✅ Row sum = `per_person_total` on Coachella:
+    $800+$3000+$3000+$400+$200+$200 = $7,600.
+  - AC5 ✅ Footer reconciles to hero on every non-zero trip by
+    construction (`per_person_total = per_person_shared +
+    individual_total`).
+  - AC7 ✅ Yours = `cost.individual_total + arrivalDollars`
+    in `CostBreakdown.tsx`; `individual_total` = flights +
+    indTransport.
+  - AC11 ✅ Coachella hero stays at $8,100 post-9P (= $7,600
+    per_person_total + $500 arrival).
+  - AC12 ✅ Regression sweep across all 12 sell+ trips; 11 of 12
+    heroes stay identical; 1 trip (Mexico) DROPS $5,200 — this
+    is AC8's bug fix landing (the pre-9P Maroma/Falmouth
+    selector mismatch), not a regression.
+
+**Scope interpretations CC made (all accepted):**
+
+1. **`pickLodgingForRollup` source location** — brief assumed
+   it lived in `builder/LodgingCard.tsx`; it was actually in
+   `CostBreakdown.tsx` (added there in 9J, not 9J's
+   LodgingCard edit). Moved to `types/index.ts` so both
+   client + server can import it cleanly. Same behavior,
+   better location.
+
+2. **`other_per_person` semantics widened.** Brief assumed
+   only `name = 'Other'` contributed. Expanded to sweep all
+   non-Provisions shared grocery rows. Preserves hero totals
+   on trips with legacy data (Cape Cod 4th of July has a
+   $500 grocery row with neither "Provisions" nor "Other"
+   — silently dropping it would have regressed that trip's
+   hero). Documented in `TripCostSummary` JSDoc.
+
+3. **AC6 formula semantic interpretation.** Brief wrote
+   `round((lodging + headliner + shared_transport + ...) /
+   divisor)` — literal formula would require multiplying
+   already-per-person values back up to totals, introducing
+   round-trip rounding error. CC implemented semantic
+   intent: each component's own per-person value summed.
+   Footer reconciles to hero exactly by construction.
+   Documented in a code comment at `types/index.ts:554–559`.
+
+**Items to surface / decide (non-blocking for close):**
+
+1. **🥑 (provisions) / 🎁 (other) row icons** — CC treated
+   brief's suggestions as placeholders. Andrew to confirm
+   or swap. Swap is a one-char change at
+   `CostBreakdown.tsx:117, 125`. Not lexicon-gated (icons
+   live in-component per precedent — `🏠` lodging, `🚗`
+   transport, `🤿` activities).
+
+2. **Mexico trip hero drop: $10,200 → $5,000.** This is AC8's
+   selector-sync bug fix landing — pre-9P the lodging row
+   displayed "Home in Falmouth" while the hero summed
+   "Maroma" ($10,200 / $5,000 delta = $5,200 ÷ divisor).
+   Post-9P the row and hero agree at $5,000. **Not a
+   regression — a fix.** Andrew may want to ping the
+   Mexico organizer before they notice.
+
+3. **9P is uncommitted at session close.** Four files in
+   working tree: `rally-fix-plan-v1.md`,
+   `src/components/trip/CostBreakdown.tsx`,
+   `src/lib/copy/surfaces/trip-page-shared.ts`,
+   `src/types/index.ts`. Andrew's call whether to commit
+   now or bundle with subsequent session.
+
+**Carried-forward items (not 9P-introduced):**
+
+- **BB-4** (Reveal wrappers stuck at `opacity:0` below fold)
+  — still active. Confirmed during 9P live QA. Pre-existing.
+- **BB-5** (Turbopack cache corruption) — quiet this session.
+  No module-not-found / RocksDB errors.
+- **Eyebrow copy lexicon cross-ref** (`firming up` /
+  `looking solid` from 9O) — still pending lexicon
+  bug-bash.
+- **AC17/AC24 from 9O** (group-fallback live verification)
+  — still code-verified only; edge case requires non-member
+  signed-in user. Acceptable ride-forward.
+
+**No bugs for a follow-up session.** 9P resolved the 4 findings
+escalated from 9O. No new findings surfaced during the math
+audit or the 12-trip regression sweep.
+
+---
+
+### Session 9Q: "Aux Path C orientation + buzz removal (9N revival)"
+
+**Premise.** Two pieces of cleanup to finish the sell page before
+moving to bug bash:
+
+1. **Buzz removal (9N revival).** 9N was scoped on 2026-04-22
+   (brief + kickoff in the fix plan + `claude-code-kickoff-9n-
+   remove-buzz.md`) but never executed — we pivoted to 9O/9P
+   before CC ran it. `<BuzzSection>` still renders on the sell
+   page at `page.tsx:535` as the screenshot Andrew shared on
+   2026-04-23 confirms. Re-execute the 9N scope exactly as
+   originally drafted.
+
+2. **Aux Path C orientation (new).** `PlaylistCard.tsx` already
+   wraps in `.module-section.aux-section` but the OG-image hero
+   sits inside a NESTED card with its own border/radius. Pull
+   the OG image up flush with the `.module-section` top border
+   so the visual matches Your Total's Path C treatment (hero
+   block at top, body on cream below). Andrew 2026-04-23 locked
+   Option A: OG image IS the hero background (no dark-surface
+   tint, no gradient overlay unless contrast fails).
+
+**Scope:**
+
+**Piece 1: Buzz removal (9N scope, verbatim).**
+
+Re-reference `claude-code-kickoff-9n-remove-buzz.md` — scope is
+exactly as drafted on 2026-04-22. Four code sites in `page.tsx`:
+
+1. Line 27: remove `import { BuzzSection } from '@/components/trip/BuzzSection';`
+2. Line 28: remove `import { getBuzzFeed } from '@/lib/buzz';`
+3. Lines 263-264: remove `const buzzDays = await getBuzzFeed(...)` + surrounding comment
+4. Lines 535-544: remove the `<Reveal delay={0.3}><BuzzSection .../></Reveal>` block + preceding comment
+
+Plus: update module-order comment at page.tsx:332 to drop "buzz"
+from the sequence (`everything-else → crew → cost → aux →
+extras(lock/go)`).
+
+Preserve on disk (do NOT delete or modify):
+- `src/components/trip/BuzzSection.tsx`
+- `src/lib/buzz.ts`
+- `src/lib/copy/surfaces/buzz.ts`
+- `src/app/trip/[slug]/buzz/page.tsx` (orphan route — flag for
+  follow-up; 3rd-route violation of three-screen rule)
+
+**Piece 2: Aux Path C orientation.**
+
+Reshape `src/components/trip/PlaylistCard.tsx` so the rendered
+structure mirrors the 9O Your Total shape:
+
+```
+.module-section.aux-section (existing bordered container)
+├── .aux-hero-block (NEW — OG image background, flush with top)
+│   ├── .aux-title-group (title "the aux" + ".ıll" icon, positioned top-left)
+│   ├── .aux-caption ("aux cord secured", top-right)
+│   └── .aux-swap-pill ("swap it" — existing, repositioned inside hero)
+├── .aux-body (cream — existing content area)
+│   ├── .aux-title-big (playlist name, e.g. "Mexico group playlist")
+│   ├── .aux-domain (spotify.com chip)
+│   └── .aux-byline (set by + relative time)
+└── .aux-footer-caption ("tap the card to open · add songs from anywhere")
+```
+
+Key changes from current:
+- **Remove the nested card border/radius** inside the module-
+  section. The module-section's own border becomes the only
+  outer edge.
+- **Flush the OG image to the top of the module-section.** Use
+  `border-radius: 14px 14px 0 0` (or equivalent tokens) so the
+  hero's top corners match the module-section's rounded top.
+- **Move `.module-section-header` content INTO the hero block.**
+  Title + eyebrow overlay on the OG image. No header on cream.
+- **"swap it" pill stays top-right inside the hero.** Repositioned
+  relative to the new hero block.
+- **Empty state (no OG image) falls back to `var(--surface)` background**
+  for the hero, matching Your Total's dark treatment. Title reads
+  against `var(--on-surface)` in that case.
+
+**CSS additions in `src/app/globals.css`** (under `.chassis
+.aux-*`): new `.aux-hero-block`, `.aux-title-group`,
+`.aux-caption` (repositioned), `.aux-swap-pill` (if not already
+classed), `.aux-body`, `.aux-footer-caption`. Preserve
+existing classes where reusable. No raw hex, no `!important`,
+all theme tokens.
+
+**Hard Constraints:**
+
+- DO NOT create new routes.
+- DO NOT touch any other module. Single-module discipline —
+  aux-only for Piece 2. Piece 1 is strictly page.tsx site
+  removal.
+- DO NOT delete or modify `BuzzSection.tsx`, `lib/buzz.ts`, or
+  `lib/copy/surfaces/buzz.ts`. Files return when buzz gets its
+  dedicated redesign session later.
+- DO NOT modify the orphan `/trip/[slug]/buzz/page.tsx` route.
+  Flag in release notes.
+- DO NOT add any organizer edit affordance on aux. Swap-it
+  pill interaction already exists (8Q); preserve as-is.
+- DO NOT change the playlist save/enrich logic or the
+  `setPlaylistUrl` / `clearPlaylistUrl` server actions. Data
+  layer stays.
+- DO NOT introduce strings not in `rally-microcopy-lexicon-v0.md`.
+  Any new lexicon keys for caption/fallback copy need cross-
+  reference; mismatch escalates.
+- DO NOT change data model or types.
+- DO NOT introduce a dark tint or gradient overlay on the OG
+  image by default — Andrew locked Option A (OG image IS the
+  hero). Only add a darkening treatment if contrast genuinely
+  fails on observed OG images during QA.
+
+**Acceptance Criteria:**
+
+**Piece 1 — buzz removal:**
+
+- [ ] **AC1** — `grep 'BuzzSection\|getBuzzFeed\|buzzDays'
+      src/app/trip/[slug]/page.tsx` returns 0 hits.
+- [ ] **AC2** — `git diff src/components/trip/BuzzSection.tsx`,
+      `src/lib/buzz.ts`, `src/lib/copy/surfaces/buzz.ts`, and
+      `src/app/trip/[slug]/buzz/page.tsx` all return empty
+      (files untouched).
+- [ ] **AC3** — module-order comment at page.tsx:332 no longer
+      includes "buzz".
+- [ ] **AC4** — Coachella sell loads without error; buzz section
+      absent between cost summary and aux.
+
+**Piece 2 — aux Path C:**
+
+- [ ] **AC5** (OG image flush with module-section top) — the
+      OG image hero block's top border aligns with the
+      `.module-section.aux-section` outer border. No nested
+      card border visible at the top.
+- [ ] **AC6** (title inside hero) — "the aux" title + "ıll"
+      icon render overlaid on the OG image at top-left.
+      "aux cord secured" caption renders inside the hero
+      block top-right. No `.module-section-header` ABOVE the
+      hero on cream.
+- [ ] **AC7** (swap-it pill positioning) — "swap it" renders
+      inside the hero block, visible against the OG image.
+      Tap still triggers the existing swap flow.
+- [ ] **AC8** (body on cream) — playlist title ("Mexico group
+      playlist"), domain chip, byline all render BELOW the
+      hero block on cream (theme `--bg`).
+- [ ] **AC9** (footer caption) — "tap the card to open · add
+      songs from anywhere" renders below the body on cream.
+- [ ] **AC10** (empty/fallback state) — when `trip.playlist_url
+      === null` OR `ogImage === null`, hero block falls back
+      to `var(--surface)` background with title rendered in
+      `var(--on-surface)`. Matches Your Total's fallback
+      treatment.
+- [ ] **AC11** (theme parity) — load 3+ themes; title legible
+      in every theme on both OG-image-present and fallback
+      states. If any OG image causes title-contrast failure,
+      flag in Known Issues.
+
+**Hygiene (Piece 2):**
+
+- [ ] **AC12** (zero raw hex/rgba in PlaylistCard.tsx) — grep
+      returns 0 hits.
+- [ ] **AC13** (zero dead `var(--rally-*)` in PlaylistCard.tsx)
+      — grep returns 0 hits.
+- [ ] **AC14** (minimal inline styles) — PlaylistCard.tsx has
+      at most 1 inline style (existing dynamic
+      `background-image` for OG URL). No new inline styles
+      introduced.
+- [ ] **AC15** (CSS block clean) — new `.chassis .aux-*`
+      additions: zero `!important`, zero raw hex/rgba, every
+      color via theme token or `color-mix`.
+- [ ] **AC16** (`tsc --noEmit` exit 0).
+
+**Regression:**
+
+- [ ] **AC17** (swap-it flow works) — clicking "swap it"
+      opens the URL input. Submit saves + enriches the new
+      playlist. Existing 8Q mechanic unchanged.
+- [ ] **AC18** (sketch unaffected) — load a sketch trip.
+      Sketch-side PlaylistCard / ExtrasSections rendering
+      unchanged. No CSS bleed from new aux-hero classes.
+- [ ] **AC19** (lock/go/done unaffected) — `<ExtrasSections>`
+      still renders PlaylistCard internally on those phases
+      (per 8Q). 9Q only touches the sell-phase standalone
+      aux render, not the ExtrasSections path.
+
+**Files to Read:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` §9Q (this brief), §9N (scope
+  reference for Piece 1), §9O Actuals (Path C precedent for
+  Piece 2), §BB-5 (Turbopack workaround).
+- `claude-code-kickoff-9n-remove-buzz.md` — Piece 1 is this
+  scope verbatim.
+- `rally-9o-cost-summary-sell-mockup.html` — Path C visual
+  reference. Aux orients to match Row 4 frame.
+- `src/app/trip/[slug]/page.tsx` — Piece 1 target.
+- `src/components/trip/PlaylistCard.tsx` — Piece 2 target.
+- `src/app/globals.css` — existing `.chassis .cost-breakdown-*`
+  (Path C precedent) and `.chassis .aux-*` (existing aux
+  classes) for the new hero-block treatment to mirror.
+
+**How to QA Solo (Claude Code):**
+
+1. Turbopack cache recovery (BB-5) before dev server start.
+2. `npx tsc --noEmit` → exit 0.
+3. Run AC1 grep on page.tsx → 0 hits.
+4. Run AC12/13 greps on PlaylistCard.tsx → 0 hits.
+5. Load Coachella sell at 375px. Scroll top-to-bottom. Buzz
+   absent (between cost summary and aux). Aux module renders
+   with OG image flush to top border, title/eyebrow overlaid,
+   body on cream below, caption at bottom.
+6. Click "swap it" — input appears. Submit → saves. Reload
+   page, new URL persists.
+7. Temporarily clear `trip.playlist_url` (SQL or via UI) —
+   aux renders empty state with dark `var(--surface)` hero
+   fallback.
+8. Switch to 2 more themes — title legible on OG image in
+   each. Flag if contrast fails.
+9. Load a sketch trip — ExtrasSections renders playlist inline
+   unchanged.
+
+**Likely escalation triggers:**
+
+1. **OG-image contrast fails on observed themes.** If any
+   theme's title color (probably `var(--on-surface)` or
+   `var(--ink)` over the OG image) is unreadable against the
+   actual OG art, propose a bottom-to-top darkening gradient
+   overlay on the hero block's TOP edge only (preserving
+   image visibility below the title zone). Flag before
+   adding; Andrew locked Option A without gradient by default.
+
+2. **"aux cord secured" eyebrow collides with "swap it" pill.**
+   Both currently live in the top-right region. If the hero
+   can't fit both legibly, propose relocating eyebrow OR
+   dropping it entirely (it was an older flavor label). Flag
+   don't unilaterally drop.
+
+3. **Empty-state fallback color choice.** Spec says
+   `var(--surface)` matching Your Total. If the result looks
+   bizarrely dark for an empty playlist slot (aux isn't meant
+   to feel as weighty as Your Total), propose using a lighter
+   alternative (e.g., `color-mix(var(--surface) 50%,
+   transparent)`) — flag before implementing.
+
+4. **`PlaylistCard.tsx` is a client component with state
+   for three visual states (empty / saved+enriched /
+   saved+fallback).** All three states need the Path C
+   treatment. Don't just restyle the enriched state.
+
+#### Session 9Q — Release Notes
+
+**What was built:**
+
+**Piece 1 — buzz removal (9N revival).**
+
+1. Dropped both buzz imports + the `buzzDays` fetch from
+   `src/app/trip/[slug]/page.tsx`. The render block at the
+   former module-8 slot is replaced with a one-line comment
+   noting the removal + file preservation.
+2. Updated the module-order ascii comment — now reads
+   `everything-else → crew → cost → aux → extras(lock/go)`.
+3. All four preserved buzz files (`BuzzSection.tsx`,
+   `lib/buzz.ts`, `lib/copy/surfaces/buzz.ts`,
+   `app/trip/[slug]/buzz/page.tsx`) confirmed untouched via
+   `git diff`.
+
+**Piece 2 — aux Path C orientation.**
+
+1. `src/components/trip/PlaylistCard.tsx` rebuilt. Three render
+   branches (empty / enriched / fallback) now share one
+   chassis: `.aux-hero-block` flush with `.aux-section` top
+   border, `.aux-body` on cream beneath, `.aux-footer-caption`
+   at the bottom. A shared `renderHeroTop()` helper renders the
+   title group + right-slot (caption for viewers, swap pill for
+   editors).
+2. `src/app/globals.css` — full replacement of the `.chassis
+   .aux-*` block. New primitives: `.aux-hero-block` (base
+   dark-surface hero) + `.aux-hero-image` (OG background,
+   Option A — no tint/overlay) + `.aux-hero-empty` / `-fallback`
+   (surface fallback); `.aux-hero-top` flex row; `.aux-swap-pill`
+   (replaces the old absolute-positioned `.aux-swap`);
+   `.aux-card-link` (card-wide anchor unifying enriched +
+   fallback); `.aux-footer-caption`. Existing body-level classes
+   (`.aux-title`, `.aux-meta`, `.aux-domain-chip`, `.aux-byline`,
+   `.aux-fallback-domain`, `.aux-fallback-byline`,
+   `.aux-empty-card` + `.aux-empty-input` + `.aux-submit` +
+   `.aux-hype-hint`, `.aux-eq*`) retained. `.aux-section` gains
+   `padding: 0; overflow: hidden; gap: 0` to let the hero go
+   flush with the top border (mirrors `.cost-breakdown-module`).
+3. Lexicon untouched — all strings come from existing
+   `extras.playlist.*` keys.
+
+**What changed from the brief:**
+
+- **Hero top-right collision resolved via canEdit branch.** The
+  brief flagged caption vs. swap-pill collision at 375px as a
+  likely escalation trigger with three options. Picked a fourth:
+  render ONE or the OTHER, not both. When `canEdit && url`, the
+  top-right shows the swap pill. When `!canEdit && url`, it
+  shows the "aux cord secured" caption. Empty state always
+  shows the "who's on?" caption. Resolves the collision without
+  dropping either signal — editors get action, viewers get
+  flavor. Swap-pill styling (`color-mix(--on-surface 22%,
+  transparent)` + blur) keeps legibility against any OG image.
+- **No new CSS file; rebuilt the existing `.chassis .aux-*`
+  block in place.** Consistent with 9O's pattern for the
+  CostBreakdown Path C rebuild.
+- **Comment wording in page.tsx avoids mentioning `BuzzSection`
+  / `getBuzzFeed` verbatim** so AC1's grep stays at 0 hits.
+
+**What to test (Cowork QA):**
+
+- [ ] **AC1** grep `BuzzSection\|getBuzzFeed\|buzzDays` in
+      `page.tsx` → 0 hits (verified post-edit).
+- [ ] **AC2** — `BuzzSection.tsx`, `lib/buzz.ts`,
+      `lib/copy/surfaces/buzz.ts`, `app/trip/[slug]/buzz/page.tsx`
+      all untouched (verified via `git diff --stat`).
+- [ ] **AC3** — module-order ascii comment at page.tsx no
+      longer mentions "buzz". (verified)
+- [ ] **AC4 · Coachella sell** — buzz absent between cost
+      summary and aux. (verified live)
+- [ ] **AC5/6/7 · enriched state** — Coachella OG art fills the
+      hero block flush with module-section top border; "the aux"
+      title + eq top-left in `var(--on-surface)`; swap pill
+      top-right (organizer is canEdit). No separate
+      `.module-section-header` visible above the hero. (verified
+      live + screenshot)
+- [ ] **AC8** — "Mexico group playlist" title, `↗ open.spotify.com`
+      chip, and "set by Andrew · 7 days" byline all render below
+      the hero on cream. (verified live)
+- [ ] **AC9** — "tap the card to open · add songs from anywhere"
+      caption renders at the bottom of the shell on cream.
+      (verified live on Coachella enriched; not rendered on the
+      empty state by design — open-hint only makes sense when
+      there's a card to tap)
+- [ ] **AC10 · empty state** — Load Tulum (`QL0cfr_d`, sell,
+      organizer=Andrew, `playlist_url=null`). Hero block uses
+      `var(--surface)` (dark) + `var(--on-surface)` title; caption
+      "who's on?" top-right; input card + hype hint on cream.
+      (verified live + screenshot)
+- [ ] **AC11 · theme parity** — Partial: verified on
+      `festival-run` (Coachella enriched) + `just-because`
+      (Tulum empty). Title legible on both. Remaining themes
+      (city-weekend, boys-trip, honeymoon, etc.) worth a Cowork
+      spot-check against the OG image that would render on each.
+- [ ] **AC12** — grep raw hex/rgba in `PlaylistCard.tsx` → 0
+      hits (verified).
+- [ ] **AC13** — grep dead `--rally-*` in `PlaylistCard.tsx` →
+      0 hits (verified).
+- [ ] **AC14** — PlaylistCard has exactly 1 inline style
+      (the dynamic `backgroundImage` on the enriched hero)
+      (verified).
+- [ ] **AC15** — new `.chassis .aux-*` CSS block: zero
+      `!important`, zero raw hex/rgba, every color via theme
+      token or `color-mix` (verified via grep).
+- [ ] **AC16** — `npx tsc --noEmit` exit 0 (verified).
+- [ ] **AC17 · swap-it regression** — Code-verified: handler,
+      `useTransition`, and `clearPlaylistUrl` call are unchanged
+      from 8Q; the button moved from `.aux-swap` (absolute
+      position) to `.aux-swap-pill` (inline in the hero-top
+      flex row), but onClick wiring is identical. Didn't
+      click-test live to avoid mutating Coachella's saved URL
+      mid-session.
+- [ ] **AC18 · sketch unaffected** — Sketch trips short-circuit
+      to `SketchTripShell` before any aux render; `.aux-*`
+      classes only exist inside the sell-page `<PlaylistCard>`
+      and `<ExtrasSections>` paths, so no CSS bleed risk. Worth
+      a Cowork spot-check on a sketch trip.
+- [ ] **AC19 · lock/go/done unaffected** — `<ExtrasSections>`
+      still renders `<PlaylistCard>` on those phases
+      (unchanged). `<PlaylistCard>` itself got the Path C shape,
+      so those phases will render the new visual — which is
+      expected per the brief (the shape change applies
+      component-wide, not per-phase). Didn't load a lock/go
+      trip live.
+
+**Known issues:**
+
+1. **Enriched-state title contrast is OK but not bold on the
+   Coachella OG.** The "the aux" title and equalizer render in
+   `var(--on-surface)` cream over the purple/lavender Spotify
+   playlist art. Readable but not high-contrast. Option A is
+   locked so no overlay was added. If the contrast feels weak
+   to Andrew during QA, the mitigation is a scoped top-edge
+   gradient (top 40% fading from `rgba(0,0,0,0.35)` → transparent)
+   added under `.chassis .aux-hero-image::before` — NOT a
+   universal overlay. Flag for Andrew's call.
+2. **Fallback state (`url && !ogImage`) has no live trip in
+   the DB to verify against.** SQL probe across all 12 sell+
+   trips: 11 are `empty`, 1 is `enriched` (Coachella). Code
+   path is symmetric with enriched — same `.aux-hero-block` +
+   same `renderHeroTop()` + `♫` tile centered in the hero
+   (absolute positioned at `bottom: 16px, left: 50%`) instead
+   of an OG image. Worth a Cowork manual state check — either
+   temporarily null Coachella's `playlist_og_image` in the DB,
+   OR submit a non-URL-like-string as the playlist URL on a
+   test trip to trigger the fallback path.
+3. **Dev server hit BB-5 once during QA.** Second-route cold
+   compile (after Coachella loaded cleanly) produced the
+   standard RocksDB `Another write batch or compaction is
+   already active` + `_document.js` MODULE_NOT_FOUND. Recovered
+   by server stop → `rm -rf .next node_modules/.cache` →
+   restart; no code change required. Noting for BB-5's
+   frequency log — still active.
+4. **BB-4 (Reveal wrappers stuck at `opacity:0`) still
+   active.** Aux module was invisible on Coachella sell until
+   manually forced via devtools (`document.querySelectorAll('*')
+   .forEach(n => { if (getComputedStyle(n).opacity === '0')
+   n.style.opacity = '1'; })`). Pre-existing; no 9Q regression.
+5. **9P + 9Q now both uncommitted in the working tree.**
+   9P's diff (`rally-fix-plan-v1.md`, `src/types/index.ts`,
+   `src/components/trip/CostBreakdown.tsx`,
+   `src/lib/copy/surfaces/trip-page-shared.ts`) + 9Q's diff
+   (`rally-fix-plan-v1.md`, `src/app/trip/[slug]/page.tsx`,
+   `src/app/globals.css`, `src/components/trip/PlaylistCard.tsx`)
+   are stacked in `git status`. Andrew chose to leave 9P
+   uncommitted at close; 9Q piles on top. Worth one commit
+   pass or two separate commits at Andrew's call.
+
+#### Session 9Q — Actuals (QA'd, Cowork 2026-04-23)
+
+**Status: closed — shipping.** 19 ACs verified: code-level +
+CC's live verification on Coachella (enriched) and Tulum (empty)
++ Cowork live confirmation of the width fix. One Cowork CSS fix
+applied during QA. Four known issues all flagged as
+low-priority (3 pre-existing, 1 contrast judgment call).
+
+**AC verification:**
+
+- **Code-verified by Cowork (buzz removal):**
+  - AC1 ✅ `grep 'BuzzSection|getBuzzFeed|buzzDays' page.tsx`
+    returns 0 hits.
+  - AC2 ✅ `git diff HEAD` on all four preserved buzz files
+    returns 0 lines (untouched).
+  - AC3 ✅ Module-order comment at page.tsx:330 now reads
+    `everything-else → crew → cost → aux → extras(lock/go)`.
+
+- **Code-verified by Cowork (aux Path C):**
+  - AC12 ✅ grep hex/rgba on PlaylistCard.tsx → 0 hits.
+  - AC13 ✅ grep `var(--rally-` → 0 hits.
+  - AC14 ✅ Exactly 1 inline style at line 234
+    (`backgroundImage: url(${ogImage})` — dynamic, allowed).
+  - AC15 ✅ New `.chassis .aux-*` CSS block: clean tokens.
+  - AC16 ✅ `npx tsc --noEmit` exit 0.
+
+- **Live-verified by CC:**
+  - AC4 ✅ Buzz absent on Coachella between cost summary and aux.
+  - AC5/6/7 ✅ Enriched state — OG image flush to top, title +
+    eq top-left, swap pill top-right (canEdit=true).
+  - AC8 ✅ Body on cream (Mexico title + domain chip + byline).
+  - AC10 ✅ Empty state (Tulum) — dark `var(--surface)` hero
+    fallback, "who's on?" caption top-right, input card on cream.
+  - AC11 🟡 Partial — festival-run + just-because tested. City-
+    weekend, boys-trip, etc. worth a spot-check if regressions
+    surface; accepted as rolled-forward.
+
+- **Live-verified by Cowork (post-session):**
+  - **Width parity fix** — after the first live pass, aux
+    module was visibly narrower than cost summary on Coachella
+    sell. Root cause: `.chassis .aux-section` had
+    `margin: 0 36px 16px` inherited from ExtrasSections-era
+    sketch layout, stacking on top of the page's own
+    `padding: 0 18px` wrapper (54px inset vs siblings' 18px).
+    See Cowork fix below.
+
+- **Code-verified deviations from brief (CC's scope calls,
+  all reasonable):**
+  - AC9 — footer "open-hint" caption renders only on enriched +
+    fallback states, NOT on empty. CC's rationale: "open-hint
+    only makes sense when there's a card to tap." Accepted.
+  - AC17/18/19 — code-verified, not live click-tested (avoid
+    mutating Coachella mid-session / sketch short-circuits /
+    ExtrasSections path unchanged). Acceptable.
+  - Hero top-right collision resolved via `canEdit` branch —
+    swap pill OR caption, not both. Cleaner than the brief's
+    three proposed options.
+
+**Cowork fix applied during QA (CSS + className):**
+
+**Sell-phase aux width mismatch.** `.chassis .aux-section`
+carried a `margin: 0 36px 16px` base rule from the sketch/
+ExtrasSections era (comment in CSS: "Match .sketch-modules
+inset... the horizontal margin has to live on the section
+itself"). On sell, PlaylistCard renders inside page.tsx's
+`<div style={{ padding: '0 18px' }}>` wrapper; stacking the
+36px margin on top produced a 54px-per-side inset while sibling
+modules (cost summary / crew / everything-else) sat at 18px.
+
+Fix (scoped, non-regressing):
+1. Added `className="sell-aux-wrap"` to the sell-phase
+   PlaylistCard wrapper div in `page.tsx:552`.
+2. Added new `.chassis .sell-aux-wrap .aux-section`
+   override in `globals.css` setting `margin-left: 0;
+   margin-right: 0;`.
+3. Preserved the base `.chassis .aux-section`
+   `margin: 0 36px 16px` rule unchanged so lock/go/done
+   phases (where ExtrasSections renders PlaylistCard outside
+   the sell-page padding wrapper) keep their existing inset.
+
+Qualifies as Cowork per skill Part 2 Step 4c — single new
+className + single scoped CSS rule, no logic change.
+
+**Known issues (tracked, not blocking):**
+
+1. **Enriched title contrast on Coachella OG.** CC flagged as
+   "readable but not high-contrast." Option A locked (no
+   default overlay). Mitigation path: scoped top-edge gradient
+   under `.chassis .aux-hero-image::before` (top 40% fading
+   `rgba(0,0,0,0.35) → transparent`). Not applied this
+   session. If Andrew observes a contrast failure on another
+   theme or trip, trivial to add.
+
+2. **Fallback state (`url && !ogImage`) not live-verified.**
+   SQL confirmed: 11/12 sell+ trips are `empty`, 1 is
+   `enriched` (Coachella). No live `fallback` state to QA
+   against. Code path symmetric with enriched. Worth a
+   synthetic test (null `playlist_og_image` on a test trip)
+   if regression surfaces.
+
+3. **BB-4 (Reveal wrappers stuck at `opacity:0`) still active.**
+   Aux module was invisible on Coachella below-fold until
+   manually forced via devtools during CC's QA. Pre-existing;
+   not 9Q-introduced.
+
+4. **BB-5 (Turbopack cache corruption) hit once during CC's
+   QA.** Recovered via `rm -rf .next node_modules/.cache` +
+   restart. Noting for BB-5 frequency log.
+
+**Commit state:** 9P + 9Q + CostBreakdown (9P) + working-tree
+changes still stacked uncommitted. 7 files modified at close:
+`rally-fix-plan-v1.md`, `src/types/index.ts`,
+`src/components/trip/CostBreakdown.tsx`,
+`src/components/trip/PlaylistCard.tsx`,
+`src/lib/copy/surfaces/trip-page-shared.ts`,
+`src/app/globals.css`, `src/app/trip/[slug]/page.tsx`.
+Andrew's call on commit strategy (one 9P+9Q combined commit,
+or two separate). The Cowork fix (sell-aux-wrap) folds into
+the 9Q commit cleanly.
+
+**No bugs for a follow-up session.** 9Q shipped clean. All
+page-level cleanup is done.
+
+**Sell page cleanup arc complete.** Every major module on the
+sell page now uses the `.module-section` primitive with
+consistent typography, tokens, and structural rhythm:
+
+- Marquee strip ✓ (9C top-chrome)
+- Header / hero / postcard ✓ (9E–9G)
+- Countdown ✓ (9D)
+- Headliner ✓ (9H sketch parity)
+- Spot / lodging ✓ (9I, 9J)
+- Getting here ✓ (9B-1)
+- Transportation ✓ (9K)
+- Everything else ✓ (9L)
+- Cost summary / Your Total ✓ (9B-2, 9O, 9P)
+- Crew ✓ (9M)
+- Buzz ✓ removed (9N via 9Q)
+- Aux ✓ (8Q + 9Q Path C orientation)
+
+Next logical work: bug bash (BB-1 through BB-5 + Open Items
+1–5 + accumulated lexicon/CSS deprecations + `members as any`
+cast + AC17/AC24 group fallback live check + DatePoll hygiene
+drift from the 9Q pre-flight). Scoped into two sessions (9R +
+9S) by priority 2026-04-23.
+
+---
+
+### Session 9R: "Bug bash — dev velocity + data integrity"
+
+**Premise.** First of two planned bug-bash sessions, front-loading
+the items that unblock everyone else. Two classes of work bundled:
+
+- **Dev-velocity blockers** (BB-5 + BB-4) — Turbopack cache
+  corruption has hit every live QA pass since 9K, and Reveal
+  opacity freezing below-fold forces devtools overrides on every
+  QA session. Fixing these first pays dividends on 9S.
+- **Data integrity** (BB-1 + Open Item #1) — the UNIQUE(email)
+  constraint is the only schema-change session in the 9X arc
+  and deserves isolated attention; pairs naturally with Open
+  Item #1 (lodging null-nights render — another data-path bug).
+
+Each item scoped to its own files; no cross-contamination across
+the four workstreams.
+
+**Scope:**
+
+**Workstream 1 — BB-5: Turbopack cache corruption mitigation.**
+
+The `.next/dev/cache/turbopack/*.sst` RocksDB files corrupt
+during HMR bursts or when the dev server is killed mid-
+compaction. Symptoms: `Cannot find module '[turbopack]_runtime.js'`,
+`ENOENT build-manifest.json`, `Failed to compact database`.
+Recovery currently requires `pkill -9 node` + `rm -rf .next
+node_modules/.cache` + 30-60s warmup.
+
+**Proposed fix — disable Turbopack's persistent cache for dev:**
+- Option A: `next.config.js` — set `experimental.turbopackPersistentCaching: false` or equivalent (check Next version's exact flag). Slower cold starts; no RocksDB corruption.
+- Option B: Fall back to webpack dev via `next dev --turbopack=false` (or add a `"dev:webpack": "next dev --no-turbopack"` script alongside the default). Turbopack is experimental for dev; webpack is stable.
+- Option C: If neither flag works on the current Next version, upgrade Next to a known-good version (check changelog for RocksDB fixes) OR downgrade below the broken version.
+
+CC picks the option that works cleanest on the current Next
+version. Verify via 10+ HMR cycles (save file, reload page) —
+no RocksDB errors in dev-server stderr.
+
+**Workstream 2 — BB-4: Reveal opacity stuck below fold.**
+
+`<Reveal>` wrappers initialize at `opacity: 0` + `transform:
+translateY(28px)`. Supposed to animate to `opacity: 1` +
+`transform: none` when IntersectionObserver fires. For modules
+below the fold on first page load, the observer either doesn't
+fire or doesn't trigger the animation. Manual devtools
+override works, so the DOM + styles are correct — the observer
+wiring is broken.
+
+**Investigate `src/components/ui/Reveal.tsx`:**
+- Verify IntersectionObserver is being created and attached
+- Check `rootMargin`, `threshold` values — if `threshold: 1` or
+  similar, below-fold elements never cross it
+- Check if the observer's callback properly toggles the
+  `opacity: 1` state — may be a React state setter that's not
+  firing on mount
+- Confirm unobserve / cleanup isn't racing with mount
+- Test fix on Coachella sell: aux module at bottom of page
+  should animate in on initial scroll (not require manual
+  devtools forcing).
+
+**Workstream 3 — BB-1: UNIQUE(email) migration + signup audit.**
+
+Cleanup SQL ran on 2026-04-21 to remove duplicate user rows +
+add the UNIQUE(email) constraint ad-hoc. Constraint exists in
+prod but NOT in the migrations tree. Schema drift.
+
+**Scope items** (already in BB-1 entry, promoted to ACs):
+1. Add new migration file under `supabase/migrations/` —
+   `NNN_unique_email_on_users.sql` (use next sequential number).
+   Idempotent `ADD CONSTRAINT IF NOT EXISTS` pattern (same as
+   021's guards) so running it against prod is a no-op since
+   the constraint's already there.
+2. Audit `src/app/api/auth/*`, `src/app/actions/auth*`, or
+   wherever magic-link signup lives. Look for the
+   `public.users` upsert path. Add `ON CONFLICT (email) DO
+   UPDATE` or equivalent safety to prevent duplicate-creation
+   attempts (which would now fail at the constraint layer).
+3. SQL probe for other duplicate emails:
+   `SELECT email, COUNT(*) FROM public.users GROUP BY email
+   HAVING COUNT(*) > 1;`. If any rows return, extend the
+   cleanup (document in release notes).
+
+**This is the ONLY schema change in the 9X arc.** Treat
+carefully:
+- Migration file reviewed before commit
+- Run `supabase migration up` locally, verify it applies
+  cleanly
+- Don't run against prod in the session — Andrew handles that
+  via his normal deployment flow
+
+**Workstream 4 — Open Item #1: Lodging `computeNights` null-nights render.**
+
+`LodgingCard.tsx:31` — `computeNights` returns null when
+`diff <= 0` (inverted trip dates). Preview renders
+`"$1000/night × ? nights"` with literal `?` marks. Ugly +
+confusing.
+
+**Triple fix:**
+1. **Sketch date-range input validates `date_end >= date_start`.**
+   Find the date input in the sketch builder (likely
+   `SketchModules.tsx` or a date-specific component). Reject
+   inverted ranges with inline error, OR auto-correct by
+   swapping to forward order. Small change, but prevents the
+   bad state at the source.
+2. **LodgingCard + LodgingAddForm preview hide the computation
+   line when nights is null/invalid.** Show subtle hint
+   (`"set trip dates to see total"` or similar — check
+   `rally-microcopy-lexicon-v0.md` for existing fallback
+   copy) instead of the `× ? nights` string.
+3. **Audit other `nights`-dependent surfaces** via grep for
+   `nights`/`computeNights`. CostBreakdown, Getting Here, any
+   other surface that reads nights — apply the same null-guard.
+
+**Hard Constraints:**
+
+- DO NOT cross-contaminate workstreams. Each item scoped to
+  its own files. BB-5 doesn't touch Reveal.tsx; BB-1 doesn't
+  touch Lodging; etc.
+- DO NOT create new routes or change module architecture.
+- DO NOT expand scope beyond the four listed items. If a
+  fifth bug is surfaced during implementation, log it —
+  don't fix it.
+- DO NOT run BB-1's migration against prod during the
+  session. Local application only. Andrew deploys via his
+  normal flow.
+- DO NOT introduce schema changes outside BB-1's single
+  migration file.
+- DO NOT add lexicon keys without cross-reference against
+  `rally-microcopy-lexicon-v0.md`.
+- BB-5 migration/upgrade path: if the fix requires upgrading
+  Next.js, STOP and escalate. Next version bump is not in
+  scope.
+- Open Item #1 hint copy must come from lexicon — if no
+  matching key exists, propose and flag for Andrew sign-off
+  before committing.
+
+**Acceptance Criteria:**
+
+**BB-5 (Turbopack):**
+
+- [ ] **AC1** — chosen mitigation applied (config flag, script
+      alternative, OR version change). Documented in release
+      notes.
+- [ ] **AC2** — 10+ HMR cycles (save file, reload page, toggle
+      a module's display) without any `Cannot find module
+      '[turbopack]_runtime.js'` or `ENOENT build-manifest.json`
+      errors in dev-server stderr.
+- [ ] **AC3** — `rm -rf .next` + fresh `npm run dev` + immediate
+      navigation to `/trip/sjtIcYZB` completes without errors
+      (previously required 30-60s warmup pause).
+
+**BB-4 (Reveal):**
+
+- [ ] **AC4** — load Coachella sell in a fresh incognito
+      tab (cold load, no cache). Scroll from top to bottom.
+      Every module animates in (opacity 0→1) as it enters
+      viewport.
+- [ ] **AC5** — hard refresh the page. Modules below the
+      fold (cost summary, aux) start at `opacity: 0` but
+      animate in within 500ms of scroll reaching them. No
+      manual devtools override required.
+- [ ] **AC6** — code inspection: `src/components/ui/Reveal.tsx`
+      IntersectionObserver has `rootMargin` or `threshold`
+      values that work for elements rendered below the
+      viewport at mount time (not `threshold: 1`).
+
+**BB-1 (UNIQUE(email) migration):**
+
+- [ ] **AC7** — new migration file under
+      `supabase/migrations/NNN_unique_email_on_users.sql`
+      captures the `ALTER TABLE public.users ADD CONSTRAINT
+      ...UNIQUE (email)` statement. Idempotent pattern
+      (`IF NOT EXISTS` or `DO $$ ... $$` block).
+- [ ] **AC8** — `supabase migration up` applied locally,
+      exits cleanly (no-op since constraint already exists in
+      prod).
+- [ ] **AC9** — SQL probe `SELECT email, COUNT(*) FROM
+      public.users GROUP BY email HAVING COUNT(*) > 1`
+      returns 0 rows (on local dev DB). If >0 on prod,
+      document in release notes for Andrew's outreach.
+- [ ] **AC10** — signup/magic-link path (find the
+      `public.users` upsert) has `ON CONFLICT (email) DO
+      UPDATE` or equivalent idempotent handling. Verified via
+      code read.
+
+**Open Item #1 (Lodging null-nights):**
+
+- [ ] **AC11** — sketch date-range input rejects or
+      auto-corrects inverted `date_end < date_start`
+      ranges. User sees inline error OR auto-swapped
+      dates on commit.
+- [ ] **AC12** — LodgingCard + LodgingAddForm preview: when
+      nights is null/invalid, render fallback hint
+      ("set trip dates to see total" or equivalent lexicon
+      copy) instead of `× ? nights`. No literal `?` marks
+      anywhere in the preview.
+- [ ] **AC13** — grep `× ? nights` and `? nights` across
+      `src/` returns 0 hits after the fix.
+- [ ] **AC14** — other nights-dependent surfaces audited (grep
+      for `nights`/`computeNights`) and null-guarded where
+      applicable.
+
+**Cross-cutting:**
+
+- [ ] **AC15** — `npx tsc --noEmit` exit 0.
+- [ ] **AC16** — four workstreams commit cleanly as a single
+      9R commit OR four separate commits (CC's call; document
+      commit structure in release notes).
+
+**Files to Read:**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — Part 3
+  (pre-flight + escalation). Note the reminder about schema
+  changes needing migrations (applies to BB-1).
+- `rally-fix-plan-v1.md` §Session 9R (this brief), §BB-1
+  through §BB-5 (context), §Open Items #1 (context).
+- `next.config.js` or `next.config.ts` — BB-5 config target.
+- `package.json` — BB-5 dev script alternative if using
+  webpack fallback.
+- `src/components/ui/Reveal.tsx` — BB-4 target.
+- `supabase/migrations/` — BB-1 new migration file location.
+  Read the latest migration (e.g., `021_arrival_columns.sql`)
+  for the idempotent pattern template.
+- `src/app/api/auth/*` or `src/app/actions/auth*` — BB-1
+  signup audit path. Find the `public.users` upsert.
+- `src/components/trip/builder/LodgingCard.tsx` — Open
+  Item #1 `computeNights` null-guard target.
+- `src/components/trip/builder/LodgingAddForm.tsx` — Open
+  Item #1 preview null-guard target.
+- `src/components/trip/builder/SketchModules.tsx` or
+  wherever the sketch date-range input lives — Open Item #1
+  validation target.
+- `rally-microcopy-lexicon-v0.md` — Open Item #1 hint copy
+  cross-reference.
+
+**How to QA Solo:**
+
+1. Before starting: run standard Turbopack recovery (BB-5's
+   fix should remove the need for this on future QA, but for
+   the first run start clean).
+2. **BB-5 QA**: make 10+ code changes + save + refresh the
+   dev page. Stderr should stay clean (no cache-corruption
+   errors).
+3. **BB-4 QA**: open Coachella in incognito. Scroll top to
+   bottom. Every module visible as it enters viewport.
+4. **BB-1 QA**: `supabase migration up` applies cleanly.
+   Local SQL duplicate probe returns 0.
+5. **Open Item #1 QA**: load a sketch trip, set
+   `date_end < date_start`, LodgingCard preview shows
+   fallback (not `× ? nights`). Auto-correct or validation
+   blocks the save.
+6. `npx tsc --noEmit` exit 0.
+
+**Likely escalation triggers:**
+
+1. **BB-5 fix requires Next version upgrade.** If
+   `experimental.turbopackPersistentCaching: false` isn't a
+   valid flag on the current Next version, and `--turbopack=false`
+   doesn't work, the only remaining options are version
+   bump or a build-artifact wrapper script. Escalate before
+   committing to either.
+
+2. **BB-4 observer wiring reveals a deeper animation library
+   issue.** If Reveal.tsx uses framer-motion or similar, the
+   observer may be controlled by the library. Fix might
+   require a library config change or migration to a
+   manual IntersectionObserver. Flag before rewriting the
+   component wholesale.
+
+3. **BB-1 migration conflicts with existing constraint.**
+   The ad-hoc 2026-04-21 SQL already added the constraint
+   to prod. Local DB may or may not have it. If the
+   migration fails with "constraint already exists," use the
+   `IF NOT EXISTS` idempotent pattern. If local DB doesn't
+   have the constraint AND has duplicate rows, the migration
+   will fail harder — escalate.
+
+4. **BB-1 signup audit reveals a real duplicate-creation
+   path in current code.** If the upsert logic currently
+   creates duplicates (e.g., no `ON CONFLICT` handling and
+   new magic-link sessions race), fixing that goes beyond
+   adding the clause — may require a session-cookie change
+   or auth flow redesign. Flag before patching.
+
+5. **Open Item #1 hint copy doesn't exist in lexicon.**
+   If `rally-microcopy-lexicon-v0.md` has no "set trip
+   dates" fallback hint, propose copy and flag for Andrew's
+   sign-off before committing.
+
+6. **Open Item #1 audit surfaces more `nights`-dependent
+   surfaces than expected.** If grep returns 5+ sites,
+   null-guarding all of them is scope creep — fix the
+   LodgingCard + LodgingAddForm (the known-broken ones) and
+   log the rest as a follow-up.
+
 ---
 
 ### Bug Bash Queue (future session, briefs TBD)

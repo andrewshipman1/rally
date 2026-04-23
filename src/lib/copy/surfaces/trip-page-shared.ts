@@ -76,6 +76,11 @@ export const tripPageShared: Record<string, Templated> = {
   'costBreakdown.line.transport':     'transport',
   'costBreakdown.line.meals':         'meals',
   'costBreakdown.line.activities':    'activities',
+  // Session 9P — provisions + other rows render between activities and
+  // the footer, gated on `>0`. Labels mirror the sketch module (lowercase,
+  // noun fragments; lexicon §5.4).
+  'costBreakdown.line.provisions':    'provisions',
+  'costBreakdown.line.other':         'other',
 
   // CostBreakdown — footer badges (theme-token colored at CSS layer).
   // Session 9O — `sharedBadge` / `bookYoursBadge` deprecated in favor of
