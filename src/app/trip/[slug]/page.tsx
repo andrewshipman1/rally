@@ -504,24 +504,22 @@ export default async function TripPage({ params }: Props) {
                signed-in-but-not-a-member case) keeps the old
                group-average hero. */}
         <Reveal delay={0.25}>
-          <div style={{ marginTop: 14 }}>
-            <CostBreakdown
-              trip={trip}
-              cost={cost}
-              themeId={themeId}
-              dateStr={trip.date_start && trip.date_end
-                ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
-                : ''}
-              viewerArrival={
-                viewerMember
-                  ? {
-                      mode: viewerMember.arrival_mode ?? null,
-                      cost_cents: viewerMember.arrival_cost_cents ?? null,
-                    }
-                  : null
-              }
-            />
-          </div>
+          <CostBreakdown
+            trip={trip}
+            cost={cost}
+            themeId={themeId}
+            dateStr={trip.date_start && trip.date_end
+              ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
+              : ''}
+            viewerArrival={
+              viewerMember
+                ? {
+                    mode: viewerMember.arrival_mode ?? null,
+                    cost_cents: viewerMember.arrival_cost_cents ?? null,
+                  }
+                : null
+            }
+          />
         </Reveal>
 
         {polls.length > 0 && (

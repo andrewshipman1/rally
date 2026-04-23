@@ -78,8 +78,21 @@ export const tripPageShared: Record<string, Templated> = {
   'costBreakdown.line.activities':    'activities',
 
   // CostBreakdown — footer badges (theme-token colored at CSS layer).
+  // Session 9O — `sharedBadge` / `bookYoursBadge` deprecated in favor of
+  // `footer.shared` / `footer.yours` below; keys stay for dead-key sweep.
   'costBreakdown.sharedBadge':        ({ amount }: ThemeVars) => `🏠 shared · ${amount ?? '—'}/pp`,
   'costBreakdown.bookYoursBadge':     ({ amount }: ThemeVars) => `✈️ book yours · ${amount ?? '—'}`,
+
+  // CostBreakdown — Session 9O footer (subtle row replacing the pill stack).
+  // Amount comes pre-formatted via formatMoney at the call site.
+  'costBreakdown.footer.shared':      ({ amount }: ThemeVars) => `🏠 shared · ${amount ?? '—'}`,
+  'costBreakdown.footer.yours':       ({ amount }: ThemeVars) => `✈️ yours · ${amount ?? '—'}`,
+
+  // CostBreakdown — Session 9O eyebrow (top-right of hero block).
+  // Renders "firming up" when any pending state exists (viewer arrival
+  // unset, or lodging leading-vote-unlocked); "looking solid" otherwise.
+  'costBreakdown.eyebrow.firmingUp':  'firming up',
+  'costBreakdown.eyebrow.settled':    'looking solid',
 
   // FlightCard
   'flight.perPerson':    'per person',

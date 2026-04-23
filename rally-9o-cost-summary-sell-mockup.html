@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9O: Your Total rethink + math audit</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9O SCOPE — YOUR TOTAL rethink + cross-page math audit
+     (Cowork draft, 2026-04-22)
+
+     Two goals combined in one session:
+
+     1. VISUAL REDESIGN. The CostBreakdown is the only sell-page
+        module not in a .module-section bordered container.
+        Today it sits inside a <GlassCard> (dark glass treatment)
+        at lines 193+ of CostBreakdown.tsx. That's the visual
+        outlier — headliner / spot / getting-here / transport /
+        everything-else / crew (post-9M) all use the cream
+        bordered container. Align or intentionally preserve
+        distinction — same design question 9M asked for crew.
+
+     2. MATH AUDIT + WIRING CHECK. The rollup pulls from six
+        upstream sources (headliner, lodging-with-voting-winner,
+        transport-with-flights, everything-else-three-buckets,
+        viewer-arrival, shared-vs-individual splits). Each has
+        its own divisor / priority / null-state logic. We
+        haven't walked it end-to-end since 9B-2 shipped. Verify
+        each feed is correct, document what each row represents,
+        catch any drift introduced by 9I/9J/9K/9L/9M.
+
+     The redesign and the audit are independent but naturally
+     paired — CC touches CostBreakdown.tsx for the layout
+     rebuild anyway, so validating each row's source math is
+     cheap at the same time.
+
+     HYGIENE FINDINGS (pre-read from earlier audits):
+     - CostBreakdown.tsx is lexicon-compliant (no hardcoded English)
+     - No raw hex/rgba (all via --cost-on-glass* + --cost-badge-* tokens)
+     - No dead var(--rally-*)
+     - CSS block at globals.css:5295–5410 uses tokens + color-mix
+
+     OUT OF SCOPE:
+     - Data-model changes (divisor_used, per_person_total, etc.)
+     - trip.flights → transport[type_tag='flight'] collapse
+       (still deferred; BB item)
+     - Server actions, transitionToSell
+     - Organizer edit-on-sell (Session 10+ territory)
+     - Sketch-side cost rendering (different surface; this is
+       sell-only)
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --doc-bg: #2a2a2a;
+    --doc-text: #faf8f5;
+    --doc-muted: #888;
+    --doc-accent: #ffd84d;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .doc-header {
+    max-width: 900px;
+    margin: 0 auto 16px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: var(--doc-text);
+    margin-bottom: 4px;
+  }
+  .doc-sub {
+    font-size: 12px;
+    color: var(--doc-muted);
+    line-height: 1.5;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+
+  .row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+  .row-label {
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-top: 36px;
+    margin-bottom: 8px;
+  }
+
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 18px 0 28px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --surface: #ffffff;
+    --on-surface: #1a1a1a;
+    --accent: #ffd84d;
+    --accent2: #5bb7d8;
+    --muted: #8a8680;
+    --sticker-bg: #f2e0d0;
+    --border: #1a1a1a;
+  }
+  .frame.current { background: #e8ddd0; --bg: #e8ddd0; }
+  .frame.coachella {
+    --bg: #f5e6d3;
+    --ink: #2a1810;
+    --surface: #2a1508;     /* dark espresso — matches real desert-trip pattern */
+    --on-surface: #f4e4cf;  /* cream — light text on dark surface */
+    --accent: #b84a2f;
+    --accent2: #d4a574;
+    --muted: #8a6b55;
+    --sticker-bg: #ead4bc;
+    --border: #2a1810;
+    background: #f5e6d3;
+  }
+
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+
+  .context-stub {
+    opacity: .28;
+    pointer-events: none;
+    padding: 10px 18px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    border-bottom: 1px dashed rgba(26,26,26,.3);
+    margin: 0 0 16px;
+  }
+  .context-stub.below {
+    border-bottom: none;
+    border-top: 1px dashed rgba(26,26,26,.3);
+    margin: 16px 0 0;
+  }
+
+  /* ═══ CURRENT — dark glass treatment ═══ */
+  .current-glass {
+    margin: 14px 18px 0;
+    background: #1a1a1a;
+    color: #f5f5f5;
+    border-radius: 16px;
+    padding: 22px 20px 20px;
+  }
+  .current-hero-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: rgba(245,245,245,0.6);
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .current-hero-num-wrap {
+    text-align: center;
+  }
+  .current-hero-num {
+    font-size: 52px;
+    font-weight: 800;
+    color: #f5f5f5;
+  }
+  .current-hero-per-you {
+    font-size: 18px;
+    font-weight: 600;
+    color: rgba(245,245,245,0.6);
+    margin-left: 4px;
+  }
+  .current-hero-sub {
+    font-size: 11px;
+    color: rgba(245,245,245,0.6);
+    text-align: center;
+    margin-top: 3px;
+    margin-bottom: 18px;
+  }
+  .current-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .current-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .current-row-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: rgba(245,245,245,0.6);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .current-row-label.emphasize {
+    color: #b84a2f;
+    font-weight: 700;
+  }
+  .current-row-label .icon {
+    font-size: 13px;
+  }
+  .current-row-meter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .current-bar-track {
+    width: 70px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(245,245,245,0.1);
+    overflow: hidden;
+  }
+  .current-bar-fill {
+    height: 100%;
+    background: #b84a2f;
+    border-radius: 2px;
+  }
+  .current-row-val {
+    font-size: 12px;
+    font-weight: 600;
+    color: #f5f5f5;
+    font-variant-numeric: tabular-nums;
+  }
+  .current-row-val.emphasize {
+    color: #b84a2f;
+    font-weight: 800;
+  }
+  .current-row-val.pending {
+    color: #b84a2f;
+    font-style: italic;
+    opacity: 0.75;
+  }
+  .current-badges {
+    display: flex;
+    gap: 6px;
+    margin-top: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .current-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .current-badge.shared {
+    background: rgba(212,165,116,0.2);
+    color: #d4a574;
+  }
+  .current-badge.yours {
+    background: rgba(245,245,245,0.1);
+    color: rgba(245,245,245,0.7);
+  }
+
+  /* ═══ PATH A — align to .module-section ═══ */
+  .module-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 24px;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    margin: 14px 18px 0;
+    background: transparent;
+  }
+  .module-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px;
+  }
+  .module-section-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.1;
+    color: var(--ink);
+    text-transform: lowercase;
+  }
+  .module-section-count {
+    font-family: 'Caveat', 'Georgia', serif;
+    font-size: 16px;
+    color: var(--ink);
+    opacity: 0.5;
+  }
+
+  .total-hero {
+    text-align: center;
+    padding: 6px 0 10px;
+  }
+  .total-hero-amount {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 42px;
+    font-weight: 900;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .total-hero-per-you {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-left: 4px;
+  }
+  .total-hero-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+
+  .total-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 2px;
+  }
+  .total-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .total-row-icon {
+    font-size: 13px;
+    width: 20px;
+    text-align: center;
+  }
+  .total-row-label {
+    font-size: 13px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .total-row-label.emphasize {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .total-row-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .total-row-val.emphasize {
+    color: var(--accent);
+  }
+  .total-row-val.pending {
+    color: var(--muted);
+    font-style: italic;
+    font-weight: 500;
+  }
+
+  .total-footer {
+    margin-top: 6px;
+    padding: 10px 2px 0;
+    border-top: 1px solid color-mix(in srgb, var(--ink) 15%, transparent);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .total-footer-shared, .total-footer-yours {
+    flex: 1;
+  }
+  .total-footer-yours {
+    text-align: right;
+  }
+  .total-footer strong {
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  /* ═══ PATH B — refined dark (keep contrast, modernize) ═══
+     Uses --surface / --on-surface tokens so dark-bg themes
+     (boys-trip, city-weekend, festival-run) still render a
+     dark hero — the theme system guarantees --surface is dark
+     and --on-surface is light across every theme. */
+  .total-dark {
+    margin: 14px 18px 0;
+    background: var(--surface);
+    color: var(--on-surface);
+    border-radius: 16px;
+    padding: 18px 22px 20px;
+  }
+  .total-dark-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .total-dark-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 15px;
+    text-transform: lowercase;
+    color: var(--on-surface);
+    opacity: 0.7;
+  }
+  .total-dark-count {
+    font-family: 'Caveat', 'Georgia', serif;
+    font-size: 14px;
+    color: var(--on-surface);
+    opacity: 0.45;
+  }
+  .total-dark-hero {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .total-dark-amount {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 44px;
+    font-weight: 900;
+    color: var(--on-surface);
+    line-height: 1;
+  }
+  .total-dark-per-you {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--on-surface);
+    opacity: 0.55;
+    margin-left: 4px;
+  }
+  .total-dark-sub {
+    font-size: 11px;
+    color: var(--on-surface);
+    opacity: 0.55;
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+  .total-dark-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .total-dark-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .total-dark-row-icon {
+    font-size: 13px;
+    width: 20px;
+    text-align: center;
+    opacity: 0.7;
+  }
+  .total-dark-row-label {
+    font-size: 13px;
+    color: var(--on-surface);
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .total-dark-row-label.emphasize {
+    color: var(--accent);
+    opacity: 1;
+    font-weight: 700;
+  }
+  .total-dark-row-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--on-surface);
+    font-variant-numeric: tabular-nums;
+  }
+  .total-dark-row-val.emphasize {
+    color: var(--accent);
+  }
+  .total-dark-row-val.pending {
+    color: var(--on-surface);
+    opacity: 0.5;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .total-dark-footer {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid color-mix(in srgb, var(--on-surface) 15%, transparent);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+    color: var(--on-surface);
+    opacity: 0.7;
+  }
+  .total-dark-footer strong {
+    color: var(--on-surface);
+    opacity: 1;
+    font-weight: 700;
+  }
+
+  /* ═══ PATH C — hybrid (bordered container, dark hero block) ═══
+     Hero block uses --surface / --on-surface instead of --ink / --bg
+     so dark-bg themes (boys-trip, city-weekend, festival-run) still
+     render a dark hero. Every theme's palette defines --surface as
+     dark and --on-surface as light regardless of canvas color. */
+  .total-hybrid {
+    margin: 14px 18px 0;
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .total-hybrid-hero-block {
+    background: var(--surface);
+    color: var(--on-surface);
+    padding: 18px 20px 18px;
+    text-align: center;
+    position: relative;
+  }
+  .total-hybrid-hero-label {
+    font-family: 'Caveat', 'Georgia', serif;
+    font-size: 14px;
+    color: var(--on-surface);
+    opacity: 0.5;
+    margin-bottom: 2px;
+  }
+  .total-hybrid-amount {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 46px;
+    font-weight: 900;
+    color: var(--on-surface);
+    line-height: 1;
+  }
+  .total-hybrid-per-you {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--on-surface);
+    opacity: 0.6;
+    margin-left: 4px;
+  }
+  .total-hybrid-sub {
+    font-size: 11px;
+    color: var(--on-surface);
+    opacity: 0.6;
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+  .total-hybrid-body {
+    padding: 14px 22px 16px;
+    background: transparent;
+  }
+  .total-hybrid-body .total-rows {
+    padding: 0;
+  }
+  .total-hybrid-footer {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--ink) 15%, transparent);
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .total-hybrid-footer strong { color: var(--ink); font-weight: 700; }
+
+  /* Annotations */
+  .annotation {
+    max-width: 1040px;
+    margin: 44px auto 0;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 20px 24px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #cfcfcf;
+  }
+  .annotation h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    color: var(--doc-text);
+    margin: 16px 0 8px;
+  }
+  .annotation h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--doc-accent);
+    margin: 14px 0 4px;
+  }
+  .annotation ul { margin: 4px 0 8px 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .annotation table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 12px;
+    font-size: 12px;
+  }
+  .annotation th, .annotation td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    vertical-align: top;
+  }
+  .annotation th { color: var(--doc-accent); font-weight: 700; }
+  .callout {
+    background: rgba(255,216,77,.08);
+    border-left: 3px solid var(--doc-accent);
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout strong { color: var(--doc-accent); }
+  .frame-caption {
+    width: 375px;
+    margin: 8px auto 0;
+    padding: 8px 14px;
+    background: rgba(255,255,255,.04);
+    color: #a8a29a;
+    font-size: 11px;
+    line-height: 1.5;
+    border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">session 9o · sell · your total redesign + math audit (draft)</div>
+  <div class="doc-title">your total — three paths</div>
+  <div class="doc-sub">
+    CostBreakdown is today's visual outlier — the only sell module
+    not using <code>.module-section</code>. Three redesign paths
+    below. Plus a math-source table for the audit half.
+  </div>
+</div>
+
+<!-- ═══ ROW 1: CURRENT ═══ -->
+<div class="row-label">row 1 · current · dark glass · visually distinct from every other module</div>
+<div class="row">
+  <div class="frame current">
+    <div class="frame-label">current · &lt;GlassCard&gt; treatment · bare in page gutter</div>
+    <div class="context-stub">▲ crew</div>
+    <div class="current-glass">
+      <div class="current-hero-label">YOUR TOTAL</div>
+      <div class="current-hero-num-wrap">
+        <span class="current-hero-num">~$7,600</span><span class="current-hero-per-you">/ you</span>
+      </div>
+      <div class="current-hero-sub">your total will firm up once the crew fills in.</div>
+      <div class="current-rows">
+        <div class="current-row">
+          <span class="current-row-label emphasize"><span class="icon"></span>your way in · ✈️ flight</span>
+          <div class="current-row-meter">
+            <span class="current-row-val pending">(pending)</span>
+          </div>
+        </div>
+        <div class="current-row">
+          <span class="current-row-label emphasize"><span class="icon">★</span>the headliner · Coachella Valley Music & Arts Festival</span>
+          <div class="current-row-meter">
+            <div class="current-bar-track"><div class="current-bar-fill" style="width: 11%;"></div></div>
+            <span class="current-row-val emphasize">$800</span>
+          </div>
+        </div>
+        <div class="current-row">
+          <span class="current-row-label"><span class="icon">🏠</span>lodging · Cap Juluca (so far)</span>
+          <div class="current-row-meter">
+            <div class="current-bar-track"><div class="current-bar-fill" style="width: 47%;"></div></div>
+            <span class="current-row-val">$3,600</span>
+          </div>
+        </div>
+        <div class="current-row">
+          <span class="current-row-label"><span class="icon">🚗</span>transport</span>
+          <div class="current-row-meter">
+            <div class="current-bar-track"><div class="current-bar-fill" style="width: 39%;"></div></div>
+            <span class="current-row-val">$3,000</span>
+          </div>
+        </div>
+        <div class="current-row">
+          <span class="current-row-label"><span class="icon">🤿</span>activities</span>
+          <div class="current-row-meter">
+            <div class="current-bar-track"><div class="current-bar-fill" style="width: 5%;"></div></div>
+            <span class="current-row-val">$400</span>
+          </div>
+        </div>
+      </div>
+      <div class="current-badges">
+        <span class="current-badge shared">🏠 Shared: $3,600</span>
+        <span class="current-badge yours">✈️ Book yours: $4,000</span>
+      </div>
+    </div>
+    <div class="context-stub below">▼ aux / extras</div>
+  </div>
+  <div class="frame-caption">
+    Dark GlassCard on cream page background. "YOUR TOTAL" in
+    all-caps kicker. 52px hero number. Per-row progress bars
+    sized by pct of total. Two bottom badges ("Shared" / "Book
+    yours") split the total into group vs personal obligations.
+  </div>
+</div>
+
+<!-- ═══ ROW 2: PATH A — aligned to .module-section ═══ -->
+<div class="row-label">row 2 · path a · aligned to .module-section · sibling pattern · bordered cream</div>
+<div class="row">
+  <div class="frame">
+    <div class="frame-label">path a · bordered · matches every other sell module</div>
+    <div class="context-stub">▲ crew</div>
+    <div class="module-section">
+      <div class="module-section-header">
+        <span class="module-section-title">your total</span>
+        <span class="module-section-count">firming up</span>
+      </div>
+      <div class="total-hero">
+        <div class="total-hero-amount">~$7,600<span class="total-hero-per-you">/ you</span></div>
+        <div class="total-hero-sub">your total will firm up once the crew fills in.</div>
+      </div>
+      <div class="total-rows">
+        <div class="total-row">
+          <span class="total-row-icon">✈️</span>
+          <span class="total-row-label emphasize">your way in · flight</span>
+          <span class="total-row-val pending">pending</span>
+        </div>
+        <div class="total-row">
+          <span class="total-row-icon">★</span>
+          <span class="total-row-label emphasize">the headliner · Coachella Valley Music & Arts Festival</span>
+          <span class="total-row-val emphasize">$800</span>
+        </div>
+        <div class="total-row">
+          <span class="total-row-icon">🏠</span>
+          <span class="total-row-label">lodging · Cap Juluca <em style="opacity:0.5;font-style:italic;">(so far)</em></span>
+          <span class="total-row-val">$3,600</span>
+        </div>
+        <div class="total-row">
+          <span class="total-row-icon">🚗</span>
+          <span class="total-row-label">transport</span>
+          <span class="total-row-val">$3,000</span>
+        </div>
+        <div class="total-row">
+          <span class="total-row-icon">🤿</span>
+          <span class="total-row-label">activities</span>
+          <span class="total-row-val">$400</span>
+        </div>
+      </div>
+      <div class="total-footer">
+        <span class="total-footer-shared">🏠 shared · <strong>$3,600</strong></span>
+        <span class="total-footer-yours">✈️ yours · <strong>$4,000</strong></span>
+      </div>
+    </div>
+    <div class="context-stub below">▼ aux / extras</div>
+  </div>
+  <div class="frame-caption">
+    Full alignment with siblings. 18px title + Caveat eyebrow.
+    Cream bordered container. Hero shrinks from 52px → 42px
+    (still the anchor, less dominant). Progress bars dropped —
+    they added noise; the numbers alone convey proportion.
+    Badges become a subtle footer row instead of pill stack.
+    Row label shape matches transport: icon · label · value.
+  </div>
+</div>
+
+<!-- ═══ ROW 3: PATH B — refined dark ═══ -->
+<div class="row-label">row 3 · path b · refined dark · keep contrast · modernize typography</div>
+<div class="row">
+  <div class="frame">
+    <div class="frame-label">path b · dark surface retained · cleaner hierarchy</div>
+    <div class="context-stub">▲ crew</div>
+    <div class="total-dark">
+      <div class="total-dark-header">
+        <span class="total-dark-title">your total</span>
+        <span class="total-dark-count">firming up</span>
+      </div>
+      <div class="total-dark-hero">
+        <span class="total-dark-amount">~$7,600</span><span class="total-dark-per-you">/ you</span>
+        <div class="total-dark-sub">your total will firm up once the crew fills in.</div>
+      </div>
+      <div class="total-dark-rows">
+        <div class="total-dark-row">
+          <span class="total-dark-row-icon">✈️</span>
+          <span class="total-dark-row-label emphasize">your way in · flight</span>
+          <span class="total-dark-row-val pending">pending</span>
+        </div>
+        <div class="total-dark-row">
+          <span class="total-dark-row-icon">★</span>
+          <span class="total-dark-row-label emphasize">the headliner · Coachella Valley Music & Arts Festival</span>
+          <span class="total-dark-row-val emphasize">$800</span>
+        </div>
+        <div class="total-dark-row">
+          <span class="total-dark-row-icon">🏠</span>
+          <span class="total-dark-row-label">lodging · Cap Juluca <em style="opacity:0.6;font-style:italic;">(so far)</em></span>
+          <span class="total-dark-row-val">$3,600</span>
+        </div>
+        <div class="total-dark-row">
+          <span class="total-dark-row-icon">🚗</span>
+          <span class="total-dark-row-label">transport</span>
+          <span class="total-dark-row-val">$3,000</span>
+        </div>
+        <div class="total-dark-row">
+          <span class="total-dark-row-icon">🤿</span>
+          <span class="total-dark-row-label">activities</span>
+          <span class="total-dark-row-val">$400</span>
+        </div>
+      </div>
+      <div class="total-dark-footer">
+        <span>🏠 shared · <strong>$3,600</strong></span>
+        <span>✈️ yours · <strong>$4,000</strong></span>
+      </div>
+    </div>
+    <div class="context-stub below">▼ aux / extras</div>
+  </div>
+  <div class="frame-caption">
+    Keep dark contrast — CostBreakdown stays the financial
+    anchor, visually distinct from line-item modules. But
+    modernize: header + eyebrow like siblings, hero 44px
+    (vs 52px), rows drop progress bars for cleaner read,
+    badges become a footer row instead of pill stack. Still
+    no bordered container — distinction preserved.
+  </div>
+</div>
+
+<!-- ═══ ROW 4: PATH C — hybrid ═══ -->
+<div class="row-label">row 4 · path c · hybrid · bordered container wraps dark hero block</div>
+<div class="row">
+  <div class="frame">
+    <div class="frame-label">path c · bordered shell · dark hero only · rows on cream</div>
+    <div class="context-stub">▲ crew</div>
+    <div class="total-hybrid">
+      <div class="total-hybrid-hero-block">
+        <div class="total-hybrid-hero-label">your total</div>
+        <span class="total-hybrid-amount">~$7,600</span><span class="total-hybrid-per-you">/ you</span>
+        <div class="total-hybrid-sub">your total will firm up once the crew fills in.</div>
+      </div>
+      <div class="total-hybrid-body">
+        <div class="total-rows">
+          <div class="total-row">
+            <span class="total-row-icon">✈️</span>
+            <span class="total-row-label emphasize">your way in · flight</span>
+            <span class="total-row-val pending">pending</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-icon">★</span>
+            <span class="total-row-label emphasize">the headliner · Coachella Valley Music & Arts Festival</span>
+            <span class="total-row-val emphasize">$800</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-icon">🏠</span>
+            <span class="total-row-label">lodging · Cap Juluca <em style="opacity:0.5;font-style:italic;">(so far)</em></span>
+            <span class="total-row-val">$3,600</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-icon">🚗</span>
+            <span class="total-row-label">transport</span>
+            <span class="total-row-val">$3,000</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-icon">🤿</span>
+            <span class="total-row-label">activities</span>
+            <span class="total-row-val">$400</span>
+          </div>
+        </div>
+        <div class="total-hybrid-footer">
+          <span>🏠 shared · <strong>$3,600</strong></span>
+          <span>✈️ yours · <strong>$4,000</strong></span>
+        </div>
+      </div>
+    </div>
+    <div class="context-stub below">▼ aux / extras</div>
+  </div>
+  <div class="frame-caption">
+    Best of both. Bordered container signals "sibling module"
+    from the outside; dark hero block at the top signals "this
+    is the rollup anchor" from the inside. Hero block
+    integrates the title "your total" on a cursive label
+    above the big number (removes the separate header row).
+    Body reads like Path A — cream background, compact rows,
+    subtle footer. Ink border + hero transition feels deliberate.
+  </div>
+</div>
+
+<!-- ═══ ROW 5: States ═══ -->
+<div class="row-label">row 5 · states · path c · group fallback + pending arrival</div>
+<div class="row">
+  <div class="frame">
+    <div class="frame-label">path c · group fallback · no viewer arrival</div>
+    <div class="context-stub">▲ crew</div>
+    <div class="total-hybrid">
+      <div class="total-hybrid-hero-block">
+        <div class="total-hybrid-hero-label">per person</div>
+        <span class="total-hybrid-amount">~$7,200</span>
+        <div class="total-hybrid-sub">3 nights · 5 going</div>
+      </div>
+      <div class="total-hybrid-body">
+        <div class="total-rows">
+          <div class="total-row">
+            <span class="total-row-icon">★</span>
+            <span class="total-row-label emphasize">the headliner · Coachella Valley Music & Arts Festival</span>
+            <span class="total-row-val emphasize">$800</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-icon">🏠</span>
+            <span class="total-row-label">lodging</span>
+            <span class="total-row-val">$3,600</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-icon">🚗</span>
+            <span class="total-row-label">transport</span>
+            <span class="total-row-val">$2,400</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-icon">🤿</span>
+            <span class="total-row-label">activities</span>
+            <span class="total-row-val">$400</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="context-stub below">▼ aux</div>
+  </div>
+
+  <div class="frame coachella">
+    <div class="frame-label">path c · coachella theme · per-viewer · arrival pending</div>
+    <div class="context-stub">▲ crew</div>
+    <div class="total-hybrid">
+      <div class="total-hybrid-hero-block">
+        <div class="total-hybrid-hero-label">your total</div>
+        <span class="total-hybrid-amount">~$4,800</span><span class="total-hybrid-per-you">/ you</span>
+        <div class="total-hybrid-sub">your total will firm up once you set your flight.</div>
+      </div>
+      <div class="total-hybrid-body">
+        <div class="total-rows">
+          <div class="total-row">
+            <span class="total-row-icon">✈️</span>
+            <span class="total-row-label emphasize">your way in · flight</span>
+            <span class="total-row-val pending">pending</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-icon">★</span>
+            <span class="total-row-label emphasize">the headliner · Coachella Valley Music & Arts Festival</span>
+            <span class="total-row-val emphasize">$800</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-icon">🏠</span>
+            <span class="total-row-label">lodging</span>
+            <span class="total-row-val">$3,600</span>
+          </div>
+          <div class="total-row">
+            <span class="total-row-icon">🤿</span>
+            <span class="total-row-label">activities</span>
+            <span class="total-row-val">$400</span>
+          </div>
+        </div>
+        <div class="total-hybrid-footer">
+          <span>🏠 shared · <strong>$3,600</strong></span>
+          <span>✈️ yours · <strong>$1,200</strong></span>
+        </div>
+      </div>
+    </div>
+    <div class="context-stub below">▼ aux</div>
+  </div>
+</div>
+<div class="frame-caption">
+  Left: logged-out or non-member view — shows group "per person"
+  average (based on divisor_used), omits "your way in" row, no
+  footer split. Right: Coachella theme, per-viewer, arrival
+  pending — subtitle adapts to focus attention on what's
+  incomplete. Theme tokens drive everything; no hardcoded colors.
+</div>
+
+<!-- ═══ ANNOTATIONS ═══ -->
+<div class="annotation">
+
+  <h3>The core design question (rows 2 vs 3 vs 4)</h3>
+  <ul>
+    <li><strong>Path A (bordered, cream).</strong> Total is "another sell module." Maximum consistency — same container, same header pattern, same row rhythm as transport / everything-else / crew. Visually lightest. Makes the rollup read as "summary" not "anchor."</li>
+    <li><strong>Path B (refined dark).</strong> Preserve the "total is the financial anchor" intent. Dark surface draws the eye. Modernized hierarchy — header + eyebrow like siblings, rows cleaner, badges as footer. No bordered container.</li>
+    <li><strong>Path C (hybrid).</strong> Bordered container like siblings, dark hero block integrated at the top. Reads as "rollup module" from the outside, "financial anchor" from the inside. Most deliberate but also most design.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>My lean: Path C.</strong> It acknowledges both instincts
+    — CostBreakdown IS a sell module (bordered, in the rhythm) AND
+    IS the financial anchor (dark hero draws attention to the
+    number). Path A loses too much weight; Path B stays outside the
+    sibling pattern. Path C threads the needle.
+  </div>
+
+  <h3>What changes from today (all paths)</h3>
+  <ul>
+    <li><strong>Hero scale.</strong> 52px → 42-46px. Still the biggest number on the page but not oversized. Georgia italic treatment instead of sans bold — matches sibling titles.</li>
+    <li><strong>Per-row progress bars removed.</strong> The ~70px track per row added visual noise for marginal benefit. Numbers alone convey proportion when you scan the column. Drops ~8px of vertical per row and dramatically simplifies the render.</li>
+    <li><strong>Row shape.</strong> Grid: <code>auto · 1fr · auto</code> for icon · label · value. Matches transport module's compact card shape (9K). Consistent visual grammar across modules.</li>
+    <li><strong>Line labels mirror what the organizer entered above</strong> (Andrew, 2026-04-22). Cost rows read as a readable recap of what was set up in each module — "the headliner · Coachella Valley Music & Arts Festival", "lodging · Cap Juluca (so far)", "transport · Saint Barths Plane" if single-item or just "transport" if multi-item. NOT trimmed. The redundancy with the module above is fine — the rollup IS the summary, and the summary should name what it's summarizing.</li>
+    <li><strong>Badges restructured.</strong> Pill stack → subtle footer row with ink-colored values. "🏠 Shared: $3,600" + "✈️ Book yours: $4,000" stays conceptually — left/right in a small footer divided by the existing top-border rule.</li>
+    <li><strong>Title "your total" / "per person".</strong> Per-viewer uses "your total"; logged-out / non-member uses "per person" (group fallback). Eyebrow copy: "firming up" when pending arrival or unlocked lodging; empty when everything's filled in.</li>
+  </ul>
+
+  <h3>Math audit — what each row represents (the wiring check)</h3>
+  <p>This is the second half of the session. CC should walk each row's
+  data source during implementation and verify the math is correct.
+  Reference table:</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Row</th>
+        <th>Source field</th>
+        <th>Math</th>
+        <th>Notes to verify</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>your way in</td>
+        <td><code>viewerArrival.cost_cents</code> (from 9B-1)</td>
+        <td><code>cost_cents / 100</code>, or pending if null</td>
+        <td>Only renders when <code>viewerArrival !== null</code>. Group fallback skips this row entirely.</td>
+      </tr>
+      <tr>
+        <td>the headliner</td>
+        <td><code>cost.headliner_per_person</code></td>
+        <td>Cost input split by <code>divisor_used</code> per 9H</td>
+        <td>Verify divisor source matches what HeadlinerCard shows.</td>
+      </tr>
+      <tr>
+        <td>lodging</td>
+        <td>Per 9J: <code>selectedLodging.total_cost / cost.divisor_used</code></td>
+        <td>Leading-vote priority (9J): <code>is_selected → leading-vote → first-added</code></td>
+        <td>Verify "(so far)" shows ONLY when leading-vote is winning AND nothing locked AND multi-spot.</td>
+      </tr>
+      <tr>
+        <td>transport</td>
+        <td>sum of <code>trip.transport</code> and <code>trip.flights</code></td>
+        <td>shared items / divisor + individual items (per-person)</td>
+        <td>Flights currently roll into transport line (pending data-model collapse). Confirm the grouped sum is correct.</td>
+      </tr>
+      <tr>
+        <td>activities</td>
+        <td><code>cost.activities_per_person</code> (from 9L's everything-else)</td>
+        <td>Per-person directly (not divided — input IS per-person)</td>
+        <td>Verify that 9L's <code>everythingElse.activitiesDollars</code> feeds this correctly.</td>
+      </tr>
+      <tr>
+        <td>provisions</td>
+        <td><code>cost.provisions_per_person</code>?</td>
+        <td>Per-person (same shape as activities)</td>
+        <td>NOT CURRENTLY IN CostBreakdown.tsx — only activities renders. Verify whether provisions/other are supposed to render. If yes, add them. If no, document why.</td>
+      </tr>
+      <tr>
+        <td>other</td>
+        <td><code>cost.other_per_person</code>?</td>
+        <td>Per-person</td>
+        <td>Same as provisions — missing from current render. Audit needed.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Other math questions to resolve during the session</h3>
+  <ul>
+    <li><strong>"Shared" vs "Book yours" split logic.</strong> Today the footer shows <code>cost.per_person_shared</code> and <code>cost.individual_total</code>. Verify: which line items count as shared (lodging = shared, transport=shared items only, headliner=shared?), which as individual (your-way-in = individual always, transport=individual items, activities=individual?). Lodging being split across crew = shared; headliner being paid by everyone equally = shared too but might be mentally "personal" to the user — clarify.</li>
+    <li><strong>Per-viewer hero total math.</strong> Currently: <code>cost.per_person_total + (viewerArrival.cost_cents / 100)</code>. This adds the viewer's personal flight to the group per-person average. Verify that <code>per_person_total</code> already excludes flights (if flights are "individual", they'd double-count).</li>
+    <li><strong>"Firming up" eyebrow logic.</strong> When does the eyebrow show? Proposed: (a) viewer hasn't set their arrival cost, OR (b) lodging hasn't been locked and there are multiple spots with votes in play. When both conditions are false (all arrivals in, lodging locked), eyebrow can be empty or read something like "looking solid."</li>
+    <li><strong>Missing everything-else rows.</strong> Current render shows only "activities" — not provisions or other. Intent unclear. Either they're intentionally collapsed into "activities" (bug — they shouldn't be), or they're supposed to render but the logic was never added. Audit + fix.</li>
+  </ul>
+
+  <h3>Theme audit (Andrew 2026-04-22 — Path C locked after audit)</h3>
+  <p>Audited all 17 Rally themes for dark-hero viability. <strong>All 17
+  themes ship clean with Path C</strong> — but the hero block uses
+  <code>var(--surface)</code> + <code>var(--on-surface)</code>, NOT
+  <code>var(--ink)</code> + <code>var(--bg)</code>.</p>
+  <p><strong>Why the token swap matters:</strong> 3 themes
+  (boys-trip, city-weekend, festival-run) have a DARK page canvas
+  (bg=near-black/deep-purple) and a LIGHT ink (cream/bone). If Path C
+  used <code>var(--ink)</code> as the hero background, those 3 themes
+  would render a LIGHT hero on a DARK canvas — inverted from the
+  intended "dark hero = financial anchor" visual. The design system
+  already defines <code>--surface</code> as the dark-card color and
+  <code>--on-surface</code> as its text — every theme has this pair
+  as dark/light regardless of canvas. Consistent dark hero in every
+  theme.</p>
+  <ul>
+    <li><strong>16 of 17 themes</strong> have strong accent-on-surface contrast (terracotta on brown, pink on charcoal, orange on navy, etc.) — safe for the <code>.emphasize</code> color on "your way in" / "the headliner" rows and the hero-block accent elements.</li>
+    <li><strong>1 edge case — festival-run</strong>: hot pink accent <code>#ff3a8c</code> on deep purple surface <code>#2a1540</code>. Still readable at 42–46px hero scale, but reduced vs other themes. Flag for visual QA check during AC run; if it looks muddy, swap festival-run's accent to an <code>accent2</code> variant or redefine the surface to a higher-contrast purple. Don't block the session on this.</li>
+  </ul>
+
+  <h3>Lexicon keys required (if Path C)</h3>
+  <table>
+    <thead>
+      <tr><th>Key</th><th>String</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>tripPageShared.costBreakdown.title</code></td><td>your total / per person</td><td>Existing, may need adjustment for the new label style.</td></tr>
+      <tr><td><code>tripPageShared.costBreakdown.eyebrow.firmingUp</code></td><td>firming up</td><td>New. Right-header when pending states exist.</td></tr>
+      <tr><td><code>tripPageShared.costBreakdown.eyebrow.settled</code></td><td>looking solid</td><td>New. When everything's in.</td></tr>
+      <tr><td><code>tripPageShared.costBreakdown.line.*</code></td><td>various</td><td>Existing. Keys stay as the module-name prefix ("the headliner", "lodging", etc.); CC appends the organizer-entered detail at render time (e.g. <code>`{label} · {trip.headliner_description}`</code>). No new lexicon keys needed for this.</td></tr>
+      <tr><td><code>tripPageShared.costBreakdown.sharedFooter</code></td><td>🏠 shared · {amount}</td><td>Replaces <code>sharedBadge</code>. Footer format.</td></tr>
+      <tr><td><code>tripPageShared.costBreakdown.yoursFooter</code></td><td>✈️ yours · {amount}</td><td>Replaces <code>bookYoursBadge</code>. Footer format.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Open questions for the brief</h3>
+  <ul>
+    <li><strong>Provisions + other rows: surface or collapse?</strong> Today only activities renders under everything-else. Brief needs to decide: render all three separately ("activities · $400", "provisions · $200", "other · $200") OR roll into one combined line ("everything else · $800"). Recommend: render all three separately — matches how the sketch captures them and the user's mental model is "these are different buckets."</li>
+    <li><strong>Progress bars: remove entirely or keep with restyling?</strong> Mockup removes them. Alternative: keep as subtle inline tick marks next to the value. Recommend: remove. The visual math they convey is weak (each bar sized by pct of total; user can't quickly compare relative proportions between bars).</li>
+    <li><strong>"(so far)" on lodging.</strong> Current text. Keep as italic inline qualifier when leading-vote isn't locked? Or drop and let the eyebrow "firming up" carry that signal? Recommend: keep (per-row context is more useful than global).</li>
+    <li><strong>Mobile long-label wrapping.</strong> "your way in · flight" fits at 375px today. Test edge case: very long transport or lodging names that push past the column. Ellipsis works but the <code>(so far)</code> inline qualifier gets clipped first. Flag in ACs.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Your call — two picks before brief drafting:</strong>
+    <ol style="margin: 6px 0 0 18px;">
+      <li>Container: Path A / Path B / Path C?</li>
+      <li>Scope: redesign-only, audit-only, or combined (my default)?</li>
+    </ol>
+    The math-audit table above also doubles as an implementation
+    checklist. Once you pick, I'll draft the brief with specific
+    ACs per row source.
+  </div>
+
+</div>
+
+</body>
+</html>

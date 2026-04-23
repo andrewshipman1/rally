@@ -1,7 +1,5 @@
 import type { TripWithDetails, TripCostSummary, ArrivalMode } from '@/types';
 import type { ThemeId } from '@/lib/themes/types';
-import { GlassCard } from '@/components/ui/GlassCard';
-import { Badge } from '@/components/ui/Badge';
 import { formatMoney } from '@/lib/money';
 import { getCopy } from '@/lib/copy/get-copy';
 
@@ -50,7 +48,7 @@ export function CostBreakdown({
     | { mode: ArrivalMode | null; cost_cents: number | null }
     | null;
 }) {
-  // ─── Aggregation (unchanged from 9J baseline) ───────────────────────
+  // ─── Aggregation ─────────────────────────────────────────────────────
   const items: Item[] = [];
 
   if (cost.headliner_per_person > 0 && trip.headliner_description) {
@@ -86,15 +84,10 @@ export function CostBreakdown({
     }
   }
 
+  // 9O — single combined transport row (flights + transport).
+  // AC11 math: round(sharedTransport / divisor) + indTransport + flightsTotal.
+  // Single-item label uses the one item's display name; otherwise generic.
   const flightsTotal = trip.flights.reduce((s, f) => s + (f.estimated_price || 0), 0);
-  if (flightsTotal > 0) {
-    items.push({
-      label: getCopy(themeId, 'tripPageShared.costBreakdown.line.flights'),
-      val: flightsTotal,
-      icon: '✈️',
-    });
-  }
-
   const sharedTransport = trip.transport
     .filter((t) => t.cost_type === 'shared')
     .reduce((s, t) => s + (t.estimated_total || 0), 0);
@@ -102,29 +95,33 @@ export function CostBreakdown({
     .filter((t) => t.cost_type === 'individual')
     .reduce((s, t) => s + (t.estimated_total || 0), 0);
   const transportPerPerson =
-    Math.round(sharedTransport / (cost.divisor_used)) + indTransport;
+    Math.round(sharedTransport / cost.divisor_used) + indTransport + flightsTotal;
   if (transportPerPerson > 0) {
-    items.push({
-      label: getCopy(themeId, 'tripPageShared.costBreakdown.line.transport'),
-      val: transportPerPerson,
-      icon: '🚗',
-    });
+    const baseTransport = getCopy(themeId, 'tripPageShared.costBreakdown.line.transport');
+    const combinedCount = trip.flights.length + trip.transport.length;
+    let transportLabel = baseTransport;
+    if (combinedCount === 1) {
+      const onlyFlight = trip.flights[0];
+      const onlyTransport = trip.transport[0];
+      if (onlyFlight) {
+        const from = onlyFlight.departure_airport;
+        const to = onlyFlight.arrival_airport;
+        if (from && to) transportLabel = `${baseTransport} · ${from} → ${to}`;
+      } else if (onlyTransport?.description) {
+        transportLabel = `${baseTransport} · ${onlyTransport.description}`;
+      }
+    }
+    items.push({ label: transportLabel, val: transportPerPerson, icon: '🚗' });
   }
 
-  const sharedMeals = trip.restaurants
-    .filter((r) => r.cost_type === 'shared')
-    .reduce((s, r) => s + (r.cost_per_person || 0), 0);
-  const indMeals = trip.restaurants
-    .filter((r) => r.cost_type === 'individual')
-    .reduce((s, r) => s + (r.cost_per_person || 0), 0);
-  const mealsPerPerson = sharedMeals + indMeals;
-  if (mealsPerPerson > 0) {
-    items.push({
-      label: getCopy(themeId, 'tripPageShared.costBreakdown.line.meals'),
-      val: Math.round(mealsPerPerson),
-      icon: '🍽️',
-    });
-  }
+  // 9O — meals row removed. Restaurants are go-phase data per the skill's
+  // "pre-booked costs only in sketch/sell" rule. The restaurants table is
+  // preserved; the row render is gone. Note: `cost.per_person_total` (the
+  // hero) is server-computed and STILL includes restaurants via
+  // `shared_total` + `individual_total` in calculateTripCost. Removing this
+  // row does NOT change the hero number — the visible-rows-sum vs hero
+  // delta is a known mismatch, logged in Session 9O release notes for a
+  // follow-up server-side cleanup.
 
   if (cost.activities_per_person > 0) {
     items.push({
@@ -134,7 +131,13 @@ export function CostBreakdown({
     });
   }
 
-  // ─── Session 9B-2 — Per-viewer personalization ──────────────────────
+  // 9O audit — `cost.provisions_per_person` and `cost.other_per_person`
+  // do NOT exist in TripCostSummary (src/types/index.ts:417-436).
+  // calculateTripCost only exposes activities_per_person. Adding those
+  // fields is a data-layer change, out of scope for 9O. Flagged in Known
+  // Issues; follow-up session to expose + render.
+
+  // ─── Per-viewer personalization (Session 9B-2) ──────────────────────
   // "your way in" goes first (above the headliner) so the viewer reads
   // their own line at the top of the breakdown. Row renders in three
   // states keyed off (viewerArrival.mode, viewerArrival.cost_cents);
@@ -143,6 +146,16 @@ export function CostBreakdown({
   const isPerViewer = viewerArrival !== null;
   const arrivalDollars =
     viewerArrival?.cost_cents != null ? viewerArrival.cost_cents / 100 : 0;
+
+  // AC16 — per-viewer hero total. No double-count because:
+  //   `cost.per_person_total` = per_person_shared + individual_total +
+  //     headliner_per_person + activities_per_person (per calculateTripCost).
+  //   `individual_total` pulls from `trip.flights` (the shared flight list,
+  //     organizer-entered) and trip.transport[individual] + indRestaurants.
+  //   `viewerArrival.cost_cents` comes from `trip_members.arrival_cost_cents`
+  //     (9B-1), a DISTINCT per-member column with no overlap with trip.flights.
+  // The two sources do not intersect, so adding arrivalDollars is additive,
+  // not a double-count. Verified 9O.
   const yourTotal = isPerViewer
     ? cost.per_person_total + arrivalDollars
     : cost.per_person_total;
@@ -163,102 +176,96 @@ export function CostBreakdown({
     });
   }
 
-  const nightsMatch = dateStr.match(/(\d+)[–-](\d+)/);
-  const nights = nightsMatch ? parseInt(nightsMatch[2]) - parseInt(nightsMatch[1]) : 3;
-
-  // Denominator for row progress bars: yourTotal in per-viewer mode so
-  // the "your way in" line shows the correct fraction of the
-  // personalized total; cost.per_person_total in fallback.
-  const barDenominator = isPerViewer ? yourTotal : cost.per_person_total;
-
   const heroLabel = isPerViewer
     ? getCopy(themeId, 'tripPageShared.costBreakdown.yourTotalLabel')
     : getCopy(themeId, 'tripPageShared.cost.perPersonLabel');
+  const nightsMatch = dateStr.match(/(\d+)[–-](\d+)/);
+  const nightsFromStr = nightsMatch
+    ? parseInt(nightsMatch[2]) - parseInt(nightsMatch[1])
+    : 3;
   const heroSubtitle = isPerViewer
     ? getCopy(themeId, 'tripPageShared.costBreakdown.subtitle')
-    : `${nights} ${getCopy(themeId, 'tripPageShared.cost.nightsSeparator')} ${
+    : `${nightsFromStr} ${getCopy(themeId, 'tripPageShared.cost.nightsSeparator')} ${
         cost.divisor_is_estimate
           ? `estimated for ${cost.divisor_used} people`
           : `${cost.divisor_used} going`
       }`;
   const pendingLabel = getCopy(themeId, 'tripPageShared.costBreakdown.yourWayInPending');
-  const sharedBadgeText = getCopy(themeId, 'tripPageShared.costBreakdown.sharedBadge', {
+
+  // AC5 — eyebrow visible when any pending state exists: viewer arrival
+  // unset, OR lodging is winning on votes but not yet locked.
+  const lodgingStatus = pick?.status ?? null;
+  const hasPending =
+    (isPerViewer && viewerArrival?.cost_cents == null) ||
+    lodgingStatus === 'leading';
+  const eyebrowCopy = hasPending
+    ? getCopy(themeId, 'tripPageShared.costBreakdown.eyebrow.firmingUp')
+    : getCopy(themeId, 'tripPageShared.costBreakdown.eyebrow.settled');
+
+  // AC18 — footer split.
+  //   shared (displayed) = cost.per_person_shared =
+  //     round((lodging + shared transport + shared restaurants +
+  //            shared groceries) / divisor_used).
+  //   yours  (displayed) = cost.individual_total =
+  //     trip.flights + individual restaurants + individual transport.
+  // Headliner, activities, and viewerArrival are NOT allocated into either
+  // bucket by the current server math — they're summed directly into
+  // per_person_total. Consequence: shared + yours < hero. Known mismatch
+  // vs. the brief's definition; logged in Session 9O Known Issues.
+  const sharedFooterText = getCopy(themeId, 'tripPageShared.costBreakdown.footer.shared', {
     amount: formatMoney(cost.per_person_shared),
   });
-  const bookYoursBadgeText = getCopy(themeId, 'tripPageShared.costBreakdown.bookYoursBadge', {
+  const yoursFooterText = getCopy(themeId, 'tripPageShared.costBreakdown.footer.yours', {
     amount: formatMoney(cost.individual_total),
   });
 
   return (
-    <GlassCard>
-      <div className="cost-breakdown">
-        <div className="cost-breakdown-hero">
-          <div className="cost-breakdown-label">{heroLabel}</div>
-          <div>
-            <span className="cost-breakdown-total">
-              {'~'}
-              {formatMoney(yourTotal)}
+    <div className="module-section cost-breakdown-module" style={{ marginTop: 14 }}>
+      <div className="cost-breakdown-hero-block">
+        <div className="cost-breakdown-hero-label">{heroLabel}</div>
+        <div>
+          <span className="cost-breakdown-amount">
+            {'~'}
+            {formatMoney(yourTotal)}
+          </span>
+          {isPerViewer && (
+            <span className="cost-breakdown-per-you">
+              {getCopy(themeId, 'tripPageShared.costBreakdown.perYouSuffix')}
             </span>
-            {isPerViewer && (
-              <span className="cost-breakdown-per-you">
-                {getCopy(themeId, 'tripPageShared.costBreakdown.perYouSuffix')}
-              </span>
-            )}
-          </div>
-          <div className="cost-breakdown-subtitle">{heroSubtitle}</div>
+          )}
         </div>
+        {heroSubtitle && <div className="cost-breakdown-sub">{heroSubtitle}</div>}
+        <span className="cost-breakdown-eyebrow">{eyebrowCopy}</span>
+      </div>
 
+      <div className="cost-breakdown-body">
         <div className="cost-breakdown-rows">
-          {items.map((b, idx) => {
-            const pct =
-              b.val != null && barDenominator > 0
-                ? Math.min(100, (b.val / barDenominator) * 100)
-                : 0;
-            return (
-              <div key={`${b.label}-${idx}`} className="cost-breakdown-row">
+          {items.map((b, idx) => (
+            <div key={`${b.label}-${idx}`} className="cost-breakdown-row">
+              <span className="cost-breakdown-row-icon">{b.icon}</span>
+              <span
+                className={`cost-breakdown-row-label${b.emphasize ? ' emphasize' : ''}`}
+              >
+                {b.label}
+              </span>
+              {b.pending ? (
+                <span className="cost-breakdown-row-val pending">{pendingLabel}</span>
+              ) : (
                 <span
-                  className={`cost-breakdown-row-label${b.emphasize ? ' emphasize' : ''}`}
+                  className={`cost-breakdown-row-val${b.emphasize ? ' emphasize' : ''}`}
                 >
-                  {b.icon && <span className="cost-breakdown-row-icon">{b.icon}</span>}
-                  <span>{b.label}</span>
+                  {formatMoney(b.val)}
                 </span>
-                <div className="cost-breakdown-row-meter">
-                  {b.pending ? (
-                    <span className="cost-breakdown-row-val pending">{pendingLabel}</span>
-                  ) : (
-                    <>
-                      <div className="cost-breakdown-bar-track">
-                        <div
-                          className="cost-breakdown-bar-fill"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span
-                        className={`cost-breakdown-row-val${b.emphasize ? ' emphasize' : ''}`}
-                      >
-                        {formatMoney(b.val)}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              )}
+            </div>
+          ))}
         </div>
 
-        <div className="cost-breakdown-badges">
-          <Badge
-            text={sharedBadgeText}
-            bg="var(--cost-badge-shared-bg)"
-            color="var(--cost-badge-shared-fg)"
-          />
-          <Badge
-            text={bookYoursBadgeText}
-            bg="var(--cost-badge-yours-bg)"
-            color="var(--cost-badge-yours-fg)"
-          />
+        <div className="cost-breakdown-footer">
+          <span>{sharedFooterText}</span>
+          <span>{yoursFooterText}</span>
         </div>
       </div>
-    </GlassCard>
+    </div>
   );
 }

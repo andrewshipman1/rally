@@ -12655,6 +12655,1102 @@ one minor spacing fix.
 
 ---
 
+### Session 9N: "Remove legacy buzz section from sell render"
+
+**Premise.** Andrew 2026-04-22: "It's complex. It will be impossible
+to test correctly without getting some dummy and test users into
+the account to basically RSVP and whatnot." The buzz module as
+currently rendered on the sell page (title + subtitle + horizontal
+rule + dashed-border compose area with "nothing yet — say hi 👋"
+placeholder) is a pre-revision generation that can't be properly
+QA'd without multi-user fixture data. Rather than cleaning it up,
+pull it from the render surface until the full activity-feed +
+compose + reaction flow is designed end-to-end.
+
+Scope is mechanical. Four file sites in `page.tsx`, zero changes
+to the underlying component/lib/lexicon files (they stay on disk
+for later revival, same pattern 9M used with CrewInviteButton).
+
+**Scope:**
+
+1. **`src/app/trip/[slug]/page.tsx` — remove 4 buzz code sites:**
+   - Line 27: `import { BuzzSection } from '@/components/trip/BuzzSection';`
+   - Line 28: `import { getBuzzFeed } from '@/lib/buzz';`
+   - Lines 263-264: `const buzzDays = await getBuzzFeed(trip.id, currentUserId, themeId);` + surrounding comment
+   - Lines 535-544: entire `<Reveal delay={0.3}><BuzzSection .../></Reveal>` block + preceding comment
+
+2. **Preserve all buzz-related files on disk** (DO NOT delete or
+   modify):
+   - `src/components/trip/BuzzSection.tsx`
+   - `src/lib/buzz.ts`
+   - `src/lib/copy/surfaces/buzz.ts`
+   - `src/app/trip/[slug]/buzz/page.tsx` (orphan route — see
+     Side Items below)
+
+3. **Module order comment update** (`page.tsx:332`) — current
+   comment reads `everything-else → crew → cost → buzz → aux →
+   extras(lock/go)`. Update to reflect the new order without
+   buzz: `everything-else → crew → cost → aux → extras(lock/go)`.
+   Trivial string change for accuracy.
+
+**Hard Constraints:**
+
+- DO NOT delete or modify `BuzzSection.tsx`, `lib/buzz.ts`, or
+  `lib/copy/surfaces/buzz.ts`. Those files return when buzz
+  gets its dedicated redesign session.
+- DO NOT touch any other module — no headliner, no spot, no
+  getting-here, no transport, no everything-else, no cost
+  summary, no crew, no aux, no header/hero/etc. Single-module
+  discipline. The only allowed surface is page.tsx, and only
+  the four buzz-related sites listed in Scope item 1.
+- DO NOT refactor or change type signatures on `getBuzzFeed`,
+  `buzzDays`, or any buzz-related type.
+- DO NOT modify the orphan route at
+  `src/app/trip/[slug]/buzz/page.tsx`. That's a separate
+  three-screen-rule violation flagged for follow-up; out of
+  9N scope.
+- DO NOT remove any CSS rules under `.chassis .buzz-*` in
+  globals.css. They become dead but the removal sweep lives
+  in the lexicon cleanup bug-bash. Low priority.
+
+**Acceptance Criteria:**
+
+- [ ] **AC1** (no BuzzSection reference in page.tsx) —
+      `grep 'BuzzSection\|getBuzzFeed\|buzzDays'
+      src/app/trip/[slug]/page.tsx` returns 0 hits.
+- [ ] **AC2** (component file preserved) —
+      `git diff src/components/trip/BuzzSection.tsx` returns
+      empty.
+- [ ] **AC3** (data-layer file preserved) —
+      `git diff src/lib/buzz.ts` returns empty.
+- [ ] **AC4** (lexicon preserved) —
+      `git diff src/lib/copy/surfaces/buzz.ts` returns empty.
+- [ ] **AC5** (orphan buzz route preserved) —
+      `git diff src/app/trip/[slug]/buzz/page.tsx` returns
+      empty.
+- [ ] **AC6** (no other modules touched) — `git diff --name-only`
+      shows only `src/app/trip/[slug]/page.tsx` modified (no
+      other src/ files).
+- [ ] **AC7** (typescript clean) — `npx tsc --noEmit` exit 0.
+      No unused-import warnings, no `buzzDays` undefined refs,
+      no orphan type errors.
+- [ ] **AC8** (no runtime error) — Coachella sell
+      (`/trip/sjtIcYZB`) loads without error. Buzz section
+      absent from the page; other modules (crew, aux) render
+      unchanged.
+- [ ] **AC9** (module-order comment updated) — the ascii-flow
+      comment around page.tsx:332 no longer includes `buzz`
+      in the sequence.
+
+**Files to Read:**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — full skill.
+- `rally-fix-plan-v1.md` §Session 9N (this brief), §Session 9M
+  Actuals (CrewInviteButton-removal precedent — same pattern).
+- `src/app/trip/[slug]/page.tsx` — the single file being
+  modified.
+- `src/components/trip/BuzzSection.tsx` — REFERENCE ONLY. DO NOT
+  MODIFY.
+- `src/lib/buzz.ts` — REFERENCE ONLY. DO NOT MODIFY.
+
+**How to QA Solo:**
+
+1. `cd ~/Desktop/claude/rally && rm -rf .next && npm run dev`
+   (Turbopack cache flake insurance — BB-5).
+2. `npx tsc --noEmit` — exit 0.
+3. Run AC1 grep: `grep 'BuzzSection\|getBuzzFeed\|buzzDays'
+   src/app/trip/[slug]/page.tsx` → 0 hits.
+4. `git status` → only page.tsx listed as modified.
+5. Load Coachella sell. Scroll through the page top to bottom.
+   Buzz section should be absent between cost summary and aux.
+6. Load a sketch trip. Sketch-side rendering untouched.
+
+**Side Items (log in release notes, don't fix here):**
+
+- **Orphan route `/trip/[slug]/buzz` is a three-screen-rule
+  violation.** Separate route file at
+  `src/app/trip/[slug]/buzz/page.tsx` exists from pre-9A era
+  when buzz had its own page. Post-9A the inline section (just
+  removed) was the canonical surface and the route should
+  have been deleted. Flag in release notes; decide delete-or-
+  keep in a separate session or when buzz returns with a
+  proper design.
+- **Dead CSS under `.chassis .buzz-*` in globals.css.** No
+  consumers after 9N. Sweep in lexicon/CSS cleanup bug-bash
+  (Bug Backlog Open Item #2).
+
+---
+
+### Session 9O: "Your Total — redesign + cross-page math audit"
+
+**Premise.** `CostBreakdown` is the last sell-page module with
+visual drift — wrapped in `<GlassCard>` (dark glass treatment)
+while every other sell module uses the `.module-section` cream-
+bordered container. It's also the furthest from a math-audit
+checkpoint since 9B-2 shipped; in the intervening sessions 9I,
+9J, 9K, 9L, and 9M each touched upstream sources that feed the
+rollup. Time to rebuild the visual treatment AND walk every
+row's source math end-to-end.
+
+**Path C locked (Andrew 2026-04-22)** — bordered `.module-section`
+container wraps a dark hero block at the top. The hero block
+uses `var(--surface)` + `var(--on-surface)` tokens (not
+`--ink`/`--bg`), which audit confirmed renders a consistent
+dark hero across all 17 Rally themes — including the three
+themes with dark page canvas (boys-trip, city-weekend,
+festival-run). One edge-case flagged: festival-run's hot-pink
+accent on deep-purple surface has reduced contrast; visual-QA
+checkpoint during AC run (not a blocker).
+
+**Canonical design reference:** `rally-9o-cost-summary-sell-mockup.html`.
+Path C frames are the shape spec. The annotations table
+("Math audit — what each row represents") is the spec for the
+audit half. Read before writing code.
+
+**Known findings pre-confirmed by the mockup audit** (CC should
+verify live during the session):
+
+1. Provisions + Other rows are **MISSING** from the current
+   CostBreakdown render. Only activities renders under
+   everything-else. Either a bug or an intentional collapse.
+   Audit to decide.
+2. "Meals" row from `trip.restaurants` is rendered in the
+   current rollup — but restaurants are **go-phase data**
+   per the skill's "pre-booked costs only in sketch/sell"
+   rule. Should probably come out. Audit to confirm.
+3. Shared vs individual split logic needs verification (which
+   line items count as which?).
+4. Per-viewer total math: `cost.per_person_total +
+   (viewerArrival.cost_cents / 100)` — verify no double-count
+   if flights/arrival are already in `per_person_total`.
+
+**Scope** (ONE module — CostBreakdown — plus math audit + any
+discovered fixes):
+
+1. **Rebuild `src/components/trip/CostBreakdown.tsx`** to Path C
+   shape. Replace `<GlassCard>` wrapper with
+   `.module-section.cost-breakdown-module`. Dark hero block at
+   top (`.cost-breakdown-hero-block` using `var(--surface)` +
+   `var(--on-surface)`); body below on cream with grid rows +
+   footer. Hero amount: Georgia italic 42–46px. Hero label:
+   Caveat cursive above the amount ("your total" per-viewer,
+   "per person" group fallback). Subtitle preserved (dynamic
+   based on state). Rows: grid `auto 1fr auto` (icon · label ·
+   value). **NO progress bars.** Footer: subtle row with
+   shared/yours split (not pill stack).
+
+2. **Line labels mirror what the organizer entered in each
+   upstream module** (Andrew decision 2026-04-22). Render
+   pattern: `{module-label} · {organizer-entered-detail}` via
+   template literal at render time. No new lexicon keys for
+   long variants — existing `line.*` keys serve as the prefix.
+   Examples: "the headliner · Coachella Valley Music & Arts
+   Festival", "lodging · Cap Juluca (so far)", "transport"
+   (generic when multi-item) or "transport · Saint Barths Plane"
+   (single-item). Labels ellipsis-clip at column width.
+
+3. **NEW `.chassis .cost-breakdown-*` CSS tree** in globals.css.
+   Replace the existing block at ~lines 5295-5410 (9B-2 era,
+   now superseded). New classes per the mockup's Path C
+   `<style>` block: `.cost-breakdown-module`,
+   `.cost-breakdown-hero-block`, `.cost-breakdown-hero-label`,
+   `.cost-breakdown-amount`, `.cost-breakdown-per-you`,
+   `.cost-breakdown-sub`, `.cost-breakdown-body`,
+   `.cost-breakdown-rows`, `.cost-breakdown-row`,
+   `.cost-breakdown-row-icon`, `.cost-breakdown-row-label`
+   (+ `.emphasize`), `.cost-breakdown-row-val` (+ `.emphasize`,
+   `.pending`), `.cost-breakdown-footer`. Scoped under
+   `.chassis`. All colors via tokens + `color-mix`. No raw
+   hex/rgba. No `!important`.
+
+4. **Lexicon updates in
+   `src/lib/copy/surfaces/trip-page-shared.ts`:**
+   - NEW: `tripPageShared.costBreakdown.eyebrow.firmingUp` —
+     copy proposal: `"firming up"` (right-header when pending).
+   - NEW: `tripPageShared.costBreakdown.eyebrow.settled` —
+     copy proposal: `"looking solid"` (everything filled in).
+     Pending final approval.
+   - NEW: `tripPageShared.costBreakdown.footer.shared` —
+     copy proposal: `"🏠 shared · {amount}"` replaces existing
+     `sharedBadge`.
+   - NEW: `tripPageShared.costBreakdown.footer.yours` —
+     copy proposal: `"✈️ yours · {amount}"` replaces existing
+     `bookYoursBadge`.
+   - PRESERVE: existing `yourTotalLabel`, `perPersonLabel`,
+     `subtitle`, `perYouSuffix`, `line.*` keys.
+   - DEPRECATE (leave in file, no longer referenced):
+     `sharedBadge`, `bookYoursBadge`. Dead-key sweep lives
+     in the lexicon cleanup bug-bash.
+
+5. **Math audit — walk each row's source and verify.** Use the
+   mockup's table as the checklist. During the audit:
+   - If `cost.provisions_per_person` and `cost.other_per_person`
+     exist in the cost object (from 9L's everything-else
+     wiring), ADD the provisions and other rows to the render
+     (the UI layer bug). If they don't exist in the cost
+     object, that's a data-layer bug — STOP and escalate
+     (out of scope; requires cost-math changes).
+   - If the "meals" row renders from `trip.restaurants`,
+     REMOVE the meals render (restaurants are go-phase per
+     skill rules; shouldn't appear in sketch/sell rollup).
+     This is a render-only removal, not a data-model change.
+   - If the per-viewer total double-counts arrival (arrival
+     already in `per_person_total` AND added again), that's
+     a math bug — STOP and escalate.
+   - If the shared/yours split is computed correctly per the
+     brief's definition (lodging + headliner = shared;
+     arrival + individual transport + activities/provisions/
+     other = yours), render accordingly. If the current
+     split is wrong, STOP and escalate.
+
+6. **`src/app/trip/[slug]/page.tsx` call site** — should need
+   no changes beyond confirming props pass cleanly. Existing
+   `<Reveal>` wrapper preserved.
+
+**Hard Constraints:**
+
+- DO NOT create new routes.
+- DO NOT touch any other module (single-module discipline).
+  No headliner, no spot, no getting-here, no transport, no
+  everything-else, no crew, no aux, no header/hero chrome.
+- DO NOT change cost math formulas in `src/types/index.ts`
+  `calculateTripCost` or any server-side computation. If the
+  audit surfaces a math bug, STOP and escalate — don't
+  unilaterally fix.
+- DO NOT modify `trip.restaurants` data model or any
+  restaurants-related code beyond removing the render call
+  in CostBreakdown.tsx. The restaurants table stays; it's
+  just not surfaced here.
+- DO NOT modify the existing `yourTotalLabel`,
+  `perPersonLabel`, `subtitle`, `perYouSuffix` lexicon values.
+  Copy stays.
+- DO NOT delete the deprecated `sharedBadge` /
+  `bookYoursBadge` keys. Leave them in the file for the dead-
+  key sweep.
+- DO NOT add any organizer edit affordance. Sell is read-only
+  for every viewer role.
+- DO NOT change the per-viewer vs group-fallback branching
+  (`viewerArrival !== null` check). Both states must
+  continue to render correctly.
+- DO NOT modify `GlassCard.tsx`. Component stays on disk —
+  if another module uses it (verify first), it's still
+  needed; if only CostBreakdown consumed it, still leave
+  the file (dead-file sweep is future work).
+- DO NOT introduce strings not in `rally-microcopy-lexicon-v0.md`.
+  New lexicon keys cross-reference; mismatch escalates.
+- DO NOT change data model, types, or schema. No new columns,
+  no `TripCostSummary` prop shape changes.
+
+**Acceptance Criteria:**
+
+**Shape + typography (against the mockup):**
+
+- [ ] **AC1** (module-section container) — CostBreakdown
+      renders inside `.module-section.cost-breakdown-module`.
+      Bordered rounded container matches sibling rhythm.
+- [ ] **AC2** (dark hero block) — `.cost-breakdown-hero-block`
+      uses `background: var(--surface)` + `color:
+      var(--on-surface)`. Grep: no `var(--ink)` or `var(--bg)`
+      used for hero block background/color in CostBreakdown.tsx
+      or its CSS.
+- [ ] **AC3** (hero amount) — rendered at 42–46px, Georgia
+      italic. Large enough to anchor the page but smaller
+      than pre-session 52px.
+- [ ] **AC4** (hero label) — cursive Caveat label above the
+      amount ("your total" per-viewer / "per person" group
+      fallback). Opacity 0.5 against `--on-surface`.
+- [ ] **AC5** (eyebrow) — right-side eyebrow in the hero block
+      or header renders "firming up" when pending states
+      exist; hidden or "looking solid" when everything's in.
+      Placement flexible per design.
+- [ ] **AC6** (row grid) — rows use `grid-template-columns:
+      auto 1fr auto`. Icon · label · value. No progress bars.
+- [ ] **AC7** (labels mirror organizer entry) — headliner row
+      reads `"the headliner · {headliner_description}"`;
+      lodging row reads `"lodging · {spot_name} (so far)"`
+      when leading-vote unlocked, or `"lodging · {spot_name}"`
+      when locked; transport row reads `"transport"` generic
+      (multi-item) or `"transport · {name}"` (single-item);
+      activities/provisions/other stay generic. Ellipsis on
+      overflow.
+- [ ] **AC8** (footer split) — subtle `.cost-breakdown-footer`
+      row at the bottom, separated by a top-border. Left:
+      "🏠 shared · $X". Right: "✈️ yours · $Y". Not pill
+      stack, not centered.
+
+**Math audit (per-row verification):**
+
+- [ ] **AC9** (headliner math) — row value equals
+      `cost.headliner_per_person`, identical to the value
+      HeadlinerCard displays.
+- [ ] **AC10** (lodging math) — row value equals
+      `leadingSpot.total_cost / cost.divisor_used` using the
+      leading-vote priority selector from 9J. `"(so far)"`
+      qualifier renders only when leading-vote is winning
+      AND multi-spot AND nothing locked.
+- [ ] **AC11** (transport math) — row value equals
+      `sum(transport[cost_type=shared].estimated_total) /
+      cost.divisor_used + sum(transport[cost_type=individual].estimated_total)
+      + sum(trip.flights.estimated_price)`. Covers both
+      `trip.transport[]` and the separate `trip.flights[]`
+      array.
+- [ ] **AC12** (activities math) — row value equals
+      `cost.activities_per_person`. Verify 9L's
+      `everythingElse.activitiesDollars` feeds this correctly.
+- [ ] **AC13** (provisions math) — row value equals
+      `cost.provisions_per_person` IF that field exists in
+      `TripCostSummary`. If field does not exist, escalate
+      per hard constraint (data-model change out of scope).
+- [ ] **AC14** (other math) — row value equals
+      `cost.other_per_person` IF that field exists. Same
+      escalation rule as AC13.
+- [ ] **AC15** (meals row removed) — the "meals" row that
+      currently renders from `trip.restaurants.reduce(...)`
+      no longer renders. Restaurants are go-phase data per
+      skill rules. Render-only removal.
+- [ ] **AC16** (per-viewer total) — when `viewerArrival !==
+      null`: hero number equals `cost.per_person_total +
+      (viewerArrival.cost_cents / 100)`. Verify no double-
+      count: `per_person_total` must NOT already include
+      the viewer's arrival. Document the math in a code
+      comment.
+- [ ] **AC17** (group fallback) — when `viewerArrival ===
+      null`: hero number equals `cost.per_person_total`
+      alone. Hero label is "per person" (not "your total").
+      No "/ you" suffix. No "your way in" row in the rows
+      list. Shared/yours footer still renders if applicable.
+- [ ] **AC18** (shared/yours footer math) — shared =
+      `cost.per_person_shared`; yours = `cost.individual_total`.
+      Add a code comment documenting which line items roll
+      into each bucket for future maintainers.
+
+**Hygiene:**
+
+- [ ] **AC19** (zero raw hex/rgba) — grep
+      `'#[0-9a-fA-F]{3,6}|rgba\('` on CostBreakdown.tsx → 0
+      hits. Same check on the new `.chassis
+      .cost-breakdown-*` CSS block → 0 hits (except
+      `color-mix` wrapper).
+- [ ] **AC20** (zero dead `--rally-*`) — grep on
+      CostBreakdown.tsx → 0 hits.
+- [ ] **AC21** (no inline `style={{…}}`) — no inline style
+      props except theme-aware dynamic ones (there shouldn't
+      be any for CostBreakdown).
+- [ ] **AC22** (CSS block clean) — `.chassis
+      .cost-breakdown-*` block: zero `!important`, zero
+      raw hex/rgba, every color via theme token or
+      `color-mix(var(--token) N%, transparent)`.
+
+**Regression + theme:**
+
+- [ ] **AC23** (per-viewer Coachella render) — signed-in
+      invitee view of `/trip/sjtIcYZB`: hero shows "YOUR
+      TOTAL ~$X / you", all rows render with labels
+      mirroring module data, footer shows shared/yours
+      split. Cost math matches pre-session numbers (except
+      for newly-surfaced provisions/other rows if AC13/AC14
+      lands).
+- [ ] **AC24** (group fallback) — test a sell trip loaded in
+      a way that forces `viewerArrival === null` (e.g.,
+      different member with no arrival set, or direct data
+      inspection). Hero shows "PER PERSON ~$X" (no "/ you"
+      suffix), no "your way in" row.
+- [ ] **AC25** (theme parity, 3+ themes) — load the sell
+      trip in (a) Coachella default, (b) **festival-run**
+      (flagged edge case — verify pink accent on deep
+      purple is readable at hero scale), (c) one more from
+      the 17 themes. No hardcoded-color bleed.
+- [ ] **AC26** (tsc clean) — `npx tsc --noEmit` exit 0.
+- [ ] **AC27** (no CSS bleed to sketch) — load a sketch
+      trip. Sketch-side rendering unaffected (CostBreakdown
+      doesn't render there, but verify no `.chassis
+      .cost-breakdown-*` classes bleed into any sketch
+      element).
+
+**Files to Read:**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — full skill.
+  Pay particular attention to Part 1's "Pre-booked costs
+  only in sketch/sell" rule (justifies the meals removal
+  in AC15).
+- `rally-fix-plan-v1.md` §Session 9O (this brief), §Session
+  9B-2 Actuals (CostBreakdown's last rebuild), §Session 9J
+  Actuals (lodging leading-vote priority math), §Session
+  9L Actuals (everything-else data wiring), §BB-5 (Turbopack
+  workaround).
+- **`rally-9o-cost-summary-sell-mockup.html`** — canonical
+  design. Path C frames + math-audit table + theme audit
+  findings. Read before writing any code.
+- `rally-microcopy-lexicon-v0.md` — cross-reference every
+  new lexicon key (eyebrow.firmingUp, eyebrow.settled,
+  footer.shared, footer.yours).
+- `src/components/trip/CostBreakdown.tsx` — the file to
+  rebuild.
+- `src/types/index.ts` — `TripCostSummary` type definition
+  and `calculateTripCost` function. REFERENCE ONLY. DO NOT
+  MODIFY.
+- `src/lib/copy/surfaces/trip-page-shared.ts` — lexicon
+  additions.
+- `src/app/globals.css` — existing `.chassis
+  .cost-breakdown-*` block (lines 5295-5410) to replace.
+- `src/components/ui/GlassCard.tsx` — REFERENCE ONLY. File
+  stays on disk; just not imported by CostBreakdown
+  anymore.
+
+**How to QA Solo (Claude Code):**
+
+1. Turbopack recovery (BB-5): `pkill -9 node`; verify
+   both ports clear; `rm -rf .next node_modules/.cache`;
+   `npm run dev`; **wait 30-60s** after "Ready in Xs".
+2. `npx tsc --noEmit` — exit 0.
+3. Run AC19/AC20 greps on CostBreakdown.tsx → 0 hits.
+4. Load Coachella (`/trip/sjtIcYZB`) signed-in invitee view.
+   Crew module then CostBreakdown. Verify:
+   - Bordered container, dark hero block, rows with
+     mirrored labels, subtle footer row.
+   - All rows render (headliner, lodging, transport,
+     activities, provisions?, other?).
+   - Meals row NOT rendered.
+   - Hero math matches expectation.
+5. Force group-fallback state (different member with no
+   arrival, or inspect data directly). "Per person" hero,
+   no "your way in" row.
+6. Switch theme to festival-run. Verify pink accent is
+   readable on deep-purple surface in the hero block.
+   If muddy, flag in Known Issues.
+7. Load a sketch trip. Confirm no CSS bleed.
+8. Open devtools, inspect `.cost-breakdown-hero-block` —
+   computed `background` should resolve to the theme's
+   `--surface` color; `color` to `--on-surface`. Verify
+   consistency across 3 themes.
+
+**Likely escalation triggers:**
+
+1. **Missing `cost.provisions_per_person` or
+   `cost.other_per_person` fields.** If the
+   `TripCostSummary` type doesn't expose these, adding
+   them requires a data-layer change (out of scope).
+   Render only what exists; flag in Known Issues. Andrew
+   decides whether to expand cost-math scope in a follow-
+   up.
+
+2. **Meals row has live cost contributions.** If
+   `trip.restaurants` is populated on Coachella (or any
+   real trip), removing the meals row from the render
+   drops that cost from the rollup. Net effect: hero total
+   shrinks. That's intended per skill rules, but flag the
+   pre-session vs post-session dollar delta in release
+   notes so QA knows the number change is expected.
+
+3. **Per-viewer total double-count.** If devtools
+   inspection reveals `cost.per_person_total` already
+   includes the viewer's arrival cost (from 9B-2 wiring),
+   the existing `cost.per_person_total +
+   (viewerArrival.cost_cents / 100)` double-counts.
+   STOP — don't fix the math; escalate for Andrew's
+   decision on whether to adjust 9B-2's server-side
+   computation or the client-side addition.
+
+4. **Eyebrow copy approval.** "firming up" / "looking
+   solid" are proposals — cross-reference
+   `rally-microcopy-lexicon-v0.md` before committing.
+
+5. **Shared/yours split logic.** If the current
+   `cost.per_person_shared` and `cost.individual_total`
+   fields don't map cleanly to the intended split
+   (lodging + headliner = shared; arrival + individual
+   transport + activities/provisions/other = yours),
+   escalate. Don't rewrite the math.
+
+6. **Festival-run accent contrast.** If hero visual on
+   festival-run theme is genuinely unreadable (not just
+   reduced contrast), flag in Known Issues and propose
+   either (a) using `--accent2` for that emphasis, (b)
+   adjusting festival-run's `--surface` to higher-
+   contrast, or (c) adding a per-theme override. Don't
+   block the session — document and ship.
+
+#### Session 9O — Release Notes
+
+**What was built:**
+
+1. **`src/components/trip/CostBreakdown.tsx`** — rebuilt to
+   Path C shape. `<GlassCard>` wrapper replaced with
+   `<div className="module-section cost-breakdown-module">`;
+   owner of `marginTop: 14` per 9L precedent. Dark hero block
+   at top (`var(--surface)` + `var(--on-surface)` tokens),
+   cream body with grid rows (`auto 1fr auto`), subtle footer
+   row. GlassCard + Badge imports dropped. Progress bars
+   removed entirely; `barDenominator` / `pct` computations
+   gone. Meals row aggregation (`sharedMeals` + `indMeals`
+   sum + push) removed per AC15. Flights + transport collapsed
+   into a single "transport" row per AC11 with single-item
+   label logic (`transport · {description}` for one-item
+   trips). Eyebrow (`firming up` / `looking solid`) wired to
+   pending-state predicate (viewer arrival unset OR lodging
+   leading-vote unlocked). Footer text built via new
+   `footer.shared` / `footer.yours` lexicon templates.
+   Provisions/other rows NOT added — see Known Issues.
+
+2. **`src/app/globals.css`** — `.chassis .cost-breakdown*`
+   block at lines 5288-5406 replaced. Removed 9B-2 token
+   aliases (`--cost-on-glass*`, `--cost-badge-*`), progress-
+   bar classes (`.bar-track`, `.bar-fill`, `-meter`), badge
+   pill class. New Path C tree: `.cost-breakdown-module`,
+   `.cost-breakdown-hero-block`, `.cost-breakdown-hero-label`,
+   `.cost-breakdown-amount`, `.cost-breakdown-per-you`,
+   `.cost-breakdown-sub`, `.cost-breakdown-eyebrow`,
+   `.cost-breakdown-body`, `.cost-breakdown-rows`,
+   `.cost-breakdown-row`, `.cost-breakdown-row-icon`,
+   `.cost-breakdown-row-label` (+ `.emphasize`),
+   `.cost-breakdown-row-val` (+ `.emphasize`, `.pending`),
+   `.cost-breakdown-footer`. All colors via theme tokens
+   + `color-mix(…)` — zero raw hex/rgba in the new block,
+   zero `!important`.
+
+3. **`src/lib/copy/surfaces/trip-page-shared.ts`** — added
+   `costBreakdown.footer.shared`, `costBreakdown.footer.yours`,
+   `costBreakdown.eyebrow.firmingUp`, `costBreakdown.eyebrow.settled`.
+   Deprecated `sharedBadge` / `bookYoursBadge` kept in the
+   file with a comment pointing at the new keys; future dead-
+   key sweep.
+
+4. **`src/app/trip/[slug]/page.tsx`** — removed the
+   `<div style={{ marginTop: 14 }}>` wrapper inside the
+   `<Reveal delay={0.25}>` around `<CostBreakdown>`. Component
+   owns the margin via `.cost-breakdown-module`. Prop payload
+   unchanged.
+
+**What changed from the brief:**
+
+- **AC13/AC14 deferred.** `TripCostSummary` has no
+  `provisions_per_person` / `other_per_person` fields; audit
+  confirmed these are stored as rows in the `groceries` table
+  (`name='Provisions'` / `name='Other'`) and surfaced through
+  page.tsx:124-127 as `provisionsDollars` / `otherDollars`
+  for the EverythingElse module — but never plumbed into
+  CostBreakdown. Adding them requires either (a) a
+  `TripCostSummary` shape change (data-layer, out of scope),
+  or (b) new CostBreakdown props wired to the page.tsx values
+  (pure UI plumbing, but outside this session's single-file
+  discipline for `CostBreakdown.tsx` rebuild). Logged in
+  Known Issues; clean follow-up brief.
+
+- **Hero total does NOT shrink after meals removal.**
+  Restaurants are still included in server-computed
+  `per_person_total` via `individual_total` (indRestaurants)
+  and `shared_total` (sharedRestaurants) in `calculateTripCost`.
+  Removing the client-side render of meals only hides one
+  row — the hero number reads from server state and is
+  unchanged. (Coachella has zero restaurants, so the
+  specific test case shows no number delta at all.) Logged
+  in Known Issues so a follow-up server-side cleanup can
+  drop restaurants from the rollup if that's the intent.
+
+- **Visible rows do not sum to the hero** on Coachella:
+  rows = $7,700, hero = $8,100. Decomposition: headliner
+  ($800) + activities ($400) + viewerArrival ($500) are NOT
+  allocated into either the shared footer ($6,400) or the
+  yours footer ($0) per server math. The remaining $400 delta
+  (rows $7,700 vs. hero-minus-arrival $7,600) is
+  `sharedGroceries` ($200 Provisions + $200 Other) which is
+  in `shared_total` but never rendered as a row client-side.
+  See Known Issues.
+
+- **Client vs. server pick different lodging records when
+  status='leading'.** Client uses `pickLodgingForRollup`
+  (locked → leading-vote → first-added, 9J) while server's
+  `calculateTripCost` uses `find(is_selected) || lodging[0]`
+  (no vote-leader path). When votes are in play but nothing
+  is locked, the row shows the leader's cost while
+  `per_person_shared` in the hero uses the first-added row's
+  cost. On Coachella both have the same cost_per_night so
+  the numbers happen to coincide; on trips where costs
+  differ per spot the hero and row would disagree. Logged
+  in Known Issues.
+
+- **Eyebrow copy not in lexicon.** `firming up` / `looking
+  solid` have no matching entries in
+  `rally-microcopy-lexicon-v0.md`. Shipped with the plan-
+  approved proposals; flag for Cowork cross-reference.
+
+**What to test:**
+
+- [ ] **AC1** — CostBreakdown renders inside
+      `.module-section.cost-breakdown-module` at 375px. 4
+      borders 2.5px solid var(--ink). Radius 16px. Confirmed.
+- [ ] **AC2** — hero block background resolves to
+      `rgb(26, 20, 16)` on Coachella (= `var(--surface)`);
+      color `rgb(244, 237, 224)` (= `var(--on-surface)`).
+      No `var(--ink)` / `var(--bg)` on hero-block background.
+      Confirmed via devtools.
+- [ ] **AC3** — hero amount `Georgia italic 46px 900`
+      (`.cost-breakdown-amount`). Within 42–46px band.
+      Confirmed.
+- [ ] **AC4** — cursive Caveat "your total" label at 14px,
+      `opacity: 0.5`, color `--on-surface`. Confirmed.
+- [ ] **AC5** — eyebrow `firming up` absolutely-positioned
+      top-right of hero block (top 10px, right 14px).
+      Caveat cursive 14px opacity 0.5. Renders because
+      viewer arrival is set but lodging is leading-vote
+      unlocked. Confirmed live.
+- [ ] **AC6** — row grid `display: grid;
+      grid-template-columns: auto 1fr auto`. No progress
+      bars. Computed columns on Coachella at 375: `20px
+      215.766px 34.2344px`. Confirmed.
+- [ ] **AC7** — live Coachella rows:
+      - your way in · ✈️ flight — $500 (emphasized)
+      - ★ the headliner · Coachella Valley Music & Arts
+        Festival — $800 (emphasized)
+      - 🏠 lodging · A Downtown Palm Springs Oasis | Ace
+        Hotel Palm Springs (so far) — $3,000
+      - 🚗 transport · Saint Barths Plane — $3,000
+      - 🤿 activities — $400
+      All mirror organizer entries; ellipsis applies via
+      `text-overflow: ellipsis` on `.row-label` (long labels
+      confirmed to clip). Confirmed.
+- [ ] **AC8** — footer row: "🏠 shared · $6,400" left,
+      "✈️ yours · $0" right. `border-top: 1px solid
+      color-mix(…)`, `display: flex; justify-content:
+      space-between; font-size: 11px`. Confirmed.
+- [ ] **AC9** — headliner row $800 matches
+      `cost.headliner_per_person` (unit=per_person,
+      cost_cents=80000, no divisor). Confirmed via SQL
+      probe.
+- [ ] **AC10** — lodging row uses leading-vote selector
+      (9J); `(so far)` suffix when `status === 'leading'`.
+      On Coachella the winning row renders "(so far)"
+      because no spot is_selected. Confirmed.
+- [ ] **AC11** — transport row $3,000 =
+      `round(3000 / 1) + 0 + 0`. Divisor 1 (only Andrew
+      confirmed). Zero flights[]; one shared transport
+      ($3,000). Single-item label uses transport.description
+      → "transport · Saint Barths Plane". Confirmed.
+- [ ] **AC12** — activities row $400 =
+      `cost.activities_per_person`
+      (`activities_estimate_per_person_cents = 40000`).
+      Confirmed via SQL.
+- [ ] **AC13** — BLOCKED. Missing `provisions_per_person`.
+      See Known Issues #1.
+- [ ] **AC14** — BLOCKED. Missing `other_per_person`.
+      See Known Issues #1.
+- [ ] **AC15** — meals row absent. Confirmed via DOM
+      probe: `/meals/i` returned no row.
+- [ ] **AC16** — hero $8,100 = `per_person_total + (500)`
+      per-viewer (Andrew's arrival_cost_cents = 50000).
+      Code comment on line 131-142 of CostBreakdown.tsx
+      documents why no double-count (viewerArrival comes
+      from `trip_members.arrival_cost_cents`, disjoint from
+      `trip.flights[]`). Confirmed.
+- [ ] **AC17** — group fallback code-verified, NOT live-
+      verified (edge case requires a signed-in user who is
+      not a member). Branch: `heroLabel =
+      cost.perPersonLabel`; no "/ you" suffix; no "your way
+      in" unshift; subtitle remains "{nights} nights • N
+      going". Cowork to verify live if a suitable test
+      account is available.
+- [ ] **AC18** — footer: `shared = cost.per_person_shared
+      ($6,400) = round(shared_total / divisor_used)`;
+      `yours = cost.individual_total ($0) = flights (0) +
+      indRestaurants (0) + indTransport (0)`. Code comment
+      lines 171-179 documents the split and flags the
+      known math mismatch. Confirmed via SQL.
+- [ ] **AC19** — grep `#[0-9a-fA-F]{3,6}|rgba\(` on
+      CostBreakdown.tsx → 0 hits.
+- [ ] **AC20** — grep `--rally-` on CostBreakdown.tsx →
+      0 hits.
+- [ ] **AC21** — only inline style `{ marginTop: 14 }` on
+      the outer module-section (per 9L precedent).
+- [ ] **AC22** — new `.cost-breakdown*` block: zero
+      `!important`; zero raw hex/rgba (only `color-mix(…,
+      var(--token), transparent)` wrappers).
+- [ ] **AC23** — per-viewer Coachella confirmed live at
+      375px. Screenshot captured: hero, rows, footer all
+      render cleanly. Reveal wrappers remain stuck at
+      opacity:0 for below-fold on first load per BB-4 (pre-
+      existing; not 9O-introduced). Forced visible for
+      screenshot.
+- [ ] **AC24** — group fallback code-verified, not live.
+      See AC17.
+- [ ] **AC25** — theme parity: Coachella (reunion-weekend)
+      dark brown `rgb(26, 20, 16)` hero cream text, pink
+      accent on body. festival-run deep purple
+      `rgb(42, 21, 64)` hero cream text, hot-pink accent
+      `#ff3a8c` rendered on CREAM BODY (not hero) — reads
+      cleanly, no contrast concern. city-weekend charcoal
+      `rgb(42, 42, 46)` hero cream text; hero is only
+      slightly darker than body but border + rows still
+      readable. All 3 themes pass.
+- [ ] **AC26** — `npx tsc --noEmit` exit 0. Confirmed.
+- [ ] **AC27** — CSS classes all prefixed `cost-breakdown-*`
+      + scoped to `.chassis`. CostBreakdown doesn't render
+      on sketch trips (gated by phase in page.tsx). Zero
+      sketch-page classes collide. Confirmed by grep.
+
+**Known issues:**
+
+1. **`TripCostSummary` missing `provisions_per_person` /
+   `other_per_person` — but the data exists.** Provisions
+   and Other are stored as rows in the `groceries` table
+   (`name='Provisions'` / `name='Other'`) per 9L's
+   everything-else wiring. page.tsx:124-127 pulls them as
+   `provisionsDollars` / `otherDollars` for the
+   EverythingElse module. `calculateTripCost` sums them
+   into `shared_total` via `sharedGroceries` but does NOT
+   expose them on `TripCostSummary`. Two clean fixes:
+   (a) expose `provisions_per_person` / `other_per_person`
+   on `TripCostSummary` (data-layer session — 30 min,
+   requires calculateTripCost tweak + type update + row
+   render), OR (b) pipe `provisionsDollars`/`otherDollars`
+   as explicit props into CostBreakdown (UI-layer only,
+   ~15 min). Andrew's call. Follow-up brief.
+
+2. **Visible rows do not sum to the hero on Coachella.**
+   Rows $7,700 vs hero-minus-arrival $7,600 = $400 delta
+   = `sharedGroceries` ($200 Provisions + $200 Other).
+   Groceries are in `shared_total` server-side but not
+   rendered as a row client-side. Resolves when issue #1
+   is addressed (rendering provisions + other rows will
+   close the gap).
+
+3. **Shared + yours footer < hero.** `$6,400 + $0 = $6,400`
+   ≠ hero `$8,100` (= `per_person_total + arrival`).
+   Missing from the split: `headliner_per_person` ($800),
+   `activities_per_person` ($400), `arrivalDollars` ($500).
+   Server `calculateTripCost` does not allocate these into
+   either bucket; brief AC18 accepted this as the
+   render-with-existing-fields contract. If the brief's
+   shared/yours definition is intended semantically,
+   resolving requires server-side redistribution of
+   `headliner_per_person`, `activities_per_person`, and
+   the per-viewer arrival into the existing buckets (or
+   new `shared_breakdown` / `yours_breakdown` fields).
+   Escalation per brief #5.
+
+4. **Lodging row vs. `per_person_shared` can disagree when
+   status='leading'.** Client `pickLodgingForRollup` picks
+   the vote leader; server `find(is_selected) || lodging[0]`
+   picks first-added when none are locked. When costs
+   differ across spots the displayed lodging row
+   (client-picked leader) and the server-contributed
+   `per_person_shared` portion (first-added spot) will
+   show different per-night values, making the rollup
+   arithmetic appear off by the spot-cost delta. On
+   Coachella both spots in question have the same
+   `cost_per_night`, so the mismatch is hidden. Fix: sync
+   the server selector to `pickLodgingForRollup` logic.
+   Out of scope for 9O.
+
+5. **Meals row removed from render, but `per_person_total`
+   still includes restaurants.** Coachella has zero
+   restaurants so no delta; any trip with restaurants will
+   have a hero total that includes restaurant costs while
+   no restaurant row displays. Full fix requires dropping
+   `sharedRestaurants` / `indRestaurants` from
+   `calculateTripCost` per the skill's "pre-booked costs
+   only in sketch/sell" rule — server-side change, out of
+   scope.
+
+6. **Eyebrow copy not in lexicon.** `firming up` /
+   `looking solid` need approval in
+   `rally-microcopy-lexicon-v0.md`. Shipped with plan-
+   approved proposals; ~2-line fix if revision needed.
+
+7. **Reveal wrappers stuck at opacity:0 for below-fold
+   modules** (BB-4). Pre-existing; not 9O-introduced. CC
+   forced visibility via an injected stylesheet to
+   capture screenshots. Live inspection without the
+   override requires scrolling to trigger the
+   IntersectionObserver (which reportedly isn't firing
+   reliably on below-fold modules).
+
+8. **Theme parity on `festival-run`.** Hero renders dark
+   purple `rgb(42, 21, 64)` with cream `rgb(244, 230, 255)`
+   text — high contrast, reads cleanly. The hot-pink
+   accent `#ff3a8c` used for `.emphasize` rows renders on
+   the CREAM body (not the hero block), so the brief's
+   contrast concern (pink-on-purple) never materializes.
+   Flagging as resolved-on-inspection rather than blocked.
+
+#### Session 9O — Actuals (QA'd, Cowork 2026-04-22)
+
+**Status: closed — shipping.** UI redesign (Path C) landed clean;
+math audit surfaced four legitimate findings that need server-
+side `calculateTripCost` changes. Those four findings scoped into
+follow-up Session 9P below rather than expanding 9O. Cowork
+verification via code-level greps + CC's in-session live + SQL
+math traces (Turbopack wedge skipped per BB-5 cost).
+
+**AC verification summary (27 total):**
+
+- **Code-verified by Cowork:** AC15 (meals removed with doc
+  comment), AC19 (zero hex/rgba), AC20 (zero dead --rally-*),
+  AC21 (one inline style — `marginTop: 14` per 9L precedent,
+  permitted), AC22 (CSS block clean), AC26 (`tsc` exit 0),
+  AC27 (no CSS bleed to sketch). GlassCard + Badge imports
+  confirmed dropped. New lexicon keys landed; deprecated
+  keys preserved with comment.
+- **Live-verified by CC on Coachella sell (signed-in invitee):**
+  AC1 (bordered container), AC2 (`--surface`/`--on-surface`
+  tokens — `rgb(26, 20, 16)` hero bg confirmed via devtools),
+  AC3 (Georgia italic 46px amount), AC4 (Caveat label at 14px
+  0.5 opacity), AC5 (eyebrow "firming up" top-right), AC6
+  (grid `auto 1fr auto` rows, no progress bars), AC7 (labels
+  mirror organizer entries), AC8 (shared/yours footer),
+  AC23 (full Coachella render at 375px), AC25 (theme parity
+  across Coachella + festival-run + city-weekend).
+- **Math SQL-verified by CC:** AC9 (headliner=$800), AC10
+  (lodging with leading-vote selector), AC11 (transport=$3,000
+  single-item label), AC12 (activities=$400), AC16 (per-
+  viewer hero=$8,100 with documented no-double-count code
+  comment), AC18 (footer math with documented split + known
+  mismatch comment).
+- **Deferred (2):** AC13/AC14 (provisions + other rows) —
+  `TripCostSummary` missing fields. Blocked by data-layer
+  exposure; clean two-option follow-up. See Known Issue #1
+  → promoted to 9P.
+- **Code-verified only, live pending (2):** AC17/AC24 (group
+  fallback) — code path correct, but edge case requires a
+  signed-in non-member user for live verification. Acceptable
+  ride-forward; regression surface is low since the
+  `viewerArrival === null` branch is a narrow conditional.
+
+**Scope observations in CC's favor:**
+
+- Eyebrow copy ("firming up" / "looking solid") committed
+  without separate lexicon cross-ref round. Same net-new-
+  keys pattern as 9L. Accepted at close pending eventual
+  lexicon audit.
+- Page.tsx's `<div style={{ marginTop: 14 }}>` wrapper was
+  removed (CostBreakdown now owns the margin via
+  `.cost-breakdown-module` CSS rule). Matches 9L's
+  EverythingElse pattern. Cleaner than the original brief
+  shape.
+
+**Four audit findings escalated to Session 9P (server math):**
+
+1. **Provisions + Other rows missing** (Known Issue #1) —
+   `TripCostSummary` doesn't expose `provisions_per_person`
+   / `other_per_person` even though the data exists in the
+   `groceries` table and is already summed into
+   `shared_total` server-side.
+2. **Footer math doesn't reconcile to hero** (Known Issue #3)
+   — server `calculateTripCost` doesn't allocate
+   `headliner_per_person`, `activities_per_person`, or
+   viewer arrival into either `per_person_shared` or
+   `individual_total`. Current result: `$6,400 shared + $0
+   yours = $6,400` ≠ `$8,100 hero`. Visible math
+   inconsistency for end users.
+3. **Lodging client/server selector mismatch** (Known Issue
+   #4) — client uses 9J's `pickLodgingForRollup` (leading-
+   vote priority); server uses `find(is_selected) ||
+   lodging[0]` (first-added). Hidden on Coachella by
+   coincidence; real bug when spot costs differ.
+4. **Meals still in server `per_person_total`** (Known
+   Issue #5) — render removed but `sharedRestaurants` /
+   `indRestaurants` still aggregate into the hero total.
+   Violates skill's "pre-booked costs only in sketch/sell"
+   rule.
+
+**Side items not promoted to 9P:**
+
+- **Eyebrow copy lexicon cross-ref** (Known Issue #6) —
+  trivial approval; logging for lexicon bug-bash.
+- **Reveal wrappers stuck at opacity:0** (Known Issue #7)
+  — pre-existing BB-4; already tracked.
+- **Festival-run theme contrast** (Known Issue #8) —
+  resolved on inspection; accent renders on cream body
+  not the purple hero. Non-issue.
+- **Deprecated `sharedBadge` / `bookYoursBadge` lexicon
+  keys** — left intact per brief; dead-key sweep lives in
+  the lexicon cleanup bug-bash (Bug Backlog Open Item #2).
+
+---
+
+### Session 9P: "Cost math audit follow-up — server-side reconciliation"
+
+**Premise.** 9O's math audit surfaced four findings that all point
+at `src/types/index.ts` `calculateTripCost` + `TripCostSummary`
+type shape. Fixing them requires server-side (actually: shared
+type + utility — Rally's `calculateTripCost` runs on both sides)
+changes that were explicitly out of 9O's UI-only scope. 9P
+resolves them as a focused data-layer + rollup session.
+
+Andrew's brief constraint in 9O was "audit don't fix" precisely
+because these changes touch cost math that ripples across all
+trips. 9P is where they land, with proper verification against
+existing trips.
+
+**Scope:**
+
+1. **Expose `provisions_per_person` + `other_per_person` on
+   `TripCostSummary`** (AC13/14 from 9O). The groceries-table
+   rows named 'Provisions' and 'Other' are already summed
+   into `sharedGroceries` server-side; surface them
+   individually. CostBreakdown.tsx then renders two new rows
+   between activities and the footer.
+
+2. **Redistribute `headliner_per_person`, `activities_per_person`,
+   `provisions_per_person`, `other_per_person`, and viewer
+   arrival into the shared/yours buckets.** Expected semantic
+   mapping:
+   - **Shared** (everyone pays the same share of the total
+     divided across `divisor_used`): lodging, headliner,
+     shared transport, activities, provisions, other
+   - **Yours** (viewer's personal cost, doesn't divide):
+     flights, individual transport, viewer arrival
+   - Footer should add up to `per_person_total + arrival`
+     exactly, matching the hero number. Current gap:
+     $6,400 shared + $0 yours = $6,400 but hero is $8,100
+     on Coachella.
+
+3. **Sync server lodging selector to client's
+   `pickLodgingForRollup`** (9J's leading-vote priority
+   logic). Both client and server must pick the same
+   lodging record when computing per-night totals. Extract
+   the priority function to a shared util if needed.
+
+4. **Drop restaurants from `per_person_total` computation.**
+   Remove `sharedRestaurants` and `indRestaurants` from
+   `calculateTripCost`. Rationale: restaurants are go-phase
+   data per skill rules; they shouldn't contribute to the
+   sketch/sell rollup. The `trip.restaurants` data itself
+   stays in the database; only the rollup aggregation is
+   removed.
+
+**Hard Constraints:**
+
+- DO NOT change the database schema. No column adds/drops/
+  renames. No migrations. The groceries table, restaurants
+  table, and all cost-related fields stay exactly as-is.
+- DO NOT change any server action, RPC, or API route. 9P is
+  strictly the math utility + type shape.
+- DO NOT change any upstream module (headliner, spot,
+  getting-here, transport, everything-else). CostBreakdown.tsx
+  is the only render site that changes, and only to render
+  the two new provisions/other rows.
+- DO NOT change the existing `divisor_used` logic.
+- DO NOT create new routes.
+- DO NOT add organizer edit affordances.
+- Every math change must be validated against Coachella
+  sell + at least one other existing trip to verify no
+  regression on live data.
+
+**Acceptance Criteria:**
+
+- [ ] **AC1** (`TripCostSummary` exposes new fields)
+      `provisions_per_person` + `other_per_person` added
+      to the type.
+- [ ] **AC2** (`calculateTripCost` splits groceries into
+      provisions + other). Existing `sharedGroceries` sum
+      stays for backwards compat but new fields expose the
+      per-person breakdown.
+- [ ] **AC3** (CostBreakdown renders new rows). Between
+      activities and footer: `🥑 provisions · $X` and
+      `🎁 other · $Y` (icons TBD — flag for Andrew).
+      Gated on `>0` like other rows.
+- [ ] **AC4** (rows sum to hero minus arrival). Visible row
+      values sum exactly to `per_person_total` on Coachella.
+      Validate with SQL probe + client-side sum.
+- [ ] **AC5** (shared + yours = hero). Footer math:
+      `shared + yours = per_person_total + arrivalDollars`
+      exactly. Spot-check on Coachella ($8,100) and one
+      other trip.
+- [ ] **AC6** (shared bucket semantics). Shared =
+      `round((lodging_shared + headliner_shared +
+      shared_transport + activities_shared + provisions +
+      other) / divisor_used)`. Verify via SQL.
+- [ ] **AC7** (yours bucket semantics). Yours = flights +
+      individual_transport + viewer arrival (when
+      per-viewer). Verify via SQL.
+- [ ] **AC8** (lodging selector sync). Server
+      `calculateTripCost` picks the same lodging record as
+      client `pickLodgingForRollup` when votes are in play.
+      Test with a trip where spots have different
+      `cost_per_night` and no lock — row and shared-total
+      must agree.
+- [ ] **AC9** (restaurants removed from total). Load a trip
+      with ≥1 restaurant. Pre-9P: restaurant cost included
+      in `per_person_total`. Post-9P: restaurant cost NOT
+      included. Hero number drops by the restaurant
+      contribution.
+- [ ] **AC10** (no migration, no schema change). `git diff`
+      excludes `supabase/migrations/**`. `git diff` on
+      `src/types/index.ts` shows only `TripCostSummary`
+      field additions (no other type changes).
+- [ ] **AC11** (Coachella regression). Pre-9P hero $8,100.
+      Post-9P hero ≥ $8,100 (should GROW by provisions
+      $200 + other $200 being newly exposed, if they were
+      already in `shared_total` but not surfaced — expected
+      outcome: $8,100 + $0 = $8,100 because they WERE
+      already in `shared_total`, so the total stays but the
+      rows now add up). Spot-check math in release notes.
+- [ ] **AC12** (existing trip regression sweep). Load at
+      least 3 existing sell trips. For each: pre/post hero
+      numbers, pre/post row breakdown. Log any deltas.
+      Restaurant-containing trips WILL have a drop — that's
+      intended per AC9.
+- [ ] **AC13** (`tsc --noEmit` exit 0).
+- [ ] **AC14** (CostBreakdown CSS unchanged). The 9O
+      `.cost-breakdown-*` block at globals.css shouldn't
+      need modification; only component JSX changes for
+      the new rows.
+
+**Files to Read:**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — Part 1
+  "Pre-booked costs only in sketch/sell" rule justifies
+  the restaurants removal.
+- `rally-fix-plan-v1.md` §9O Actuals (this brief's
+  premise), §9J Actuals (lodging priority), §9L Actuals
+  (everything-else data wiring).
+- `src/types/index.ts` — THE file that changes. `TripCostSummary`
+  type + `calculateTripCost` function.
+- `src/components/trip/CostBreakdown.tsx` — REBUILD the
+  rows array to include provisions + other.
+- `src/app/trip/[slug]/page.tsx` lines 120–130 — existing
+  `provisionsDollars` / `otherDollars` derivation (reuse
+  pattern for the new `TripCostSummary` fields).
+- `src/components/trip/builder/LodgingCard.tsx` — the
+  `pickLodgingForRollup` function (9J). Share or copy the
+  selector logic into `calculateTripCost`.
+
+**How to QA Solo:**
+
+1. Turbopack recovery (BB-5).
+2. `npx tsc --noEmit`.
+3. Load Coachella. Verify: rows include provisions + other
+   (if >0), row sum matches hero minus arrival, footer
+   sums to hero exactly.
+4. Load 2-3 more existing sell trips. Note any pre/post
+   dollar deltas. Restaurants-containing trips will drop.
+5. SQL probe: for each trip, verify
+   `per_person_shared + individual_total + arrival ==
+   per_person_total + arrival` (i.e., the full allocation).
+
+**Likely escalation triggers:**
+
+1. **Restaurant removal causes a visible regression on a
+   live trip.** If any real trip has meaningful restaurant
+   costs in `per_person_total`, the hero number drops after
+   9P. That's intended behavior but the user will notice.
+   Flag the delta in release notes; Andrew may want to
+   communicate to affected trip organizers.
+2. **Lodging selector sync breaks an existing trip's
+   numbers.** If Coachella-like trips with identical
+   `cost_per_night` across spots showed the "wrong"
+   lodging row pre-9P but correct numbers (by coincidence),
+   syncing might reveal the selector was wrong all along.
+   Flag any number deltas.
+3. **New shared/yours allocation doesn't match semantic
+   intent.** If the brief's shared = lodging + headliner +
+   shared-transport + activities + provisions + other
+   mapping is wrong (e.g., activities is actually
+   per-person input, not shared), flag before implementing
+   and re-scope.
+
+---
+
 ### Bug Bash Queue (future session, briefs TBD)
 
 Items that came up during other sessions but don't fit any single
