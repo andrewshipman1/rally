@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9W: Organizer sticky-bar redesign (v2)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9W SCOPE — ORGANIZER STICKY BAR REDESIGN (Cowork draft v2,
+     2026-04-23)
+
+     v2 SUPERSEDES v1. Direction converged 2026-04-23:
+
+     THE DESIGN PROBLEM IS NOW SIMPLE:
+     - Editing goes to the sketch page as a VIEW — phase stays
+       'sell' in the DB. Client-side toggle flips rendering;
+       the sketch UI renders against sell-phase trip data.
+     - Identity copy is LOCKED: "you're the organizer of this trip"
+     - Option 1 for the save layer: relax `phase === 'sketch'`
+       guards on sketch-write actions to allow organizer-auth
+       writes when phase is 'sell' too.
+
+     WHAT'S NEW TO DESIGN:
+     1. Sell-page organizer sticky bar (default state).
+        Replaces current "★ you started this" static label with
+        "★ you're the organizer of this trip" + edit affordance.
+     2. Edit-mode sticky bar on the sketch page.
+        Sketch page's existing BuilderStickyBar has four buttons:
+        back · theme · save draft · publish. The "publish" button
+        is meaningless post-publish. In edit-on-sell mode, replace
+        it with "done editing" — tapping exits the view toggle,
+        returning to the sell render. Phase never changes.
+
+     REUSE PATTERN (per the Reuse-Before-Rebuild rule):
+     - All sketch module editing UI (drawers, add forms,
+       InlineFields, LinkPasteInput, etc.) is reused wholesale.
+     - BuilderStickyBar gets a single prop or mode switch for
+       the publish→done substitution. No parallel component.
+     - StickyRsvpBarChassis's isOrganizer branch gets the new
+       identity + edit CTA treatment.
+
+     THE MOCKUP SHOWS:
+     - Two layout options for the sell-page bar (stacked vs.
+       single-line). Pick one.
+     - One design for the edit-mode bar (publish → done).
+     - Implementation surface list (files + action guards).
+
+     OUT OF SCOPE HERE:
+     - Attendee sticky-bar changes.
+     - Invitee in-flight-edit visibility (accept as tradeoff).
+     - New edit affordances on sell-page modules (there are
+       none — editing flows entirely through the sketch view).
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --doc-bg: #2a2a2a;
+    --doc-text: #faf8f5;
+    --doc-muted: #888;
+    --doc-accent: #ffd84d;
+    --doc-dim: #555;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    min-height: 100vh;
+    padding: 24px 16px 96px;
+    line-height: 1.5;
+  }
+  .doc-header {
+    max-width: 860px;
+    margin: 0 auto 32px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 24px;
+    color: var(--doc-text);
+    margin-bottom: 6px;
+  }
+  .doc-sub {
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.55;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+  .doc-sub code {
+    background: #1a1a1a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+  }
+
+  .section-label {
+    max-width: 860px;
+    margin: 48px auto 0;
+    padding: 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    color: var(--doc-accent);
+    font-weight: 700;
+  }
+  .section-note {
+    max-width: 860px;
+    margin: 4px auto 16px;
+    padding: 0 8px;
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.6;
+  }
+  .section-note code {
+    background: #1a1a1a;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+  }
+
+  .pair {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .pair-meta {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #777;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .pair-meta span {
+    width: 375px;
+    text-align: left;
+    padding-left: 6px;
+  }
+
+  /* Phone scaffold with Rally theme tokens */
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 14px 0 0;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+    overflow: hidden;
+
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --surface: #ffffff;
+    --on-surface: #1a1a1a;
+    --accent: #ffd84d;
+    --accent2: #5bb7d8;
+    --muted: #8a8680;
+    --sticker-bg: #f2e0d0;
+    --border: #1a1a1a;
+    --edit-bg: #2a1810;
+    --edit-ink: #faf8f5;
+  }
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+
+  /* Page content stubs */
+  .page-stub {
+    padding: 10px 18px 100px;
+    min-height: 220px;
+  }
+  .page-stub-module {
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    opacity: .28;
+  }
+  .page-stub-module.sketch {
+    opacity: .4;
+    border-style: dashed;
+    background: color-mix(in srgb, var(--ink) 2%, transparent);
+  }
+  .page-stub-module-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .page-stub-module-body {
+    font-size: 11px;
+    color: var(--ink);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .page-stub-module-body .sketch-affordance {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--ink) 10%, transparent);
+    font-size: 10px;
+    font-style: italic;
+  }
+
+  /* Sticky bar shells */
+  .sticky-shell {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-top: 2.5px solid var(--ink);
+    background: var(--bg);
+    padding: 14px 18px 18px;
+  }
+  .sticky-shell.edit-mode {
+    background: var(--edit-bg);
+    border-top-color: var(--edit-bg);
+    color: var(--edit-ink);
+  }
+  .sticky-shell.sketch-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 14px 16px;
+  }
+
+  /* ─── Sell-page layout A: stacked (recommended) ─── */
+  .sell-a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .sell-a-identity {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink);
+    opacity: 0.75;
+    text-transform: lowercase;
+    text-align: center;
+    line-height: 1.25;
+  }
+  .sell-a-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 22px;
+    border-radius: 100px;
+    background: var(--bg);
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ─── Sell-page layout B: single-line tight ─── */
+  .sell-b {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 10px;
+  }
+  .sell-b-identity {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--ink);
+    opacity: 0.75;
+    text-transform: lowercase;
+    line-height: 1.2;
+  }
+  .sell-b-edit {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    border-radius: 100px;
+    background: var(--accent);
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ─── Edit-mode sticky bar (sketch page, publish → done) ─── */
+  .sketch-btn {
+    padding: 11px 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--edit-ink);
+    border: 1.5px solid color-mix(in srgb, var(--edit-ink) 30%, transparent);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+  }
+  .sketch-btn.icon { flex: 0 0 52px; font-size: 15px; border-radius: 100px; padding: 11px 0; }
+  .sketch-btn.done {
+    flex: 1;
+    background: var(--accent);
+    color: var(--edit-bg);
+    border-color: var(--accent);
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  /* Also show a LIVE state chip hint above the edit-mode bar */
+  .edit-mode-hint {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 76px;
+    padding: 8px 12px;
+    background: color-mix(in srgb, var(--edit-bg) 92%, transparent);
+    border-radius: 8px;
+    color: var(--edit-ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    text-align: center;
+    opacity: .85;
+    backdrop-filter: blur(4px);
+  }
+
+  /* Rationale + implementation notes */
+  .card {
+    max-width: 860px;
+    margin: 12px auto 0;
+    padding: 16px 20px;
+    background: #3a3a3a;
+    border-radius: 10px;
+    border-left: 3px solid var(--doc-accent);
+  }
+  .card.muted { border-left-color: #666; background: #2f2f2f; }
+  .card-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .card.muted .card-title { color: #aaa; }
+  .card p {
+    font-size: 13px;
+    color: var(--doc-text);
+    line-height: 1.6;
+    margin-bottom: 6px;
+  }
+  .card p:last-child { margin-bottom: 0; }
+  .card strong { color: var(--doc-accent); font-weight: 700; }
+  .card.muted strong { color: #ccc; }
+  .card code {
+    background: #1a1a1a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+  }
+  .card ul {
+    margin: 8px 0 0 18px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--doc-text);
+  }
+  .card li code { font-size: 11px; }
+
+  .questions {
+    max-width: 860px;
+    margin: 64px auto 0;
+    padding: 22px 26px;
+    background: #1f1f1f;
+    border-radius: 12px;
+    border: 1px solid #444;
+  }
+  .questions h2 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 18px;
+    color: var(--doc-accent);
+    margin-bottom: 14px;
+  }
+  .questions dl { font-size: 13px; line-height: 1.6; }
+  .questions dt {
+    font-weight: 700;
+    color: var(--doc-text);
+    margin-top: 12px;
+  }
+  .questions dt:first-child { margin-top: 0; }
+  .questions dd {
+    margin-left: 0;
+    color: var(--doc-muted);
+    margin-top: 2px;
+  }
+  .resolved {
+    max-width: 860px;
+    margin: 0 auto 24px;
+    padding: 14px 20px;
+    background: #1a2a1a;
+    border-left: 3px solid #8bc48b;
+    border-radius: 8px;
+  }
+  .resolved-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #8bc48b;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .resolved ul {
+    margin: 0 0 0 18px;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--doc-muted);
+  }
+  .resolved strong { color: var(--doc-text); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">Session 9W — Cowork draft v2 · 2026-04-23</div>
+  <div class="doc-title">organizer sticky-bar redesign</div>
+  <div class="doc-sub">
+    Editing goes to the sketch page as a <strong>view</strong>, not a phase change.
+    Trip stays in <code>sell</code>; sketch UI renders against sell-phase data;
+    server actions get their <code>phase === 'sketch'</code> guards relaxed to allow
+    organizer-auth writes on sell trips (option 1). Identity copy locked:
+    <em>"you're the organizer of this trip"</em>.
+  </div>
+</div>
+
+<div class="resolved">
+  <div class="resolved-title">resolved (direction locked 2026-04-23)</div>
+  <ul>
+    <li><strong>Editing mechanism:</strong> sketch-page view toggle (NOT in-place on sell page).</li>
+    <li><strong>Phase behavior:</strong> stays <code>'sell'</code> — no back-transition, no republish, no email re-fire.</li>
+    <li><strong>Identity copy:</strong> <em>"you're the organizer of this trip"</em>.</li>
+    <li><strong>Sell-page bar layout:</strong> <strong>B (single-line tight)</strong>. Accepts the truncation risk for tighter visual footprint.</li>
+    <li><strong>Edit-mode bar composition:</strong> 3 buttons — back · theme · done editing. <strong>Save-draft REMOVED</strong> (redundant with autosave; "draft" is sketch-specific nomenclature).</li>
+    <li><strong>Save semantics:</strong> autosave (matches sketch behavior); "done editing" is exit, not save.</li>
+    <li><strong>Action-layer approach:</strong> option 1 — relax phase guards on sketch-write actions.</li>
+    <li><strong>Invitee-visibility of in-flight edits:</strong> accepted tradeoff; no "editing indicator" in v1.</li>
+  </ul>
+</div>
+
+<!-- SELL-PAGE STICKY BAR -->
+<div class="section-label">1 · sell-page organizer sticky bar</div>
+<div class="section-note">
+  Two layouts for the same content: <em>"★ you're the organizer of this trip"</em>
+  + edit affordance. Layout A stacks them vertically (taller bar, more
+  breathing room). Layout B packs them onto one line (tighter, matches
+  current bar height). Pick one.
+</div>
+<div class="pair">
+  <div class="pair-meta">
+    <span>layout A · stacked (recommended)</span>
+    <span>layout B · single-line tight</span>
+  </div>
+  <div class="frame">
+    <div class="frame-label">sell view · A</div>
+    <div class="page-stub">
+      <div class="page-stub-module">
+        <div class="page-stub-module-title">cost summary</div>
+        <div class="page-stub-module-body">~$1,280/person · looking solid</div>
+      </div>
+      <div class="page-stub-module">
+        <div class="page-stub-module-title">crew</div>
+        <div class="page-stub-module-body">4 in · 2 holding · 1 out</div>
+      </div>
+      <div class="page-stub-module">
+        <div class="page-stub-module-title">aux</div>
+        <div class="page-stub-module-body">playlist · 12 tracks</div>
+      </div>
+    </div>
+    <div class="sticky-shell">
+      <div class="sell-a">
+        <span class="sell-a-identity">★ you're the organizer of this trip</span>
+        <button class="sell-a-edit">✎ edit trip</button>
+      </div>
+    </div>
+  </div>
+  <div class="frame">
+    <div class="frame-label">sell view · B</div>
+    <div class="page-stub">
+      <div class="page-stub-module">
+        <div class="page-stub-module-title">cost summary</div>
+        <div class="page-stub-module-body">~$1,280/person · looking solid</div>
+      </div>
+      <div class="page-stub-module">
+        <div class="page-stub-module-title">crew</div>
+        <div class="page-stub-module-body">4 in · 2 holding · 1 out</div>
+      </div>
+      <div class="page-stub-module">
+        <div class="page-stub-module-title">aux</div>
+        <div class="page-stub-module-body">playlist · 12 tracks</div>
+      </div>
+    </div>
+    <div class="sticky-shell">
+      <div class="sell-b">
+        <span class="sell-b-identity">★ you're the organizer of this trip</span>
+        <button class="sell-b-edit">edit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">layout tradeoffs</div>
+  <p><strong>Layout A (stacked, recommended).</strong> Identity text gets its full
+  width and reads cleanly at the chosen copy length. The edit CTA is a distinct
+  button on its own line — clear tap target, unambiguous. Bar is ~78px tall vs. the
+  current ~50px, so the sell view gives up ~28px of scroll real estate.</p>
+  <p><strong>Layout B (single-line tight).</strong> Matches today's bar height.
+  Identity text has to drop to 13px and risks truncation on smaller screens /
+  themes with wider diacritics. Yellow pill adds visual weight that competes with
+  accent chrome elsewhere on the sell page (countdown tiles, cost breakdown
+  badges).</p>
+  <p>My lean is <strong>A</strong>. The identity line is long enough that stacked
+  treatment handles it more gracefully, and the extra 28px of bar height is a
+  reasonable trade for clarity. But B is valid if you want to preserve scroll real
+  estate or keep the bar visually consistent with attendee sticky-bar height.</p>
+</div>
+
+<!-- EDIT-MODE STICKY BAR -->
+<div class="section-label">2 · edit-mode sticky bar (on sketch page)</div>
+<div class="section-note">
+  When the organizer taps <em>edit trip</em>, the client-side toggle flips the page
+  to render <code>&lt;SketchTripShell&gt;</code> against sell-phase trip data. The
+  sketch page's existing sticky bar (<code>BuilderStickyBar</code>) has four
+  buttons: <em>back · theme · save draft · publish</em>. The "publish" button is
+  meaningless post-publish — swap it for <em>done editing</em>. Other three buttons
+  stay as-is. Autosave continues to work.
+</div>
+<div class="pair">
+  <div class="frame">
+    <div class="frame-label">sketch view · edit-mode</div>
+    <div class="page-stub">
+      <div class="page-stub-module sketch">
+        <div class="page-stub-module-title">lodging</div>
+        <div class="page-stub-module-body">
+          the spot · 4 nights
+          <div class="sketch-affordance">✎ tap to edit · + add option</div>
+        </div>
+      </div>
+      <div class="page-stub-module sketch">
+        <div class="page-stub-module-title">transport</div>
+        <div class="page-stub-module-body">
+          2 lines
+          <div class="sketch-affordance">+ add line</div>
+        </div>
+      </div>
+      <div class="page-stub-module sketch">
+        <div class="page-stub-module-title">everything else</div>
+        <div class="page-stub-module-body">
+          activities · provisions
+          <div class="sketch-affordance">+ add item</div>
+        </div>
+      </div>
+    </div>
+    <div class="edit-mode-hint">you're editing · changes save automatically</div>
+    <div class="sticky-shell edit-mode sketch-bar">
+      <button class="sketch-btn icon" aria-label="back to dashboard">←</button>
+      <button class="sketch-btn icon" aria-label="pick theme">🎨</button>
+      <button class="sketch-btn done">done editing</button>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">edit-mode bar composition</div>
+  <p><strong>Dark bg signals mode shift.</strong> The sticky bar's visual treatment
+  changes from cream (sell/sketch normal) to <code>--edit-bg</code> (a deep maroon
+  that doesn't clash with any existing theme accent). A small centered hint above
+  the bar reads <em>"you're editing · changes save automatically"</em> — addresses
+  the autosave-mental-model question without a modal or toast.</p>
+  <p><strong>Three buttons: back · theme · done editing.</strong> Save-draft is
+  <em>removed</em> from edit-on-sell mode — "draft" implies a pre-published state,
+  but the trip is already live, and autosave already handles persistence. Publish
+  becomes "done editing" with accent-yellow treatment as the primary action. Three
+  buttons instead of four give the "done editing" pill proper visual dominance
+  and leave room for back/theme icons to breathe.</p>
+  <p><strong>"Back" during edit mode</strong> navigates to dashboard, not back to
+  the sell view. That keeps Rally's nav model consistent (back always = dashboard).
+  <em>done editing</em> is the intentional exit-to-sell shortcut. Open question
+  below on whether back should stay or be removed entirely.</p>
+</div>
+
+<!-- IMPLEMENTATION SURFACE -->
+<div class="section-label">3 · implementation surface</div>
+<div class="section-note">
+  What 9W touches. Deliberately scoped — most of the surface is reuse, not
+  new code.
+</div>
+<div class="card muted">
+  <div class="card-title">components</div>
+  <ul>
+    <li><code>src/components/trip/StickyRsvpBarChassis.tsx</code> — update the
+      <code>isOrganizer</code> branch to render layout A or B + edit CTA.
+      Wire the CTA to a client-side edit-mode state (page-level React state).</li>
+    <li><code>src/app/trip/[slug]/page.tsx</code> — introduce a client-side
+      edit-mode flag (probably via URL hash, query param, or React state on a
+      client wrapper). When flag is set AND organizer, render
+      <code>&lt;SketchTripShell&gt;</code> instead of the sell render.</li>
+    <li><code>src/components/trip/builder/BuilderStickyBar.tsx</code> — add a
+      <code>mode: 'sketch' | 'edit-on-sell'</code> prop. When edit-on-sell:
+      <strong>hide the save-draft button</strong> (autosave-only; "draft" is
+      sketch-specific), and swap the publish button for "done editing" wired
+      to an <code>onDone</code> handler. Sketch mode unchanged.</li>
+    <li><code>src/components/trip/builder/SketchTripShell.tsx</code> — accept
+      the same mode prop; pass through to BuilderStickyBar. Any
+      <code>phase === 'sketch'</code> assumptions inside (e.g., "set up your
+      trip" empty states) need an audit for sell-phase compatibility.</li>
+  </ul>
+</div>
+<div class="card muted">
+  <div class="card-title">server actions (phase-guard relaxation, option 1)</div>
+  <ul>
+    <li><code>update-trip-sketch.ts:60</code> — relax <code>phase !== 'sketch'</code> guard.</li>
+    <li><code>update-trip-sketch.ts:73</code> — remove <code>.eq('phase', 'sketch')</code> belt-and-suspenders.</li>
+    <li><code>updateHeadliner</code> — same guard pattern, same relaxation.</li>
+    <li>Any other <code>update*</code> action exported from <code>src/app/actions/*</code> with the same guard: audit + relax.</li>
+    <li><code>delete-trip.ts:35</code> — consider whether delete should work in edit-on-sell mode. Probably NOT (organizers should deliberately transition before deleting). Leave guard as-is.</li>
+    <li><code>transition-to-sell.ts:31</code> — leave as-is (phase would already be sell).</li>
+    <li>All relaxed actions retain auth check (<code>trip.organizer_id !== user.id</code>) — security unchanged.</li>
+  </ul>
+</div>
+<div class="card muted">
+  <div class="card-title">lexicon</div>
+  <ul>
+    <li><code>src/lib/copy/surfaces/builder-state.ts</code>:
+      <ul>
+        <li><code>eyebrow</code>: update from <em>"you started this"</em> to <em>"you're the organizer of this trip"</em>.</li>
+        <li>New key <code>editCta</code>: <em>"✎ edit trip"</em> (layout A) or <em>"edit"</em> (layout B).</li>
+        <li>New key <code>editModeHint</code>: <em>"you're editing · changes save automatically"</em>.</li>
+        <li>New key <code>editModeDone</code>: <em>"done editing"</em>.</li>
+      </ul>
+    </li>
+    <li>Cross-reference all new strings to <code>rally-microcopy-lexicon-v0.md</code>.</li>
+  </ul>
+</div>
+
+<!-- OPEN QUESTIONS -->
+<div class="questions">
+  <h2>remaining open questions</h2>
+  <dl>
+    <dt>1. Does "back" during edit mode stay, or get removed?</dt>
+    <dd>Keep: consistency with sketch (back always = dashboard), escape hatch if
+    "done editing" feels committal. Remove: even cleaner 2-button bar (theme ·
+    done editing), no ambiguity about what "back" means during edit mode.
+    Andrew's call.</dd>
+
+    <dt>2. Sketch-UI sell-phase compatibility audit.</dt>
+    <dd>Before the brief ships, audit <code>SketchTripShell</code>, <code>SketchModules</code>,
+    <code>SketchHeader</code>, and the sketch-specific forms for any <code>phase === 'sketch'</code>
+    checks or "set up your trip" empty states that would misbehave on a sell-phase trip.
+    If any exist, they need a small fix in the 9W brief.</dd>
+
+    <dt>3. How does the client-side edit-mode flag persist across a page refresh?</dt>
+    <dd>Three options: (a) URL hash (<code>/trip/slug#edit</code>) — survives refresh, shareable,
+    but weird if an invitee stumbles onto it; (b) query param (<code>?edit=1</code>) —
+    same story; (c) React state only — lost on refresh. (c) is probably right — refresh
+    exits edit mode, sane default. Decide in the brief.</dd>
+  </dl>
+</div>
+
+</body>
+</html>

@@ -15825,33 +15825,1060 @@ prompt.
 escalation cleanly. Follow-up work tracked as 9T (tier-2
 visible fixes + hygiene sweep) below.
 
+**SHIP CONFIRMED 2026-04-23.** 9P + 9Q + 9R + 9S code stack
+pushed to prod via 5 sequential commits on top of 9O
+(83be97d). Migrations 022 + 023 already live in prod prior
+to code push. Deploy sequence: migration-first, then code.
+Clean ship.
+
 ---
 
-### Session 9T: "Bug bash — tier-2 visible fixes + hygiene sweep" (placeholder)
+### Session 9T: "Turbopack dev-cache kill switch (BB-5 permanent fix)"
 
-**Scope (TBD — to be detailed after 9S closes):**
+**Status: SCOPED 2026-04-23.** Infra-only session, path-of-
+least-resistance framing. Replaces the `rm -rf .next` band-aid
+with Vercel's documented kill switch for the corrupting
+Turbopack filesystem cache. Two files, no logic changes, no
+module code touched.
 
-- BB-3 cost formatting regression — restore `formatMoney` in
-  Transport + Flight cards (`$3000` → `$3,000`)
-- Open Item #3 — Headliner `view site` href duplication
-  (`https://...//https://...`)
-- DatePoll hygiene drift — 9 hex/rgba, 2 dead `--rally-*`,
-  9 inline styles; apply 9K/9M pattern
-- `members as any` cast fix (page.tsx:487)
-- 9Q orphan buzz route removal (`app/trip/[slug]/buzz/page.tsx`
-  — 3-screen-rule violation)
-- Dead CSS sweep (`.crew-inline`, `.crew-invite-btn`,
-  `.buzz-*`)
-- Deprecated lexicon keys sweep (`sharedBadge`,
-  `bookYoursBadge`)
-- 9O eyebrow lexicon cross-ref (`firming up` / `looking
-  solid` — lexicon audit)
-- Passport `n_nights ?? '?'` fallback (logged from 9R Open
-  #1 audit)
-- BB-5 permanent fix (Next version bump when stable, or
-  audit band-aid script's impact after N sessions running)
+**Context.** BB-5 has blocked local QA intermittently since
+sessions 9K/9L with RocksDB corruption errors
+(`MODULE_NOT_FOUND`, `Unable to open static sorted file
+00000001.sst`, compaction failures). The current workaround —
+`"dev": "rm -rf .next && next dev"` in `package.json` — works
+but pays a cold-start cost on every dev startup and is just a
+blunt wipe. The original backlog entry speculated about
+waiting for Next 16.3.x with an upstream RocksDB fix. Web-
+verified 2026-04-23:
 
-Brief + kickoff drafted after 9S ships.
+- Next 16.3 is canary-only; latest stable is 16.2.4 LTS.
+- Vercel now documents an `experimental` config flag
+  (`turbopackFileSystemCacheForDev`) that disables the
+  filesystem cache outright. This is the actual fix per
+  `vercel/next.js` Discussion #87796 ("Turbopack File cache
+  writing completely freezes the PC").
+- Staying on Next 16.2.2 (no version bump). LTS uptake
+  considered and deferred — Andrew chose path of least
+  resistance 2026-04-23. Minor-version bump queued for a
+  later infra touch if wanted.
+
+Turning the cache off is strictly better than the band-aid:
+normal restarts reuse compiled artifacts, and the corruption
+surface disappears because the corrupting storage layer is
+never written.
+
+**Scope:**
+
+1. **Add the cache kill switch to `next.config.ts`.** Add
+   `experimental: { turbopackFileSystemCacheForDev: false }`
+   to the `NextConfig` object. The existing `images` config
+   stays exactly as-is.
+
+2. **Restore the plain dev script in `package.json`.** Change
+   `"dev": "rm -rf .next && next dev"` to `"dev": "next dev"`.
+   Do not touch `build`, `start`, `lint`, `test`, or
+   `test:watch`.
+
+3. **No other file changes.** No module code, no components,
+   no lib code, no migrations, no tests, no lexicon, no CSS.
+
+**Hard constraints:**
+
+- DO NOT create new routes.
+- DO NOT bump the Next.js version. Stay on 16.2.2.
+- DO NOT touch any source file outside `next.config.ts` and
+  `package.json`.
+- DO NOT add, remove, or modify any other `experimental` flag
+  or config option.
+- DO NOT introduce a webpack fallback script
+  (`--turbopack=false` or equivalent). Scope is the one
+  documented kill switch, not a bundler swap.
+- DO NOT attempt to fix unrelated lint, type, or test
+  failures you happen to notice. Log them, move on.
+
+**Acceptance criteria:**
+
+- [ ] `next.config.ts` contains `experimental: { turbopackFileSystemCacheForDev: false }` nested inside the `NextConfig` object — verify by reading the file.
+- [ ] `package.json` dev script reads exactly `"dev": "next dev"` — no `rm -rf`, no extra flags.
+- [ ] `npm run dev` starts cleanly without wiping `.next` on startup — verify terminal output shows no "rm" activity.
+- [ ] `.next` directory persists across dev-server restarts (second `npm run dev` skips the full cold compile of routes already compiled in the previous run).
+- [ ] Dev-server restart cycle (Ctrl-C + `npm run dev`) repeated 3+ times with no `MODULE_NOT_FOUND`, SST file, or compaction errors.
+- [ ] Trip page (`/trip/[slug]`) loads and scrolls all modules cleanly at 375px after restart — regression spot-check.
+- [ ] Between-session QA core loop passes (create trip, edit name, share link, scroll all sections).
+- [ ] `git status` shows ONLY `next.config.ts` and `package.json` modified.
+
+**Files to read:**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — full session rules
+- `rally-fix-plan-v1.md` §Session 9T (this brief), §Bug Backlog §BB-5
+- `package.json` — confirm current dev script shape before editing
+- `next.config.ts` — confirm current config shape before editing
+
+**How to QA solo:**
+
+1. From `~/Desktop/claude/rally`: stop any running dev server.
+   Verify `lsof -iTCP:3000 -sTCP:LISTEN` returns nothing.
+2. Apply the two file changes. Run `tsc --noEmit` or confirm
+   `next.config.ts` type-checks cleanly (the `experimental`
+   key accepts this flag on Next 16.2.x).
+3. Run `npm run dev`. Confirm terminal output does NOT show
+   any `.next` wipe. Confirm "Ready in Xs" appears.
+4. Load `http://localhost:3000`, sign in, navigate to a trip
+   page, scroll all modules top to bottom.
+5. Kill the dev server (Ctrl-C). Restart with `npm run dev`.
+   Confirm faster startup (cached routes) and no errors in
+   stderr.
+6. Repeat the restart cycle 2-3 more times. Confirm no
+   `MODULE_NOT_FOUND`, no SST file errors, no compaction
+   errors.
+7. Run `git status` — only `next.config.ts` and `package.json`
+   should appear as modified.
+
+**Expected session size:** ~15 minutes of CC work + a short
+QA pass. Deliberately tight — this is infra hygiene, not a
+module session.
+
+#### Session 9T — Release Notes
+
+**What was built:**
+1. Turbopack filesystem-cache kill switch added — `next.config.ts` (added `experimental: { turbopackFileSystemCacheForDev: false }` above existing `images` block).
+2. Dev script restored to plain `next dev` — `package.json` (removed `rm -rf .next &&` prefix).
+
+**What changed from the brief:**
+- Nothing. Two-file scope held exactly.
+
+**What to test:**
+- [x] `next.config.ts` contains `experimental: { turbopackFileSystemCacheForDev: false }` nested inside `NextConfig`, `images` config untouched.
+- [x] `package.json` dev script reads exactly `"dev": "next dev"`.
+- [x] `npm run dev` starts without wiping `.next` — confirmed no `rm` activity in dev output, Ready in ~170ms across restarts.
+- [x] `.next` directory persists across restarts — verified by `ls -d .next` between cycles.
+- [x] Dev-server restart cycle repeated 3 times post-fix — zero `MODULE_NOT_FOUND`, SST file, or compaction errors. (Baseline pre-fix logs confirmed prior compaction spam, so the fix cleared a real active failure mode.)
+- [x] Trip page (`/trip/otnJN9Qu`) loads at 375px, no horizontal overflow, 200 status, 2583px scroll height (all modules stacked).
+- [x] `tsc --noEmit` clean — the `experimental.turbopackFileSystemCacheForDev` flag type-checks on Next 16.2.2.
+- [x] `git status` shows only `next.config.ts` and `package.json` as CC-modified (pre-existing dirty `rally-fix-plan-v1.md` + untracked kickoff/handoff docs are pre-session state).
+
+**Known issues:**
+- Next's boot banner lists `turbopackFileSystemCacheForDev` under "Experiments (use with caution)" with a `⨯` marker — this is Next's normal signal that an experimental flag is set to a non-default value. Not an error. Will go away if/when the flag graduates out of experimental.
+- No other issues observed. BB-5 symptoms (RocksDB compaction / SST file errors) did not reappear in any of the three post-fix restart cycles.
+
+---
+
+#### Session 9T — Actuals (QA'd, Cowork 2026-04-23)
+
+**Status: closed.** Two-file infra change, scope held exactly,
+all ACs verified.
+
+**AC verification summary:**
+
+- **Code-verified by Cowork (diff on disk):**
+  - ✅ `next.config.ts` has `experimental: { turbopackFileSystemCacheForDev: false }` nested in `NextConfig`. Existing `images.remotePatterns` block preserved unchanged.
+  - ✅ `package.json` dev script reads exactly `"dev": "next dev"`. No `rm -rf`. No flag additions. Other scripts (`build`, `start`, `lint`, `test`, `test:watch`) untouched.
+  - ✅ `next` dependency still pinned at `16.2.2`. No unauthorized version bump.
+  - ✅ Diff confined to the two files per the brief's hard constraint.
+
+- **Live-verified by CC (per release notes):**
+  - ✅ `npm run dev` starts without wiping `.next`. Ready in ~170ms.
+  - ✅ `.next` persists across restarts (`ls -d .next` between cycles).
+  - ✅ 3 restart cycles post-fix, zero `MODULE_NOT_FOUND` / SST / compaction errors. Baseline pre-fix logs confirmed prior compaction spam — fix cleared an active failure mode, not a speculative one.
+  - ✅ Trip page (`/trip/otnJN9Qu`) loads at 375px, 200 status, 2583px scroll, all modules stacked.
+  - ✅ `tsc --noEmit` exit 0 — experimental flag type-checks on Next 16.2.2.
+
+**Session summary:** BB-5 replaced with Vercel's documented
+kill switch. Cold-start cost of the band-aid (`rm -rf .next`
+on every dev startup) is gone; corruption surface is gone
+because the corrupting filesystem-cache layer is never
+written. Lowest-risk resolution to the dev-blocker that cost
+30+ minutes of flush cycles in 9K/9L.
+
+**Known issues (documented, deferred):**
+
+1. **Banner noise.** `⨯ Experiments (use with caution):
+   turbopackFileSystemCacheForDev` in dev server boot output.
+   Cosmetic. Expected for any non-default experimental flag.
+   Goes away when the flag graduates or is removed.
+2. **16.2.2 → 16.2.4 LTS bump deferred.** Queued for whenever
+   the next infra touch comes up. No urgency — BB-5 was the
+   only reason to upgrade and it's now fixed at the config
+   layer.
+
+**Ship state:** No migration, no deploy gating. Merge
+whenever. Workflow unblocked locally the moment CC committed
+the change. 9P+9Q+9R+9S+9T stack is a two-file addition on
+top of the 2026-04-23 ship — commit + push at Andrew's
+convenience.
+
+---
+
+### Direction for Session 9U+ (logged 2026-04-23)
+
+Andrew's framing for the next arc — verbatim intent at session
+close:
+
+> The next part of the experience we need to nail is how we
+> open up the platform to get other attendees into the
+> application, build their account, and RSVP to a trip that's
+> in the sell phase. Full end-to-end: invite email → open email
+> → create account → land on account-creation page → land on
+> the actual trip → (RSVP). Right now it's impossible to see
+> what each user type sees in the app.
+
+**Why now.** Rally is currently only testable from the
+organizer's viewpoint. Different user types render the trip
+page differently (organizer / invitee-pre-RSVP / committed /
+holding / out / share-link viewer), and none of those renders
+are verifiable without the invitee flow actually working
+end-to-end.
+
+**This direction subsumes existing roadmap entries:**
+
+- **Session 10 (roadmap):** InviteeShell teaser layer —
+  blur veil, lock overlay, called-up sticker, passwordless
+  signup CTA, unblur reveal into view 2. See §Session 10+
+  roadmap block below.
+- **Session 11 (roadmap):** Invite delivery on publish —
+  `transitionToSell` currently flips the phase but does NOT
+  fire queued invite emails for sketch-captured roster
+  entries (per `/api/invite:129`). Email delivery is the
+  hard prerequisite for everything else in this arc.
+- **9S orphan-merge (shipped):** Already landed. An invitee
+  who signs up with the email we invited them by reconciles
+  into the pre-existing orphan row. Foundation for the
+  account-creation step.
+
+**Open questions for the next scoping conversation (do NOT
+pre-answer before Cowork + Andrew scope together):**
+
+1. **One session or sequenced?** Email delivery is a hard
+   prerequisite for clicking through. Teaser polish and
+   RSVP sticky-bar depth can follow. Unclear whether the
+   right shape is one large "invitee flow ships" session or
+   2-3 sequenced ones (delivery → landing/teaser → RSVP
+   polish).
+2. **MVP path vs. designed experience.** Smallest shippable
+   thing that lets Andrew click through end-to-end as a
+   test invitee (functional but unpolished) vs. the
+   designed teaser/unblur/reveal from the wireframes. The
+   MVP unblocks testing other user types the soonest.
+3. **User-type testing tooling.** Dev affordance for
+   role-switching (view-as), or real-world testing via a
+   test Gmail / secondary browser profile? Tooling is a
+   different kind of session than features — worth deciding
+   explicitly.
+4. **Resend + phone-only invitees.** Resend is email-only.
+   Phone-only invitees currently have no delivery rail.
+   Scope decision: defer phone to later, or solve both in
+   the same arc? (§Session 11 roadmap entry flags this.)
+5. **RSVP depth.** Session 12's sticky-bar depth work
+   (confetti, micro-interactions, per-view state machine)
+   is adjacent. Does 9U's RSVP step use the current sticky
+   bar, or does scope include sticky-bar enhancements?
+
+**Pick up scoping next Cowork session.** Don't pre-scope.
+
+---
+
+**Organizer-finish arc (sessions 9U → 9V → 9W):** Andrew's
+framing 2026-04-23 is to finish the organizer view of the
+sell page entirely before opening the attendee arc. Three
+sessions:
+
+- **9U — Tier 2 visible bug sweep** (brief below).
+- **9V — Tier 3 hygiene sweep, DatePoll excluded** (brief below).
+- **9W — Organizer sticky-bar redesign + edit-on-sell toggle.**
+  Mockup work in flight via Cowork in parallel with 9U/9V
+  execution; brief written after mockup locks.
+
+After 9W ships, the organizer view of the sell page is
+considered done and the attendee arc begins (email delivery →
+account-creation landing → teaser layer → RSVP flow; probably
+3-5 sessions).
+
+---
+
+### Session 9U: "Tier 2 visible bug sweep"
+
+**Status: SCOPED 2026-04-23.** Bug-bash session. Three small,
+user-facing fixes. No module-level refactoring, no new
+features. Sets up the organizer-view finish arc.
+
+**Scope:**
+
+1. **BB-3 — restore `formatMoney` on compact cards.**
+   - `src/components/trip/TransportCard.tsx:56` currently
+     renders `` `$${Math.round(transport.estimated_total)}` ``.
+     Swap for `formatMoney(transport.estimated_total)`.
+     Restore the `formatMoney` import at the top of the file
+     (dropped during 9K rebuild per CC release notes).
+   - `src/components/trip/FlightCard.tsx:29` same pattern:
+     `` `$${Math.round(flight.estimated_price)}` `` →
+     `formatMoney(flight.estimated_price)`. Restore import.
+   - Outcome: both cards render `$3,600` (with thousands
+     separator), matching CostBreakdown on the same page.
+
+2. **Open Item #3 — Headliner `view site` href
+   duplication.** `src/components/trip/Headliner.tsx`
+   composes the CTA `href` by prepending a domain to a
+   stored `headliner_source_url` that may already contain a
+   full URL. Result on Coachella + VEGAS BABY:
+   `href="https://www.coachella.com/https://www.coachella.com/"`.
+   Fix: before prepending, check if the stored URL starts
+   with `http://` or `https://` — if so, use the stored URL
+   directly. If not, prepend as today.
+   - Outcome: hovering `view site` shows a single, clean
+     URL; nav works on both Coachella (sell) + VEGAS BABY
+     (sketch).
+
+3. **Passport stamp `n_nights ?? '?'`.** In
+   `src/lib/copy/surfaces/passport.ts:22` the stamp template
+   literal renders `${n_nights ?? '?'} nights`, producing
+   literal `"? nights"` when trip dates are null. Replace
+   the `'?'` fallback — either omit the `n_nights` segment
+   entirely when null (collapse the middle dot as well), or
+   use a lexicon-backed placeholder like `—`. Pick whichever
+   renders cleaner at 375px. Apply the same null guard to
+   `month` and `year` if the audit reveals similar issues
+   (current fallbacks `'?'` and `'??'` produce `"? '??"`).
+   - Outcome: no literal `?` characters on passport stamps
+     under any null-data combination.
+
+**Hard constraints:**
+
+- DO NOT create new routes.
+- DO NOT modify any file outside `TransportCard.tsx`,
+  `FlightCard.tsx`, `Headliner.tsx`, and
+  `src/lib/copy/surfaces/passport.ts`.
+- DO NOT refactor the `formatMoney` utility or touch other
+  cost-rendering sites.
+- DO NOT re-architect Headliner's URL composition logic
+  beyond the starts-with check. Any scope that feels like
+  a general URL-builder refactor gets logged and escalated.
+- DO NOT extend the passport fix to non-stamp surfaces —
+  scope is just the stamp template literal.
+- DO NOT touch any Tier 3 hygiene item — those are 9V.
+
+**Acceptance criteria:**
+
+- [ ] `TransportCard.tsx` and `FlightCard.tsx` import
+      `formatMoney` (correct import path matching other
+      usages in the codebase) and call it in place of
+      `` `$${Math.round(...)}` ``.
+- [ ] On a seeded trip with `estimated_total = 3600` on a
+      transport card, the rendered string is `$3,600`.
+- [ ] `Headliner.tsx` on a trip where
+      `headliner_source_url` contains `https://` renders a
+      CTA href with exactly one `https://` prefix.
+- [ ] `Headliner.tsx` on a trip where
+      `headliner_source_url` is a bare domain (no scheme)
+      renders correctly prepended as before — no
+      regression on the non-full-URL path.
+- [ ] `/passport` stamp rendering under null `date_start` /
+      `date_end` / `n_nights` shows no literal `?`
+      characters.
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `git status` shows only the 4 target files modified.
+
+**Files to read before editing:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` §Session 9U (this brief),
+  §Bug Backlog §BB-3
+- `src/lib/formatMoney.ts` (or wherever `formatMoney` lives
+  in the codebase — grep to confirm)
+- `src/components/trip/CostBreakdown.tsx` for reference on
+  how `formatMoney` is imported + called elsewhere
+
+**How to QA solo:**
+
+1. `npm run dev` (should start clean post-9T).
+2. Load a trip with a transport line item whose
+   `estimated_total` ≥ 1000. Confirm card renders with
+   comma (`$3,600` not `$3000`).
+3. Load Coachella (sell) and VEGAS BABY (sketch) — hover
+   or long-press the headliner `view site` CTA. Confirm
+   href has one `https://` prefix and navigates.
+4. Load `/passport`. If current data has null dates on any
+   stamp, confirm no `?` renders. If all current stamps
+   have full data, manually null a field via DB or a
+   seeded test trip and re-verify.
+5. `git status` — only 4 files modified.
+
+#### Session 9U — Release Notes
+
+**What was built:**
+1. BB-3 cost formatting restored — `src/components/trip/TransportCard.tsx` (added `import { formatMoney } from '@/lib/money'`, swapped `` `$${Math.round(transport.estimated_total)}` `` for `formatMoney(transport.estimated_total)`; kept the existing `!= null` gate so null still hides the cost segment rather than rendering `formatMoney`'s `—` fallback).
+2. BB-3 cost formatting restored — `src/components/trip/FlightCard.tsx` (same pattern: import + swap, null-gate preserved).
+3. Headliner `view site` double-URL guard — `src/components/trip/builder/Headliner.tsx` (added `stripDuplicateUrl` helper and applied to the CTA `href`; leaves `domainOf` untouched, fixes existing + future doubled rows at render time).
+4. Passport stamp `?` fallbacks removed — `src/lib/copy/surfaces/passport.ts` (`stampMeta` now builds segments conditionally and joins with ` · `; null `month`/`year` drops the date bit, null `n_nights` drops the nights bit, all-null yields an empty string — no literal `?` under any combination).
+
+**What changed from the brief:**
+- Headliner fix implementation differed in mechanism from the brief but matches the intent. The brief framed it as "check if stored URL starts with `http[s]://` before prepending a domain." Pre-flight code read showed there is no domain-prepending in Headliner.tsx (or anywhere reachable from it) — `headliner.linkUrl` is rendered directly as `href`. The doubled URL is stored in the DB row itself, likely from a paste-twice input that passed the `/^https?:\/\/.+/` validator in `update-trip-sketch.ts`. Escalated pre-edit, Andrew picked Option (a): defensive display-layer normalization in `Headliner.tsx` that strips to the first full URL when an embedded second `http(s)://` is detected. Single file, stays in the declared scope, cures existing + future rows.
+- Passport fix went with the "omit-when-null" approach the brief listed as one of two options (over the `—` placeholder) — cleaner at 375px because all-null collapses to an empty stamp-meta line rather than `— '—— · — nights`.
+- No other deviations.
+
+**What to test:**
+- [x] `TransportCard.tsx` and `FlightCard.tsx` import `formatMoney` from `@/lib/money` (same path as `CostBreakdown.tsx`) and call it in place of `` `$${Math.round(...)}` ``.
+- [x] Live render: `/trip/sjtIcYZB` Saint Barths Plane transport card renders `$3,000` (was `$3000` pre-fix). Other seeded trips (`/trip/zVf9nvgG`, `/trip/9seF50oY`) show `$400`, `$850`, `$500` with correct formatting — values <1000 unchanged, ≥1000 get the comma.
+- [x] Headliner CTA on Coachella (`/trip/sjtIcYZB`, sell) renders `href="https://www.coachella.com/"` (single scheme) — confirmed in DOM via `preview_eval`. Pre-fix baseline was `https://www.coachella.com/https://www.coachella.com/`.
+- [x] Non-doubled Headliner URLs pass through unchanged — `stripDuplicateUrl` returns input verbatim when no embedded second scheme is found (helper checks `url.slice(1).search(/https?:\/\//)` and short-circuits on `-1`).
+- [x] `/passport` empty-state renders without any `?` (`preview_eval` confirmed zero `?` in body text). AC "null `date_start`/`date_end`/`n_nights` shows no literal `?`" is logic-verified for all 8 null permutations of (month, year, n_nights) but not render-verified because current user has zero stamps — see Known issues.
+- [x] `npx tsc --noEmit` exits 0.
+- [x] `git status` scope: only `TransportCard.tsx`, `FlightCard.tsx`, `Headliner.tsx`, `passport.ts` modified this session. (`next.config.ts`/`package.json` remain dirty from the uncommitted 9T changes — pre-existing across-session state, not 9U.)
+
+**Known issues:**
+- **Passport stamp render not visually verified.** The authenticated test user has no stamps, so the fix can't be exercised live without seeded data. The fix is pure in its inputs and the empty-string return on full-null is the cleanest possible outcome; logic covers all permutations. If you want a visual confirmation, seed one stamp row with null `n_nights` via a DB update and re-check `/passport`.
+- **Headliner double-URL is a data-layer bug that display-side normalization only masks.** The DB still holds `https://www.coachella.com/https://www.coachella.com/` on that row, and the server-action validator (`update-trip-sketch.ts:95`) uses `/^https?:\/\/.+/` which passes the doubled string. Follow-up options: tighten the validator to reject embedded second schemes, run a one-time cleanup SQL against `trips.headliner_link_url`, and/or normalize on the input side in `HeadlinerDrawerForm.tsx`. Filed rather than fixed — outside 9U's 4-file scope.
+- **Duplicate card code shape.** TransportCard and FlightCard share the compact-card JSX and now share a near-identical null-gated `formatMoney` block. The in-file header comment already documents the intentional duplication until the flights→transport data-model collapse lands; left as-is.
+- **Other unrelated stray `?` fallbacks in `passport.ts`** — `estLine` (line 10-11, `year ?? '?'`) and `rodCount` (line 29, `n ?? '?'`) use the same pattern as the pre-fix `stampMeta`. They're not stamps (non-stamp surfaces) and the brief explicitly excluded them from scope. Logging here — easy 9V+ follow-up if the pattern shows up visibly.
+
+#### Session 9U — Actuals (QA'd, Cowork 2026-04-23)
+
+**Status: closed.** Four small user-facing bug fixes, scope
+held exactly, all ACs verified from disk.
+
+**AC verification summary:**
+
+- **Code-verified by Cowork:**
+  - ✅ `TransportCard.tsx:19` imports `formatMoney` from
+    `@/lib/money` (matches CostBreakdown's import path).
+    `:57` renders `formatMoney(transport.estimated_total)`.
+  - ✅ `FlightCard.tsx:19` imports `formatMoney`. `:30`
+    renders `formatMoney(flight.estimated_price)`. Both
+    files retain the `!= null` null-gate so null data
+    hides the cost segment rather than rendering
+    `formatMoney`'s `—` fallback.
+  - ✅ `Headliner.tsx:50` defines `stripDuplicateUrl`
+    helper. `:123` applies it to the CTA `href`.
+    `:81` `domainOf` call is untouched (unrelated code
+    path).
+  - ✅ `passport.ts:21` `stampMeta` builds segments
+    conditionally (monthYearBit at :24, nightsBit at
+    :25 with `n_nights != null` guard) and joins with
+    ` · `. Zero `n_nights ?? '?'` remaining in stamp
+    scope.
+  - ✅ `git diff` scope confined to the 4 files.
+
+- **Live-verified by CC (per release notes):**
+  - ✅ `/trip/sjtIcYZB` Saint Barths Plane transport
+    card renders `$3,000` with comma (was `$3000`).
+  - ✅ Values <1000 (`$400`, `$500`, `$850`) unchanged.
+  - ✅ Coachella Headliner CTA renders
+    `href="https://www.coachella.com/"` (single scheme);
+    pre-fix baseline was the doubled URL.
+  - ✅ Non-doubled URLs pass through unchanged.
+  - ✅ `/passport` empty-state has zero literal `?`
+    characters in rendered body text.
+  - ✅ `npx tsc --noEmit` exits 0.
+
+**Scope deviation — captured + approved:**
+Brief specified "check if stored URL starts with
+`http[s]://` before prepending a domain" for the Headliner
+fix. CC's pre-flight read found no domain-prepending site —
+the doubled URL is already in the DB row (a legacy paste-
+twice issue that passed the existing `/^https?:\/\/.+/`
+validator). CC escalated pre-edit; Andrew picked the
+display-layer normalization (`stripDuplicateUrl`). Fix
+cures existing + future doubled rows at render time. Scope
+stayed at 4 files.
+
+**Known issues (documented, deferred):**
+
+1. **Headliner double-URL is a data-layer bug masked, not
+   fixed.** DB still holds the doubled URL. Follow-up
+   options (outside 9U): tighten `update-trip-sketch.ts:95`
+   validator to reject embedded second schemes, run a
+   one-time SQL cleanup on `trips.headliner_link_url`,
+   and/or input-side normalization in
+   `HeadlinerDrawerForm.tsx`. Not urgent — display fix
+   handles the visible bug.
+2. **Passport stamp not render-verified on null data.**
+   Test user has zero stamps. All 8 null permutations are
+   logic-verified; empty-string return on full-null is
+   cleanest. If visual confirmation wanted, seed a stamp
+   row with null `n_nights`.
+3. **Stray `?` fallbacks on non-stamp passport surfaces
+   (`estLine`, `rodCount`).** Same pre-fix pattern,
+   excluded from 9U scope deliberately. Log for a future
+   lexicon/fallback pass.
+
+**Ship state:** No migration, no deploy gating. Merges
+with the 9T/9V stack.
+
+---
+
+### Session 9V: "Tier 3 hygiene sweep (DatePoll excluded)"
+
+**Status: SCOPED 2026-04-23.** Hygiene session. Five
+small items across structural cleanup and lexicon. Goal is
+zero behavior change — internal tidiness only. Invisible
+to users.
+
+**DatePoll hygiene is explicitly OUT of this session.** The
+140-line component with ~20 cleanup items is big enough to
+be its own session (tentatively 9X or later). Bundling
+DatePoll into 9V would break the session-shippable /
+QA-able bar.
+
+**Scope:**
+
+1. **Delete 9Q orphan buzz route.**
+   `src/app/trip/[slug]/buzz/page.tsx` violates the three-
+   screen rule. Functionality moved inline to the trip page
+   in 9Q. Delete the file. If the `buzz/` directory is now
+   empty, delete the directory too.
+
+2. **Fix `members as any` cast.**
+   `src/app/trip/[slug]/page.tsx:485` reads
+   `members={members as any}` — papered over since 9M.
+   Inspect `CrewSection`'s member prop type and the actual
+   shape of `members` at the call site; align one side to
+   the other and remove the cast. If the types genuinely
+   can't converge without data-layer changes, STOP and
+   escalate — do not deepen the cast or widen the prop type
+   as a hack.
+
+3. **Dead CSS sweep.** Audit `src/app/globals.css` for:
+   - `.chassis .crew-inline`
+   - `.chassis .crew-invite-btn`
+   - `.chassis .buzz-*` (any selector starting with
+     `.chassis .buzz`)
+   - Remove any that are present and have no remaining
+     consumers anywhere in `src/`. If a selector has a
+     current consumer, log and leave — don't chase
+     component refactors in a CSS sweep.
+
+4. **Deprecated lexicon sweep.** In
+   `src/lib/copy/surfaces/trip-page-shared.ts` remove:
+   - `'costBreakdown.sharedBadge'` (line ~88)
+   - `'costBreakdown.bookYoursBadge'` (line ~89)
+   - The accompanying deprecation comment (line ~86)
+   - Confirm zero consumers via grep across `src/` before
+     deletion. Replacements (`footer.shared` /
+     `footer.yours`) shipped in 9O.
+
+5. **9O eyebrow lexicon cross-ref.** The strings `firming
+   up` and `looking solid` shipped in 9O under lexicon keys
+   `costBreakdown.eyebrow.firmingUp` and
+   `costBreakdown.eyebrow.settled` in
+   `src/lib/copy/surfaces/trip-page-shared.ts`. Cross-check
+   these against `rally-microcopy-lexicon-v0.md`. If
+   present, no action. If missing, add them to the lexicon
+   under the appropriate surface section — do NOT change
+   the strings themselves.
+
+**Hard constraints:**
+
+- DO NOT create new routes.
+- DO NOT touch `DatePoll.tsx` — deferred to own session.
+- DO NOT extend the dead-CSS sweep beyond the three class
+  families listed. Other dead CSS is out of scope.
+- DO NOT rename or refactor lexicon keys besides the two
+  deprecated ones. Adding to the lexicon markdown is fine;
+  touching `lib/copy/surfaces/*` beyond the two deprecated
+  keys is not.
+- DO NOT modify `CrewSection.tsx` props unless that's the
+  cleanest way to remove the cast; if widening types on
+  the consumer side is cleaner than narrowing data at the
+  call site, escalate for a decision.
+- DO NOT touch any Tier 2 item from 9U.
+
+**Acceptance criteria:**
+
+- [ ] `src/app/trip/[slug]/buzz/page.tsx` no longer exists;
+      `buzz/` directory gone if empty.
+- [ ] `src/app/trip/[slug]/page.tsx` has zero `as any` casts
+      on the `members` prop (grep-verifiable).
+- [ ] `grep -n "crew-inline\|crew-invite-btn\|\\.chassis \\.buzz" src/app/globals.css`
+      returns zero lines (or only lines with an active
+      consumer still referencing them — log + leave if so).
+- [ ] `grep -rn "costBreakdown.sharedBadge\|costBreakdown.bookYoursBadge" src`
+      returns zero hits.
+- [ ] Lexicon markdown either already contains the two 9O
+      eyebrow strings or CC has added them.
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `npm run build` succeeds (catches any CSS consumer
+      missed by the sweep).
+- [ ] Trip page regression spot-check at 375px: headliner,
+      lodging, getting-here, transport, everything-else,
+      cost summary, crew, buzz, aux — all render with no
+      visual regressions vs. pre-session.
+
+**Files likely touched:**
+
+- `src/app/trip/[slug]/buzz/page.tsx` (deleted)
+- `src/app/trip/[slug]/page.tsx` (cast removal)
+- `src/components/trip/CrewSection.tsx` (possible prop
+  type alignment)
+- `src/app/globals.css` (dead class removal)
+- `src/lib/copy/surfaces/trip-page-shared.ts` (deprecated
+  key removal)
+- `rally-microcopy-lexicon-v0.md` (possible eyebrow add)
+
+**How to QA solo:**
+
+1. Pre-flight: grep for every selector and lexicon key in
+   scope, record baseline counts. Read CrewSection's
+   current prop type + the page.tsx:485 call site.
+2. Execute each scope item one at a time. After each,
+   re-grep to confirm.
+3. `npx tsc --noEmit` after each type-touching change.
+4. `npm run build` as a terminal check — catches any CSS
+   consumer missed by the sweep.
+5. `npm run dev`, load a trip page at 375px, scroll top to
+   bottom. Spot-check each module against pre-session
+   rendering. No visual regressions expected (behavior is
+   unchanged).
+6. `git status` — confirm scope held.
+
+#### Session 9V — Release Notes
+
+**What was built:**
+1. 9Q orphan buzz route deleted — `src/app/trip/[slug]/buzz/page.tsx` removed (was an 11-line redirect stub to the inline buzz section). Empty `buzz/` directory removed. Build manifest confirms no `/trip/[slug]/buzz` route.
+2. `members as any` cast removed — `src/app/trip/[slug]/page.tsx:485` now reads `members={members}`. Types already aligned: `TripWithDetails.members` is `(TripMember & { user: User })[]` = CrewSection's `MemberRow[]`. Cast was redundant. `tsc --noEmit` clean.
+3. Dead CSS swept — `src/app/globals.css` removed `.chassis .buzz-link` (incl. `:hover`), `.chassis .buzz-surface`, `.chassis .buzz-back` (incl. `:hover`), `.chassis .buzz-title`, and `.chassis .crew-inline`. Total: 5 dead selectors (~45 lines) removed. Verified zero consumers in `src/` before deletion.
+4. Deprecated lexicon keys removed — `src/lib/copy/surfaces/trip-page-shared.ts` dropped `costBreakdown.sharedBadge`, `costBreakdown.bookYoursBadge`, and the 3-line deprecation comment above them. Replacements (`footer.shared` / `footer.yours`) already shipped in 9O.
+5. 9O eyebrow strings added to lexicon — `rally-microcopy-lexicon-v0.md` gained a new §5.30 "Cost summary (Session 9O)" section with `costBreakdown.eyebrow.firmingUp` ("firming up") and `costBreakdown.eyebrow.settled` ("looking solid"). Strings were not previously documented. Placement follows the module-per-section precedent (§5.27 headliner, §5.28 activities, §5.29 transportation).
+
+**What changed from the brief:**
+- **CSS sweep narrower than the three "families" suggested.** `.chassis .crew-invite-btn` has a live consumer (`CrewInviteButton.tsx:27`) → logged + left per brief's "log and leave" rule. Within `.chassis .buzz-*`, only 4 selectors were dead (buzz-link/surface/back/title — all tied to the deleted route). 26 other `.chassis .buzz-*` selectors are consumed by `BuzzSection.tsx` (the inline activity feed) → left in place.
+- **`members as any` removal was a 1-line fix** — `CrewSection` props and `TripWithDetails.members` already match. No escalation needed; no CrewSection changes required.
+- **Lexicon placement not ambiguous.** The file's §5.N module-per-section pattern (§5.27–5.29 for recent sessions) made §5.30 for 9O's cost-summary strings the natural slot. No escalation.
+- No deviations on scope items 1, 4.
+
+**What to test:**
+- [x] `src/app/trip/[slug]/buzz/page.tsx` no longer exists; `buzz/` dir removed (`ls` returns "No such file or directory").
+- [x] `grep -n "members as any" src/app/trip/[slug]/page.tsx` returns zero hits.
+- [x] `grep -n "crew-inline|.chassis .buzz-link|.chassis .buzz-surface|.chassis .buzz-back|.chassis .buzz-title\b" src/app/globals.css` returns zero hits. `.chassis .crew-invite-btn` intact (live consumer). `.chassis .buzz-inline|subtitle|feed|event|post|bubble|compose|empty|reactions|rx*|day-divider|dd-label` etc. all intact.
+- [x] `grep -rn "costBreakdown.sharedBadge|costBreakdown.bookYoursBadge" src` returns zero hits.
+- [x] Lexicon §5.30 present with both eyebrow keys; strings verbatim match `trip-page-shared.ts:93-94`.
+- [x] `npx tsc --noEmit` exits 0.
+- [x] `npm run build` succeeds — compiled in 1760ms, 17 static pages generated, no `/trip/[slug]/buzz` route in manifest.
+- [x] Trip page `/trip/sjtIcYZB` at 375px: headliner, lodging (3 cards), transport, everything-else, cost-breakdown, crew, aux sections all render. No horizontal overflow. No dead `buzz-link`/`buzz-back`/`buzz-title`/`buzz-surface` nodes in DOM.
+
+**Known issues:**
+- **BuzzSection rendering not exercised in QA.** None of the 6 sampled trips rendered the inline buzz module in my fetch scan (likely phase-gated or data-gated). The CSS change only removed classes unique to the deleted route, so the remaining `.chassis .buzz-*` rules stay intact and BuzzSection's styling is untouched by this sweep. If a future trip does render buzz and styling is off, the likely cause would be elsewhere (not this change).
+- **Lexicon drift is broader than 9O's eyebrows.** Only the two 9O strings were added per brief scope. Other `costBreakdown.*` keys in `trip-page-shared.ts` (line/footer/etc.) also aren't in the lexicon markdown. Logged — not fixed this session. Would fit a dedicated lexicon-reconciliation pass.
+- **Minor comment drift.** The header comment `/* ───── buzz subsurface (§5.26) ───── */` in globals.css still reads "subsurface" even though the only consumer is now the inline BuzzSection. Editing it would be a copy/comment change beyond 9V scope.
+- **Stray `/create`, `/passport`, `/trip/[slug]/crew` routes** in the build manifest. Pre-existing drift from three-screen rule; out of 9V scope and already tracked elsewhere in the plan.
+
+#### Session 9V — Actuals (QA'd, Cowork 2026-04-23)
+
+**Status: closed.** Five hygiene items, zero behavior
+change, all ACs verified from disk.
+
+**AC verification summary:**
+
+- **Code-verified by Cowork:**
+  - ✅ `src/app/trip/[slug]/buzz/` directory no longer
+    exists (`ls` returns "No such file or directory").
+  - ✅ `src/app/trip/[slug]/page.tsx` — zero `members as
+    any` casts remaining. Both `members={members}`
+    sites (page.tsx:196 + :485) are plain passes. Types
+    align with CrewSection's `MemberRow[]` per the
+    release notes — no prop widening needed.
+  - ✅ Dead CSS swept from `src/app/globals.css`:
+    `.chassis .crew-inline`, `.chassis .buzz-link`,
+    `.chassis .buzz-surface`, `.chassis .buzz-back`,
+    `.chassis .buzz-title` — all gone from source.
+    Grep across `src/` returns zero matches for any.
+  - ✅ Deprecated lexicon keys removed from
+    `src/lib/copy/surfaces/trip-page-shared.ts` —
+    `costBreakdown.sharedBadge` and
+    `costBreakdown.bookYoursBadge` no longer present.
+    Zero consumers remain.
+  - ✅ `rally-microcopy-lexicon-v0.md:1030-1031` contains
+    both 9O eyebrow keys:
+    `costBreakdown.eyebrow.firmingUp` = "firming up",
+    `costBreakdown.eyebrow.settled` = "looking solid".
+    Strings verbatim match `trip-page-shared.ts`.
+
+- **Live-verified by CC (per release notes):**
+  - ✅ `npx tsc --noEmit` exits 0 (type alignment didn't
+    need CrewSection changes).
+  - ✅ `npm run build` succeeds — compiled in 1760ms,
+    17 static pages, no `/trip/[slug]/buzz` route in
+    manifest.
+  - ✅ Trip page `/trip/sjtIcYZB` at 375px renders
+    cleanly — no regressions across headliner, lodging,
+    transport, everything-else, cost-breakdown, crew,
+    aux. No dead `buzz-link`/`buzz-back`/`buzz-title`/
+    `buzz-surface` nodes in DOM.
+
+**Scope discipline held:**
+- `.chassis .crew-invite-btn` has a live consumer
+  (`CrewInviteButton.tsx:27`) → logged + left per brief's
+  "log and leave" rule. Correct discipline.
+- `.chassis .buzz-*` sweep narrowed to the 4 selectors
+  tied to the deleted route. 26 other `.chassis .buzz-*`
+  selectors consumed by `BuzzSection.tsx` (inline activity
+  feed) → left intact. Correct discipline.
+- DatePoll not touched per brief. Correct.
+
+**Known issues (documented, deferred):**
+
+1. **BuzzSection rendering not live-exercised.** None of
+   the 6 sampled trips rendered the inline buzz module
+   in CC's fetch scan (phase- or data-gated). The CSS
+   sweep only removed classes tied to the deleted route,
+   so BuzzSection styling is untouched. If a future trip
+   reveals styling regressions, root cause is elsewhere
+   (not this sweep).
+2. **Lexicon drift broader than 9O's eyebrows.** Other
+   `costBreakdown.*` keys (line/footer/etc.) aren't in
+   the lexicon markdown. Out of 9V scope. Candidate for
+   a dedicated lexicon-reconciliation pass.
+3. **`/* buzz subsurface (§5.26) */` comment in
+   globals.css still reads "subsurface"** though the
+   only consumer is now inline. Comment-only fix,
+   trivial, deferred.
+4. **Stray `/create`, `/passport`, `/trip/[slug]/crew`
+   routes** in build manifest — pre-existing three-screen-
+   rule drift, tracked elsewhere.
+
+**Ship state:** No migration, no deploy gating. Merges
+with the 9T/9U stack.
+
+---
+
+### Session 9W: "Organizer edit-on-sell + sticky-bar redesign"
+
+**Status: SCOPED 2026-04-23.** Final session of the organizer-
+finish arc. Adds the organizer's ability to edit a published
+trip by toggling the page into sketch-render mode, plus the
+redesigned sell-page organizer sticky bar. Trip phase stays
+`'sell'` throughout — no back-transition, no republish, no
+invite-email re-fire.
+
+**Reference artifacts (read before editing):**
+
+- `rally-9w-organizer-sticky-mockup.html` — v2 locked
+  mockup. Shows sell-page bar (layout B) and edit-mode bar
+  (3-button). Use as the source of truth for visual +
+  interaction spec.
+- `rally-fix-plan-v1.md` §Organizer edit-on-sell (design
+  direction logged 2026-04-22; most recent refinement
+  2026-04-23).
+
+**Context summary.** Current organizer sticky bar is a static
+`"★ you started this"` label — no interactivity, placeholder
+copy. Sell-phase organizers have no sanctioned way to edit
+their trip post-publish (back-transitioning to sketch would
+re-fire invite emails once Session 11 ships). This session
+resolves both problems with a single design: the sell-page
+organizer bar gets an edit CTA, which flips a client-side
+render toggle that renders `<SketchTripShell>` against
+sell-phase trip data. All sketch editing UI (drawers, forms,
+add buttons) is reused wholesale. Saves write through the
+existing sketch actions with their phase guards relaxed to
+allow organizer-auth writes on sell trips.
+
+**Pre-session audit complete** (Cowork 2026-04-23). Key
+findings that narrow the expected surface:
+
+- Action-layer change is tiny: ONE file, TWO lines
+  (`update-trip-sketch.ts:60` guard + line 73 CAS). Most
+  sketch-write actions (`updateHeadliner`, `setActivitiesEstimate`,
+  `sketch-modules.ts`, `lodging.ts`, `extras.ts`, `getting-here.ts`)
+  are NOT phase-gated already. `delete-trip.ts` and
+  `transition-to-sell.ts` stay guarded.
+- Sketch components (`SketchHeader`, `SketchModules`,
+  `SketchInviteList`, builder forms) contain zero
+  `phase === 'sketch'` checks. Render fine against sell data.
+- `SketchTripShell` already accepts a `phase` prop; currently
+  hardcodes `phase="sketch"` and `isLive={false}` on
+  PostcardHero, both of which STAY (we want the sketch-style
+  hero when editing).
+- Three lexicon strings lie during edit-on-sell and must
+  be suppressed (not replaced): `builderState.liveRow`
+  (`'draft · only you can see this'`), `builderState.sticker`
+  (`'new rally ✨'`). The `eyebrow` string is being replaced
+  anyway as part of scope item 1 below.
+
+**Scope:**
+
+1. **Update sell-page organizer sticky bar (layout B).**
+   Modify `StickyRsvpBarChassis.tsx`'s `isOrganizer` branch:
+   - Identity label on left, edit CTA pill on right,
+     single-line tight layout at the bar's current height.
+   - Identity copy: `★ you're the organizer of this trip`
+     via new `builderState.eyebrow` value.
+   - Edit CTA: yellow accent pill with `--accent` bg +
+     `--ink` text + 2px `--ink` border. Copy from new
+     lexicon key `builderState.editCta` (value: `"edit"`).
+   - Tap edit → navigate to `?edit=1` (appended to current
+     URL). Use `next/navigation`'s `useRouter().push` with
+     current pathname + `?edit=1`.
+   - CSS for layout B: update `.chassis .sticky--organizer`
+     in `globals.css` from `justify-content: center` to a
+     CSS grid with `grid-template-columns: 1fr auto`. Add
+     new class(es) for the edit pill.
+
+2. **Introduce client-side edit-mode flag via URL query param.**
+   - In `src/app/trip/[slug]/page.tsx` (server component),
+     read `searchParams.edit === '1'`.
+   - Compute `isEditMode = editParam && currentUserId ===
+     trip.organizer_id`. Non-organizers with the param see
+     the normal sell view; no new authorization surface.
+   - Condition at line 183: change
+     `if (trip.phase === 'sketch')` to
+     `if (trip.phase === 'sketch' || isEditMode)`.
+   - Pass a new `mode: 'sketch' | 'edit-on-sell'` prop to
+     `<SketchTripShell>`: `mode={trip.phase === 'sketch'
+     ? 'sketch' : 'edit-on-sell'}`.
+
+3. **Wire `SketchTripShell` mode prop.**
+   - Accept `mode: 'sketch' | 'edit-on-sell'` prop. Default
+     to `'sketch'` for backward compatibility with existing
+     sketch-phase render.
+   - When `mode === 'edit-on-sell'`:
+     - Pass `null` (or omit) for `liveRowText` and
+       `stickerText` in `sketchOverrides` so the sketch
+       "draft" signifiers don't render. PostcardHero must
+       handle `null`/missing values gracefully — audit
+       there if needed.
+     - Keep `phase="sketch"` and `isLive={false}` to
+       PostcardHero (intentional — we want the sketch
+       hero look, not sell chrome).
+     - Pass `mode="edit-on-sell"` through to
+       `BuilderStickyBar`.
+     - Replace the `onPublish` handler with an `onDone`
+       handler that calls `router.push(window.location.pathname)`
+       (clears the `?edit=1` query param).
+   - When `mode === 'sketch'`: no behavior change. All
+     existing sketch rendering stays as-is.
+
+4. **Wire `BuilderStickyBar` mode prop.**
+   - Accept `mode: 'sketch' | 'edit-on-sell'` prop.
+     Default to `'sketch'`.
+   - When `mode === 'edit-on-sell'`:
+     - Hide the save-draft button (autosave-only; "draft"
+       is sketch-specific nomenclature).
+     - Replace the publish button with a "done editing"
+       pill using new lexicon key `builderState.editModeDone`
+       (value: `"done editing"`). Wire to `onDone` prop
+       instead of `onPublish`. The button is always
+       tappable (no `ready` gate — this isn't a publish
+       action).
+     - Apply the dark-mode bar treatment via a new
+       `sticky.edit-mode` CSS class. See mockup for colors.
+     - Render an absolutely positioned hint banner above
+       the bar with `builderState.editModeHint` (value:
+       `"you're editing · changes save automatically"`).
+   - When `mode === 'sketch'`: no behavior change. All
+     four buttons render as today.
+
+5. **Relax the single phase guard on trip-level updates.**
+   - `src/app/actions/update-trip-sketch.ts:60` — change
+     `if (trip.phase !== 'sketch') return { ok: false,
+     error: 'not-sketch-phase' };` to ALSO allow `'sell'`.
+     Recommended: `if (trip.phase !== 'sketch' && trip.phase
+     !== 'sell') return { ok: false, error: 'wrong-phase' };`
+     Matches the pattern already in `commit-trip-theme.ts:41`.
+   - `src/app/actions/update-trip-sketch.ts:73` — remove the
+     `.eq('phase', 'sketch')` belt-and-suspenders. Auth
+     (organizer_id) still gates writes.
+   - Do NOT touch `delete-trip.ts`, `transition-to-sell.ts`,
+     or any other action. Audit complete.
+
+6. **Lexicon updates.** In
+   `src/lib/copy/surfaces/builder-state.ts`:
+   - Update `'eyebrow'`: `"you started this"` →
+     `"you're the organizer of this trip"`.
+   - Add `'editCta'`: `"edit"`.
+   - Add `'editModeHint'`: `"you're editing · changes save automatically"`.
+   - Add `'editModeDone'`: `"done editing"`.
+   - Cross-reference all four to
+     `rally-microcopy-lexicon-v0.md` — add entries under
+     the appropriate surface section. No string changes
+     in the lexicon md beyond adding these four.
+
+**Hard constraints:**
+
+- DO NOT create new routes. `/trip/[slug]?edit=1` is the
+  same route with a query param — not a new route.
+- DO NOT add URL hash, localStorage, or any persistence
+  mechanism other than the query param specified.
+- DO NOT modify the attendee render path (the
+  non-`isOrganizer` branch of `StickyRsvpBarChassis`).
+- DO NOT touch `delete-trip.ts` or `transition-to-sell.ts`.
+- DO NOT add an "editing indicator" surface for invitees
+  (accepted tradeoff — invitees may see in-flight edits,
+  same trade as sketch autosave).
+- DO NOT rename, refactor, or restructure `SketchTripShell`,
+  `BuilderStickyBar`, `StickyRsvpBarChassis` beyond the
+  mode prop and conditional wiring described.
+- DO NOT change any sketch-specific UI or copy beyond the
+  four lexicon keys in scope item 6.
+- DO NOT add a `phase === 'sell'` branch to sketch components
+  (e.g., SketchHeader, SketchModules). They already render
+  correctly against sell data per the audit.
+- DO NOT touch `commit-trip-theme.ts` (already allows sell).
+- DO NOT add a webpack fallback or touch Next config.
+- DO NOT fix any unrelated issues noticed along the way.
+  Log them, move on.
+
+**Acceptance criteria:**
+
+*Sell-page organizer bar:*
+- [ ] Organizer viewing a sell-phase trip sees sticky bar
+      with `★ you're the organizer of this trip` on the
+      left + yellow `edit` pill on the right. Single-line
+      layout. Bar height approximately matches pre-session.
+- [ ] Non-organizer viewing the same trip sees the
+      unchanged 3-pill RSVP bar (in / holding / out).
+- [ ] Tapping edit navigates to `?edit=1` on the same
+      route (verify via browser URL bar).
+
+*Edit-mode render:*
+- [ ] With `?edit=1` + organizer auth: page renders the
+      SketchTripShell (same UI as a sketch-phase trip).
+- [ ] With `?edit=1` + NON-organizer auth or no auth:
+      page renders the normal sell view. No edit UI
+      leakage.
+- [ ] Hero does NOT show `draft · only you can see this`
+      liveRow text.
+- [ ] Hero does NOT show `new rally ✨` sticker.
+- [ ] Hero DOES show sketch-style marquee, sketch header,
+      sketch layout (everything else is unchanged from
+      sketch rendering).
+- [ ] Sketch sticky bar shows exactly 3 buttons: back
+      (←), theme (🎨), done editing. No save-draft button.
+- [ ] Done editing button is always tappable (not gated
+      on `ready`).
+- [ ] Small hint banner above the bar reads
+      `you're editing · changes save automatically`.
+- [ ] Bar background uses the dark edit-mode treatment
+      per mockup.
+
+*Edit mechanics:*
+- [ ] Editing the trip name persists. Reload → name is
+      saved.
+- [ ] Editing the date range persists. No `not-sketch-phase`
+      errors in the network tab.
+- [ ] Editing a lodging card via its drawer persists.
+- [ ] Editing the headliner via its drawer persists.
+- [ ] Editing transport / activities / provisions /
+      everything-else estimates persists.
+- [ ] Theme edits via the theme picker persist
+      (already supported via `commit-trip-theme`; sanity-
+      check for regressions).
+
+*Exit + persistence:*
+- [ ] Tapping done editing clears `?edit=1` and returns
+      to the sell view. Trip phase in DB is still `'sell'`.
+- [ ] Tapping back (←) during edit mode navigates to the
+      dashboard (same as sketch).
+- [ ] Refresh during edit mode: page reloads WITH
+      `?edit=1` still in URL → still in edit mode. (URL
+      survives refresh is the intended behavior; this is
+      the persistence contract.)
+- [ ] Navigating away and coming back to `/trip/[slug]`
+      (without `?edit=1`) shows normal sell view.
+
+*Regression gates:*
+- [ ] Sketch-phase trips (actual `phase === 'sketch'` in
+      DB) render with all four BuilderStickyBar buttons
+      (back, theme, save-draft, publish) and full sketch
+      hero treatment (liveRow + sticker visible).
+- [ ] Invitee view of a sell-phase trip (incognito with
+      an RSVP-eligible link) is unaffected.
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `npm run build` succeeds.
+- [ ] `git status` shows the expected file list (see
+      below).
+
+**Files expected to change:**
+
+- `src/components/trip/StickyRsvpBarChassis.tsx`
+- `src/components/trip/builder/SketchTripShell.tsx`
+- `src/components/trip/builder/BuilderStickyBar.tsx`
+- `src/app/trip/[slug]/page.tsx`
+- `src/app/actions/update-trip-sketch.ts`
+- `src/app/globals.css`
+- `src/lib/copy/surfaces/builder-state.ts`
+- `rally-microcopy-lexicon-v0.md`
+
+**Files to read before editing:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` §Session 9W (this brief)
+- `rally-9w-organizer-sticky-mockup.html` (visual spec)
+- `src/components/trip/StickyRsvpBarChassis.tsx` (current
+  organizer branch shape)
+- `src/components/trip/builder/SketchTripShell.tsx` (to
+  understand the `sketchOverrides` wiring and the publish
+  handler at line 285)
+- `src/components/trip/builder/BuilderStickyBar.tsx` (to
+  understand the current 4-button layout)
+- `src/components/trip/PostcardHero.tsx` (to confirm
+  `liveRowText` / `stickerText` can be omitted/null
+  without breaking)
+
+**How to QA solo:**
+
+1. From `~/Desktop/claude/rally`: start dev server
+   (`npm run dev`).
+2. Sign in as the organizer. Confirm you're on a
+   sell-phase trip. Verify the new organizer bar:
+   identity left + edit pill right.
+3. Tap edit. Confirm URL becomes `?edit=1` and the page
+   re-renders as sketch. Verify hero has no liveRow / no
+   sticker. Verify sticky bar has 3 buttons + hint banner.
+4. Edit trip name. Wait for autosave. Refresh page (still
+   with `?edit=1`). Confirm name persisted.
+5. Open lodging drawer. Edit a card. Save. Confirm
+   persistence.
+6. Tap done editing. Confirm URL clears to `/trip/[slug]`
+   and sell view returns. Query the DB to confirm
+   `phase` is still `'sell'`.
+7. Open an incognito window. Load the trip via its
+   share link. Verify the invitee view is unchanged.
+8. Run `npx tsc --noEmit` and `npm run build`. Both
+   should exit clean.
+9. `git status` — confirm file list matches "Files
+   expected to change" above (plus the lexicon md).
+
+**Escalate before coding if:**
+
+- `PostcardHero` doesn't gracefully handle `null` /
+  omitted `liveRowText` / `stickerText` — likely needs
+  small tweak in Hero to gate rendering. If the tweak
+  grows beyond 1-2 lines, escalate scope.
+- Any additional sketch-write action has a phase guard
+  that the audit missed — verify `grep -n "phase !==
+  .sketch." src/app/actions` pre-flight and log any
+  findings beyond `update-trip-sketch.ts` + the two
+  deliberately-guarded actions (delete, transition).
+- The `?edit=1` query param interacts weirdly with
+  existing URL params (e.g., `?first=1` auto-opens the
+  theme picker on create). The sketch shell reads
+  searchParams internally — verify the interaction.
+- Page.tsx's server-side `searchParams` reading requires
+  a shape change (e.g., awaiting the `searchParams`
+  Promise in Next 16 app router). Small adjustment, not
+  a scope change — but flag if it grows.
+
+---
+
+**Deferred to Session 9X+ (after organizer-finish arc):**
+
+*Tier 3 — accumulated hygiene drift (pulled from 9U/9V
+candidate pool):*
+- **DatePoll hygiene** — `DatePoll.tsx` (140 lines):
+  9 hex/rgba → tokens, 2 dead `var(--rally-*)`, 9 inline
+  `style={{…}}` → chassis classes. Applies the 9K/9M
+  token+lexicon+chassis-class pattern. Sized like a
+  module-cleanup session, not a hygiene-bash item.
+
+*Tier 4 — infra (not urgent now that BB-5 is resolved):*
+- **Next 16.2.2 → 16.2.4 LTS** minor bump when next infra
+  touch comes up. Deferred 2026-04-23 per path-of-least-
+  resistance framing.
+
+*Also unresolved (lower priority):*
+- **AC17/AC24 from 9O** (group-fallback live verification) —
+  edge case QA gap.
+- **activity_log.actor_id merge path** probe verification.
+- **Phone-only orphan merge gap** (`api/invite/route.ts:62-73`).
 
 ---
 
