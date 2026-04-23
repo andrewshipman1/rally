@@ -482,7 +482,7 @@ export default async function TripPage({ params }: Props) {
         {/* 6 · Crew — single crew surface on sell / lock / go */}
         <Reveal delay={0.2}>
           <CrewSection
-            members={members as any}
+            members={members}
             organizerId={organizer.id}
             currentUserId={currentUserId}
             themeId={themeId}

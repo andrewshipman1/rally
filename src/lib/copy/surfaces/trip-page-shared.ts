@@ -82,12 +82,6 @@ export const tripPageShared: Record<string, Templated> = {
   'costBreakdown.line.provisions':    'provisions',
   'costBreakdown.line.other':         'other',
 
-  // CostBreakdown — footer badges (theme-token colored at CSS layer).
-  // Session 9O — `sharedBadge` / `bookYoursBadge` deprecated in favor of
-  // `footer.shared` / `footer.yours` below; keys stay for dead-key sweep.
-  'costBreakdown.sharedBadge':        ({ amount }: ThemeVars) => `🏠 shared · ${amount ?? '—'}/pp`,
-  'costBreakdown.bookYoursBadge':     ({ amount }: ThemeVars) => `✈️ book yours · ${amount ?? '—'}`,
-
   // CostBreakdown — Session 9O footer (subtle row replacing the pill stack).
   // Amount comes pre-formatted via formatMoney at the call site.
   'costBreakdown.footer.shared':      ({ amount }: ThemeVars) => `🏠 shared · ${amount ?? '—'}`,

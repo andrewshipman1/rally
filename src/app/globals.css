@@ -2870,48 +2870,6 @@ button:active {
 
 /* ───── buzz subsurface (§5.26) ───── */
 
-.chassis .buzz-link {
-  display: inline-block;
-  font-family: var(--font-hand), 'Caveat', cursive;
-  font-size: 22px;
-  color: var(--ink);
-  text-decoration: none;
-  padding: 6px 14px;
-  border: 2.5px solid var(--ink);
-  border-radius: 999px;
-  background: var(--sticker-bg);
-  box-shadow: 3px 3px 0 var(--ink);
-  transition: transform 0.15s ease;
-}
-.chassis .buzz-link:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--ink);
-}
-
-.chassis .buzz-surface {
-  padding: 18px 18px 80px;
-  min-height: 100vh;
-  background: var(--bg);
-}
-
-.chassis .buzz-back {
-  display: inline-block;
-  font-family: var(--font-hand), 'Caveat', cursive;
-  font-size: 18px;
-  color: var(--ink);
-  text-decoration: none;
-  margin-bottom: 18px;
-  opacity: 0.85;
-}
-.chassis .buzz-back:hover { opacity: 1; }
-
-.chassis .buzz-title {
-  font-family: var(--font-display), 'Shrikhand', serif;
-  font-size: 38px;
-  color: var(--ink);
-  margin: 0 0 4px;
-  line-height: 1;
-}
 .chassis .buzz-subtitle {
   font-family: var(--font-hand), 'Caveat', cursive;
   font-size: 20px;
@@ -4106,10 +4064,6 @@ button:active {
 }
 
 /* ─── Session 5: Inline crew section ─────────────────────────────── */
-
-.chassis .crew-inline {
-  margin-top: 24px;
-}
 
 /* ─── Session 9M: Crew module (sell) — bordered shell + collapsibles ─
    Crew sits inside `.module-section` like its siblings (headliner,

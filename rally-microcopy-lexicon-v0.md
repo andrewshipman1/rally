@@ -1019,6 +1019,25 @@ yellow-tint background so it reads as a reveal, not chrome.
 
 ---
 
+### 5.30 Cost summary (Session 9O)
+
+Eyebrow text rendered at the top-right of the cost-summary hero block.
+Signals whether the current per-person estimate is still in flux
+(pending viewer arrival or unlocked lodging leading vote) or stable.
+
+| Key | String |
+|---|---|
+| `costBreakdown.eyebrow.firmingUp` | firming up |
+| `costBreakdown.eyebrow.settled` | looking solid |
+
+**Behavior:**
+- `firmingUp` renders when any pending state exists (e.g., viewer
+  arrival unset, lodging leading-vote unlocked).
+- `settled` renders otherwise.
+- Strings are theme-agnostic — same copy across every theme.
+
+---
+
 ## 6. Theme microcopy library
 
 Each theme has its own FOMO flag word, sticky CTA emoji, and signature countdown phrase. These get plugged into the templated strings above.
