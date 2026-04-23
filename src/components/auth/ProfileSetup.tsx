@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { getCopy } from '@/lib/copy/get-copy';
+import { mergeOrphan } from '@/lib/auth/merge-orphan';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,14 +26,33 @@ export function ProfileSetup() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error: insertError } = await supabase.from('users').insert({
-        id: user.id,
-        phone: user.phone || '',
-        email: user.email || null,
-        display_name: name.trim(),
-        bio: bio.trim() || null,
-        instagram_handle: instagram.trim() || null,
-      });
+      // Session 9S — invite-then-signup orphan merge. Migration 023
+      // installed a SECURITY DEFINER RPC that locates an orphan row
+      // (same email, different id — created by `api/invite/route.ts`
+      // before this user signed up) and migrates every FK onto the
+      // new auth user's id atomically. Safe to call unconditionally:
+      // the RPC fast-returns `{ merged: false }` when no orphan
+      // exists. Without this, the upsert below would trip 9R's
+      // UNIQUE(email) constraint and surface "Failed to save profile"
+      // for every invitee-then-signup flow.
+      await mergeOrphan(supabase);
+
+      // Session 9R BB-1 — upsert-on-id keeps the ProfileSetup submit
+      // idempotent across double-submits. After 9S's merge this
+      // always INSERTs: the merge left the FKs pointing at the new
+      // auth id but deleted the orphan's public.users row, so
+      // there's nothing to conflict with on `id`.
+      const { error: insertError } = await supabase.from('users').upsert(
+        {
+          id: user.id,
+          phone: user.phone || '',
+          email: user.email || null,
+          display_name: name.trim(),
+          bio: bio.trim() || null,
+          instagram_handle: instagram.trim() || null,
+        },
+        { onConflict: 'id' },
+      );
 
       if (insertError) throw insertError;
       window.location.href = '/';
