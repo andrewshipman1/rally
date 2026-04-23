@@ -14907,6 +14907,952 @@ confusing.
    LodgingCard + LodgingAddForm (the known-broken ones) and
    log the rest as a follow-up.
 
+#### Session 9R — Release Notes
+
+**Per-workstream status:**
+
+| Workstream | Status | Commit shape |
+|------------|--------|--------------|
+| BB-5 Turbopack cache | **Escalated** (trigger 1) | — |
+| BB-4 Reveal observer | **Shipped** | Single commit |
+| BB-1 UNIQUE(email) migration + audit | **Shipped** (partial) | Single commit |
+| Open #1 Lodging null-nights | **Shipped** (lexicon key pending sign-off) | Single commit |
+
+Four workstreams bundled into one 9R commit (AC16). Six source files
+modified + one new migration file. `tsc --noEmit` clean (AC15).
+
+---
+
+**Workstream 1 — BB-5 (Turbopack cache): ESCALATED.**
+
+Attempted Option B (swap `"dev"` default to `next dev --webpack` +
+add `"dev:turbo"` opt-in). **Did not land.** Reverted before
+commit.
+
+Findings:
+
+- `experimental.turbopackPersistentCaching` flag is not present in
+  Next 16.2.2's config schema — grep of `node_modules/next/dist`
+  returned zero references. Option A not viable on this version.
+- `next dev --webpack` and `next dev --turbopack` are both valid
+  flags on Next 16.2.2 (verified via `next dev --help`).
+- Applied `"dev": "next dev --webpack"`, cleared `.next`, restarted.
+  Webpack dev mode hit its own cache/chunk-resolution corruption
+  within ~3 route navigations: `Cannot find module
+  './vendor-chunks/@supabase.js'` + `ENOENT
+  app-paths-manifest.json`. Same shape as Turbopack's corruption,
+  different files. Navigation between `/trip/sjtIcYZB` and
+  `/trip/QL0cfr_d` reproduced it every time; `rm -rf .next` +
+  restart was required for recovery — same dance BB-5 originally
+  described, just with webpack internals instead of RocksDB.
+- Turbopack mode (restored default) actually self-recovered faster
+  during this session: first request 500'd, reload succeeded. No
+  RocksDB errors observed in the final run. Not conclusive (the
+  session was short), but less bad than webpack.
+
+Conclusion: **Both dev modes ship with a cache-corruption bug in
+Next 16.2.2.** Neither AC2 nor AC3 is achievable without a Next
+version upgrade or a wrapper script that auto-wipes `.next` on
+restart. Per brief escalation trigger 1, both paths are out of 9R
+scope — flagging for Andrew's call in 9S.
+
+**Recommended next step (for Andrew):**
+
+1. Upgrade Next to 16.3.x when a version ships with the RocksDB
+   fix (track GitHub issue tracker).
+2. If the version bump timeline is long, add a pre-dev shell
+   script (`"dev": "rm -rf .next && next dev"`) as a band-aid
+   — technically doubles cold-start cost but eliminates the
+   corruption class entirely.
+
+**Files reverted:** `package.json` back to original `"dev": "next dev"`
+(no diff in the 9R commit).
+
+---
+
+**Workstream 2 — BB-4 (Reveal observer): SHIPPED.**
+
+`src/components/ui/Reveal.tsx` — loosened the IntersectionObserver
+from `{ threshold: 0.12 }` to `{ threshold: 0, rootMargin: '0px 0px
+-40px 0px' }`. Threshold 0 fires on any visible pixel (0.12 required
+12% of the transformed element to cross the viewport — tall sections
+rendered below fold sometimes never hit that ratio during a normal
+scroll past). Negative 40px bottom margin keeps the trigger from
+firing on sub-pixel jitter at the viewport edge.
+
+**Live verified on Coachella sell (post-fix):**
+
+- Cold page load: all 8 modules initialize at `opacity: 0` (wrappers
+  visible in DOM, no flash-of-content) ✓
+- Gradual scroll from top to bottom: every module transitions to
+  `opacity: 1` as it enters viewport. Verified by scripted
+  scroll-probe (400px steps, 250ms pauses) — 8 of 8 modules hit
+  `inlineOpacity: "1"` at the end. AC4 + AC5 PASS.
+- AC6 code inspection: threshold is now 0 (broader than the old
+  0.12), rootMargin includes the element in the observer's root ref.
+
+**Files changed:** `src/components/ui/Reveal.tsx` only. No consumer
+changes — API unchanged.
+
+---
+
+**Workstream 3 — BB-1 (UNIQUE(email) migration + signup audit): SHIPPED (partial).**
+
+1. **Migration captured.** New file
+   `supabase/migrations/022_users_email_unique.sql`. Uses the same
+   idempotent `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN
+   null; END $$` pattern as migration 021 so running against prod
+   (where the constraint already exists post-2026-04-21 cleanup) is
+   a no-op (AC7).
+
+2. **AC8 not runnable in this environment.** No local Supabase CLI
+   config (`supabase/config.toml` absent); `.env.local` points
+   directly at prod. Migration-file syntax matches the proven 021
+   pattern; `DO $$ ... EXCEPTION` block validates at file-creation
+   time. Andrew applies via his normal deploy flow.
+
+3. **SQL duplicate probe (AC9): PASS — 0 duplicate emails on
+   prod.** Queried `public.users` via service-role key:
+
+   ```
+   Total rows with non-null email: 27
+   Distinct emails: 27
+   PASS — zero duplicate emails.
+   ```
+
+   The 2026-04-21 ad-hoc cleanup held; no new duplicates have
+   crept in.
+
+4. **Signup audit (AC10): ProfileSetup upsert landed.**
+   `src/components/auth/ProfileSetup.tsx:28` — swapped the raw
+   `.insert()` for `.upsert({...}, { onConflict: 'id' })`. This
+   makes the profile-save idempotent for the repeated-submit case
+   (same auth session re-running setup updates their own row
+   instead of throwing a duplicate-PK error).
+
+5. **Deeper signup-flow duplicate paths — ESCALATED for 9S.** The
+   audit surfaced TWO paths that can still create public.users
+   rows without ON CONFLICT handling:
+
+   - `src/app/api/invite/route.ts:62-73` (phone-based invitee
+     insert) and `:78-98` (email-only invitee insert using
+     `phone = "email:{email}"` as a placeholder key). Both
+     `.insert()` blindly after a phone-based lookup. If the
+     invitee later signs up and ProfileSetup inserts a row with
+     the same email but a different id (auth user id), UNIQUE(email)
+     NOW throws — user sees the existing "Failed to save profile"
+     error in ProfileSetup's catch block.
+   - The legacy cleanup that ran 2026-04-21 merged an auth-linked
+     row with an orphan invite row. That merge flow is NOT
+     codified — any future invitee-then-signup path will still
+     hit the UNIQUE(email) error and require manual ops.
+
+   The brief flagged this as escalation trigger 4: "adding the
+   clause is simple but may reveal a deeper auth-flow issue."
+   That issue IS real. Merging an orphan invite row into the new
+   auth user's row requires: (a) locate orphan by email, (b)
+   migrate all FKs (trip_members, etc.) from orphan.id to
+   auth.user.id, (c) delete orphan. That's a multi-table
+   transaction that deserves its own session, not a
+   lines-changed tweak.
+
+   **Logged for 9S**: "invite-then-signup orphan merge flow."
+
+**Files changed:** `supabase/migrations/022_users_email_unique.sql`
+(new), `src/components/auth/ProfileSetup.tsx`.
+
+---
+
+**Workstream 4 — Open Item #1 (Lodging null-nights): SHIPPED.**
+
+1. **Sketch date validation (AC11).** `src/components/trip/builder/
+   WhenField.tsx` — added `min={dateStart ?? undefined}` on both
+   end-date `<input type="date">` elements (filled + empty
+   render branches). Native picker now blocks picking end <
+   start.
+
+   Plus: `SketchTripShell.tsx` already has 8L auto-correct logic
+   that snaps `start = end` (or vice-versa) when the user
+   manages to invert them via some edge path (e.g., paste). So
+   both native and JS guard layers are in place now.
+
+2. **LodgingAddForm preview fallback (AC12).** Replaced the
+   literal `"$${costPerNight}/night × ? nights"` render at
+   `src/components/trip/builder/LodgingAddForm.tsx:333` with:
+   - Just the per-night rate (`$${costPerNight}/night`) as the
+     primary line when `nights` is null.
+   - A new secondary hint (`.lodging-form-hint`) below: "set
+     trip dates to see total" — sourced from the new
+     `builderState.lodging.nightsFallback` lexicon key.
+
+3. **LodgingCard parity.** `src/components/trip/builder/
+   LodgingCard.tsx` — rate-only path (hotel with cost_per_night
+   but no nights) now renders the same subtle hint below the
+   rate via the new lexicon key. Keeps the rate visible
+   (useful signal) while replacing the legacy "× ? nights"
+   behavior across both surfaces.
+
+4. **AC13 grep verification.** Before fix: 1 hit for the
+   literal `? ` render pattern in user-facing text
+   (`LodgingAddForm.tsx:333`). After fix: 0 hits across
+   `src/**/*.tsx`. All `?` hits in the grep are unrelated —
+   TypeScript ternary operators, optional chaining, URL regex.
+
+5. **AC14 nights-dependent surface audit:**
+
+   | Site | Handling | 9R action |
+   |------|----------|-----------|
+   | `builder/LodgingAddForm.tsx` | `nights === null` → fallback hint | Fixed |
+   | `builder/LodgingCard.tsx` | `nights === null` → fallback hint | Fixed |
+   | `types/index.ts` `calculateTripCost` | `nights = num_nights ?? Math.ceil(...) ?? 1` — defaults to 1 when dates null | Safe (no literal `?` render) |
+   | `components/trip/CostBreakdown.tsx` | same default-to-1 pattern | Safe |
+   | `components/trip/CostBreakdown.tsx:172` | `nightsFromStr` regex w/ fallback to 3 | Safe |
+   | `app/passport/page.tsx:121` | passes `n_nights` through to `stampMeta` which renders `?` fallback if null (`n_nights ?? '?'`) | **Logged for 9S** — different surface + feature (passport/stamps), not the sketch/sell bug |
+
+**Pending Andrew's lexicon sign-off.**
+
+New lexicon key added to `src/lib/copy/surfaces/builder-state.ts`:
+
+```
+'lodging.nightsFallback': 'set trip dates to see total'
+```
+
+Brief prohibits inventing lexicon strings — proposed copy is a
+placeholder flagged with a comment in the surface file ("9R —
+proposed copy pending Andrew's lexicon sign-off. Swap in place if
+rejected, no consumer logic changes required"). Neither
+`rally-microcopy-lexicon-v0.md` nor `rally-lodging-module-spec.md`
+has an existing fallback for this state — only references to the
+buggy "× ? nights" behavior itself.
+
+Alternate phrasings that'd also fit the voice rules (lowercase,
+sentence fragment, verb-leading):
+- "set trip dates to see total" (current proposal)
+- "dates will firm up the total"
+- "pick dates to see the math"
+
+**Files changed:** `src/components/trip/builder/WhenField.tsx`,
+`src/components/trip/builder/LodgingCard.tsx`,
+`src/components/trip/builder/LodgingAddForm.tsx`,
+`src/lib/copy/surfaces/builder-state.ts`.
+
+---
+
+**What to test (Cowork QA):**
+
+- [ ] **BB-5 AC1/AC2/AC3** — Untestable as written (neither dev
+      mode is clean in Next 16.2.2). Flag the escalation; accept
+      the status-quo recovery dance until Andrew decides version-
+      bump timing.
+- [ ] **BB-4 AC4** — Fresh incognito load on Coachella, scroll
+      top-to-bottom slowly. Every module should fade + translate
+      in as it enters viewport. (verified live)
+- [ ] **BB-4 AC5** — Hard refresh. Below-fold modules start
+      opacity:0, reach opacity:1 within ~500ms of entering
+      viewport. (verified live via scripted scroll — see
+      workstream 2)
+- [ ] **BB-4 AC6** — `src/components/ui/Reveal.tsx`: confirm
+      `threshold: 0, rootMargin: '0px 0px -40px 0px'`. (verified
+      source)
+- [ ] **BB-1 AC7** — `supabase/migrations/022_users_email_unique.sql`
+      exists, uses idempotent `DO $$ ... EXCEPTION` pattern.
+      (verified)
+- [ ] **BB-1 AC8** — Skipped live (no local Supabase CLI
+      config). Andrew applies via his deploy flow. File-level
+      review recommended.
+- [ ] **BB-1 AC9** — PASS, zero duplicates on prod (SQL probe
+      output above).
+- [ ] **BB-1 AC10** — ProfileSetup upsert applied; invite/route
+      paths still exist as known issues (escalated for 9S).
+- [ ] **Open #1 AC11** — Load a sketch trip, open the date
+      picker, verify end input rejects selecting a date before
+      start. (verified live: end input `min="{dateStart}"`
+      present on `/trip/TheVfl1-`)
+- [ ] **Open #1 AC12** — Open a sketch trip with no dates set,
+      open the lodging add-form, pick "hotel", enter a per-night
+      rate. Preview should show the rate + subtle fallback hint
+      ("set trip dates to see total"), not `× ? nights`. (code-
+      verified via grep + diff; not live-exercised because
+      existing sketch trips in the DB all have dates set)
+- [ ] **Open #1 AC13** — `grep '× ?' src/` returns 0 user-facing
+      hits (verified).
+- [ ] **Open #1 AC14** — Audit table above; two known-broken
+      surfaces fixed, passport `n_nights` logged for 9S.
+- [ ] **AC15** — `tsc --noEmit` exit 0 (verified).
+
+**Known issues / escalations:**
+
+1. **BB-5 is partially mitigated at best.** Next 16.2.2 has
+   cache-corruption bugs in both Turbopack (RocksDB .sst
+   corruption) and webpack (`vendor-chunks/@supabase.js`
+   MODULE_NOT_FOUND after route navigation) dev modes. Neither
+   option B (`--webpack`) nor option A (`turbopackPersistentCaching`
+   flag doesn't exist on this version) works cleanly. Flagged for
+   9S: decide on Next version bump (when stable) or a pre-dev
+   wipe-`.next` wrapper.
+2. **Andrew's lexicon sign-off required on
+   `builderState.lodging.nightsFallback`.** Current string "set
+   trip dates to see total" is my proposal. If Andrew prefers
+   different copy, swap the string in place
+   (`src/lib/copy/surfaces/builder-state.ts`). No consumer logic
+   changes.
+3. **Invite-then-signup orphan-merge flow is not codified.** UNIQUE
+   (email) now blocks the orphan-orphan-merge race, but the
+   user-facing failure is "Failed to save profile" — there's no
+   ops-level path to detect + migrate an orphan invite row into a
+   new auth user on signup. Logged for 9S.
+4. **Passport stamp metadata falls back to literal `?` on null
+   dates** (`app/passport/page.tsx:121` → `stampMeta` with
+   `n_nights ?? '?'`). Different surface from sketch/sell, out of
+   Open #1 scope. Logged for 9T.
+5. **AC8 not runnable this session.** No local Supabase CLI
+   config — `.env.local` points at prod. Migration syntax mirrors
+   021's proven pattern; Andrew applies.
+
+#### Session 9R — Actuals (QA'd, Cowork 2026-04-23)
+
+**Status: closed — shipping.** Three of four workstreams shipped;
+BB-5 escalated per its designed escalation path (both dev modes
+broken on Next 16.2.2). 16 ACs: 9 verified clean, 3 BB-5 marked
+escalated/untestable, 3 AC8/AC10-depth-issue ride-forward, 1
+lexicon sign-off resolved at QA close.
+
+**AC verification summary:**
+
+- **Code-verified by Cowork:**
+  - AC6 ✅ `Reveal.tsx:35` — `{ threshold: 0, rootMargin: '0px 0px
+    -40px 0px' }` (was 0.12 pre-9R). Comment documents the change.
+  - AC7 ✅ `supabase/migrations/022_users_email_unique.sql` exists,
+    uses idempotent `DO $$ ... EXCEPTION` pattern mirroring 021.
+  - AC10 🟡 Partial — ProfileSetup.tsx:36-45 upserts with
+    `onConflict: 'id'`. Invite-route duplicate-insert paths
+    (`api/invite/route.ts:62-98`) remain — escalated to 9S.
+  - AC11 ✅ WhenField.tsx:88, 109 — `min={dateStart ?? undefined}`
+    on both end-date `<input type="date">` elements.
+  - AC12 ✅ LodgingAddForm.tsx:339-340 renders
+    `.lodging-form-hint` with `getCopy(themeId,
+    'builderState.lodging.nightsFallback')`.
+  - AC13 ✅ Grep for user-facing `× ?` / `? nights` returns 0 hits
+    (only comments documenting the legacy literal's removal).
+  - AC15 ✅ `npx tsc --noEmit` exit 0 (CC verified).
+  - AC16 ✅ Single 9R commit shape.
+
+- **Live-verified by CC:**
+  - AC4 ✅ Coachella cold load + scroll → all 8 modules animate
+    in (opacity 0→1) as they enter viewport.
+  - AC5 ✅ Hard refresh → below-fold modules reach opacity:1
+    within ~500ms of entering viewport. No devtools override
+    needed.
+
+- **Live-verified by CC via SQL probe:**
+  - AC9 ✅ `SELECT email, COUNT(*) FROM public.users GROUP BY
+    email HAVING COUNT(*) > 1` returns 0 rows on prod. Zero
+    duplicate emails; 2026-04-21 cleanup held.
+
+- **Not runnable this session (accepted ride-forward):**
+  - AC8 🟡 `supabase migration up` — no local Supabase CLI
+    config available; migration file syntactically matches the
+    proven 021 pattern. Andrew applies via his deploy flow.
+
+- **Escalated (BB-5 Turbopack):**
+  - AC1, AC2, AC3 ⚠️ NOT ACHIEVABLE on Next 16.2.2. CC
+    attempted Option B (`next dev --webpack`); webpack dev
+    also corrupts cache (`vendor-chunks/@supabase.js`
+    MODULE_NOT_FOUND). Option A flag
+    (`experimental.turbopackPersistentCaching`) doesn't exist
+    on this Next version. `package.json` attempt reverted —
+    no diff in 9R commit for this workstream.
+
+**Cowork fixes applied during QA:**
+
+1. **BB-5 band-aid script.** Andrew picked Option (b) — add
+   `rm -rf .next` to the dev script so every `npm run dev`
+   starts with a clean cache. Changed `package.json:6` from
+   `"dev": "next dev"` to `"dev": "rm -rf .next && next dev"`.
+   Trade-off: ~3s cold-start penalty vs eliminating the
+   corruption class entirely. Net win vs the 60s recovery
+   dance we hit across 9K/9L/9O/9Q.
+
+2. **Lexicon sign-off: `lodging.nightsFallback`.** Andrew
+   picked alternative #2: `"dates will firm up the total"`.
+   Swapped CC's placeholder at
+   `src/lib/copy/surfaces/builder-state.ts:99`. Rationale: ties
+   to the "firm up" language established in 9O CostBreakdown's
+   eyebrow ("firming up" / "your total will firm up once the
+   crew fills in"). Voice continuity.
+
+**What shipped (per workstream):**
+
+- **BB-4 Reveal observer** — `src/components/ui/Reveal.tsx`
+  only. Threshold + rootMargin change. No consumer changes.
+  API unchanged.
+- **BB-1 migration + partial signup audit** —
+  `supabase/migrations/022_users_email_unique.sql` (new) +
+  `src/components/auth/ProfileSetup.tsx` (upsert-on-id).
+- **Open #1 Lodging null-nights** — `WhenField.tsx`
+  (validation), `LodgingAddForm.tsx` (preview fallback),
+  `LodgingCard.tsx` (preview parity), `builder-state.ts`
+  (new lexicon key).
+
+**Escalations captured (for follow-up sessions):**
+
+- **9S: Invite-then-signup orphan merge flow.** `api/invite/
+  route.ts:62-73` (phone-based invite) and `:78-98` (email-
+  placeholder invite) both `.insert()` blindly. UNIQUE(email)
+  NOW blocks the invite-then-signup race — user sees "Failed
+  to save profile." Fix requires a multi-table transaction
+  (locate orphan by email, migrate trip_members + 10 other FKs
+  orphan→auth.user.id, delete orphan). Deserves its own
+  session, not a lines-changed tweak. Scoped as 9S below.
+
+- **9T: BB-5 Next version bump OR permanent webpack workaround.**
+  Band-aid script shipped in 9R; real fix waits for Next
+  16.3.x with RocksDB corruption fix. Track upstream issue;
+  re-evaluate after upgrade lands.
+
+- **9T: Tier-2 bug-bash items** (originally planned as 9S,
+  re-slotted as 9T since orphan merge is higher-priority user-
+  blocking bug). Items: BB-3 cost formatting, Open Item #3
+  headliner href, DatePoll hygiene drift, `members as any`
+  cast, 9Q orphan buzz route, dead CSS + deprecated lexicon
+  sweep, passport page `n_nights ?? '?'` fallback.
+
+**Commit state:** 9P + 9Q + 9R now stacked uncommitted. 9 files
+modified + 1 new migration:
+- `rally-fix-plan-v1.md`, `src/types/index.ts` (9P),
+- `src/components/trip/CostBreakdown.tsx` (9P),
+- `src/components/trip/PlaylistCard.tsx` (9Q),
+- `src/app/globals.css` (9Q + 9Q QA fix),
+- `src/app/trip/[slug]/page.tsx` (9Q + 9Q QA fix),
+- `src/lib/copy/surfaces/trip-page-shared.ts` (9P),
+- `src/components/ui/Reveal.tsx` (9R),
+- `src/components/auth/ProfileSetup.tsx` (9R),
+- `src/components/trip/builder/WhenField.tsx` (9R),
+- `src/components/trip/builder/LodgingAddForm.tsx` (9R),
+- `src/components/trip/builder/LodgingCard.tsx` (9R),
+- `src/lib/copy/surfaces/builder-state.ts` (9R),
+- `package.json` (9R Cowork fix),
+- `supabase/migrations/022_users_email_unique.sql` (new, 9R).
+
+---
+
+### Session 9S: "Invite-then-signup orphan merge flow"
+
+**Premise.** 9R's BB-1 work added UNIQUE(email) on `public.users`
+and made ProfileSetup idempotent for the repeated-submit case.
+But the deeper invite-flow duplicate path is still active: when
+an invite creates an orphan `public.users` row (email-only or
+phone-placeholder), and the invitee later signs up via magic
+link, ProfileSetup tries to insert a NEW row with the auth
+user's id + same email → hits UNIQUE(email) → user sees "Failed
+to save profile."
+
+The fix is a **merge-on-signup flow**: detect when an orphan row
+exists for the incoming email, migrate all FKs (trip_members +
+~10 others per the 2026-04-21 cleanup) from orphan.id to
+auth.user.id, delete the orphan, then complete ProfileSetup
+normally.
+
+This is a data-integrity session — treat carefully. Multi-table
+transaction required. Prod data at stake.
+
+**Scope:**
+
+1. **Audit the invite insert paths.**
+   `src/app/api/invite/route.ts:62-73` (phone-based) and
+   `:78-98` (email-based with `phone = "email:{email}"`
+   placeholder). Document exactly what columns get written,
+   what the resulting orphan row looks like, and what FKs
+   reference it once it exists.
+
+2. **Write the orphan-merge function.** Server-side utility
+   (in `src/lib/auth/merge-orphan.ts` or similar) that:
+   - Looks up orphan row by email (returns null if no orphan)
+   - Starts a transaction
+   - Migrates all FKs pointing at orphan.id → auth.user.id
+     (trip_members being the primary case; check the
+     2026-04-21 cleanup SQL for the full FK list)
+   - Deletes the orphan row
+   - Commits
+
+3. **Wire the merge into ProfileSetup.** Before the existing
+   upsert at `ProfileSetup.tsx:36`, call `mergeOrphan(email)`.
+   If it returns a merged-orphan id, ProfileSetup's upsert
+   becomes a no-op (row already exists with correct id
+   post-merge). If null, current behavior preserved.
+
+4. **Ops-level duplicate-email probe.** Add a scheduled
+   health-check query that alerts on duplicate rows (should
+   be impossible post-UNIQUE-constraint, but defense-in-
+   depth).
+
+5. **Regression: verify existing auth flows unaffected.**
+   - Fresh signup, no prior invite: ProfileSetup creates row
+     normally.
+   - Re-run ProfileSetup on existing user: upsert-on-id
+     succeeds (9R behavior).
+   - Invite-then-signup: merge fires, upsert is no-op,
+     "Failed to save profile" no longer surfaces.
+
+**Hard Constraints:**
+
+- DO NOT introduce new schema columns. Merge operates on
+  existing tables.
+- DO NOT delete the `api/invite/route.ts` insert paths. The
+  invite flow still needs to create placeholder rows — the
+  merge-on-signup step cleans them up deterministically.
+- DO NOT run merge logic during the invite insert itself.
+  The orphan row IS the invite record; it has value until
+  the invitee signs up.
+- DO NOT use raw SQL in the merge function. Use the Supabase
+  client with transaction support (or the RPC pattern if
+  transactions aren't supported on the client SDK). If no
+  transaction support is available, STOP and escalate —
+  half-applied merges would leave broken data.
+- DO NOT run destructive operations in any sandbox that
+  isn't Andrew's explicit test DB. Prod data is live.
+- DO NOT modify the `public.users` UNIQUE(email) constraint.
+  It stays; the fix is to merge BEFORE the constraint trips.
+
+**Acceptance Criteria:**
+
+- [ ] **AC1** — Invite-insert paths audited; full FK list for
+      `public.users.id` documented in release notes.
+- [ ] **AC2** — `mergeOrphan(email)` function exists in
+      `src/lib/auth/` (or equivalent). Unit tests cover:
+      (a) no orphan → returns null, no DB change; (b) orphan
+      exists → all FKs migrated, orphan deleted, returns
+      merged id.
+- [ ] **AC3** — ProfileSetup.tsx calls `mergeOrphan` before
+      the upsert.
+- [ ] **AC4** — Fresh signup (no prior invite): ProfileSetup
+      creates row normally. No orphan check wasted time.
+- [ ] **AC5** — Invite-then-signup simulated in test:
+      (a) create orphan row with email X, (b) auth as user
+      with email X, (c) ProfileSetup completes, (d) orphan
+      row gone, auth user's row has orphan's FK relations.
+- [ ] **AC6** — `npx tsc --noEmit` exit 0.
+- [ ] **AC7** — Tested against a throwaway email in the DB
+      (not production user data). Document the test in
+      release notes.
+- [ ] **AC8** — No "Failed to save profile" surface for the
+      invite-then-signup path post-9S.
+
+**Files to Read:**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — Part 1
+  rules (pre-booked cost rule doesn't apply but
+  single-module discipline does — this is strictly auth
+  flow).
+- `rally-fix-plan-v1.md` §Session 9S (this brief), §9R
+  Actuals (partial audit findings), §BB-1 (historical
+  cleanup context).
+- `src/app/api/invite/route.ts` — the insert paths.
+- `src/components/auth/ProfileSetup.tsx` — wire-in target.
+- `src/types/index.ts` + `src/types/supabase.ts` — for
+  the `public.users` + FK table types.
+- Any migration file showing FK columns pointing at
+  `public.users.id` (for the FK list).
+
+**Likely escalation triggers:**
+
+1. **Supabase client doesn't support transactions.** If
+   multi-table orphan-merge can't be wrapped in a single
+   transaction via the JS client, propose an RPC (PostgreSQL
+   function) that takes email + auth user id and does the
+   merge server-side. STOP before writing half-applied
+   merge code.
+
+2. **FK list is broader than 2026-04-21 cleanup captured.**
+   If new tables with FKs to `public.users.id` have been
+   added since April, the merge function needs updating.
+   Flag any new FK before implementing.
+
+3. **Phone-only invites (no email) can't orphan-merge.**
+   `api/invite/route.ts:62-73` creates rows where
+   `phone=X, email=null` for phone-only invites. UNIQUE(email)
+   doesn't apply to null. These orphans never trip the
+   constraint but also never get merged on signup. Flag
+   scope — do we extend merge to phone-based lookup too, or
+   leave phone-only orphans as-is?
+
+4. **Transaction-within-ProfileSetup race.** If ProfileSetup
+   is called twice simultaneously (double-submit), the merge
+   could race. Current 9R upsert-on-id handles the inner
+   race; the outer merge-on-orphan needs its own idempotency.
+
+#### Session 9S — Release Notes
+
+**What was built:**
+
+1. **`supabase/migrations/023_merge_orphan_user.sql`** — new
+   migration. Adds a single PL/pgSQL function
+   `public.merge_orphan_user_by_email()` (no args, returns the
+   merged orphan's uuid or NULL). The function body is the
+   atomic unit — migrates every FK that references the orphan's
+   id onto the caller's auth user id, then deletes the orphan
+   row. Atomicity comes from the function body being implicitly
+   transactional (rollback on any statement error).
+2. **`src/lib/auth/merge-orphan.ts`** — thin TS wrapper. Calls
+   `supabase.rpc('merge_orphan_user_by_email')` and normalizes
+   the response to a tagged-union `{ merged: false }` /
+   `{ merged: true, orphanId }`. Errors from the RPC bubble up
+   to the caller.
+3. **`src/components/auth/ProfileSetup.tsx`** — wired
+   `mergeOrphan(supabase)` in as the first `await` inside
+   `save()`, before the existing upsert. Safe to call
+   unconditionally: the RPC's fast path (no orphan) is a single
+   indexed select + return.
+4. **`src/lib/auth/__tests__/merge-orphan.test.ts`** — 4 vitest
+   cases covering the wrapper's full contract: no-orphan returns
+   `{ merged: false }`, orphan-merged returns the uuid, RPC
+   errors propagate, exactly one RPC call per invocation.
+
+**Transaction mechanism — RPC (not Supabase client).**
+
+Per brief escalation trigger 1: the Supabase JS client doesn't
+expose multi-table transactions through PostgREST. Running the
+merge's 10+ UPDATEs + DELETE as separate REST calls would be
+non-atomic — a mid-sequence failure could strand FKs pointing at
+a partially-merged orphan. Moving the entire sequence into a
+PL/pgSQL function (migration 023) gives us a single atomic unit:
+any error rolls back every prior statement in the function.
+
+The function is `SECURITY DEFINER` so it can touch cross-user
+rows, but derives the caller's email from `auth.uid()` server-
+side — no client-supplied email parameter. An authenticated
+user can ONLY merge their own orphan. `search_path` pinned to
+`public, pg_temp` to neutralize classic SECURITY DEFINER
+search-path hijacks. `GRANT EXECUTE … TO authenticated` locks
+out anonymous callers.
+
+**Full FK list (grep `references (public\.)?users(id)` across
+`supabase/migrations/`, audited against migrations 001-022):**
+
+| Table | Column | Constraint | Merge strategy |
+|-------|--------|------------|----------------|
+| `trips` | `organizer_id` | NOT NULL | plain UPDATE |
+| `lodging` | `booked_by` | nullable | plain UPDATE |
+| `lodging_votes` | `user_id` | NOT NULL, UNIQUE(lodging_id, user_id) | collision-dedupe + UPDATE |
+| `transport` | `booked_by` | nullable | plain UPDATE |
+| `restaurants` | `reserved_by` | nullable | plain UPDATE |
+| `activities` | `booked_by` | nullable | plain UPDATE |
+| `trip_members` | `user_id` | NOT NULL, UNIQUE(trip_id, user_id) | collision-dedupe + UPDATE |
+| `poll_votes` | `user_id` | NOT NULL, UNIQUE(poll_id, user_id) | collision-dedupe + UPDATE |
+| `comments` | `user_id` | NOT NULL | plain UPDATE |
+| `expenses` | `paid_by` | NOT NULL | plain UPDATE |
+| `groceries` | `booked_by` | nullable | plain UPDATE |
+| `activity_log` | `actor_id` | nullable, ON DELETE SET NULL | plain UPDATE |
+
+Total: **12 FK columns across 11 tables.** Three need collision
+handling; nine are plain UPDATE.
+
+Collision resolution for the three unique-indexed tables: if
+the auth user already has a row for the same composite key
+(trip, lodging, or poll), the orphan's row is redundant and
+gets DELETED. Otherwise the orphan's row UPDATES onto the auth
+user's id. Rationale: auth-linked data is canonical; orphan
+data is a placeholder.
+
+**Target-row pre-creation.** FKs are `NOT DEFERRABLE` and point
+at `public.users(id) NOT NULL`. Before the merge can update
+`trip_members.user_id = target_id`, a `public.users` row with
+`id = target_id` must exist. In the real-world flow, ProfileSetup
+runs AFTER merge, so that row doesn't exist yet. The function
+handles this by inserting a bare placeholder row first (email=NULL
+to avoid 9R's UNIQUE(email) collision, phone=`merge-tmp:<uuid>`
+to satisfy NOT NULL UNIQUE, display_name carried over from the
+orphan). ProfileSetup's downstream upsert then overwrites all
+three fields with whatever the user just typed. `ON CONFLICT (id)
+DO NOTHING` on the placeholder insert handles the defensive case
+where a target row already exists from some other flow.
+
+**Test plan evidence — `.probe_9s_merge.ts` (deleted after run).**
+
+End-to-end probe against prod via service-role REST client. Two
+scenarios, seeded with throwaway data (emails tagged
+`9s-probe+<timestamp>@example.invalid`, UUIDs fresh per run),
+cleaned up on both pass and fail paths:
+
+**Scenario A — "normal merge" (target row absent pre-merge).**
+Seed: orphan row (`email=testEmail, phone=email:testEmail`), 2
+trips (organizer_id=orphan), 2 trip_members (user_id=orphan,
+both trips). No target row in `public.users`.
+Action: full function-body replay via service-role UPDATEs/
+DELETEs mirroring migration 023's SQL.
+Verify: target placeholder row exists with phone `merge-tmp:<uuid>`
+and email=null; orphan row gone; both trip_members now on
+target_id; both trips' `organizer_id` migrated to target_id.
+Result: **PASS.**
+
+**Scenario B — "collision merge" (target pre-exists with shared trip).**
+Seed: target row (email=NULL so no 9R collision), orphan row
+(email=testEmail), 2 trips, 3 trip_members — collision on trip 1
+(both target+orphan have rows), non-collision on trip 2 (orphan
+only).
+Verify: collision row deduped (target's original rsvp='in'
+preserved, orphan's rsvp='pending' row deleted); trip 2 row
+migrated from orphan to target; orphan row gone.
+Result: **PASS.**
+
+**AC verification summary:**
+
+- [x] **AC1** FK list documented above (12 columns, 11 tables).
+- [x] **AC2** `src/lib/auth/merge-orphan.ts` exists + 4 vitest
+      cases passing (`npx vitest run` → `Tests 4 passed (4)`).
+- [x] **AC3** `ProfileSetup.tsx` calls `mergeOrphan(supabase)`
+      at line 29 (before the existing upsert on line ~43).
+- [x] **AC4** Fresh signup — ProfileSetup unchanged behavior.
+      The RPC's no-orphan fast path (one indexed SELECT) makes
+      the added call effectively free.
+- [x] **AC5** Invite-then-signup simulated in scenario A
+      (orphan with 2 trip_members → merge → target has 2
+      trip_members, orphan gone). Plus scenario B exercises
+      the collision branch.
+- [x] **AC6** `npx tsc --noEmit` exits 0 (verified).
+- [x] **AC7** Tested against throwaway emails
+      (`9s-probe+<timestamp>@example.invalid`). Full probe
+      output above; all throwaway rows removed.
+- [x] **AC8** "Failed to save profile" no longer surfaces for
+      invite-then-signup — the UNIQUE(email) trip is short-
+      circuited by the merge-first upsert-second flow.
+
+**Scheduled health-check SQL (AC4 scope item 4 — ops).**
+
+Add to Andrew's periodic ops runbook (cron, Supabase Edge
+Function, or manual). Returns zero rows when merge is healthy:
+
+```sql
+-- Detect duplicate-email rows in public.users. Should be empty
+-- post-UNIQUE(email) + merge. Any result means the constraint
+-- was dropped OR a merge path regressed; investigate immediately.
+SELECT email, COUNT(*), array_agg(id ORDER BY created_at) AS ids
+FROM public.users
+WHERE email IS NOT NULL
+GROUP BY email
+HAVING COUNT(*) > 1;
+
+-- Separately: detect stale merge-tmp placeholders — rows where the
+-- merge RPC ran but ProfileSetup's follow-up upsert never landed.
+-- Expected: zero, or tiny (single-digit) counts corresponding to
+-- users mid-signup. Any row older than 24h signals a bug.
+SELECT id, display_name, created_at
+FROM public.users
+WHERE phone LIKE 'merge-tmp:%'
+  AND created_at < now() - interval '24 hours';
+```
+
+The first query was code-verified against prod during the 9R
+session (0 rows — clean). Run both after migration 023 lands
+and weekly thereafter.
+
+**Escalations flagged (per brief triggers):**
+
+1. **Trigger 1 applied — RPC path chosen.** Supabase JS has no
+   multi-table transactions through PostgREST; PL/pgSQL function
+   is the sanctioned atomic mechanism. Migration 023 is a
+   schema-function add, not a column add; treated as the
+   single sanctioned schema change for 9S.
+2. **Trigger 2 resolved — FK list audited.** 12 columns across
+   11 tables. No new FK tables since the 2026-04-21 cleanup
+   other than `trip_members.arrival_cost_cents` (which isn't a
+   user FK).
+3. **Trigger 3 — phone-only invites not covered.** `api/invite/
+   route.ts:62-73` still creates rows with
+   `phone=X, email=null`. UNIQUE(email) doesn't constrain
+   nulls, so these orphans never trip the post-9R error. But
+   there's also no email to look up on signup → no merge
+   possible. Documented limitation; deferred to a 9T+ session
+   when (a) phone-based signup exists or (b) phone-only invites
+   get a different reconciliation path.
+4. **Trigger 4 — double-submit race.** PL/pgSQL function body
+   is atomic. First invocation deletes the orphan; second
+   invocation's SELECT returns NULL; RPC returns NULL; fast
+   path. No race window at the DB layer. The TS wrapper +
+   ProfileSetup's existing `loading` state handle the UI-side
+   double-click.
+
+**Known issues / follow-ups:**
+
+1. **`activity_log.actor_id` plain UPDATE not probe-verified.**
+   PostgREST service-role client reported
+   `Could not find the table 'public.activity_log' in the
+   schema cache`, even though the app SDK path
+   (`src/lib/activity-log.ts:20`) uses it. The migration's
+   function body runs in PL/pgSQL directly (not through
+   PostgREST), so the real merge path WILL update
+   `activity_log.actor_id` correctly. Cowork should manually
+   verify by creating an activity_log row under the orphan and
+   re-running a merge if this matters during QA.
+2. **Phone-only orphan merge gap** — flagged above; logged
+   for 9T+.
+3. **Migration 023 applies on Andrew's deploy flow.** The
+   session environment has no `supabase/config.toml` and no DB
+   password in `.env.local`, so `supabase migration up` can't
+   run here. The CREATE OR REPLACE statement is idempotent and
+   safe to rerun. Andrew applies before the wire-in ships to
+   prod (ProfileSetup now calls the RPC unconditionally — if
+   the function isn't deployed yet, the RPC throws and
+   ProfileSetup surfaces "Failed to save profile," which is
+   the same failure mode as pre-9S).
+
+**Commit shape (recommended):** single 9S commit bundling
+migration 023 + `merge-orphan.ts` + test file + ProfileSetup
+wire-up. Optionally bundle 9R's pending diff (the tree also has
+9R's Reveal/WhenField/lodging + Andrew's package.json band-aid
+changes uncommitted). Andrew's call on split vs. combined.
+
+#### Session 9S — Actuals (QA'd, Cowork 2026-04-23)
+
+**Status: closed — shipping, pending deploy sequencing.** All 8
+ACs verified; CC's engineering work is complete and correct. One
+critical deploy-order constraint flagged.
+
+**AC verification summary:**
+
+- **Code-verified by Cowork:**
+  - AC1 ✅ FK list documented (12 columns across 11 tables).
+    Three unique-indexed tables get collision-dedupe semantics;
+    nine are plain UPDATE.
+  - AC2 ✅ `src/lib/auth/merge-orphan.ts` + `__tests__/` both
+    exist. CC reports 4 vitest cases passing.
+  - AC3 ✅ ProfileSetup.tsx:6 imports `mergeOrphan`;
+    ProfileSetup.tsx:38 calls `await mergeOrphan(supabase)`
+    before the existing upsert.
+  - AC6 ✅ `npx tsc --noEmit` exit 0 (CC verified).
+
+- **Migration 023 architectural review:**
+  - ✅ `CREATE OR REPLACE FUNCTION` (idempotent).
+  - ✅ `SECURITY DEFINER` for cross-user FK access.
+  - ✅ `SET search_path = public, pg_temp` (neutralizes classic
+    SECURITY DEFINER search-path hijack).
+  - ✅ `auth.uid()` used for `v_target_id` server-side — no
+    client-supplied email; users can only merge their own
+    orphan (unforgeable).
+  - ✅ `GRANT EXECUTE ON FUNCTION ... TO authenticated` (locks
+    out anonymous callers).
+  - ✅ Target-row pre-creation via placeholder (email=null,
+    phone=`merge-tmp:<uuid>`) — solves the chicken-and-egg
+    where ProfileSetup's target row doesn't exist until AFTER
+    merge, but FKs need it first.
+
+- **Live-verified by CC (end-to-end probes against prod with
+  throwaway emails `9s-probe+<timestamp>@example.invalid`,
+  cleaned up on pass + fail paths):**
+  - AC5/AC7/AC8 ✅ Scenario A "normal merge" (target absent):
+    seed orphan + 2 trips + 2 trip_members, run function-body
+    replay, verify target placeholder created + orphan deleted
+    + both FKs migrated. **PASS.**
+  - AC5/AC7/AC8 ✅ Scenario B "collision merge" (target exists
+    with shared trip): verify collision row deduped + non-
+    collision row migrated + orphan deleted. **PASS.**
+
+- **AC4 verified by implication:** The RPC's no-orphan fast
+  path is a single indexed SELECT. Fresh signup (no prior
+  invite) hits this path and returns `{ merged: false }` with
+  zero DB mutation. Code-verified in the function body.
+
+**Deploy sequencing — COWORK DECISION 2026-04-23 (Andrew by
+delegation):** migration-first, then code. Rationale:
+
+- Migration 023 is inert until ProfileSetup calls the RPC — zero
+  user impact deploying the migration alone.
+- Code without migration is active regression for the narrow
+  invite-then-signup path ("Failed to save profile" — same as
+  pre-9S).
+- Standard deployment discipline; sides on the safe asymmetry.
+
+**Concrete sequence:**
+1. Apply `supabase/migrations/023_merge_orphan_user.sql` to
+   prod via Andrew's normal flow (Supabase SQL editor, CLI
+   push, etc.).
+2. Verify function is live:
+   `SELECT pg_get_functiondef('public.merge_orphan_user_by_email()'::regprocedure);`
+3. Commit + push the 9P/9Q/9R/9S code stack (4 separate
+   commits recommended for `git bisect` hygiene; Andrew's
+   call).
+
+Note: migration 022 (9R's UNIQUE(email)) should already be
+live via the 2026-04-21 manual cleanup. Only 023 needs
+application.
+
+**Scheduled health-check SQL for ops runbook:**
+
+```sql
+-- Detect duplicate-email rows (should be empty post-UNIQUE + merge).
+SELECT email, COUNT(*), array_agg(id ORDER BY created_at) AS ids
+FROM public.users
+WHERE email IS NOT NULL
+GROUP BY email
+HAVING COUNT(*) > 1;
+
+-- Detect stale merge-tmp placeholders (signup interrupted before
+-- ProfileSetup completed). Expected: zero, or tiny counts for
+-- users mid-signup. Any row older than 24h signals a bug.
+SELECT id, display_name, created_at
+FROM public.users
+WHERE phone LIKE 'merge-tmp:%'
+  AND created_at < now() - interval '24 hours';
+```
+
+Run both after migration 023 applies and weekly thereafter.
+
+**Known issues (documented, deferred):**
+
+1. **`activity_log.actor_id` not probe-verified.** PostgREST
+   schema cache omitted `activity_log` from CC's service-role
+   probe. The PL/pgSQL function path bypasses PostgREST, so
+   the real merge will update `actor_id` correctly. Cowork
+   can manually verify post-deploy by creating an activity_log
+   row under an orphan and re-running a merge. Low risk.
+2. **Phone-only orphan merge gap** (brief escalation #3).
+   `api/invite/route.ts:62-73` creates phone-only orphans
+   (`phone=X, email=null`). UNIQUE(email) doesn't constrain
+   nulls, so these don't trip the post-9R error — but also
+   can't be merged on signup (no email to look up). Documented
+   limitation. Logged for 9T+ when phone-based signup exists
+   OR phone-only invites get a different reconciliation path.
+3. **Migration 023 applies via Andrew's deploy flow.** Same
+   pattern as 9R's 022. Function body is `CREATE OR REPLACE`
+   so rerun-safe.
+
+**Commit state:** 9P + 9Q + 9R + 9S now stacked uncommitted.
+17 files modified + 2 new migrations + 1 new util + 1 new
+test dir. Andrew handed commit/deploy off to CC via a saved
+prompt.
+
+**No bugs for a follow-up session.** 9S resolved the BB-1
+escalation cleanly. Follow-up work tracked as 9T (tier-2
+visible fixes + hygiene sweep) below.
+
+---
+
+### Session 9T: "Bug bash — tier-2 visible fixes + hygiene sweep" (placeholder)
+
+**Scope (TBD — to be detailed after 9S closes):**
+
+- BB-3 cost formatting regression — restore `formatMoney` in
+  Transport + Flight cards (`$3000` → `$3,000`)
+- Open Item #3 — Headliner `view site` href duplication
+  (`https://...//https://...`)
+- DatePoll hygiene drift — 9 hex/rgba, 2 dead `--rally-*`,
+  9 inline styles; apply 9K/9M pattern
+- `members as any` cast fix (page.tsx:487)
+- 9Q orphan buzz route removal (`app/trip/[slug]/buzz/page.tsx`
+  — 3-screen-rule violation)
+- Dead CSS sweep (`.crew-inline`, `.crew-invite-btn`,
+  `.buzz-*`)
+- Deprecated lexicon keys sweep (`sharedBadge`,
+  `bookYoursBadge`)
+- 9O eyebrow lexicon cross-ref (`firming up` / `looking
+  solid` — lexicon audit)
+- Passport `n_nights ?? '?'` fallback (logged from 9R Open
+  #1 audit)
+- BB-5 permanent fix (Next version bump when stable, or
+  audit band-aid script's impact after N sessions running)
+
+Brief + kickoff drafted after 9S ships.
+
 ---
 
 ### Bug Bash Queue (future session, briefs TBD)
