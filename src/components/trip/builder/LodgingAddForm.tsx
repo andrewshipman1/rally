@@ -325,14 +325,21 @@ export function LodgingAddForm({ themeId, tripId, slug, dateStart, dateEnd, onDo
               {getCopy(themeId, 'builderState.lodging.peoplePerRoomHint')}
             </span>
           </div>
-          {/* Computed estimate — crew-aware */}
+          {/* Computed estimate — crew-aware. When nights is null (trip
+              dates unset), show just the rate + a subtle fallback hint
+              instead of the legacy "× ? nights" literal (9R Open #1). */}
           <div className="lodging-form-estimate">
             {hotelEstimate !== null
               ? `$${costPerNight}${getCopy(themeId, 'builderState.lodging.perNightLabel')} ${times} ${nights} ${getCopy(themeId, 'builderState.lodging.nightsLabel')}${rooms > 1 ? ` ${times} ${rooms} ${getCopy(themeId, 'builderState.lodging.roomsLabel')}` : ''} ${eq} ${approx}$${hotelEstimate.toLocaleString()}`
               : costPerNight
-                ? `$${costPerNight}${getCopy(themeId, 'builderState.lodging.perNightLabel')} ${times} ? ${getCopy(themeId, 'builderState.lodging.nightsLabel')}`
+                ? `$${costPerNight}${getCopy(themeId, 'builderState.lodging.perNightLabel')}`
                 : ''}
           </div>
+          {!hotelEstimate && costPerNight && !nights && (
+            <div className="lodging-form-hint">
+              {getCopy(themeId, 'builderState.lodging.nightsFallback')}
+            </div>
+          )}
         </>
       )}
 

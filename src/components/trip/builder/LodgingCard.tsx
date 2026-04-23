@@ -114,6 +114,9 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
         costLine = `$${spot.cost_per_night}${getCopy(themeId, 'builderState.lodging.perNightLabel')} ${times} ${nights} ${getCopy(themeId, 'builderState.lodging.nightsLabel')}${roomsPart} ${eq} ${approx}$${estimate.toLocaleString()}`;
         groupTotalForSplit = estimate;
       } else {
+        // 9R Open #1 — rate-only display when nights is null (trip dates
+        // unset / inverted). `rate-no-nights` suffix drives the subtle
+        // fallback-hint render below the cost line.
         costLine = `$${spot.cost_per_night}${getCopy(themeId, 'builderState.lodging.perNightLabel')}`;
       }
     }
@@ -233,6 +236,14 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
       <div className="house-body">
         <div className="house-title">{spot.name}</div>
         {costLine && <div className="house-meta">{costLine}</div>}
+        {/* 9R Open #1 — rate-only hotels render a subtle fallback hint when
+            trip dates are unset so `nights` is null. Keeps the rate visible
+            (useful signal) while replacing the legacy "× ? nights" literal. */}
+        {spot.accommodation_type === 'hotel' && spot.cost_per_night != null && !nights && (
+          <div className="lodging-card-meta">
+            {getCopy(themeId, 'builderState.lodging.nightsFallback')}
+          </div>
+        )}
         {perPersonLine && <div className="lodging-card-per-person">{perPersonLine}</div>}
         {metaLine && <div className="lodging-card-meta">{metaLine}</div>}
 

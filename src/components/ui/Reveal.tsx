@@ -22,11 +22,17 @@ export function Reveal({
     }
     const el = ref.current;
     if (!el) return;
+    // Session 9R BB-4 — threshold=0 + tiny negative bottom rootMargin
+    // makes the observer fire reliably for below-fold modules on scroll.
+    // The old threshold=0.12 required 12% of the (transformed) element
+    // to cross the viewport — tall sections rendered below the fold
+    // sometimes never hit that ratio during a normal scroll past and
+    // stayed stuck at opacity:0 (BB-4 symptom in 9K/9L/9Q QA).
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) setVisible(true);
       },
-      { threshold: 0.12 }
+      { threshold: 0, rootMargin: '0px 0px -40px 0px' }
     );
     observer.observe(el);
     return () => observer.disconnect();

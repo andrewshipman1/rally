@@ -85,6 +85,7 @@ export function WhenField({
             type="date"
             className="when-hidden-input"
             value={dateEnd ?? ''}
+            min={dateStart ?? undefined}
             onChange={handleEndChange}
           />
         </div>
@@ -105,6 +106,7 @@ export function WhenField({
             type="date"
             className="when-hidden-input"
             value={dateEnd ?? ''}
+            min={dateStart ?? undefined}
             onChange={handleEndChange}
           />
         </>

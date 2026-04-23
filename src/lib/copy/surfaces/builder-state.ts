@@ -90,6 +90,13 @@ export const builderState: Record<string, Templated> = {
   'lodging.totalLabel':               'total',
   'lodging.perNightLabel':            '/night',
   'lodging.nightsLabel':              'nights',
+  // Session 9R Open Item #1 — subtle hint shown in the hotel-estimate
+  // preview (LodgingAddForm) + LodgingCard rate-only row when trip
+  // dates are unset so `nights` is null. Replaces the legacy
+  // "× ? nights" literal. Proposed copy pending Andrew's lexicon
+  // sign-off 2026-04-23: approved "dates will firm up the total" —
+  // ties to 9O CostBreakdown's "firm up" eyebrow language.
+  'lodging.nightsFallback':           'dates will firm up the total',
   'lodging.bedroomsLabel':            'bedrooms',
   'lodging.maxGuestsLabel':           'max guests',
   'lodging.perRoomLabel':             'per room',
