@@ -18,8 +18,13 @@ export const passport: Record<string, Templated> = {
   // ─── Stamps section ─────────────────────────────────────────────
   'sectionStamps':        'your passport',
   'sectionStampsSub':     'every rally, stamped',
-  'stampMeta':            ({ month, year, n_nights }: ThemeVars) =>
-    `${month ?? '?'} '${String(year ?? '??').slice(-2)} · ${n_nights ?? '?'} nights`,
+  'stampMeta':            ({ month, year, n_nights }: ThemeVars) => {
+    const dateBit = month != null && year != null
+      ? `${month} '${String(year).slice(-2)}`
+      : null;
+    const nightsBit = n_nights != null ? `${n_nights} nights` : null;
+    return [dateBit, nightsBit].filter(Boolean).join(' · ');
+  },
   'emptyStamps':          'first stamp is the hardest',
   'emptyStampsSub':       'start a rally or wait for a friend to call you up',
 

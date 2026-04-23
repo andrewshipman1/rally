@@ -16,6 +16,7 @@
 import type { Transport, TransportTypeTag } from '@/types';
 import type { ThemeId } from '@/lib/themes/types';
 import { getCopy } from '@/lib/copy/get-copy';
+import { formatMoney } from '@/lib/money';
 
 const TAG_EMOJI: Record<TransportTypeTag, string> = {
   flight: '✈️',
@@ -53,7 +54,7 @@ export function TransportCard({ transport, themeId }: Props) {
       : 'tripPageShared.transport.splitIndividual',
   );
   const cost = transport.estimated_total != null
-    ? `$${Math.round(transport.estimated_total)}`
+    ? formatMoney(transport.estimated_total)
     : '';
 
   const body = (

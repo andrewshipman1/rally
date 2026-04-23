@@ -45,6 +45,13 @@ function domainOf(url: string | null): string | null {
   }
 }
 
+// 9U — strips accidentally-doubled stored URLs like
+// "https://x.com/https://x.com/" back to the first full URL.
+function stripDuplicateUrl(url: string): string {
+  const dup = url.slice(1).search(/https?:\/\//);
+  return dup === -1 ? url : url.slice(0, dup + 1);
+}
+
 export function Headliner({
   themeId,
   headliner,
@@ -113,7 +120,7 @@ export function Headliner({
         {headliner.linkUrl && (
           <a
             className="module-card-pill headliner-cta"
-            href={headliner.linkUrl}
+            href={stripDuplicateUrl(headliner.linkUrl)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}

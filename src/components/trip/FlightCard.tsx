@@ -16,6 +16,7 @@
 import type { Flight } from '@/types';
 import type { ThemeId } from '@/lib/themes/types';
 import { getCopy } from '@/lib/copy/get-copy';
+import { formatMoney } from '@/lib/money';
 
 type Props = {
   flight: Flight;
@@ -26,7 +27,7 @@ export function FlightCard({ flight, themeId }: Props) {
   const tagLabel = getCopy(themeId, 'tripPageShared.transport.typeLabel.flight');
   const splitLabel = getCopy(themeId, 'tripPageShared.transport.splitIndividual');
   const cost = flight.estimated_price != null
-    ? `$${Math.round(flight.estimated_price)}`
+    ? formatMoney(flight.estimated_price)
     : '';
 
   const body = (
