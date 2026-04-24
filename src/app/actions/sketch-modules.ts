@@ -236,8 +236,11 @@ export async function addFlight(
 // ─── Transportation (Session 8M) ──────────────────────────────────
 // Rebuilt against rally-transportation-wireframe.html. Writes the new
 // 7-value type_tag + canonical description column. Legacy `subtype`
-// column is left NULL on new rows (it stays nullable; old rows keep
-// their backfilled value from migration 019).
+// column is left NULL on new rows — dropped to nullable in migration
+// 024 (Session 9X hotfix; 019 backfilled subtype but forgot the
+// `alter column subtype drop not null`, which 100%-broke add for
+// every user until 024 landed). Old rows keep their backfilled value
+// from migration 019.
 
 const TransportTypeTagSchema = z.enum([
   'flight',
