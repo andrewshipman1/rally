@@ -54,10 +54,10 @@ type InviteeOverrides = {
 type SketchOverrides = {
   /** Replaces `theme.strings.marquee` for the top scrolling strip. */
   marqueeItems: string[];
-  /** Replaces the phase-derived sticker copy. */
-  stickerText: string;
-  /** Forces the live-row to render with this text, regardless of `isLive`. */
-  liveRowText: string;
+  /** Replaces the phase-derived sticker copy. Null suppresses the sticker (9W edit-on-sell). */
+  stickerText: string | null;
+  /** Forces the live-row to render with this text. Null suppresses the live-row (9W edit-on-sell). */
+  liveRowText: string | null;
   /** Replaces the phase-derived eyebrow copy (leading `★` is added by the hero). */
   eyebrowText: string;
   /** Drops a client sub-tree in place of the title + tagline block. */
@@ -114,7 +114,8 @@ export function PostcardHero({
   const isSignedInSell = phase === 'sell' && !inviteeOverrides;
 
   // Sticker: sketch override wins; otherwise phase-derived default.
-  let sticker: string;
+  // 9W — sketch override may be null to suppress the sticker (edit-on-sell).
+  let sticker: string | null = null;
   if (isSketch) {
     sticker = sketchOverrides.stickerText;
   } else {
@@ -161,8 +162,9 @@ export function PostcardHero({
   // 9F reverted the 9E sell gate — sell trips no longer show the muted
   // "trip is live" row above the title. `common.live` stays in the
   // lexicon (still consumed when isLive is true on go-phase trips).
-  const showLiveRow = isSketch || isLive;
   const liveRowText = isSketch ? sketchOverrides.liveRowText : getCopy(themeId, 'common.live');
+  // 9W — suppress live row when sketch override is null (edit-on-sell).
+  const showLiveRow = liveRowText != null && (isSketch || isLive);
 
   // 9E: trip-meta row (sell only, data render — no lexicon).
   // Same-month collapse: "Nov 20 → 26"; otherwise "Nov 20 → Dec 2".
@@ -195,7 +197,7 @@ export function PostcardHero({
       </div>
 
       <div className="header">
-        <div className="sticker">{sticker}</div>
+        {sticker && <div className="sticker">{sticker}</div>}
         {showLiveRow && (
           <div className="live-row">
             {!isSketch && <span className="dot" />} {liveRowText}

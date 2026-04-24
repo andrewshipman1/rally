@@ -57,7 +57,11 @@ export async function updateTripSketch(
     .single();
   if (fetchError || !trip) return { ok: false, error: 'trip-not-found' };
   if (trip.organizer_id !== user.id) return { ok: false, error: 'not-organizer' };
-  if (trip.phase !== 'sketch') return { ok: false, error: 'not-sketch-phase' };
+  // 9W — also allow 'sell' so the organizer edit-on-sell view can write
+  // through the same action. Auth (organizer_id) still gates writes.
+  if (trip.phase !== 'sketch' && trip.phase !== 'sell') {
+    return { ok: false, error: 'wrong-phase' };
+  }
 
   // Whitelist keys — no spread of raw input.
   const whitelisted: Record<string, unknown> = {};
@@ -69,8 +73,7 @@ export async function updateTripSketch(
   const { error: updateError } = await supabase
     .from('trips')
     .update(whitelisted)
-    .eq('id', tripId)
-    .eq('phase', 'sketch');
+    .eq('id', tripId);
   if (updateError) return { ok: false, error: updateError.message };
 
   revalidatePath(`/trip/${slug}`);

@@ -9,7 +9,12 @@ export const builderState: Record<string, Templated> = {
   // ─── Top of page ────────────────────────────────────────────────
   'liveRow':               'draft · only you can see this',
   'sticker':               'new rally ✨',
-  'eyebrow':               'you started this',
+  'eyebrow':               "you're the organizer of this trip",
+
+  // ─── Organizer edit-on-sell (Session 9W) ────────────────────────
+  'editCta':               'edit',
+  'editModeHint':          "you're editing · changes save automatically",
+  'editModeDone':          'done editing',
 
   // ─── Inline field labels (small caps above each field) ──────────
   'fieldLabel.name':       'name it',

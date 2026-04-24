@@ -13,7 +13,7 @@
 // (migration 008). No boundary mapping needed.
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
 import { RSVP_CHIP_ICONS } from '@/lib/copy/surfaces/rsvp';
 import { Confetti } from '@/components/ui/Confetti';
@@ -47,6 +47,7 @@ export function StickyRsvpBarChassis({
   isOrganizer,
 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<RallyRsvp | null>(current);
@@ -58,6 +59,13 @@ export function StickyRsvpBarChassis({
         <span className="sticky-organizer-text">
           {'★ '}{getCopy(themeId, 'builderState.eyebrow')}
         </span>
+        <button
+          type="button"
+          className="sticky-organizer-edit"
+          onClick={() => router.push(`${pathname}?edit=1`)}
+        >
+          {getCopy(themeId, 'builderState.editCta')}
+        </button>
       </div>
     );
   }

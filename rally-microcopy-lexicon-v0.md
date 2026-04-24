@@ -468,7 +468,7 @@ The trip page IS the builder. No wizard. These strings replace the live content 
 |---|---|
 | Live-row | draft · only you can see this |
 | Sticker | new rally ✨ |
-| Eyebrow | ★ you started this |
+| Eyebrow | ★ you're the organizer of this trip |
 | Title placeholder (Shrikhand, 38px) | untitled rally |
 | Tagline placeholder (Caveat) | why are we doing this? |
 | When field placeholder | tbd ↓ |
@@ -491,6 +491,20 @@ The trip page IS the builder. No wizard. These strings replace the live content 
 **Gates to un-disable CTA:** name (≥3 chars) + at least one date (or a clear "tbd" + target month) + at least one invited person other than the organizer. Cutoff date is optional in Sketch, **required to Lock**.
 
 **Auto-save behavior:** drafts save every edit. The ✏️ button is a manual safety net, not the primary save mechanism. Consider removing in v2 if PRD doesn't call for it.
+
+**Organizer edit-on-sell (Session 9W):** a published sell-phase organizer can tap into the sketch shell via `?edit=1` to amend their trip. Phase never changes — edit mode is a view, not a state. These strings appear in that view.
+
+| Key | String |
+|---|---|
+| `builderState.editCta` | edit |
+| `builderState.editModeHint` | you're editing · changes save automatically |
+| `builderState.editModeDone` | done editing |
+
+**Behavior:**
+- Sell-page organizer sticky bar shows the identity eyebrow + `edit` pill (layout B, single-line tight).
+- Tapping `edit` appends `?edit=1` to the URL and re-renders the sketch shell against the sell-phase trip data. Phase in the DB stays `'sell'`.
+- Sketch sticky bar drops save-draft in this mode (autosave-only) and swaps publish for `done editing`; a hint banner above the bar renders `editModeHint`.
+- `done editing` clears the query param and returns to the sell view.
 
 ### 5.17 Invitee state (pre-login)
 

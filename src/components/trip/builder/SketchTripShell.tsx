@@ -81,6 +81,11 @@ type Props = {
     date_end: string | null;
     commit_deadline: string | null;
   };
+  /** 9W — 'sketch' for true sketch-phase trips (default); 'edit-on-sell'
+   * for the organizer editing a published sell-phase trip via ?edit=1.
+   * Edit-on-sell suppresses sketch signifiers (sticker, live row) and
+   * swaps the publish button for done-editing. */
+  mode?: 'sketch' | 'edit-on-sell';
 };
 
 export function SketchTripShell({
@@ -107,7 +112,9 @@ export function SketchTripShell({
   headliner,
   activitiesEstimate,
   initial,
+  mode = 'sketch',
 }: Props) {
+  const isEditOnSell = mode === 'edit-on-sell';
   // Seed state from props on mount only; never re-sync from props,
   // or optimistic typing state will be stomped by server refresh.
   const [name, setName] = useState(initial.name);
@@ -163,8 +170,11 @@ export function SketchTripShell({
         isLive={false}
         sketchOverrides={{
           marqueeItems,
-          stickerText: getCopy(activeThemeId, 'builderState.sticker'),
-          liveRowText: getCopy(activeThemeId, 'builderState.liveRow'),
+          // 9W — suppress sketch signifiers in edit-on-sell mode. The
+          // sticker ("new rally ✨") and live row ("draft · only you can
+          // see this") both lie for a published trip — hide them.
+          stickerText: isEditOnSell ? null : getCopy(activeThemeId, 'builderState.sticker'),
+          liveRowText: isEditOnSell ? null : getCopy(activeThemeId, 'builderState.liveRow'),
           eyebrowText: getCopy(activeThemeId, 'builderState.eyebrow'),
           renderPostcard: (
             <PostcardImage
@@ -279,6 +289,7 @@ export function SketchTripShell({
       <BuilderStickyBar
         themeId={activeThemeId}
         ready={ready}
+        mode={mode}
         onBack={() => router.push('/')}
         onThemeOpen={() => setPickerOpen(true)}
         onManualSave={() => void flush()}
@@ -289,6 +300,13 @@ export function SketchTripShell({
             window.scrollTo(0, 0);
             router.refresh();
           }
+        }}
+        onDone={async () => {
+          // 9W — edit-on-sell exit: flush any pending autosave, then
+          // strip `?edit=1` by navigating back to the bare trip path.
+          // Phase stays 'sell' — no transition, no republish.
+          await flush();
+          router.push(`/trip/${slug}`);
         }}
       />
 

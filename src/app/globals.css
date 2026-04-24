@@ -2515,6 +2515,51 @@ button:active {
   font-weight: 600;
 }
 
+/* ─── Session 9W: edit-on-sell sticky bar + hint banner ───────── */
+
+.chassis .sticky--edit-mode {
+  background: #2a1810;
+  border-top-color: #2a1810;
+  color: #faf8f5;
+}
+.chassis .sticky--edit-mode .sticky-icon {
+  color: #faf8f5;
+  border-color: rgba(250, 248, 245, 0.3);
+  border-width: 1.5px;
+}
+.chassis .sticky--edit-mode .sticky-icon:hover {
+  background: rgba(250, 248, 245, 0.08);
+}
+.chassis .sticky .sticky-done {
+  flex: 1;
+  background: var(--accent);
+  color: #2a1810;
+  border: 2px solid var(--accent);
+  height: 44px;
+  border-radius: 100px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.chassis .sticky-edit-hint {
+  position: fixed;
+  left: 18px;
+  right: 18px;
+  bottom: 86px;
+  padding: 8px 12px;
+  background: rgba(42, 24, 16, 0.92);
+  border-radius: 8px;
+  color: #faf8f5;
+  font-family: "DM Sans", sans-serif;
+  font-size: 11px;
+  text-align: center;
+  opacity: 0.85;
+  backdrop-filter: blur(4px);
+  z-index: 9;
+  pointer-events: none;
+}
+
 /* ───── Pick the vibe CTA ───── */
 .chassis .pick-vibe-btn {
   display: inline-flex;
@@ -4036,15 +4081,38 @@ button:active {
 }
 
 /* ─── Session 5: Organizer RSVP bar variant ──────────────────────── */
+/* ─── Session 9W: layout B (single-line tight) — identity + edit pill. */
 
 .chassis .sticky--organizer {
-  justify-content: center;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
 }
 .chassis .sticky-organizer-text {
-  font-family: var(--font-display), 'Shrikhand', serif;
-  font-size: 16px;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 13px;
   color: var(--ink);
-  opacity: 0.8;
+  opacity: 0.75;
+  text-transform: lowercase;
+  line-height: 1.2;
+}
+.chassis .sticky-organizer-edit {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 100px;
+  background: var(--accent);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 /* ─── Session 5: Crew invite button ──────────────────────────────── */

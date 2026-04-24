@@ -42,7 +42,11 @@ import { DatePoll } from '@/components/trip/DatePoll';
 import { Reveal } from '@/components/ui/Reveal';
 import { PassportProvider } from '@/components/trip/PassportContext';
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  // 9W — `?edit=1` flips the organizer into edit-on-sell mode.
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -87,8 +91,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function TripPage({ params }: Props) {
+export default async function TripPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const sp = await searchParams;
+  const editParam = sp.edit === '1';
   const trip = await getTrip(slug);
   if (!trip) notFound();
 
@@ -136,6 +142,9 @@ export default async function TripPage({ params }: Props) {
 
   const cost = calculateTripCost(trip);
   const isOrganizer = currentUserId === trip.organizer_id;
+  // 9W — edit-on-sell gate. Organizer-only; non-organizers with the
+  // query param fall through to the normal sell view.
+  const isEditMode = editParam && isOrganizer;
 
   const viewerMember = currentUserId
     ? members.find((m) => m.user_id === currentUserId)
@@ -180,11 +189,16 @@ export default async function TripPage({ params }: Props) {
     );
   }
 
-  if (trip.phase === 'sketch') {
+  if (trip.phase === 'sketch' || isEditMode) {
     // Phase 6: SketchTripShell owns its own `.chassis` wrapper so the
     // theme picker can drive live preview via React state. Do NOT
     // re-wrap here or the data-theme attribute will double-up and the
     // picker's preview swap will be shadowed.
+    //
+    // 9W: when `isEditMode` (sell-phase organizer with `?edit=1`), the
+    // same sketch shell renders against sell-phase trip data. The shell's
+    // `mode` prop suppresses sketch-only signifiers (sticker, live row)
+    // and swaps publish → done-editing. Phase stays 'sell' in the DB.
     return (
       <SketchTripShell
         themeId={themeId}
@@ -228,6 +242,7 @@ export default async function TripPage({ params }: Props) {
           date_end: trip.date_end,
           commit_deadline: trip.commit_deadline,
         }}
+        mode={trip.phase === 'sketch' ? 'sketch' : 'edit-on-sell'}
       />
     );
   }
