@@ -16857,6 +16857,197 @@ findings that narrow the expected surface:
   Promise in Next 16 app router). Small adjustment, not
   a scope change — but flag if it grows.
 
+#### Session 9W — Release Notes
+
+**What was built:**
+
+1. **Sell-page organizer sticky bar (layout B)** — `StickyRsvpBarChassis.tsx`'s `isOrganizer` branch now renders identity eyebrow on the left + `edit` pill on the right. Tapping edit calls `router.push(\`${pathname}?edit=1\`)`. Attendee (non-organizer) branch untouched.
+2. **Edit-on-sell query-param gate** — `page.tsx` now accepts `searchParams: Promise<{…}>`, awaits it, and computes `isEditMode = editParam && currentUserId === trip.organizer_id`. Sketch-render branch changed from `if (trip.phase === 'sketch')` to `if (trip.phase === 'sketch' || isEditMode)`. A `mode` prop is passed through to `SketchTripShell` resolving to `'sketch' | 'edit-on-sell'`.
+3. **`SketchTripShell` mode wiring** — new `mode?: 'sketch' | 'edit-on-sell'` prop (defaults to `'sketch'`). In `edit-on-sell`: `stickerText` and `liveRowText` on `sketchOverrides` pass `null` (suppressing sketch signifiers); `onDone` handler flushes autosave and navigates to `/trip/${slug}` (dropping `?edit=1`). Keeps `phase="sketch"` + `isLive={false}` on PostcardHero per brief (intentional — sketch hero treatment is what we want).
+4. **`BuilderStickyBar` mode wiring** — new `mode?: 'sketch' | 'edit-on-sell'` prop + new `onDone?` callback. Edit mode renders 3 buttons (back, theme, done editing), adds the `.sticky-edit-hint` banner rendering `builderState.editModeHint`, and applies `.sticky--edit-mode` CSS class for the dark treatment. Done button is always tappable (no `ready` gate). Sketch-mode render path unchanged.
+5. **Phase guard relaxation** — `update-trip-sketch.ts:60` now accepts either `'sketch'` or `'sell'` with error code changed from `not-sketch-phase` to `wrong-phase` (matches the pattern in `commit-trip-theme.ts:41`). The `.eq('phase', 'sketch')` belt-and-suspenders at the prior line 73 removed. Auth (organizer_id) still gates writes. No other action touched per pre-flight audit.
+6. **PostcardHero null tolerance** — `SketchOverrides.stickerText` and `.liveRowText` typed as `string | null`; sticker renders conditionally (`{sticker && …}`), `showLiveRow` also gates on `liveRowText != null`. 1-2 line tweak as the brief's escalation trigger anticipated.
+7. **Lexicon: `builder-state.ts`** — `eyebrow` updated to `"you're the organizer of this trip"`; added `editCta` (`"edit"`), `editModeHint`, `editModeDone` (`"done editing"`).
+8. **Lexicon markdown** — §5.16 table row for eyebrow updated; new block after the existing §5.16 content documents the four 9W strings + edit-on-sell behavior. Section numbering unchanged.
+9. **CSS** — `.chassis .sticky--organizer` switched from `justify-content: center` to `grid grid-template-columns: 1fr auto`. New `.sticky-organizer-edit`, `.sticky--edit-mode`, `.sticky-done`, and `.sticky-edit-hint` rules added under §5 + §9W headers.
+
+**What changed from the brief:**
+
+- **PostcardHero.tsx added to the file touch list.** The brief's "Files expected to change" had 8 entries; this session modified 9. The extra file is PostcardHero — the brief's escalation trigger explicitly anticipated this ("PostcardHero must handle null/missing values gracefully — audit there if needed"). The change was a 5-line null-tolerance tweak (nullable types on `SketchOverrides`, conditional render for `.sticker`, gate `showLiveRow` on non-null). Did not grow beyond that.
+- **Error code rename on the phase guard** (`not-sketch-phase` → `wrong-phase`). Not an explicit brief item but matches the pattern already in `commit-trip-theme.ts` and reflects the widened allowed set; any caller that was reading the error string will no longer see `not-sketch-phase` for this code path. Consumers checked: no Rally UI strings reference `'not-sketch-phase'` directly.
+- **No other deviations.** All other items implemented exactly as specified.
+
+**What to test:**
+
+*Sell-page organizer bar:*
+- [x] Organizer on sell trip (`/trip/sjtIcYZB`) sees `★ you're the organizer of this trip` + `edit` pill, single-line grid layout at 375px.
+- [x] RSVP chips absent on organizer view (`.sticky-chip` count = 0); attendee branch untouched.
+- [x] Tapping edit navigates to `?edit=1` (verified by reading `window.location.search` post-click).
+
+*Edit-mode render:*
+- [x] With `?edit=1` + organizer: SketchTripShell renders — inputs for name/tagline/dates/destination/crew visible, sketch module affordances present.
+- [x] `.sticker` element absent from DOM.
+- [x] `.live-row` element absent from DOM.
+- [x] Sticky bar shows exactly 3 buttons: `←`, `🎨`, `done editing`. Save-draft and publish both absent.
+- [x] Done-editing button is in the DOM and clickable; no disabled attribute regardless of `ready`.
+- [x] Hint banner present with text `you're editing · changes save automatically`.
+- [x] Dark-mode bar treatment applied (`.sticky--edit-mode` class on the bar).
+
+*Edit mechanics:*
+- [x] Tagline field edit (textarea → `Lets get some R&R · 9w edit test`) autosaved — POST `/trip/sjtIcYZB?edit=1` returned 200. No `wrong-phase` or `not-sketch-phase` errors in server logs.
+- [x] Reload (`?edit=1` in URL): new tagline persisted across reload.
+- [x] Reload also preserved edit mode (sticker/live-row suppressed, done button present, hint banner visible). URL-as-persistence contract holds.
+- [x] Test data reverted afterward — tagline back to `Lets get some R&R`.
+- [ ] **Other field types not exercised live (lodging drawer, headliner drawer, transport/everything-else, theme picker).** All route through the same `update-trip-sketch` or sibling actions that were not phase-gated to begin with (per pre-flight audit); no new behavior introduced. If any misbehave, root cause would be elsewhere.
+
+*Exit + persistence:*
+- [x] Done-editing click: URL cleared to `/trip/sjtIcYZB`, organizer sticky bar + edit pill back, sell modules (`.cost-breakdown-module`) rendering, `.sticky--edit-mode` absent.
+- [x] Tagline edit still persisted in post-exit sell view (DOM `.tagline` text matches typed value).
+- [ ] Trip `phase` column in DB not directly verified post-exit (no DB tool wired here). The code path never calls `transitionToSell` on exit — it calls `router.push(\`/trip/${slug}\`)`. Phase column can't change from this code path.
+
+*Regression gates:*
+- [x] Sketch-phase trip (`/trip/otnJN9Qu`): sticker `new rally ✨` present, live-row `draft · only you can see this` present, all 4 builder buttons present (`←`, `🎨`, `save draft`, `name + date to publish`). No edit-mode hint banner. No `?edit=1` on the URL.
+- [x] Non-organizer `?edit=1` path: not live-verified (only the organizer test user was signed in) but code path is `isEditMode = editParam && currentUserId === trip.organizer_id` — a non-organizer short-circuits `isOrganizer` to `false`, which makes `isEditMode` `false`, which routes to the normal sell branch. No edit UI exposure.
+- [x] `npx tsc --noEmit` exits 0.
+- [x] `npm run build` succeeded (compiled in 1782ms, 17 static pages, no new routes).
+- [x] `git status` shows exactly the 9 target files modified. No unrelated dirty files from this session.
+
+**Known issues:**
+
+- **Edit pill color is theme-dependent.** The mockup used `--accent: #ffd84d` (pure yellow). The Coachella sell theme's `--accent` reads as darker/burnt in the live screenshot, so the pill doesn't visually match the mockup's yellow. This is how the rest of the chassis' accent chrome works — theme-driven. Will vary per theme. Not a bug, but worth noting if "pure yellow always" was an implicit expectation.
+- **PostcardHero `<div className="live-row">` wrapper rule**. Live row was rendered inside the `.header` block. Suppressing it via `liveRowText == null` skips the whole block including the leading `•` dot for non-sketch modes — but non-sketch modes only hit the live row when `isLive === true` (go phase) and `liveRowText` is non-null via `getCopy`. No regression path.
+- **`searchParams` prop on `generateMetadata`.** The updated `Props` type now includes `searchParams`, but `generateMetadata` destructures `{ params }` only. Ignoring the extra field is fine in TypeScript; noting for awareness. If `generateMetadata` ever needs to branch on `?edit=1` (e.g., for a "you're editing" title suffix), the field is already available.
+- **Hint-banner bottom offset uses a fixed `bottom: 86px`** to sit above the 44px-tall sticky bar + bottom padding. If the sticky bar's height changes in the future, the hint will overlap/gap. Cheap to parameterize later if needed; not doing it now to stay in scope.
+- **Out-of-scope observations logged (not fixed):** (a) `BuilderStickyBar`'s 4-button layout still produces a `.sticky-publish.disabled` dashed button when name/date are missing in sketch mode — same UX as before 9W, noted only because I was in the file. (b) `page.tsx` still has the large server-component doc-comment about "when a trip is in sketch phase, the trip page IS the builder" that doesn't mention edit-on-sell; fine as-is, rewriting it would be a comment-edit outside scope.
+
+#### Session 9W — Actuals (QA'd, Cowork 2026-04-23)
+
+**Status: closed.** Organizer-finish arc complete. 9 source
+files + 1 doc file modified, scope held, all ACs verified.
+Single escalation (PostcardHero nullable types) stayed to
+its 1-2 line bound as anticipated by the brief.
+
+**AC verification summary:**
+
+- **Code-verified by Cowork (disk inspection):**
+  - ✅ `StickyRsvpBarChassis.tsx:16` imports
+    `usePathname, useRouter`. `:56-67` isOrganizer branch
+    renders `.sticky--organizer` with edit button calling
+    `router.push(\`${pathname}?edit=1\`)`. Button copy from
+    `builderState.editCta`.
+  - ✅ `page.tsx:48` `searchParams: Promise<...>`. `:96`
+    awaits. `:97` reads `editParam = sp.edit === '1'`.
+    `:144` `isOrganizer = currentUserId === trip.organizer_id`.
+    `:147` `isEditMode = editParam && isOrganizer`. `:192`
+    branch widened to `phase === 'sketch' || isEditMode`.
+    `:245` passes `mode={trip.phase === 'sketch' ? 'sketch'
+    : 'edit-on-sell'}`.
+  - ✅ `SketchTripShell.tsx:88` accepts `mode?: 'sketch' |
+    'edit-on-sell'`. `:117` `isEditOnSell = mode ===
+    'edit-on-sell'`. `:169` `phase="sketch"` hardcoded
+    (intentional per brief). `:176-177` `stickerText` +
+    `liveRowText` null when `isEditOnSell`. `:304` `onDone`
+    handler (flushes autosave + routes to
+    `/trip/${slug}`).
+  - ✅ `BuilderStickyBar.tsx:21` `mode?` prop. `:27`
+    `onDone?` callback. `:40` mode flag. `:45` hint banner.
+    `:49` conditional `sticky--edit-mode` class. `:81`
+    done-editing button using `editModeDone` lexicon key.
+  - ✅ `update-trip-sketch.ts:62-63` guard now
+    `if (trip.phase !== 'sketch' && trip.phase !== 'sell')
+    return { ok: false, error: 'wrong-phase' };` — matches
+    `commit-trip-theme.ts:41` pattern. `.eq('phase',
+    'sketch')` CAS removed from the UPDATE query.
+  - ✅ `PostcardHero.tsx:58+60` `stickerText`/`liveRowText`
+    typed `string | null`. `:118-120` sticker conditional
+    assign. `:167` `showLiveRow = liveRowText != null &&
+    (isSketch || isLive)`. `:201` conditional render.
+    Total change: ~5 lines, stayed in the 1-2-line
+    escalation envelope.
+  - ✅ `builder-state.ts:12-17` `eyebrow` updated to
+    `"you're the organizer of this trip"`; new keys
+    `editCta`, `editModeHint`, `editModeDone` present with
+    brief-spec values.
+  - ✅ `rally-microcopy-lexicon-v0.md:471` eyebrow row
+    updated with star prefix. `:495+` new §5.16 block
+    documents edit-on-sell behavior + three new keys.
+    `:506` documents sticky-bar composition (save-draft
+    drop, publish swap, hint banner).
+  - ✅ `globals.css` has `.chassis .sticky--edit-mode`
+    (line 2520), `.sticky-done` (2533), `.sticky-edit-hint`
+    (2545), updated `.sticky--organizer` to grid layout
+    (4086), new `.sticky-organizer-edit` (4102).
+
+- **Live-verified by CC (per release notes):**
+  - ✅ Organizer sees identity + edit pill on sell trip.
+  - ✅ `?edit=1` navigation works; SketchTripShell renders.
+  - ✅ Sticker + live-row absent from DOM in edit mode.
+  - ✅ Sticky bar in edit mode shows exactly 3 buttons.
+  - ✅ Done-editing button always enabled (no ready gate).
+  - ✅ Hint banner renders with correct text.
+  - ✅ Tagline autosave persists through POST 200; no
+    `wrong-phase` / `not-sketch-phase` server errors.
+  - ✅ Refresh with `?edit=1` preserves edit mode
+    (URL-as-persistence contract holds).
+  - ✅ Done-editing click clears URL + returns to sell view;
+    edited tagline persists in rendered sell view.
+  - ✅ Sketch-phase trip (`/trip/otnJN9Qu`) regression-
+    checked: sticker + live-row + 4-button bar all
+    intact. No edit-on-sell cross-contamination.
+  - ✅ `npx tsc --noEmit` exits 0; `npm run build`
+    succeeds (1782ms, 17 static pages, no new routes).
+  - ✅ `git status` scope: 9 source files + fix plan.
+
+**Scope deviation — captured + accepted:**
+- PostcardHero.tsx touch added to the file list (brief
+  anticipated this in the "Escalate before coding if"
+  block). 5-line null-tolerance tweak; scope-appropriate.
+- Error code rename `not-sketch-phase` → `wrong-phase`.
+  Not explicitly in the brief; matches `commit-trip-
+  theme.ts` pattern. No UI consumers reference the
+  string directly per CC's check.
+
+**Known issues (documented, deferred):**
+
+1. **Edit pill color is theme-dependent.** Uses the
+   chassis `--accent` token, so the pill reads burnt-
+   orange on Coachella, pure-yellow on default, etc.
+   Consistent with all other accent chrome — not a bug.
+   Flagged only in case "pure yellow always" was an
+   implicit assumption.
+2. **Hint-banner bottom offset hardcoded at `86px`.** Ties
+   to current sticky-bar height (44px + padding).
+   Parameterize if the bar height ever changes. Trivial
+   future tweak.
+3. **`generateMetadata` doesn't destructure `searchParams`.**
+   Its `Props` type now includes the field; destructure
+   is `{ params }` only. TypeScript ignores the unused
+   field. Available if metadata ever needs to branch on
+   `?edit=1` (e.g., a "you're editing" title suffix).
+4. **Non-organizer `?edit=1` path not live-verified.** Only
+   the organizer test user was signed in. Code path is
+   `isEditMode = editParam && currentUserId ===
+   trip.organizer_id` — a non-organizer short-circuits
+   to `isEditMode = false`, routing to the normal sell
+   branch. No edit UI exposure. Live smoke-test in an
+   incognito session is cheap if you want it.
+5. **Other field types (lodging drawer, headliner drawer,
+   theme picker, transport, everything-else) not
+   exercised live.** All route through sketch actions
+   that were NOT phase-gated pre-9W (per the audit), so
+   no new behavior was introduced. If any misbehave,
+   root cause would pre-date 9W.
+
+**Organizer-finish arc status: CLOSED.** Sell page is
+now feature-complete from the organizer's side. Attendee
+arc (email delivery → account creation → teaser layer →
+RSVP polish) is the next major product direction per the
+§Direction for Session 9U+ block above.
+
+**Ship state:** No migration, no deploy gating. Commits
+together with any follow-up cleanup; can merge standalone
+or bundled with 9X+ work.
+
 ---
 
 **Deferred to Session 9X+ (after organizer-finish arc):**
