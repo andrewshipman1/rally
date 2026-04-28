@@ -17322,7 +17322,556 @@ push, 9X is fully closed.
 
 ---
 
-**Deferred to Session 9Y+ (after organizer-finish arc + 9X hotfix):**
+### Session 9Y: "Dashboard trip management — delete sketch, archive sell+"
+
+**Status: SCOPED 2026-04-27.** Quick organizer feature
+ahead of the larger attendee-join arc. Adds two affordances
+to the dashboard: hard-delete for sketch trips, soft-archive
+for sell+ trips. Locked product decisions:
+
+- **UI placement:** dashboard kebab menu only (not on the
+  trip page).
+- **Archive scope:** organizer-side hide. Invitees still
+  see the trip on their own dashboards and at the direct
+  URL. Archive is `archived_at = now()` on the trip row;
+  no cascade.
+- **Reversibility:** unarchive ships in this session.
+  Dashboard renders an "archived" subsection where the
+  organizer can unarchive.
+
+**Pre-existing infra (no work needed):**
+
+- `archived_at timestamptz` column on `public.trips`
+  exists per `supabase/migrations/005_archival.sql`.
+  Nullable, currently unused.
+- `deleteTrip(tripId)` server action exists at
+  `src/app/actions/delete-trip.ts`. Auth + organizer +
+  `phase === 'sketch'` guarded. FK cascade handles
+  dependent rows. No UI caller today — wire to kebab.
+
+**Scope:**
+
+1. **New server action: `archiveTrip(tripId)`.** New file
+   `src/app/actions/archive-trip.ts`. Mirrors the auth
+   pattern from `delete-trip.ts` (Zod, organizer check).
+   Behavior: sets `archived_at = now()` on the trip row.
+   Phase guard: REJECT `phase === 'sketch'` (sketch trips
+   should be deleted, not archived). Returns
+   `'use-delete-instead'` error code in that case.
+
+2. **New server action: `unarchiveTrip(tripId)`.** Same
+   file. Sets `archived_at = null`. Auth + organizer
+   check. No phase guard (any non-null archived_at can
+   be cleared regardless of phase).
+
+3. **Dashboard data layer changes
+   (`src/lib/dashboard.ts`):**
+   - Extend `DashboardCard` with
+     `isArchived: boolean` (derived from
+     `trip.archived_at != null`).
+   - Extend `DashboardData` with `archivedCards:
+     DashboardCard[]` — only contains cards where the
+     viewer IS the organizer AND the trip is archived.
+   - `cards: DashboardCard[]` (the existing field) now
+     contains: (a) all member trips regardless of archive
+     state, plus (b) organizer trips that are NOT
+     archived. This implements "archive hides only for
+     the organizer."
+   - No DB-level filter change needed — `archived_at` is
+     already in the `select '*'` returns from line 57 +
+     line 64. Filter is in-memory.
+
+4. **Dashboard UI changes (`src/app/page.tsx`):**
+   - Render a kebab menu (⋯) on each card. Visible only
+     when the viewer IS the organizer. Invitees see no
+     kebab.
+   - Menu items vary by state:
+     - Active sketch (`phase === 'sketch'`, not
+       archived): single item `delete trip`. Destructive
+       treatment.
+     - Active sell+ (any non-sketch phase, not archived):
+       single item `archive trip`.
+     - Archived (any phase, archived): single item
+       `unarchive trip`.
+   - Render an "archived" subsection below the active
+     trip list. Render only when
+     `archivedCards.length > 0`. Title via lexicon.
+     Cards in this section retain their kebab; only menu
+     item is `unarchive trip`.
+
+5. **Confirmation pattern.** Delete is destructive +
+   irreversible — must require an explicit confirmation
+   step. Archive + unarchive do NOT need confirmation
+   (archive is reversible, unarchive is benign).
+   Implementation choice (CC's call):
+   (a) Two-tap pattern — first tap on `delete trip`
+   transforms the menu item into `tap again to confirm`
+   for ~3 seconds, second tap fires; or
+   (b) Inline confirmation row that appears below the
+   card with `[delete] [cancel]` buttons.
+   Either is fine. Native browser `confirm()` is OUT —
+   it breaks Rally's visual brand.
+
+6. **New kebab menu component
+   (`src/components/dashboard/TripCardMenu.tsx`).** Small
+   client component: kebab button + popover/dropdown +
+   click-outside-to-close + keyboard accessible (Esc
+   closes, items focusable). One component, used per
+   card. Can also live inline in `page.tsx` if cleaner —
+   CC's call, but keep the logic encapsulated.
+
+7. **Lexicon entries.** In
+   `src/lib/copy/surfaces/dashboard.ts`:
+   - `'menu.deleteTrip'` — `"delete trip"`
+   - `'menu.archiveTrip'` — `"archive trip"`
+   - `'menu.unarchiveTrip'` — `"unarchive trip"`
+   - `'menu.confirmDelete'` — `"tap again to confirm"`
+     (or whatever fits the chosen confirmation pattern;
+     CC picks the value that matches the implementation)
+   - `'archived.heading'` — `"archived"` (for the
+     section header above archivedCards)
+   - `'archived.pillFormat'` — templated string
+     `"archived · was $1"` where `$1` is the trip's
+     pre-archive phase (lowercase: sketch / sell / lock /
+     go / done). Derive `$1` from `trip.phase` at render
+     time — the column doesn't change on archive, so
+     `trip.phase` is still authoritative.
+   - Cross-reference all in
+     `rally-microcopy-lexicon-v0.md`. Add a section with
+     a header + table.
+
+8. **CSS.** Kebab button + menu styling in
+   `src/app/globals.css`. New classes following the
+   `.chassis .*` namespace convention. Use existing
+   theme tokens (`--ink`, `--bg`, `--surface`, etc.) —
+   no raw hex/rgba.
+
+**Hard constraints:**
+
+- DO NOT create new routes.
+- DO NOT modify the existing `deleteTrip` server action's
+  guards or behavior. It's correct as-is.
+- DO NOT touch the `archived_at` column type or constraint.
+- DO NOT add archive logic to sketch trips. Sketch is
+  delete-only.
+- DO NOT filter member trips by archived state. Invitees
+  always see all their trips (Andrew's locked product
+  decision).
+- DO NOT add any "leave trip" / "remove me from trip"
+  functionality. Out of scope.
+- DO NOT add an "archived" indicator on the trip page
+  itself. Dashboard is the only surface that signals
+  archive state.
+- DO NOT use native browser `confirm()` for the delete
+  confirmation. Inline pattern only.
+- DO NOT cascade delete child rows manually — the existing
+  FK cascade per `delete-trip.ts:5` handles it.
+- DO NOT rewire trip-page rendering or invitee-side
+  visibility. Archived trips render normally if accessed
+  via direct URL (organizer or invitee).
+
+**Acceptance criteria:**
+
+*Server actions:*
+- [ ] `archiveTrip(tripId)` exists, sets `archived_at =
+      now()`, requires auth + organizer, rejects sketch
+      with `'use-delete-instead'`.
+- [ ] `unarchiveTrip(tripId)` exists, sets `archived_at =
+      null`, requires auth + organizer, no phase guard.
+- [ ] Existing `deleteTrip` unchanged (verified via diff).
+
+*Dashboard rendering:*
+- [ ] Organizer's dashboard splits into "active" + "archived"
+      sections. Archived section hidden when empty.
+- [ ] Sketch trip card (organizer view): kebab opens menu
+      with `delete trip` only.
+- [ ] Sell+ trip card (organizer view, not archived):
+      kebab opens menu with `archive trip` only.
+- [ ] Archived trip card (any phase, organizer view):
+      kebab opens menu with `unarchive trip` only.
+- [ ] Member trip card (viewer is NOT organizer): no
+      kebab visible.
+
+*Behavior:*
+- [ ] Delete from kebab (sketch) → confirmation step →
+      trip removed from dashboard. FK cascades clear
+      lodging/transport/members rows.
+- [ ] Archive from kebab (sell+) → trip moves from
+      "active" to "archived" section on the organizer's
+      dashboard. NO confirmation step needed.
+- [ ] Unarchive from kebab (archived) → trip moves back
+      to "active" section.
+- [ ] Member of an archived trip: trip remains in their
+      dashboard active section (verified incognito or
+      with a second test user).
+- [ ] Direct URL of archived trip loads normally for
+      organizer + invitee. No "this trip is archived"
+      blocker.
+
+*Cross-cutting:*
+- [ ] All new strings come from
+      `lib/copy/surfaces/dashboard.ts` via `getCopy`. No
+      JSX literals.
+- [ ] `rally-microcopy-lexicon-v0.md` contains all new
+      keys.
+- [ ] Kebab is keyboard accessible: Esc closes, items
+      focusable.
+- [ ] Click outside closes the menu.
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `npm run build` succeeds.
+- [ ] `git status` matches the expected file list below.
+
+**Files expected to change:**
+
+- `src/app/actions/archive-trip.ts` (new)
+- `src/lib/dashboard.ts`
+- `src/app/page.tsx`
+- `src/components/dashboard/TripCardMenu.tsx` (new — or
+  inline in `page.tsx` if CC prefers)
+- `src/lib/copy/surfaces/dashboard.ts`
+- `rally-microcopy-lexicon-v0.md`
+- `src/app/globals.css`
+
+**Files to read before editing:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` §Session 9Y (this brief)
+- `src/app/actions/delete-trip.ts` (mirror its auth pattern
+  in archive-trip)
+- `src/lib/dashboard.ts` (current data shape; extend)
+- `src/app/page.tsx` (current dashboard layout; insert
+  kebab + archived section)
+- `src/lib/copy/surfaces/dashboard.ts` (existing dashboard
+  copy patterns)
+- Recent CSS work in `globals.css` near
+  `.chassis .sticky-organizer-edit` (9W) for namespacing
+  precedent
+
+**How to QA solo:**
+
+1. From `~/Desktop/claude/rally`: `npm run dev`. Sign in
+   as organizer.
+2. Create a fresh sketch trip. Confirm kebab on dashboard
+   card; menu shows `delete trip`. Tap delete, complete
+   confirmation step, trip disappears.
+3. Find or publish a sell-phase trip. Confirm kebab; menu
+   shows `archive trip`. Tap archive. Trip moves to
+   "archived" section.
+4. Tap kebab on archived card; menu shows `unarchive
+   trip`. Tap. Trip returns to active section.
+5. Sign in as a different user who's a member of the
+   archived trip (incognito + second test account).
+   Verify trip is visible in their active section.
+6. Direct-URL test: navigate to the archived trip's URL
+   as organizer. Should render normally.
+7. Run `npx tsc --noEmit` and `npm run build`. Both
+   should exit clean.
+8. `git status` — confirm scope held.
+
+**Escalate before coding if:**
+
+- The dashboard data layer needs a deeper restructure than
+  adding `archivedCards` to `DashboardData` (e.g., if the
+  rendering code wants a single sorted list instead of two
+  arrays, that's a design choice worth flagging).
+- The kebab menu needs an icon library that isn't already
+  installed (e.g., lucide-react). Existing chassis CSS
+  uses unicode (`⋯`) — prefer that to avoid new deps.
+- The two-tap confirmation pattern interferes with
+  existing tap targets on the card (e.g., the whole card
+  is a link to the trip page; kebab needs `stopPropagation`
+  to prevent navigation). Should be solvable, but flag if
+  it grows.
+
+#### Session 9Y — Release Notes
+
+**What was built:**
+1. **New server action** — `src/app/actions/archive-trip.ts`. Two
+   exports, both Zod-validated and organizer-guarded mirroring
+   `delete-trip.ts`. `archiveTrip` rejects `phase === 'sketch'` with
+   `'use-delete-instead'`. `unarchiveTrip` has no phase guard. Both
+   `revalidatePath('/')`.
+2. **Dashboard data layer** — `src/lib/dashboard.ts`. `DashboardCard`
+   gains `isArchived: boolean`. `DashboardData` gains
+   `archivedCards: DashboardCard[]`. Build-cards step partitions:
+   `archivedCards = isOrganizer && isArchived`; `cards = everything
+   else`. Member trips never get filtered (invitees see archived
+   trips on their own dashboard, per locked product decision).
+   `phaseCounts` and `needsMoveCount` continue to compute on the
+   active `cards` array — archived trips don't drive marquee or
+   live-row signals. Also: `needsMove` now requires `!isArchived`
+   so an archived sell-phase trip with holders no longer pulses.
+3. **New client component** — `src/components/dashboard/TripCardMenu.tsx`.
+   Three-state machine (`closed | open | confirming-delete`).
+   Kebab button + popover with one menu item per variant
+   (`delete | archive | unarchive`). Click-outside via
+   `mousedown`/`touchstart` document listeners; `Esc` via keydown;
+   focus moves to the menu item on open for keyboard nav. All
+   click handlers `stopPropagation` so the parent `<Link>` doesn't
+   navigate when interacting with the menu. Two-tap confirm for
+   delete: first tap morphs the button copy + class; second tap
+   within 3s fires `deleteTrip`; auto-reverts on timeout. Archive +
+   unarchive fire immediately (no confirm).
+4. **Dashboard page wiring** — `src/app/page.tsx`. Dropped
+   `SwipeableCard` import + the long-press branch. Restructured
+   `TripCard` to wrap the title in a new `.dash-card-header`
+   flex row containing the title and (when organizer)
+   `<TripCardMenu>`. Variant derives from `isArchived ?
+   'unarchive' : phase === 'sketch' ? 'delete' : 'archive'`.
+   Archived cards: hide the dash-stamp, add the
+   `archived · was {phase}` pill to the meta line, get a `.archived`
+   class (opacity + line-through name via CSS). New "archived"
+   section (separate from the existing phase-done "the archive"
+   section) renders below active when `archivedCards.length > 0`.
+5. **Lexicon** — `src/lib/copy/surfaces/dashboard.ts`. Added 7 new
+   keys: `menu.deleteTrip`, `menu.archiveTrip`,
+   `menu.unarchiveTrip`, `menu.confirmDelete`, `menu.error`,
+   `archived.heading`, `archived.pillFormat` (templated on
+   `{phase}`). Removed 3 dead keys from the long-press flow
+   (`deleteConfirm`, `deleteYes`, `deleteNo`).
+6. **Lexicon markdown cross-ref** — `rally-microcopy-lexicon-v0.md`.
+   Two new tables appended to §5.2 Dashboard.
+7. **CSS** — `src/app/globals.css`. Added `.dash-card-header`,
+   `.dash-card-menu-wrap`, `.dash-card-kebab` (+ `:hover/:focus/.active`),
+   `.dash-card-menu` (+ `::before` triangle), `.dash-card-menu-item`
+   (+ `.danger`, `.confirming`, `:disabled`), `.dash-card.archived`
+   (+ `.dash-card-name` strikethrough), `.dash-card-archived-pill`,
+   `.dash-section-archived` (dashed top-border header). All colors
+   via chassis tokens; destructive uses `var(--hot)` (theme
+   urgency token, defined per theme since 9F). Removed ~80 lines
+   of dead CSS for the long-press overlay (`.dash-swipe-wrapper`,
+   `.dash-delete-overlay*`, `.dash-delete-x`, `.dash-delete-yes`,
+   `.dash-delete-no`, `@keyframes fade-in`).
+8. **Deleted obsolete file** — `src/components/dashboard/DeleteTripButton.tsx`.
+   Was the long-press `SwipeableCard` (only caller was `page.tsx`).
+   Replaced functionally by `TripCardMenu`. Keeping both would be
+   debt per the "reuse before rebuild" rule — single delete
+   affordance now, and it's discoverable.
+
+**What changed from the brief:**
+- Brief named the menu component as optional (could be inline);
+  shipped as a separate `TripCardMenu.tsx` because the state +
+  effects + keyboard handling are too much for inline.
+- Brief listed 6 lexicon keys; shipped 7. Added `menu.error` so the
+  in-menu failure state can use lexicon copy instead of a JSX
+  literal (consistent with the rest of the project).
+- Confirmation pattern: chose **two-tap** (matches the wireframe).
+  Inline `[delete] [cancel]` was the alternate; will fall back if
+  iOS double-tap-zoom interferes during QA.
+- Destructive color: brief left the token unspecified. Used
+  `var(--hot)` because every theme defines it (since 9F's palette
+  upgrade) and "hot" is semantically the urgency/attention color.
+- Deleted `DeleteTripButton.tsx` outright (not in the brief's
+  expected file list as a delete, but the brief did say "wire to
+  kebab" implying replacement). Single source of truth for delete
+  is now `TripCardMenu`.
+
+**What to test (Andrew, in browser — auth-gated, can't preview):**
+- [ ] Sketch trip card (organizer): kebab visible top-right of name
+      row, opens menu with `delete trip`. First tap → button morphs
+      to `tap again to confirm` (red filled). Wait 3s → reverts.
+      Tap delete + tap confirm within 3s → trip removed; FK cascades
+      drop lodging/transport/members rows.
+- [ ] Sell-phase trip card (organizer): kebab → menu shows
+      `archive trip`. Tap → trip moves from "what you're cooking"
+      to a new "archived" section below "the archive". No confirm.
+- [ ] Archived trip card (organizer): kebab → menu shows
+      `unarchive trip`. Tap → trip returns to "what you're cooking".
+- [ ] Lock/Go phase trip (organizer): kebab → menu shows
+      `archive trip` (any non-sketch is archive-able).
+- [ ] Member trip card (you're not organizer): no kebab visible.
+- [ ] Member of an archived trip (incognito + 2nd test account):
+      trip still in their active section.
+- [ ] Direct URL of archived trip as organizer: trip page loads
+      normally, no archive banner.
+- [ ] Click outside open menu → menu closes.
+- [ ] Esc when menu open → menu closes.
+- [ ] Tab/Enter on the kebab → menu opens, item focused.
+- [ ] Card body still navigable (tap card outside the kebab → trip
+      page).
+- [ ] Visual sanity at 375px: kebab + dash-stamp don't visually
+      collide. (Stamp overhangs top edge at right:12px; kebab is in
+      the header row at top-right inside the card.)
+
+**What was verified by Claude Code:**
+- ✅ `npx tsc --noEmit` exits 0.
+- ✅ `npm run build` succeeds; all 17 routes generated.
+- ✅ Dev server starts without errors; `/auth` (the only
+      anonymous-reachable route) renders clean (no console or
+      server errors).
+- ✅ All 25 new CSS rules load in the browser stylesheet.
+- ✅ `git status` matches the planned 8-file scope exactly.
+- ❌ Could not exercise the kebab/archive flow end-to-end — the
+      dashboard is auth-gated and there's no anonymous test
+      account. Andrew QAs the interactive behavior.
+
+**Known issues / out-of-scope flags:**
+- **Orphan archive infra discovered.** During the build step,
+  noticed two pre-existing dead files: `src/app/api/trips/[id]/archive/route.ts`
+  and `src/components/dashboard/Dashboard.tsx`. The Dashboard
+  component is the old client-rendered dashboard (not imported
+  anywhere); it calls the archive route via `fetch`. The route is
+  not called by any current code. Both are pre-9Y dead code, not
+  introduced by this session, but worth a hygiene pass — likely
+  fold into a future bug-bash session along with the existing
+  `DatePoll` / Tier-3 cleanup queue.
+- **`needsMove` semantics.** Tweaked so an archived sell-phase trip
+  with holders no longer pulses (`!isArchived` added to the
+  condition). Subtle but correct — archived means "out of sight";
+  shouldn't re-surface via the marquee or "your move" indicator.
+  Not in the brief but a natural consequence of adding the flag.
+- **`--hot` token consistency.** Used `var(--hot)` for the
+  destructive (delete) color because it's the only urgency-coded
+  chassis token. On themes with a softer hot color (e.g.,
+  bachelorette pink), the "delete trip" copy may read less
+  destructive than a hard red would. Acceptable for v1 — re-evaluate
+  if QA flags it.
+
+#### Session 9Y — Actuals (QA'd, Cowork 2026-04-27)
+
+**Status: closed — all ACs passed.** Code-verified from
+disk + interactive QA cleared by Andrew 2026-04-27 across
+all 12 browser-gated items.
+
+**AC verification summary:**
+
+- **Code-verified by Cowork (disk inspection):**
+  - ✅ `src/app/actions/archive-trip.ts` exists. Two
+    exports (`archiveTrip`, `unarchiveTrip`), Zod-validated,
+    auth + organizer guarded — mirrors `delete-trip.ts`
+    exactly. `archiveTrip:35` correctly rejects sketch
+    with `'use-delete-instead'`. Both call
+    `revalidatePath('/')`.
+  - ✅ `src/lib/dashboard.ts:32` adds
+    `isArchived: boolean` to `DashboardCard`. `:37` adds
+    `archivedCards: DashboardCard[]` to `DashboardData`.
+    `:115` derives flag from `trip.archived_at != null`.
+    `:137-138` partitions: `archivedCards = isOrganizer
+    && isArchived`; active `cards = !(isOrganizer &&
+    isArchived)`. Member trips never filtered (locked
+    product decision honored).
+  - ✅ `:116` `needsMove` correctly excludes archived
+    (`!isArchived` added to the AND chain). Sensible
+    follow-on, not a regression.
+  - ✅ `src/components/dashboard/TripCardMenu.tsx`
+    (193 LOC) — `'use client'`, three-state machine
+    (`closed | open | confirming-delete`), useTransition
+    for action dispatch, click-outside via
+    `mousedown`/`touchstart` document listeners, Esc
+    handler, focus management (item focused on open),
+    `stopPropagation` on click handlers, auto-revert
+    timeout for confirming state.
+  - ✅ `src/app/page.tsx` imports `TripCardMenu` (line 17),
+    destructures `archivedCards` from getDashboardData
+    (line 41), renders archived section when
+    `archivedCards.length > 0` (line 166), passes correct
+    `menuVariant` derived from `isArchived ? 'unarchive'
+    : phase === 'sketch' ? 'delete' : 'archive'`.
+  - ✅ Lexicon: 7 new keys added at
+    `src/lib/copy/surfaces/dashboard.ts:54-62` —
+    `menu.deleteTrip`, `menu.archiveTrip`,
+    `menu.unarchiveTrip`, `menu.confirmDelete`,
+    `menu.error` (the +1 over brief, defensible),
+    `archived.heading`, `archived.pillFormat`. Last is a
+    function on `{ phase }` instead of the brief's `$1`
+    template — functionally equivalent. Three dead
+    long-press keys removed.
+  - ✅ `rally-microcopy-lexicon-v0.md` cross-ref added
+    under §5.2 Dashboard.
+  - ✅ CSS (`globals.css`) — new classes per brief +
+    wireframe. `.dash-card.archived` (opacity +
+    line-through), `.dash-card-archived-pill`,
+    `.dash-section-archived` (dashed top-border header),
+    `.dash-card-kebab` + states, `.dash-card-menu` (+
+    triangle pointer), `.dash-card-menu-item` (+ danger,
+    confirming variants). All colors via chassis tokens.
+    ~80 lines of dead long-press CSS removed alongside.
+  - ✅ Pre-existing `DeleteTripButton.tsx` (long-press
+    SwipeableCard) deleted. Replaced functionally by
+    `TripCardMenu`. Single source of truth restored.
+  - ✅ `git diff` scope confined to: 5 modified source
+    files + 2 new (archive-trip, TripCardMenu) + 1
+    deleted (DeleteTripButton) + 2 docs
+    (lexicon md, fix plan).
+
+- **CC-verified (per release notes):**
+  - ✅ `npx tsc --noEmit` exits 0.
+  - ✅ `npm run build` succeeds; all 17 routes
+    generated.
+  - ✅ Dev server boots clean; `/auth` (the only
+    anonymous-reachable route) renders without console
+    errors.
+
+- **Live-verified by Andrew (browser, 2026-04-27):**
+  - ✅ Sketch trip card → kebab → `delete trip` →
+    two-tap confirmation → trip removed; FK cascades
+    drop dependent rows.
+  - ✅ Sell-phase trip → kebab → `archive trip` →
+    moves from active section to archived. No confirm.
+  - ✅ Archived trip → kebab → `unarchive trip` →
+    returns to active section.
+  - ✅ Lock/Go phase trip → kebab → `archive trip`
+    available (any non-sketch is archive-able).
+  - ✅ Member trip card → no kebab visible.
+  - ✅ Member of archived trip (incognito + 2nd test
+    account) → trip still in their active section.
+  - ✅ Direct URL of archived trip → trip page loads
+    normally, no archive banner.
+  - ✅ Click outside open menu → menu closes.
+  - ✅ Esc key when menu open → menu closes.
+  - ✅ Tab/Enter on kebab → menu opens, item focused.
+  - ✅ Card body still navigable (tap card outside the
+    kebab area → trip page).
+  - ✅ Visual sanity at 375px: kebab + dash-stamp don't
+    collide.
+
+**Scope deviations — captured + accepted:**
+1. **`DeleteTripButton.tsx` deleted** (not in the
+   brief's file list as a delete). CC found a
+   pre-existing long-press swipe-to-delete component
+   that was the only delete affordance for sketch trips.
+   Replaced by the kebab + menu pattern; keeping both
+   would be debt per Reuse-Before-Rebuild. Defensible
+   consolidation. ~80 lines of associated dead CSS
+   removed alongside.
+2. **+1 lexicon key (`menu.error`)** — for in-menu
+   failure copy. Brief listed 6; shipped 7. Avoids a
+   JSX literal — consistent with project pattern.
+3. **`needsMove` tweaked** to exclude archived
+   sell-phase trips. Subtle but correct — archived
+   means "out of sight" so shouldn't pulse the marquee.
+   Not in the brief but a natural consequence of the
+   isArchived flag.
+4. **Confirmation pattern: two-tap chosen** (matched
+   wireframe). Brief allowed inline `[delete] [cancel]`
+   as alternate; CC didn't fall back. If iOS
+   double-tap-zoom interferes during interactive QA,
+   swap to inline row.
+5. **Destructive color: `var(--hot)` token.** Brief
+   left it unspecified. Theme-defined since 9F. May read
+   softer on bachelorette/wine-country themes than a
+   hard red would.
+
+**Known issues (documented, deferred):**
+
+1. **Orphan archive infra discovered.**
+   `src/app/api/trips/[id]/archive/route.ts` and
+   `src/components/dashboard/Dashboard.tsx` are
+   pre-existing dead code. The `Dashboard` component is
+   the old client-rendered dashboard (not imported);
+   the route is not called by any current code. Not a
+   9Y issue. **Filed for the Tier 3 hygiene queue
+   (DatePoll + this orphan pair).**
+2. **`menu.error` shows but doesn't auto-clear.** If
+   an action fails, the error state persists until the
+   menu is reopened. Minor UX gap; flag for polish.
+3. **No live-test of two-tap timer accuracy.** The 3s
+   auto-revert is wired but not exercised by CC. Andrew
+   should observe the visual revert during QA.
+
+---
+
+**Deferred to Session 9Z+ (after delete/archive ships):**
 
 *Tier 3 — accumulated hygiene drift (pulled from 9U/9V
 candidate pool):*
@@ -17524,6 +18073,32 @@ depending on Next release cadence.
 **Not blocking ship.** This is a local-dev-only issue; prod
 builds use the production Turbopack path, which doesn't hit
 this corruption pattern.
+
+**BB-6. Orphan archive infra (pre-9Y dead code).**
+
+Discovered 2026-04-27 during 9Y `npm run build` audit. Two files
+implement an unused archive flow that pre-dates the current
+dashboard:
+
+- `src/app/api/trips/[id]/archive/route.ts` — POST endpoint that
+  toggles `archived_at` based on a `{ archived: boolean }` body.
+  Auth + organizer guarded. **No callers in current `src/`.**
+- `src/components/dashboard/Dashboard.tsx` — old client-rendered
+  dashboard component. **Not imported anywhere.** Calls the route
+  above via `fetch('/api/trips/${tripId}/archive', ...)`.
+
+The 9Y kebab uses server actions (`archiveTrip` / `unarchiveTrip`
+in `src/app/actions/archive-trip.ts`), not this REST route. So
+the old route + component are now confirmed orphan.
+
+**Cleanup scope:** delete both files. No other touches needed.
+Verify with `grep -rn "Dashboard\b" src/` and `grep -rn
+"/api/trips/.*archive" src/` returning no callers besides the
+files being deleted. Single-commit hygiene fix; ~10 min.
+
+**Not blocking anything.** Pure dead code — no functional impact.
+Bundle slightly smaller after removal. Good candidate to fold
+into a future Tier-3 hygiene session alongside `DatePoll.tsx`.
 
 ---
 

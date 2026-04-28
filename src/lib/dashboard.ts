@@ -29,10 +29,12 @@ export interface DashboardCard {
   dateLabel: string | null;
   isOrganizer: boolean;
   needsMove: boolean;
+  isArchived: boolean;
 }
 
 export interface DashboardData {
   cards: DashboardCard[];
+  archivedCards: DashboardCard[];
   phaseCounts: Record<RallyPhase, number>;
   needsMoveCount: number;
   userName: string;
@@ -81,7 +83,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   const allTrips = [...orgTripList, ...memberTripList];
 
   // Build cards with computed phase and theme
-  const cards: DashboardCard[] = allTrips.map(({ trip, isOrganizer }) => {
+  const allCards: DashboardCard[] = allTrips.map(({ trip, isOrganizer }) => {
     const phase = computeRallyPhase(trip.phase, trip.date_end);
     const themeId = (trip.chassis_theme_id as ThemeId) || chassisThemeIdFromTemplate(trip.theme?.template_name);
     const members = trip.members || [];
@@ -110,7 +112,8 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       dateLabel = `${months[start.getMonth()]} ${start.getDate()}–${end.getDate()}`;
     }
 
-    const needsMove = phase === 'sell' && holdingCount > 0 && isOrganizer;
+    const isArchived = trip.archived_at != null;
+    const needsMove = phase === 'sell' && holdingCount > 0 && isOrganizer && !isArchived;
 
     return {
       trip,
@@ -124,10 +127,17 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       dateLabel,
       isOrganizer,
       needsMove,
+      isArchived,
     };
   });
 
-  // Count by phase
+  // Partition: archived hides only for the organizer.
+  // - archivedCards: organizer's own archived trips (the dashboard "archived" subsection)
+  // - cards: organizer's active trips + every member trip regardless of archive state
+  const archivedCards = allCards.filter((c) => c.isOrganizer && c.isArchived);
+  const cards = allCards.filter((c) => !(c.isOrganizer && c.isArchived));
+
+  // Count by phase — active cards only; archived trips don't drive live signals.
   const phaseCounts: Record<RallyPhase, number> = {
     sketch: 0, sell: 0, lock: 0, go: 0, done: 0,
   };
@@ -139,6 +149,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
 
   return {
     cards,
+    archivedCards,
     phaseCounts,
     needsMoveCount,
     userName: profile?.display_name || 'there',

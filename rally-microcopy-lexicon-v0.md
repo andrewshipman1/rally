@@ -208,6 +208,23 @@ The dashboard is a **game board**, not a list. Cards have countdown stamps, sell
 | Trip starts soon | {n} days to {trip}. start packing. |
 | Friend dropped | {name} bailed on {trip}. |
 
+**Trip-card kebab menu (Session 9Y)** — Single-item menu opened by the `⋯` button on any organizer-owned dashboard card. The menu offers exactly one action depending on phase + archive state, so there's never a choice the system would just reject.
+
+| Context | String |
+|---|---|
+| Sketch trip — destructive | delete trip |
+| Sell+ trip — soft hide | archive trip |
+| Already archived — restore | unarchive trip |
+| Delete second-tap confirm (replaces "delete trip" for ~3s) | tap again to confirm |
+| Server-side error fallback inside menu | something went wrong |
+
+**Archived subsection (Session 9Y)** — Renders below the active trip list when the organizer has any soft-archived trips. Hidden when empty. Member trips are never archived from the viewer's dashboard regardless of organizer state.
+
+| Context | String |
+|---|---|
+| Section header | archived |
+| Card meta-pill (templated, `{phase}` = sketch/sell/lock/go/done) | archived · was {phase} |
+
 ### 5.3 Trip creation flow
 
 This is a 5-step flow. Each step is one question, one input.

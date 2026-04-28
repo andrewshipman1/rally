@@ -50,8 +50,14 @@ export const dashboard: Record<string, Templated> = {
   // ─── CTA ────────────────────────────────────────────────────────
   'ctaCreate':            'start a trip 🔥',
 
-  // ─── Delete ──────���──────────────────────────────────────────────
-  'deleteConfirm':        'delete this draft?',
-  'deleteYes':            'yes, trash it',
-  'deleteNo':             'nah, keep it',
+  // ─── Trip-card kebab menu (Session 9Y) ─────────────────────────
+  'menu.deleteTrip':      'delete trip',
+  'menu.archiveTrip':     'archive trip',
+  'menu.unarchiveTrip':   'unarchive trip',
+  'menu.confirmDelete':   'tap again to confirm',
+  'menu.error':           'something went wrong',
+
+  // ─── Archived subsection (Session 9Y) ──────────────────────────
+  'archived.heading':     'archived',
+  'archived.pillFormat':  ({ phase }: ThemeVars) => `archived · was ${phase ?? 'sketch'}`,
 };

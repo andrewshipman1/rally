@@ -3379,82 +3379,151 @@ button:active {
   box-shadow: 1px 1px 0 rgba(0,0,0,0.15);
 }
 
-/* Delete draft trip — long-press overlay */
-.dash-swipe-wrapper {
+/* ─── Session 9Y: Trip-card kebab menu ──────────────────────────────
+   Kebab (⋯) sits in the dash-card header row, right of the title.
+   Coexists with the absolutely-positioned dash-stamp (stamp overhangs
+   the top edge; kebab is in flow inside the card). Single-item menu
+   popover anchors to the kebab. All colors via chassis tokens —
+   destructive variant uses --hot (theme urgency token, defined per
+   theme since 9F). */
+.chassis.dash-card .dash-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 4px;
+  padding-right: 70px; /* clear the dash-stamp at top:-8px right:12px */
+}
+.chassis.dash-card .dash-card-header .dash-card-name {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding-right: 0; /* header owns the stamp clearance now */
+}
+.dash-card-menu-wrap {
   position: relative;
-  -webkit-user-select: none;
-  user-select: none;
+  flex-shrink: 0;
 }
-.dash-delete-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
-  animation: fade-in 0.15s ease;
-}
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-.dash-delete-x {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 2.5px solid #fff;
-  background: #ff5b3a;
-  color: #fff;
+.chassis.dash-card .dash-card-kebab {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
   font-size: 20px;
-  font-weight: 700;
+  line-height: 1;
+  border-radius: 100px;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  transition: transform 0.12s ease;
+  opacity: 0.55;
+  margin-top: -4px;
+  margin-right: -4px;
+  transition: opacity 0.12s ease, background-color 0.12s ease;
 }
-.dash-delete-x:active {
-  transform: scale(0.9);
+.chassis.dash-card .dash-card-kebab:hover,
+.chassis.dash-card .dash-card-kebab:focus-visible {
+  opacity: 1;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  outline: none;
 }
-.dash-delete-overlay-confirm {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 16px;
+.chassis.dash-card .dash-card-kebab.active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
-.dash-delete-overlay-prompt {
+.chassis.dash-card .dash-card-menu {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  min-width: 168px;
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  padding: 4px;
+  z-index: 20;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--ink) 25%, transparent);
+}
+.chassis.dash-card .dash-card-menu::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  right: 10px;
+  width: 10px;
+  height: 10px;
+  background: var(--surface);
+  border-top: 2px solid var(--ink);
+  border-left: 2px solid var(--ink);
+  transform: rotate(45deg);
+}
+.chassis.dash-card .dash-card-menu-item {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--on-surface);
   font-family: var(--font-body), 'DM Sans', sans-serif;
   font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-}
-.dash-delete-overlay-actions {
-  display: flex;
-  gap: 8px;
-}
-.dash-delete-yes,
-.dash-delete-no {
-  font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 6px 16px;
-  border-radius: 999px;
+  font-weight: 500;
+  text-align: left;
   cursor: pointer;
-  white-space: nowrap;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
-.dash-delete-yes {
-  background: #ff5b3a;
-  color: #fff;
-  border: 2px solid #fff;
+.chassis.dash-card .dash-card-menu-item:hover,
+.chassis.dash-card .dash-card-menu-item:focus-visible {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  outline: none;
 }
-.dash-delete-no {
-  background: transparent;
-  color: #fff;
-  border: 2px solid rgba(255,255,255,0.6);
+.chassis.dash-card .dash-card-menu-item:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.chassis.dash-card .dash-card-menu-item.danger {
+  color: var(--hot);
+}
+.chassis.dash-card .dash-card-menu-item.danger:hover,
+.chassis.dash-card .dash-card-menu-item.danger:focus-visible {
+  background: color-mix(in srgb, var(--hot) 12%, transparent);
+}
+.chassis.dash-card .dash-card-menu-item.confirming {
+  color: var(--bg);
+  background: var(--hot);
+  font-weight: 700;
+}
+.chassis.dash-card .dash-card-menu-item.confirming:hover,
+.chassis.dash-card .dash-card-menu-item.confirming:focus-visible {
+  background: var(--hot);
+}
+
+/* Archived card treatment (organizer soft-archive, Session 9Y) */
+.chassis.dash-card.archived {
+  opacity: 0.7;
+  background: color-mix(in srgb, var(--ink) 4%, var(--bg));
+}
+.chassis.dash-card.archived .dash-card-name {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+.chassis.dash-card .dash-card-archived-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 100px;
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 2px;
+}
+
+/* Archived section header — dashed top border to read as "below the line" */
+.dash-section.dash-section-archived {
+  margin-top: 18px;
+}
+.dash-section.dash-section-archived .dash-section-title {
+  border-top: 1px dashed color-mix(in srgb, #1a1a1a 25%, transparent);
+  padding-top: 18px;
+  opacity: 0.65;
 }
 
 /* Empty state */

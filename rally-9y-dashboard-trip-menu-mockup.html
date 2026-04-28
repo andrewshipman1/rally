@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 9Y: Dashboard trip management wireframe</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     9Y SCOPE — DASHBOARD TRIP MANAGEMENT (Cowork wireframe,
+     2026-04-27)
+
+     SHOWS:
+     - Where the kebab (⋯) sits on a dashboard trip card
+     - Three open-menu states (sketch / sell+ / archived)
+     - Delete confirmation pattern (two-tap)
+     - Archived subsection layout below active trips
+     - Member trip card (no kebab) for comparison
+
+     LOCKED PRODUCT DECISIONS:
+     - Dashboard kebab only — no trip-page affordance
+     - Archive hides only for organizer; invitees still see
+     - Archive is reversible; unarchive ships in 9Y
+     - Sketch trips are delete-only; sell+ are archive-only
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --doc-bg: #2a2a2a;
+    --doc-text: #faf8f5;
+    --doc-muted: #888;
+    --doc-accent: #ffd84d;
+    --doc-danger: #d8654f;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    min-height: 100vh;
+    padding: 24px 16px 96px;
+    line-height: 1.5;
+  }
+  .doc-header { max-width: 880px; margin: 0 auto 32px; text-align: center; }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 24px;
+    color: var(--doc-text);
+    margin-bottom: 6px;
+  }
+  .doc-sub {
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.55;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+  .doc-sub code {
+    background: #1a1a1a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+  }
+
+  .section-label {
+    max-width: 880px;
+    margin: 56px auto 0;
+    padding: 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    color: var(--doc-accent);
+    font-weight: 700;
+  }
+  .section-note {
+    max-width: 880px;
+    margin: 4px auto 16px;
+    padding: 0 8px;
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.6;
+  }
+
+  .row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .row-meta {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #777;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .row-meta span { width: 375px; text-align: left; padding-left: 8px; }
+
+  /* Phone frame — narrow, dashboard view */
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 20px 0 28px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --surface: #ffffff;
+    --on-surface: #1a1a1a;
+    --accent: #ffd84d;
+    --muted: #8a8680;
+    --sticker-bg: #f2e0d0;
+    --border: #1a1a1a;
+    --danger: #c53d23;
+  }
+  .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+
+  /* Dashboard chrome */
+  .dash-greeting {
+    padding: 0 20px 10px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink);
+    opacity: 0.7;
+  }
+  .dash-greeting strong { font-weight: 700; opacity: 1; }
+
+  .dash-section-h {
+    padding: 18px 20px 8px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: lowercase;
+    color: var(--ink);
+    opacity: 0.5;
+    letter-spacing: .04em;
+  }
+  .dash-section-h.archived {
+    opacity: 0.4;
+    border-top: 1px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+    margin-top: 14px;
+    padding-top: 18px;
+  }
+
+  /* Trip card */
+  .trip-card {
+    margin: 0 16px 10px;
+    padding: 14px 14px 12px;
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    background: var(--bg);
+    position: relative;
+  }
+  .trip-card.archived {
+    opacity: 0.65;
+    background: color-mix(in srgb, var(--ink) 4%, var(--bg));
+  }
+  .trip-card.archived .trip-card-name { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent); }
+  .trip-card-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .trip-card-emoji {
+    font-size: 20px;
+    line-height: 1;
+    margin-top: 2px;
+  }
+  .trip-card-body { flex: 1; min-width: 0; }
+  .trip-card-name {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 17px;
+    line-height: 1.2;
+    color: var(--ink);
+    text-transform: lowercase;
+  }
+  .trip-card-meta {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--ink);
+    opacity: 0.6;
+    line-height: 1.4;
+  }
+  .trip-card-meta-pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 100px;
+    background: color-mix(in srgb, var(--ink) 8%, transparent);
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .trip-card-meta-pill.sketch { background: color-mix(in srgb, var(--accent) 60%, transparent); color: var(--ink); }
+  .trip-card-meta-pill.sell { background: color-mix(in srgb, var(--ink) 88%, transparent); color: var(--bg); }
+  .trip-card-meta-pill.lock { background: var(--ink); color: var(--bg); }
+  .trip-card-meta-pill.archived { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); opacity: 0.7; }
+
+  /* Kebab (⋯) anchored top-right of card */
+  .trip-card-kebab {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font-size: 18px;
+    line-height: 1;
+    border-radius: 100px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.55;
+    margin-top: -2px;
+    margin-right: -4px;
+  }
+  .trip-card-kebab:hover { opacity: 1; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .trip-card-kebab.active {
+    opacity: 1;
+    background: color-mix(in srgb, var(--ink) 10%, transparent);
+  }
+
+  /* Open kebab menu — popover anchored right of kebab */
+  .trip-card-menu {
+    position: absolute;
+    top: 46px;
+    right: 16px;
+    min-width: 168px;
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    padding: 4px;
+    z-index: 10;
+    box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  }
+  .trip-card-menu::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    right: 12px;
+    width: 10px;
+    height: 10px;
+    background: var(--surface);
+    border-top: 2px solid var(--ink);
+    border-left: 2px solid var(--ink);
+    transform: rotate(45deg);
+  }
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+  }
+  .menu-item:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  .menu-item.danger { color: var(--danger); }
+  .menu-item.danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+  .menu-item.confirming {
+    color: var(--bg);
+    background: var(--danger);
+  }
+  .menu-item.confirming:hover { background: var(--danger); }
+  .menu-item-icon {
+    font-size: 14px;
+    width: 16px;
+    display: inline-flex;
+    justify-content: center;
+  }
+
+  /* Annotation callouts */
+  .annot {
+    max-width: 880px;
+    margin: 8px auto 0;
+    padding: 14px 18px;
+    background: #3a3a3a;
+    border-radius: 10px;
+    border-left: 3px solid var(--doc-accent);
+  }
+  .annot.muted { border-left-color: #666; background: #2f2f2f; }
+  .annot.danger { border-left-color: var(--doc-danger); }
+  .annot-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .annot.muted .annot-title { color: #aaa; }
+  .annot.danger .annot-title { color: var(--doc-danger); }
+  .annot p {
+    font-size: 13px;
+    color: var(--doc-text);
+    line-height: 1.6;
+    margin-bottom: 6px;
+  }
+  .annot p:last-child { margin-bottom: 0; }
+  .annot strong { color: var(--doc-accent); font-weight: 700; }
+  .annot.danger strong { color: var(--doc-danger); }
+  .annot code {
+    background: #1a1a1a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">Session 9Y — Cowork wireframe · 2026-04-27</div>
+  <div class="doc-title">dashboard trip management</div>
+  <div class="doc-sub">
+    Kebab (<code>⋯</code>) on each organizer-owned card opens a single-item menu.
+    Sketch trips offer <em>delete</em>; sell+ offers <em>archive</em>; archived
+    offers <em>unarchive</em>. Member trips have no kebab. Archive hides the
+    trip only from the organizer's dashboard — invitees still see it.
+  </div>
+</div>
+
+<!-- DEFAULT DASHBOARD -->
+<div class="section-label">1 · default dashboard (organizer view)</div>
+<div class="section-note">
+  Kebab visible on every organizer-owned card. Member trips render unchanged.
+  Tap kebab → menu opens (next section). Tap card body → opens trip page.
+</div>
+<div class="row">
+  <div class="frame">
+    <div class="frame-label">dashboard · default</div>
+    <div class="dash-greeting"><strong>hi andrew</strong></div>
+    <div class="dash-section-h">your trips</div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🌵</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">coachella '26</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill sell">sell</span>
+            apr 10–13 · 6 in · 2 holding
+          </div>
+        </div>
+        <button class="trip-card-kebab" aria-label="trip options">⋯</button>
+      </div>
+    </div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🎰</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">vegas baby</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill sketch">sketch</span>
+            dates tbd · 0 invites
+          </div>
+        </div>
+        <button class="trip-card-kebab" aria-label="trip options">⋯</button>
+      </div>
+    </div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🏝️</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">saint barths</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill lock">lock</span>
+            jul 4–11 · 8 in
+          </div>
+        </div>
+        <button class="trip-card-kebab" aria-label="trip options">⋯</button>
+      </div>
+    </div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">⛷️</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">tahoe (kelsey's trip)</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill sell">sell</span>
+            mar 8–11 · you're in
+          </div>
+        </div>
+        <!-- NO kebab — viewer is a member, not organizer -->
+      </div>
+    </div>
+  </div>
+</div>
+<div class="annot">
+  <div class="annot-title">what's new</div>
+  <p><strong>Kebab (<code>⋯</code>) on each organizer-owned card</strong>, top-right
+  aligned with the trip name row. ~32px tap target, 55% opacity in resting state
+  to stay quiet. Tahoe (last card) has no kebab — Andrew is a member there, not
+  organizer.</p>
+  <p>Card body remains a tap target for the trip link. Kebab uses
+  <code>stopPropagation()</code> on click so tapping it doesn't navigate.</p>
+</div>
+
+<!-- KEBAB OPEN STATES -->
+<div class="section-label">2 · kebab menu open — three states</div>
+<div class="section-note">
+  Single menu item per state. Phase determines what's offered:
+  sketch → delete (destructive); sell+ → archive (benign);
+  archived → unarchive.
+</div>
+<div class="row">
+  <div class="row-meta">
+    <span>sketch · delete</span>
+    <span>sell+ · archive</span>
+    <span>archived · unarchive</span>
+  </div>
+  <div class="frame">
+    <div class="frame-label">A · sketch</div>
+    <div class="dash-greeting"><strong>hi andrew</strong></div>
+    <div class="dash-section-h">your trips</div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🎰</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">vegas baby</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill sketch">sketch</span>
+            dates tbd · 0 invites
+          </div>
+        </div>
+        <button class="trip-card-kebab active" aria-label="trip options">⋯</button>
+      </div>
+      <div class="trip-card-menu">
+        <button class="menu-item danger">
+          <span class="menu-item-icon">🗑</span>
+          delete trip
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="frame">
+    <div class="frame-label">B · sell+</div>
+    <div class="dash-greeting"><strong>hi andrew</strong></div>
+    <div class="dash-section-h">your trips</div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🌵</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">coachella '26</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill sell">sell</span>
+            apr 10–13 · 6 in · 2 holding
+          </div>
+        </div>
+        <button class="trip-card-kebab active" aria-label="trip options">⋯</button>
+      </div>
+      <div class="trip-card-menu">
+        <button class="menu-item">
+          <span class="menu-item-icon">📥</span>
+          archive trip
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="frame">
+    <div class="frame-label">C · archived</div>
+    <div class="dash-greeting"><strong>hi andrew</strong></div>
+    <div class="dash-section-h archived">archived</div>
+    <div class="trip-card archived">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🥂</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">nye '25</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill archived">archived · was lock</span>
+            dec 30–jan 2
+          </div>
+        </div>
+        <button class="trip-card-kebab active" aria-label="trip options">⋯</button>
+      </div>
+      <div class="trip-card-menu">
+        <button class="menu-item">
+          <span class="menu-item-icon">📤</span>
+          unarchive trip
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="annot">
+  <div class="annot-title">single-item menu, deliberate</div>
+  <p>One action per kebab. Reduces cognitive load and matches the actual product
+  rule: a sketch trip is delete-only, a sell+ trip is archive-only, an archived
+  trip is unarchive-only. No menu offers a choice the system would just reject.</p>
+  <p>If we eventually add more actions (duplicate, share, leave-trip, etc.), the
+  menu pattern accommodates them — but v1 keeps it tight.</p>
+</div>
+
+<!-- DELETE CONFIRMATION -->
+<div class="section-label">3 · delete confirmation (two-tap pattern)</div>
+<div class="section-note">
+  Delete is destructive + irreversible. First tap on <em>delete trip</em>
+  transforms the menu item into <em>tap again to confirm</em> with a danger
+  treatment for ~3 seconds. Second tap fires. Tap-outside or timeout reverts.
+</div>
+<div class="row">
+  <div class="row-meta">
+    <span>tap 1 · resting</span>
+    <span>tap 1 → confirming</span>
+    <span>tap 2 · gone</span>
+  </div>
+  <div class="frame">
+    <div class="frame-label">first tap state</div>
+    <div class="dash-greeting"><strong>hi andrew</strong></div>
+    <div class="dash-section-h">your trips</div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🎰</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">vegas baby</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill sketch">sketch</span>
+            dates tbd · 0 invites
+          </div>
+        </div>
+        <button class="trip-card-kebab active" aria-label="trip options">⋯</button>
+      </div>
+      <div class="trip-card-menu">
+        <button class="menu-item danger">
+          <span class="menu-item-icon">🗑</span>
+          delete trip
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="frame">
+    <div class="frame-label">tap 1 → confirming (~3s)</div>
+    <div class="dash-greeting"><strong>hi andrew</strong></div>
+    <div class="dash-section-h">your trips</div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🎰</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">vegas baby</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill sketch">sketch</span>
+            dates tbd · 0 invites
+          </div>
+        </div>
+        <button class="trip-card-kebab active" aria-label="trip options">⋯</button>
+      </div>
+      <div class="trip-card-menu">
+        <button class="menu-item confirming">
+          <span class="menu-item-icon">⚠</span>
+          tap again to confirm
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="frame">
+    <div class="frame-label">after delete</div>
+    <div class="dash-greeting"><strong>hi andrew</strong></div>
+    <div class="dash-section-h">your trips</div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🌵</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">coachella '26</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill sell">sell</span>
+            apr 10–13 · 6 in · 2 holding
+          </div>
+        </div>
+        <button class="trip-card-kebab" aria-label="trip options">⋯</button>
+      </div>
+    </div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🏝️</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">saint barths</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill lock">lock</span>
+            jul 4–11 · 8 in
+          </div>
+        </div>
+        <button class="trip-card-kebab" aria-label="trip options">⋯</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="annot danger">
+  <div class="annot-title">why two-tap, not a modal</div>
+  <p>Two-tap respects the user's intent without breaking the dashboard scroll
+  context. A modal would feel heavy for a single sketch trip with no invites —
+  there's nothing meaningful to "review" before deleting. The danger color +
+  copy change is the consent signal.</p>
+  <p>If two-tap feels too aggressive in CC's implementation (e.g., interferes
+  with double-tap-zoom on iOS), fall back to an inline <em>[delete] [cancel]</em>
+  row appearing below the menu. Both patterns satisfy the brief.</p>
+</div>
+
+<!-- ARCHIVED SECTION -->
+<div class="section-label">4 · archived subsection on dashboard</div>
+<div class="section-note">
+  Below the active list, when <code>archivedCards.length > 0</code>. Cards
+  render dimmed with a strikethrough on the name + an <em>"archived · was X"</em>
+  pill instead of the phase pill. Kebab still works (offers unarchive only).
+  Hidden entirely when no archived trips exist.
+</div>
+<div class="row">
+  <div class="frame">
+    <div class="frame-label">full dashboard with archived</div>
+    <div class="dash-greeting"><strong>hi andrew</strong></div>
+    <div class="dash-section-h">your trips</div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🌵</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">coachella '26</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill sell">sell</span>
+            apr 10–13 · 6 in · 2 holding
+          </div>
+        </div>
+        <button class="trip-card-kebab" aria-label="trip options">⋯</button>
+      </div>
+    </div>
+    <div class="trip-card">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🏝️</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">saint barths</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill lock">lock</span>
+            jul 4–11 · 8 in
+          </div>
+        </div>
+        <button class="trip-card-kebab" aria-label="trip options">⋯</button>
+      </div>
+    </div>
+    <div class="dash-section-h archived">archived</div>
+    <div class="trip-card archived">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🥂</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">nye '25</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill archived">archived · was lock</span>
+            dec 30–jan 2
+          </div>
+        </div>
+        <button class="trip-card-kebab" aria-label="trip options">⋯</button>
+      </div>
+    </div>
+    <div class="trip-card archived">
+      <div class="trip-card-row">
+        <span class="trip-card-emoji">🍂</span>
+        <div class="trip-card-body">
+          <div class="trip-card-name">paso wine weekend</div>
+          <div class="trip-card-meta">
+            <span class="trip-card-meta-pill archived">archived · was done</span>
+            oct 12–15 · 4 went
+          </div>
+        </div>
+        <button class="trip-card-kebab" aria-label="trip options">⋯</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="annot muted">
+  <div class="annot-title">section visibility + behavior</div>
+  <p>Section header uses a dashed top-border + dimmed treatment so it reads as
+  "below the line" relative to active trips. Cards in this section are
+  visually de-emphasized (~65% opacity) but still tappable — the trip page
+  loads normally on click.</p>
+  <p>The pill copy <em>archived · was &lt;phase&gt;</em> preserves the trip's
+  pre-archive phase context (sketch / sell / lock / go / done) — useful when
+  you're deciding whether to unarchive or scrolling through old trips.</p>
+</div>
+
+<!-- IMPLEMENTATION CALLOUTS -->
+<div class="section-label">5 · implementation notes (cross-ref the brief)</div>
+<div class="section-note">
+  Three things this wireframe doesn't show but the brief covers, plus one
+  decision point for CC.
+</div>
+<div class="annot muted">
+  <div class="annot-title">not shown in this wireframe</div>
+  <p><strong>1. Click-outside-to-close.</strong> Tapping anywhere outside the
+  open menu closes it. Esc key closes too. Standard popover behavior.</p>
+  <p><strong>2. Kebab keyboard accessibility.</strong> Menu items should be
+  focusable; arrow keys navigate; Enter activates; Esc closes. Brief calls this
+  out as an AC.</p>
+  <p><strong>3. Direct URL behavior.</strong> Loading an archived trip's URL
+  works for organizer + invitees. Trip page is unchanged — no "this is archived"
+  banner. Dashboard is the only surface that signals archive state.</p>
+</div>
+<div class="annot">
+  <div class="annot-title">CC decision point</div>
+  <p><strong>Confirmation pattern.</strong> The wireframe shows two-tap. The
+  brief allows either two-tap OR an inline <code>[delete] [cancel]</code> row.
+  CC picks based on what reads cleaner against the existing card markup. If
+  two-tap creates iOS double-tap-zoom conflicts, fall back to the inline
+  row. Either pattern satisfies the AC.</p>
+</div>
+
+</body>
+</html>

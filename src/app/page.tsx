@@ -14,7 +14,7 @@ import type { RallyPhase } from '@/lib/rally-types';
 import type { ThemeId } from '@/lib/themes/types';
 import { SignOutButton } from '@/components/dashboard/SignOutButton';
 import { CreateTripButton } from '@/components/dashboard/CreateTripButton';
-import { SwipeableCard } from '@/components/dashboard/DeleteTripButton';
+import { TripCardMenu } from '@/components/dashboard/TripCardMenu';
 
 export const metadata = {
   title: 'rally — where to next?',
@@ -38,7 +38,7 @@ export default async function HomePage() {
     redirect('/auth');
   }
 
-  const { cards, phaseCounts, needsMoveCount, userName, userPhotoUrl } = await getDashboardData(user.id);
+  const { cards, archivedCards, phaseCounts, needsMoveCount, userName, userPhotoUrl } = await getDashboardData(user.id);
 
   const defaultTheme: ThemeId = 'just-because';
   const activeCards = cards.filter((c) => c.phase !== 'done');
@@ -140,20 +140,14 @@ export default async function HomePage() {
                 <span className="dash-section-count">{activeCards.length}</span>
               </h2>
               <div className="dash-cards">
-                {activeCards.map((card, i) =>
-                  card.phase === 'sketch' && card.isOrganizer ? (
-                    <SwipeableCard key={card.trip.id} tripId={card.trip.id}>
-                      <TripCard card={card} index={i} />
-                    </SwipeableCard>
-                  ) : (
-                    <TripCard key={card.trip.id} card={card} index={i} />
-                  )
-                )}
+                {activeCards.map((card, i) => (
+                  <TripCard key={card.trip.id} card={card} index={i} />
+                ))}
               </div>
             </section>
           )}
 
-          {/* Archive */}
+          {/* Done */}
           {doneCards.length > 0 && (
             <section className="dash-section">
               <h2 className="dash-section-title">
@@ -162,6 +156,21 @@ export default async function HomePage() {
               </h2>
               <div className="dash-cards">
                 {doneCards.map((card, i) => (
+                  <TripCard key={card.trip.id} card={card} index={i} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Archived (organizer-soft-archived) */}
+          {archivedCards.length > 0 && (
+            <section className="dash-section dash-section-archived">
+              <h2 className="dash-section-title">
+                {getCopy(defaultTheme, 'dashboard.archived.heading')}
+                <span className="dash-section-count">{archivedCards.length}</span>
+              </h2>
+              <div className="dash-cards">
+                {archivedCards.map((card, i) => (
                   <TripCard key={card.trip.id} card={card} index={i} />
                 ))}
               </div>
@@ -179,7 +188,7 @@ export default async function HomePage() {
 }
 
 function TripCard({ card, index }: { card: DashboardCard; index: number }) {
-  const { trip, phase, themeId, inCount, memberCount, daysUntil, destination, dateLabel, needsMove } = card;
+  const { trip, phase, themeId, inCount, memberCount, daysUntil, destination, dateLabel, isOrganizer, needsMove, isArchived } = card;
   const defaultTheme: ThemeId = 'just-because';
   const actionKey = needsMove ? 'dashboard.actionNudge' : PHASE_ACTION[phase];
   const slug = trip.share_slug;
@@ -193,10 +202,19 @@ function TripCard({ card, index }: { card: DashboardCard; index: number }) {
     'dash-card',
     needsMove ? 'needs-move' : '',
     phase === 'done' ? 'faded' : '',
+    isArchived ? 'archived' : '',
   ].filter(Boolean).join(' ');
 
-  // Stamp rendering
-  const stamp = getStamp(phase, daysUntil, needsMove, defaultTheme);
+  // Stamp rendering — hidden on organizer-archived cards (replaced by pill in meta)
+  const stamp = isArchived ? null : getStamp(phase, daysUntil, needsMove, defaultTheme);
+
+  // Kebab variant — only for organizer-owned cards
+  let menuVariant: 'delete' | 'archive' | 'unarchive' | null = null;
+  if (isOrganizer) {
+    if (isArchived) menuVariant = 'unarchive';
+    else if (phase === 'sketch') menuVariant = 'delete';
+    else menuVariant = 'archive';
+  }
 
   return (
     <Link
@@ -213,8 +231,21 @@ function TripCard({ card, index }: { card: DashboardCard; index: number }) {
         </div>
       )}
 
-      <div className="dash-card-name">{trip.name || destination || getCopy(defaultTheme, 'dashboard.cardDestTbd')}</div>
+      <div className="dash-card-header">
+        <div className="dash-card-name">{trip.name || destination || getCopy(defaultTheme, 'dashboard.cardDestTbd')}</div>
+        {menuVariant && (
+          <TripCardMenu tripId={trip.id} variant={menuVariant} themeId={defaultTheme} />
+        )}
+      </div>
       <div className="dash-card-meta">
+        {isArchived && (
+          <>
+            <span className="dash-card-archived-pill">
+              {getCopy(defaultTheme, 'dashboard.archived.pillFormat', { phase: trip.phase })}
+            </span>
+            {' · '}
+          </>
+        )}
         {trip.name ? (destination || getCopy(defaultTheme, 'dashboard.cardDestTbd')) : null}
         {trip.name ? ' · ' : null}
         {dateLabel || getCopy(defaultTheme, 'dashboard.cardDateTbd')}
