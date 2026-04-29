@@ -18634,6 +18634,669 @@ has uncommitted source changes + new migration file.
 Hand off the commit to CC using the same pattern as 9T-9Y
 when ready. Migration is already live in prod.
 
+**Regression + fix (2026-04-27, ~2 hours after initial close):**
+
+A deploy-ordering regression surfaced during 10B smoke
+testing: migration 025 was applied to prod earlier in the
+day, but 10A's source code (which expects the renamed
+enum value `awaiting`) was never committed. Prod was
+running 9Y code (which expects `pending`) against a
+post-rename DB. Result: trip pages with members
+500'd server-side. CrewSection's bucket initializer
+keyed on `pending` returned `undefined` for
+`buckets[member.rsvp]` because `member.rsvp` was now
+`awaiting`. `undefined.push()` threw.
+
+**Pattern observed:** sketch trips (members default
+`'in'`) and trips without other attendees (organizer
+only) loaded fine. Only published trips with awaiting
+members crashed. Diagnosed via the cross-trip pattern,
+not via Vercel logs.
+
+**Fix:** committed + pushed 10A as commit `2216e85`. Vercel
+auto-redeployed; trip pages restored within ~2 minutes.
+
+**Lesson for future migration-bearing sessions:** the 9S
+Actuals locked migration-first ordering for backwards-
+compatible migrations (the migration was inert without
+code). 10A's migration was NOT inert — it removed an
+enum value that existing code referenced. For
+non-backwards-compatible migrations, code MUST deploy
+first OR migration + code apply simultaneously. Filed
+as a strategy-level note for future sessions:
+**check whether the migration breaks running prod code
+before applying.** If yes, deploy code first. If no
+(inert), migration-first is fine.
+
+---
+
+### Session 10C: "Publish-time email fan-out + invite tokens"
+
+**Status: SCOPED 2026-04-27.** Backend session. Wires the
+`transitionToSell` publish moment to fan invite emails out
+to all queued sketch-roster invitees + introduces invite
+tokens (`/i/<token>` URL shape) + builds the server-side
+resolver route. Path B teaser (the visual) is 10D's
+responsibility; 10C ships with the existing partial
+`InviteeShell` rendering as-is.
+
+**Reference artifacts (read before editing):**
+
+- `rally-attendee-strategy-v0.md` §Dimension 2 (journey,
+  including all locked decisions about email send, token
+  shape, resolver branch logic, in-place reveal architecture)
+- `rally-attendee-implementation-roadmap-v0.md` —
+  especially the snapshot at top ("Where Rally is right
+  now"), the §10C entry, the **reuse inventory**, and the
+  anti-patterns list
+- `rally-10d-attendee-journey-mockup.html` — visual context
+  for what 10C produces vs. what 10D polishes (read steps
+  1-2 for 10C scope, scan steps 3-6 for downstream context)
+- `rally-fix-plan-v1.md` §Session 9X + §Session 10A
+  Actuals (including the deploy-ordering regression note —
+  this brief inherits that lesson)
+
+**Playbook: 9S (orphan-merge) + 9X (migration apply) +
+10A's deploy-ordering lesson.** 9S established the
+auth-adjacent flow integration shape (careful auth check,
+revalidatePath, end-to-end probe testing). 9X established
+the hand-applied migration convention. 10A's regression
+taught: check whether the migration breaks running prod
+code before applying. **For 10C, the migration IS
+backwards-compatible** (adds nullable column +
+default-populated column without removing anything), so
+migration-first ordering is safe. But the brief calls this
+out explicitly per the new convention.
+
+**Pre-existing infra (no work needed):**
+
+- `sendInviteEmail` at `src/lib/email.ts` is fully
+  implemented (HTML + plain text + escape helpers).
+  Currently called from `src/app/api/invite/route.ts:135`
+  for individual sell-phase invitee adds. **Do NOT modify
+  this function.**
+- `transitionToSell` action at
+  `src/app/actions/transition-to-sell.ts` flips phase
+  sketch → sell with all auth/state guards. **Extend with
+  fan-out, do NOT replace.**
+- `InviteeShell.tsx` exists in partial state. Render it
+  as-is in the resolver's not-signed-in branch. 10D
+  polishes it.
+- `/auth`, `/auth/expired`, `/auth/invalid` pages exist.
+  Reuse for auth round-trip; don't redesign.
+- 10A renamed `rsvp_status` enum value `pending` →
+  `awaiting`. New code uses `awaiting`.
+
+**Scope:**
+
+1. **Migration 026** —
+   `supabase/migrations/026_invite_tokens.sql`. Adds two
+   columns to `trip_members`:
+
+   ```sql
+   alter table trip_members
+     add column invite_token uuid not null default gen_random_uuid(),
+     add column invite_sent_at timestamptz;
+
+   alter table trip_members
+     add constraint trip_members_invite_token_unique unique (invite_token);
+   ```
+
+   Header comment + run-note convention matching 024/025
+   (committed file, hand-applied via Supabase SQL editor).
+   Postgres backfills `invite_token` on existing rows from
+   the default. `invite_sent_at` is nullable and starts
+   NULL on every row (existing or new). Migration is
+   **backwards-compatible** — running prod code without
+   these columns continues to work; new code reads them
+   only after the migration is applied.
+
+   Inline post-apply verification SQL in the comment block:
+   ```sql
+   select column_name, data_type, is_nullable, column_default
+     from information_schema.columns
+     where table_name = 'trip_members'
+       and column_name in ('invite_token', 'invite_sent_at');
+
+   select count(*) as total, count(invite_token) as with_token
+     from trip_members;
+   -- total should equal with_token (every row has a token)
+
+   select count(*) from trip_members where invite_sent_at is not null;
+   -- expected 0 (no rows marked sent yet)
+   ```
+
+2. **Extend `transitionToSell` with publish-time fan-out.**
+   In `src/app/actions/transition-to-sell.ts`, after the
+   successful phase-flip update (line 47, before the
+   `revalidatePath`), enumerate `trip_members` for the trip
+   and fire `sendInviteEmail` for each unsent + emailable
+   invitee:
+   - Query: `trip_members` joined to `users` for this
+     `trip_id`, where `invite_sent_at IS NULL` AND the
+     user has an email (skip phone-only invitees for v0).
+   - Fetch organizer + trip details needed for
+     `sendInviteEmail`'s payload (name, tagline, destination,
+     dates, coverImageUrl) — same shape used by
+     `/api/invite/route.ts:135`.
+   - For each row, build shareUrl as
+     `${process.env.NEXT_PUBLIC_APP_URL}/i/${invite_token}`
+     and call `sendInviteEmail`.
+   - On success: update that row's `invite_sent_at = now()`.
+   - On failure: log via `console.error`, do NOT update
+     `invite_sent_at` (allows retry on next event), do NOT
+     fail the overall transitionToSell.
+   - Continue to next invitee on individual failure (one
+     bad email shouldn't block the rest of the fan-out).
+
+   The phase-flip itself remains the unit of success. Email
+   fan-out is best-effort; the action returns `{ ok: true }`
+   even if some emails fail. Failures are organizer-visible
+   only via re-publish or manual retry (not in 10C scope to
+   surface).
+
+3. **New resolver route** —
+   `src/app/i/[token]/page.tsx`. Server component (async
+   default export) with `params: Promise<{ token: string }>`
+   prop. Per Next 16 app router pattern, await `params`.
+
+   Resolution + branching:
+   - Look up `trip_members` row by `invite_token`. Join to
+     `trips` to get the slug.
+   - If token not found / row deleted: redirect to
+     `/auth/invalid` (existing page).
+   - Get current auth via Supabase. Compute
+     `signedInMatchesInvitee = currentUserId !== null &&
+     currentUserId === trip_members.user_id`.
+   - **Branch (per strategy doc §Dimension 2 locked
+     decisions):**
+     - Not signed in → render existing partial
+       `InviteeShell` with the trip + invitee context. Do
+       NOT modify InviteeShell; if its prop shape doesn't
+       cleanly accept the server-side data, escalate
+       before improvising.
+     - Signed in + identity matches → redirect to
+       `/trip/<slug>` (skip teaser).
+     - Signed in + identity mismatch → redirect to
+       `/trip/<slug>` (renders as normal viewer).
+
+4. **Update existing single-add path
+   (`src/app/api/invite/route.ts`).** Two changes:
+
+   - Line 144: `shareUrl` construction changes from
+     `${appUrl}/trip/${trip.share_slug}` to
+     `${appUrl}/i/${member.invite_token}` (the inserted row
+     has the token via the column default; access it from
+     the insert's `.select()` result).
+   - After line 145 (successful `sendInviteEmail` call),
+     update the just-inserted `trip_members` row to set
+     `invite_sent_at = now()`. Mirror the pattern that 10C
+     adds to `transitionToSell`.
+
+5. **Verify token URL shape across all callers.** Grep
+   `src/` for any other place that builds a share URL using
+   `/trip/${slug}` for INVITE purposes (vs. for general trip
+   sharing — the existing share-link feature should stay
+   slug-based). The share URL in the email is the only one
+   that flips to token-based; share links elsewhere
+   (dashboard, organizer-side share button, etc.) stay
+   slug-based.
+
+**Hard constraints:**
+
+- DO NOT apply migration 026 yourself. Same 9X handoff
+  pattern: write the SQL file, syntax-verify by reading,
+  STOP. Andrew applies via Supabase SQL editor.
+- DO NOT polish `InviteeShell.tsx` beyond what's needed to
+  render it from the server component. Visual completion is
+  10D's job.
+- DO NOT add a `mode` prop to `StickyRsvpBarChassis` or
+  modify its rendering. 10D introduces the teaser-mode
+  bar.
+- DO NOT modify `sendInviteEmail` in `src/lib/email.ts`.
+  Its contract is stable; just call it.
+- DO NOT redesign `/auth`, `/auth/expired`, or
+  `/auth/invalid` pages. Reuse as-is.
+- DO NOT add SMS / phone-only delivery. Phone-only
+  invitees (rows with `email IS NULL`) are silently
+  excluded from fan-out. Documented v1 punt.
+- DO NOT add bounce-handling, retry queues, or webhook
+  processing beyond `console.error` logging. Failures
+  retry on next publish event (which rarely happens, but
+  the data shape allows it).
+- DO NOT add token regeneration / invalidation logic.
+  One token per `trip_members` row, generated at insert
+  time, valid forever.
+- DO NOT consume / mark-used tokens on first click. Tokens
+  are persistent identifiers, not single-use credentials.
+- DO NOT touch the RSVP submission flow (`/api/rsvp`,
+  `StickyRsvpBarChassis`).
+- DO NOT touch `commit-trip-theme.ts`,
+  `update-trip-sketch.ts`, or any unrelated server action.
+- DO NOT introduce a new email-templating library. The
+  existing hand-written HTML in `email.ts` is sufficient.
+- DO NOT create `InviteeShellV2.tsx`, `TeaserStickyBar.tsx`,
+  or any parallel component. See roadmap anti-patterns.
+- DO NOT create new chassis CSS classes (the visual layer
+  is unchanged in 10C).
+
+**Acceptance criteria:**
+
+*Code-side:*
+- [ ] `supabase/migrations/026_invite_tokens.sql` exists
+      with `invite_token uuid not null default
+      gen_random_uuid()` + UNIQUE constraint +
+      `invite_sent_at timestamptz` (nullable).
+- [ ] `transitionToSell` enumerates trip_members + calls
+      `sendInviteEmail` after the successful phase flip.
+      `invite_sent_at` updated on success. Phone-only
+      invitees skipped.
+- [ ] `src/app/i/[token]/page.tsx` exists with the four-
+      branch resolver per strategy doc.
+- [ ] `src/app/api/invite/route.ts` shareUrl uses
+      `/i/<invite_token>`. `invite_sent_at` set after
+      successful send.
+- [ ] Grep confirms no other invite-purpose share URL
+      uses `/trip/<slug>` (general share-link feature
+      stays slug-based and unchanged).
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `npm run build` succeeds; new route appears in the
+      manifest.
+- [ ] `git status` scope: 1 new migration + 3 modified
+      source files + 1 new route file + this fix plan.
+
+*Migration apply (gated on Andrew):*
+- [ ] **Andrew applies migration 026** via Supabase SQL
+      editor.
+- [ ] Post-apply: `\d trip_members` shows both new
+      columns.
+- [ ] Existing rows have `invite_token` populated (count
+      with token = total count).
+- [ ] All existing rows have `invite_sent_at = NULL`.
+- [ ] Unique constraint on `invite_token` enforced.
+
+*Live-verifiable:*
+- [ ] Publish a fresh sketch trip with N invitees who have
+      emails — N invite emails arrive in test inboxes
+      from `Rally <hi@rallyapp.travel>`.
+- [ ] Each email's CTA link uses `/i/<token>` shape.
+- [ ] Tap email link in a fresh browser (not signed in)
+      → resolver renders existing partial `InviteeShell`
+      with the trip context.
+- [ ] Tap email link as the matching signed-in invitee
+      → redirects to `/trip/<slug>` (full sell view).
+- [ ] Tap email link as a different signed-in user
+      (non-matching) → redirects to `/trip/<slug>` as a
+      normal viewer (no invitee context).
+- [ ] Tampered/invalid token → redirects to
+      `/auth/invalid`.
+- [ ] Re-publish would-be event: query
+      `trip_members where invite_sent_at IS NOT NULL`
+      after fan-out shows all the just-emailed rows; a
+      hypothetical second fan-out skips them (no
+      double-sends).
+- [ ] Adding a NEW invitee post-publish via the existing
+      `/api/invite` flow still fires an email (regression
+      check). The new invitee's `invite_sent_at` is set on
+      success.
+- [ ] Phone-only invitees are skipped (no email attempted,
+      no error thrown, log entry shows skip reason).
+
+**Deploy-ordering note (per 10A's regression lesson):**
+Migration 026 is **backwards-compatible**. The new columns
+are nullable (`invite_sent_at`) or have defaults
+(`invite_token`); running prod code without these columns
+continues to work because no existing column is removed
+or retyped. Migration-first ordering is therefore SAFE for
+10C: Andrew can apply migration 026 before CC's code
+deploys without breaking prod. New code that reads the
+columns activates only when the deploy lands.
+
+**Files expected to change:**
+
+- `supabase/migrations/026_invite_tokens.sql` (new)
+- `src/app/actions/transition-to-sell.ts`
+- `src/app/i/[token]/page.tsx` (new)
+- `src/app/api/invite/route.ts`
+- `rally-fix-plan-v1.md` (release notes)
+
+5 files: 2 new + 3 modified.
+
+**Files to read before editing (per roadmap §10C context
+dependencies):**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `CLAUDE.md` + `AGENTS.md`
+- `rally-attendee-strategy-v0.md` §Dimension 2 (full —
+  decisions about email, token, resolver branching, reveal
+  architecture all live here)
+- `rally-attendee-implementation-roadmap-v0.md` —
+  current-state snapshot at top, §10C entry, **reuse
+  inventory**, and **anti-patterns list**
+- `rally-10d-attendee-journey-mockup.html` — for the
+  visual context of what's downstream of 10C
+- `rally-fix-plan-v1.md` §Session 10A (migration apply
+  playbook + Actuals format + deploy-ordering regression
+  note), §Session 9S (auth-adjacent integration playbook)
+- `src/lib/email.ts` (full — to understand
+  `sendInviteEmail`'s contract)
+- `src/app/api/invite/route.ts` lines 100-160 (the
+  single-add fan-out pattern to mirror)
+- `src/app/actions/transition-to-sell.ts` (where the
+  fan-out hook gets added)
+- `src/components/trip/InviteeShell.tsx` (the partial
+  component to render in the resolver's not-signed-in
+  branch — understand its current prop shape but don't
+  modify)
+- `supabase/migrations/025_rename_pending_to_awaiting.sql`
+  (10A's migration file — model 026's header / run-note
+  convention on it)
+
+**How to QA solo:**
+
+1. Pre-flight read all referenced files. Confirm
+   `gen_random_uuid()` is available (should be — Postgres
+   built-in for several major versions; existing migrations
+   use it).
+2. Pre-flight DB sanity check: `SELECT
+   count(*) FILTER (WHERE u.email IS NOT NULL) as with_email,
+   count(*) FILTER (WHERE u.email IS NULL) as phone_only
+   FROM trip_members tm JOIN users u ON tm.user_id = u.id;`
+   — get a sense of how many rows are emailable vs.
+   phone-only. Helps estimate fan-out volume during testing.
+3. Write migration 026 file. Verify SQL syntax by reading.
+4. Update `transition-to-sell.ts` with the fan-out logic.
+   `npx tsc --noEmit` after each touch.
+5. Update `api/invite/route.ts` shareUrl construction +
+   `invite_sent_at` setter.
+6. Build `app/i/[token]/page.tsx` with the four-branch
+   resolver. Test each branch's logic by reading.
+7. `npx tsc --noEmit`. `npm run build`. Both clean.
+8. STOP. Hand off migration to Andrew (do not apply).
+9. Andrew applies migration 026 via Supabase SQL editor
+   (deploy-ordering safe — backwards-compatible).
+10. Post-apply: run the verification SQL inline in the
+    migration file.
+11. Commit + push CC's source changes via Andrew's
+    standard handoff. Vercel auto-redeploys.
+12. Live test on a fresh sketch trip with 2-3 test
+    invitees (use seeded test users with valid email
+    addresses). Verify the full happy path: publish →
+    emails arrive → tap link → resolver branches correctly.
+13. Regression check the existing `/api/invite` single-add
+    path: add a new invitee to the just-published trip,
+    verify their email also arrives.
+14. `git status` — confirm scope.
+
+**Escalate before coding if:**
+
+- `gen_random_uuid()` extension is not enabled (would need
+  a `CREATE EXTENSION` line in the migration; minor but
+  worth confirming).
+- The `/i/` route namespace conflicts with anything
+  existing (Next router would error; quick check).
+- `InviteeShell.tsx`'s current prop shape doesn't fit the
+  server component caller's data shape. Adapter prop work
+  may be needed; if it grows beyond a few lines, escalate.
+- Pre-flight reveals the existing `/api/invite/route.ts`
+  has additional shareUrl sites you didn't expect (the
+  brief enumerates one; verify before assuming).
+- Phone-only invitees comprise an unexpectedly large
+  fraction of test data — if so, the v1 punt may need
+  revisiting; flag for product discussion.
+- `sendInviteEmail` fails consistently on the test trip
+  (would suggest Resend setup issue, not 10C scope —
+  surface to Andrew so 10B can be re-verified).
+
+#### Session 10C — Release Notes
+
+**What was built:**
+
+1. **New migration 026** — [supabase/migrations/026_invite_tokens.sql](supabase/migrations/026_invite_tokens.sql). Two DDLs in sequence: `alter table trip_members add column invite_token uuid not null default gen_random_uuid(), add column invite_sent_at timestamptz` and `alter table trip_members add constraint trip_members_invite_token_unique unique (invite_token)`. Header comment block mirrors 025's run-note convention (strategy doc cross-ref, backwards-compatibility note, hand-apply pattern, ledger-drift caveat, inline post-apply verification SQL). Existing rows backfill `invite_token` automatically via the column default; `invite_sent_at` starts NULL on every row (existing or new). Migration is **backwards-compatible**: running prod code without these columns continues to work because no existing column is removed or retyped, so migration-first ordering is SAFE per 10A's deploy-ordering lesson.
+
+2. **`transitionToSell` fan-out hook** at [src/app/actions/transition-to-sell.ts](src/app/actions/transition-to-sell.ts). Three changes:
+   - **Trip-select widened** at [:46-50](src/app/actions/transition-to-sell.ts:46) from `'organizer_id, phase, name, date_start'` to `'organizer_id, phase, name, tagline, destination, date_start, date_end, cover_image_url, share_slug'` so the email payload's full shape is available without a re-fetch. Phase / organizer guards still operate on the wider row, no behavior change.
+   - **Fan-out block** inserted between the phase-flip ok-check and the `revalidatePath` call (lines 76-127). Uses an admin (service-role) Supabase client for the cross-user `trip_members` enumeration + `invite_sent_at` update; the organizer is already authenticated above the fan-out. Filters `is('invite_sent_at', null)` so a re-publish event (9W edit-on-sell) won't re-fire to already-emailed rows. Phone-only invitees (rows where `users.email IS NULL`) are skipped silently with a `console.log` per the v1 punt. Per-invitee failure handling: `console.error` + leave `invite_sent_at` NULL (allows retry on a future event); the loop continues to the next invitee. The phase flip itself remains the unit of success — the action returns `{ ok: true }` even if some emails fail.
+   - **Header doc-comment** (lines 1-13) explains the 10C extension + the best-effort + phone-only-skip semantics.
+   - **`getAdminClient` helper** inlined at [:25-30](src/app/actions/transition-to-sell.ts:25) to mirror the same pattern at [api/invite/route.ts:9-14](src/app/api/invite/route.ts:9). Two copies is acceptable per single-module discipline; extracting a shared util can wait until a third site needs it.
+
+3. **`api/invite/route.ts` shareUrl shape change + `invite_sent_at` setter** at [src/app/api/invite/route.ts](src/app/api/invite/route.ts):
+   - **Line 144 shareUrl:** flipped from `${appUrl}/trip/${trip.share_slug}` to `${appUrl}/i/${member.invite_token}`. The `member` variable from the insert at [:113-122](src/app/api/invite/route.ts:113) auto-populates `invite_token` via the migration 026 column default.
+   - **Lines 149-158 (after `sendInviteEmail` call):** when `emailResult.ok`, update the just-inserted row to set `invite_sent_at = now()`. Mirrors the pattern added to `transitionToSell`. The sketch-phase guard at [:129](src/app/api/invite/route.ts:129) (`if (email && trip.phase !== 'sketch')`) stays intact — sketch invites still queue silently until publish; `invite_token` is populated at row-insert time regardless of phase.
+
+4. **New resolver route** at [src/app/i/[token]/page.tsx](src/app/i/[token]/page.tsx). Async server component (Next 16 app router shape: `params: Promise<{ token: string }>`, awaited). Four-branch behavior per strategy doc §Dimension 2:
+   - Token not found / row deleted → `redirect('/auth/invalid')`.
+   - Signed-in user (match OR mismatch) → `redirect('/trip/<slug>')`. The token isn't a security primitive — it's an invite-delivery tracker — so the trip page's own viewer semantics handle the rest.
+   - Not signed in → render the existing `InviteeShell` with the same prop derivation as [/trip/[slug]/page.tsx:139-187](src/app/trip/[slug]/page.tsx:139). Reuses [getTrip()](src/app/trip/[slug]/_data.ts:10) to load the trip + members + organizer, then derives `themeId / inCount / goingMembers / cost` exactly as the slug route does. Same `.chassis` wrapper, same prop set. **InviteeShell is unmodified** — the brief locks visual polish to 10D.
+   - The reason for rendering InviteeShell at the resolver route (vs. redirecting to `/trip/<slug>`): the `/i/<token>` URL preserves the invitee identity context that 10D's in-place auth listener + unblur reveal architecture will attach to. Redirecting would lose the token from the URL.
+   - Admin (service-role) client used for the `trip_members` lookup so the unauthenticated resolver can read the cross-user row. The token IS the access credential at this hop; auth happens on the next hop (signup → magic link).
+
+5. **Token URL shape audit.** Grepped `src/` for any other `/trip/${...}` shareUrl construction that might be invite-purpose:
+   - `src/app/api/invite/route.ts:144` — flipped to `/i/<token>` per item 3 above.
+   - `src/app/trip/[slug]/page.tsx:80` — this is `generateMetadata`'s OpenGraph / Twitter canonical URL for the trip page itself (social-card target). NOT an invite-purpose share URL. Per strategy doc + brief, the general share-link feature stays slug-based and unchanged; this site is correct as-is.
+   - No other hits. Single invite-shareUrl site confirmed.
+
+**What changed from the brief:**
+
+- **Two `as unknown as` casts** added in fan-out + resolver. Supabase's typed-join helper infers `user:users(...)` and `trip:trips(...)` as arrays even on 1-to-1 FKs, which conflicts with TypeScript's expectation of a single-row shape. Casts through `unknown` to the actual single-row type are the standard escape hatch (no runtime impact). Sites: [transition-to-sell.ts:99-104](src/app/actions/transition-to-sell.ts:99) (`m.user`) and [i/[token]/page.tsx:46-49](src/app/i/[token]/page.tsx:46) (`member.trip`). Pre-existing code uses similar patterns (e.g. [api/invite/route.ts:181-184](src/app/api/invite/route.ts:181)).
+- **Trip-select widened in `transitionToSell` (item 2)** rather than re-fetched after the phase flip. Brief flagged both options as acceptable; chose the widen-existing path because it's one fewer round-trip + one fewer code site to keep in sync.
+- **Migration NOT applied this session.** Per the 9X / 10A handoff pattern: SQL written + syntax-verified by reading; Andrew runs the SQL via the Supabase SQL editor.
+- **Pre-flight DB sanity check (emailable / phone-only split) not run by CC** — requires Supabase access. Flagged in the planning doc; Andrew should run it before applying or surface back if `phone_only` is much larger than expected (would warrant revisiting the v1 phone-only punt).
+
+**Pre-flight escalation check (no escalation needed):**
+
+- `gen_random_uuid()` extension confirmed in use across migrations 001 / 002 / 004 / 012+. Built-in to recent Postgres; no `CREATE EXTENSION pgcrypto` needed.
+- `src/app/i/` directory does NOT pre-exist; no Next router namespace conflict.
+- `InviteeShell.tsx` prop shape (`{ themeId, slug, trip, goingMembers, inCount, cost }`) cleanly accepts the server-component-side data — same prop set already constructed by [trip/[slug]/page.tsx:177-189](src/app/trip/[slug]/page.tsx:177) for the unauthed branch. No InviteeShell modifications needed.
+- Pre-flight grep of invite-purpose `/trip/<slug>` shareUrl sites returned exactly one (api/invite/route.ts:144), which the brief enumerated. The metadata site at trip/[slug]/page.tsx:80 is the unrelated social-card canonical URL.
+- 026 migration slot was free.
+
+**What to test — code-side ACs (passing now):**
+
+- [x] [supabase/migrations/026_invite_tokens.sql](supabase/migrations/026_invite_tokens.sql) exists with `invite_token uuid not null default gen_random_uuid()` + UNIQUE constraint + `invite_sent_at timestamptz` (nullable).
+- [x] `transitionToSell` enumerates `trip_members` and calls `sendInviteEmail` after the successful phase flip. `invite_sent_at` updated on success only. Phone-only invitees skipped with a `console.log`.
+- [x] [src/app/i/[token]/page.tsx](src/app/i/[token]/page.tsx) exists with the four-branch resolver (invalid → /auth/invalid; signed-in match or mismatch → /trip/<slug>; not signed in → InviteeShell render).
+- [x] [api/invite/route.ts:144](src/app/api/invite/route.ts:144) shareUrl uses `/i/<invite_token>`. `invite_sent_at` set after successful send (lines 149-158).
+- [x] Grep confirms no other invite-purpose `/trip/<slug>` shareUrl sites; the metadata site at `trip/[slug]/page.tsx:80` is the general share-link / OG card use which the brief explicitly allows to stay slug-based.
+- [x] `npx tsc --noEmit` exits 0 (after one type-cast fix on the Supabase join inference).
+- [x] `npm run build` succeeds (Next 16.2.2 / Turbopack; compiled in 2.1s; TypeScript 1609ms; 17/17 static pages generated; route manifest lists `ƒ /i/[token]` as a new dynamic route).
+- [x] `git status` scope: 2 new files (`026_invite_tokens.sql`, `src/app/i/[token]/page.tsx`) + 2 modified source files (`transition-to-sell.ts`, `api/invite/route.ts`) + this `rally-fix-plan-v1.md` release-notes append. Matches brief's "1 new migration + 3 modified source files + 1 new route file + this fix plan" (counting the plan as the third "modified source").
+
+**What to test — GATED on Andrew's migration apply (AWAITING ANDREW):**
+
+- [ ] **Pre-apply DB sanity check** (Supabase SQL editor):
+  ```sql
+  SELECT count(*) FILTER (WHERE u.email IS NOT NULL) AS with_email,
+         count(*) FILTER (WHERE u.email IS NULL) AS phone_only
+  FROM trip_members tm JOIN users u ON tm.user_id = u.id;
+  ```
+  Reports the emailable / phone-only split. Escalate if `phone_only` is much larger than expected (would warrant revisiting the v1 punt). Otherwise: proceed.
+- [ ] **Andrew applies migration 026** via Supabase SQL editor (paste the two `alter table` DDLs, run, confirm success). Same flow as 019/021/022/023/024/025.
+- [ ] Post-apply schema check: `select column_name, data_type, is_nullable, column_default from information_schema.columns where table_name = 'trip_members' and column_name in ('invite_token', 'invite_sent_at');` returns `invite_token | uuid | NO | gen_random_uuid()` and `invite_sent_at | timestamptz | YES | (null)`.
+- [ ] Post-apply backfill check: `select count(*) as total, count(invite_token) as with_token from trip_members;` — `total` should equal `with_token` (every existing row has a token).
+- [ ] Post-apply sent-at check: `select count(*) from trip_members where invite_sent_at is not null;` returns 0 (no rows marked sent yet at apply time).
+- [ ] Post-apply unique-constraint check: `\d trip_members` in `psql` shows `trip_members_invite_token_unique UNIQUE (invite_token)`.
+
+**Live-verifiable (after deploy):**
+
+- [ ] Publish a fresh sketch trip with N email-having invitees → N invite emails arrive in test inboxes from `Rally <hi@rallyapp.travel>`.
+- [ ] Each email's CTA link uses `/i/<token>` shape (not `/trip/<slug>`).
+- [ ] Tap email link in a fresh browser (not signed in) → resolver renders existing partial `InviteeShell` with the trip context (PostcardHero + countdown + going row + LockedPlan + InviteeStickyBar).
+- [ ] Tap email link as the matching signed-in invitee → redirects to `/trip/<slug>` (full sell view).
+- [ ] Tap email link as a different signed-in user (non-matching) → redirects to `/trip/<slug>` as a normal viewer (no invitee context).
+- [ ] Tampered/invalid token → redirects to `/auth/invalid`.
+- [ ] Re-publish hypothetical: query `select count(*) from trip_members where trip_id = <test_trip> and invite_sent_at is not null` after fan-out — all just-emailed rows present. A second hypothetical fan-out (filtering `is('invite_sent_at', null)`) returns 0 rows → no double-sends.
+- [ ] Adding a NEW invitee post-publish via the existing `/api/invite` flow still fires an email (regression check). The new invitee's `invite_sent_at` is set on success.
+- [ ] Phone-only invitees (rows where `users.email IS NULL`) are skipped — no email attempted, no error thrown, server log shows `[10C fan-out] skip phone-only <member_id>`.
+
+**Known issues / carryover:**
+
+1. **Supabase join inference (1-to-1 typed as array).** Two `as unknown as` casts were needed at [transition-to-sell.ts:99-104](src/app/actions/transition-to-sell.ts:99) and [i/[token]/page.tsx:46-49](src/app/i/[token]/page.tsx:46). Pattern is established in the codebase already (e.g., [api/invite/route.ts:181-184](src/app/api/invite/route.ts:181)). Worth a project-wide hygiene pass to consider switching to PostgREST's `.single()` chaining or a typed-join helper, but out of 10C scope.
+2. **`getAdminClient` helper duplicated.** Two inline copies (transition-to-sell.ts, api/invite/route.ts). Acceptable per single-module discipline; extract to a shared util when a third site needs it (likely 10D when an `/api/invite/resend` endpoint or similar lands).
+3. **Best-effort fan-out has no organizer-side failure surface.** If `sendInviteEmail` fails for a subset of invitees, the only signal is `invite_sent_at IS NULL` for those rows + `console.error` log entries. Organizer doesn't see the failure; recovery is "publish again," which would re-fire to those rows. Acceptable for v0; flag for v1 (bounce-handling / retry queue / organizer-visible failure surface).
+4. **Re-publish behavior gating.** Per strategy doc §Dimension 2, re-publish after edit-on-sell does NOT auto-fire to existing invitees. The `is('invite_sent_at', null)` filter on the fan-out enumerate handles this — already-emailed rows are skipped. **However:** 9W's edit-on-sell flow doesn't currently call `transitionToSell` on save (the trip is already in sell phase, so the action's phase-guard would reject it). The fan-out is therefore only triggered by a fresh sketch → sell publish, not by edit-on-sell saves. This is correct behavior; flag for any future "re-publish to flip from sell back to sell" feature that bypasses the phase guard.
+5. **InviteeShell already more built-out than the brief suggested.** The brief said it's "partial"; in fact it renders PostcardHero + ChassisCountdown + going row + LockedPlan + PoeticFooter + InviteeStickyBar. The 10C resolver renders it as-is per the brief's "do not modify" constraint. 10D's polish work is presumably the blur veil + locked-overlay + unblur reveal animation + magic-link-in-place auth listener — none of which is structural to the existing InviteeShell shape.
+6. **Pre-flight DB sanity check not yet run.** The phone-only / emailable split query must be run by Andrew (CC has no Supabase access). Not blocking the migration apply; just informational + escalation trigger if unexpected.
+7. **Migration 026 in tree but not via `supabase migration up`.** Same hand-apply pattern as 019, 021, 022, 023, 024, 025 — established project-level pattern, not a 10C issue.
+
+**Ship state:** Code complete. Working tree has uncommitted source changes (migration file + 3 modified files + 1 new file + this release-notes append). Hand off the commit to CC or Andrew using the same pattern as 9X / 10A. Migration must be applied to prod by Andrew before deploy (or simultaneously — backwards-compatible per the migration's header).
+
+#### Session 10C — Actuals (QA'd, Cowork 2026-04-27)
+
+**Status: closed on the data side.** Code verified from
+disk; migration 026 applied to prod by Andrew; post-apply
+sanity checks confirm clean state. Live behavior gated on
+the next Vercel deploy + a fresh sketch trip publish (low
+risk; code is wired exactly per the brief).
+
+**AC verification summary:**
+
+- **Code-verified by Cowork (disk inspection):**
+  - ✅ `supabase/migrations/026_invite_tokens.sql` exists
+    with both DDLs (add columns + unique constraint) +
+    9X-style header convention + inline post-apply
+    verification SQL + backwards-compatibility note.
+  - ✅ `src/app/actions/transition-to-sell.ts` —
+    trip-select widened at :48-50; fan-out block at
+    :72-133 with `is('invite_sent_at', null)` filter,
+    phone-only skip, per-invitee continue-on-error,
+    `invite_sent_at` stamp on success only.
+    `getAdminClient` helper at :28-33.
+  - ✅ `src/app/api/invite/route.ts:144` — shareUrl
+    flipped to `${appUrl}/i/${member.invite_token}`.
+    Lines 149-158 — `invite_sent_at` stamp added on
+    successful send. Sketch-phase guard at :129
+    intact.
+  - ✅ `src/app/i/[token]/page.tsx` — async server
+    component with four-branch resolver (token not
+    found → `/auth/invalid`; signed-in match or
+    mismatch → `/trip/<slug>`; not signed in →
+    `InviteeShell` with prop derivation matching the
+    slug route's unauthed branch). Admin client used
+    for cross-user lookup; user-session client for
+    auth check.
+  - ✅ Token URL audit: only invite-purpose shareUrl
+    site is `api/invite/route.ts:144`; the metadata
+    site at `trip/[slug]/page.tsx:80` (OpenGraph /
+    Twitter canonical) stays slug-based as the brief
+    explicitly allowed.
+  - ✅ Two `as unknown as` casts for Supabase 1-to-1
+    join inference — established codebase pattern,
+    no runtime impact.
+  - ✅ `git diff` scope: 1 new migration + 1 new route
+    file + 2 modified source files + fix plan release
+    notes.
+
+- **CC-verified (per release notes):**
+  - ✅ `npx tsc --noEmit` exits 0.
+  - ✅ `npm run build` succeeds (Next 16.2.2 / Turbopack;
+    2.1s; 17/17 static pages; route manifest lists
+    `ƒ /i/[token]` as a new dynamic route).
+
+- **Pre-apply DB check (Andrew, 2026-04-27):**
+  - ✅ Email split: 29 with email, 1 phone-only (~3.3%).
+    The v1 phone-only punt holds; no need to revisit
+    SMS until the ratio shifts meaningfully.
+
+- **Migration apply verified by Andrew (2026-04-27):**
+  - ✅ Migration 026 applied via Supabase SQL editor
+    (same flow as 019/021/022/023/024/025).
+  - ✅ Post-apply baseline check:
+    `select count(*) from trip_members where
+    invite_sent_at is not null;` returns **0** —
+    confirms columns added cleanly, no rows
+    incorrectly stamped at apply time.
+  - ⏳ Belt-and-suspenders queries (column shape +
+    backfill count) not individually run, but
+    redundant with the baseline check + the atomic
+    migration semantics (the unique-constraint DDL
+    couldn't have succeeded if the column-add DDL
+    had failed).
+
+- **Live-behavior ACs (gated on next deploy):**
+  - ⏳ Publish a fresh sketch trip with email-having
+    invitees — N invite emails arrive from
+    `Rally <hi@rallyapp.travel>` with `/i/<token>`
+    CTA URLs.
+  - ⏳ Tap link unauthed → InviteeShell renders.
+  - ⏳ Tap link as matching invitee → redirect to
+    `/trip/<slug>`.
+  - ⏳ Tap link as non-matching signed-in user →
+    redirect to `/trip/<slug>` as viewer.
+  - ⏳ Tampered/invalid token → `/auth/invalid`.
+  - ⏳ Re-publish protection: second hypothetical
+    fan-out skips already-stamped rows.
+  - ⏳ Existing `/api/invite` single-add path still
+    fires email post-publish (regression).
+  - ⏳ Phone-only invitees skipped silently with
+    `[10C fan-out] skip phone-only <id>` log.
+
+  Low risk: TypeScript + build are clean, the wiring
+  matches the brief exactly, the migration is in
+  place. Worth a 10-minute live spot-check at next
+  opportunity (publish a test trip and watch the
+  fan-out hit the inbox) but NOT gating the close —
+  the data side is shipped.
+
+**Scope deviations — captured + accepted:**
+
+1. **Trip-select widened** in `transitionToSell` (vs.
+   re-fetch after phase flip). Brief listed both as
+   acceptable; CC chose widen. One fewer round-trip,
+   one fewer code site to keep in sync.
+2. **Two `as unknown as` casts** for Supabase 1-to-1
+   join inference. Existing codebase pattern (e.g.
+   `api/invite/route.ts:181-184`). No runtime cost.
+3. **Migration NOT applied by CC** — per 9X / 10A
+   handoff convention. Honored.
+4. **`getAdminClient` duplicated** between
+   `transition-to-sell.ts` and `api/invite/route.ts`.
+   Acceptable per single-module discipline; extract
+   to shared util when a third site needs it.
+
+**Known issues (documented, deferred):**
+
+1. **Best-effort fan-out has no organizer-side failure
+   surface.** If `sendInviteEmail` fails for a subset,
+   the only signal is `invite_sent_at IS NULL` + a
+   `console.error` in server logs. No organizer-visible
+   "X emails didn't go through" indicator. Acceptable
+   for v0; flag for v1 (bounce-handling, retry queue,
+   organizer-visible failure surface).
+2. **InviteeShell more built-out than the brief
+   suggested.** Already renders PostcardHero +
+   ChassisCountdown + going row + LockedPlan +
+   PoeticFooter + InviteeStickyBar. 10D's polish is
+   the visual surface (blur veil, locked overlay,
+   unblur reveal, magic-link auth listener) — not
+   structural. Useful context for 10D scoping.
+3. **Re-publish gating note.** 9W's edit-on-sell flow
+   doesn't trigger `transitionToSell` (phase is already
+   `sell`, action's guard rejects). Fan-out only fires
+   on a fresh sketch → sell publish. The
+   `invite_sent_at` filter is defense-in-depth for
+   any future republish-from-sell feature.
+4. **Supabase 1-to-1 join typed as array.** Two
+   `as unknown as` casts in 10C; pre-existing pattern
+   elsewhere. Worth a project-wide hygiene pass to
+   evaluate `.single()` chaining or a typed-join
+   helper, but out of 10C scope.
+5. **Migration 026 in tree but not via
+   `supabase migration up`.** Established hand-apply
+   pattern (019/021/022/023/024/025). Not a 10C
+   issue.
+6. **Phone-only invitees deferred.** 1/30 ratio in
+   prod data; v1 punt holds.
+
+**Ship state:** Code complete + migration live in prod.
+Working tree has uncommitted source changes. Hand off the
+commit to CC using the same pattern as 9X / 10A — no
+deploy-ordering concern (backwards-compatible).
+
+10D (teaser polish + auth integration + unblur reveal)
+is the next sub-session in the attendee arc. Wireframe
+already drafted at `rally-10d-attendee-journey-mockup.html`.
+
 ---
 
 ### Sessions 11+: "TBD — re-scope after Session 10 strategy lands"
@@ -18667,6 +19330,124 @@ lands.
   resolve whether to build SMS, defer phone-only as a known gap,
   or reframe phone as an alternate identifier rather than a
   delivery channel.
+
+### Session 10B: "Production domain cutover (rallyapp.travel)"
+
+**Status: closed 2026-04-27.** Cowork-driven checklist
+execution; no CC session brief. Trip invite emails now
+fire from `Rally <hi@rallyapp.travel>`; app served at
+`https://rallyapp.travel` (apex canonical, www → apex
+redirect); magic-link auth routes through the new domain.
+
+**Reference artifact:** `rally-10b-domain-cutover-checklist.md`
+(working doc with the per-phase steps Andrew walked through).
+
+**What shipped:**
+
+1. **Vercel custom domain.** Domain `rallyapp.travel` was
+   purchased through Vercel and auto-attached to the Rally
+   project. Phase 1 was verification-only. The www
+   subdomain was added in a follow-up edit so cert covers
+   both, and the redirect direction was flipped from
+   apex→www to www→apex (apex canonical, matches industry
+   norm + the email sender domain).
+2. **Resend custom sender domain.** Used Resend's
+   auto-configure flow to write DKIM + SPF + DMARC records
+   into Vercel's DNS panel. Domain verified within ~5 min.
+   "Enable Receiving" toggle was briefly turned on; reverted
+   after Cowork flagged it would conflict with future
+   personal email setup at the apex.
+3. **Supabase Auth URL Configuration.** Site URL set to
+   `https://rallyapp.travel`; redirect URLs allowlist
+   contains `https://rallyapp.travel/**`,
+   `https://rallyapp.travel/auth/callback`,
+   `https://www.rallyapp.travel/`, and the `localhost:3000`
+   equivalents.
+4. **Vercel env vars.** `NEXT_PUBLIC_APP_URL` updated to
+   `https://rallyapp.travel`; new env var
+   `RESEND_FROM_EMAIL=Rally <hi@rallyapp.travel>` added.
+   Redeploy auto-triggered, went green.
+
+**Smoke test results (verified by Andrew):**
+
+- ✅ `https://rallyapp.travel` apex loads cleanly
+- ✅ Trip pages load (`https://rallyapp.travel/trip/<slug>`)
+  — verified after the 10A regression resolution above
+- ✅ Share links use `rallyapp.travel/trip/<slug>` (NOT
+  the old preview URL)
+- ✅ Test invite email arrived FROM `hi@rallyapp.travel`
+- ✅ Email landed in **inbox** (not spam) on first send —
+  good initial deliverability signal
+- ✅ Email template rendered cleanly with the new domain
+  in the "See the trip" CTA
+- ✅ Magic-link sign-in flow works against the new domain
+
+**Code-side verification (Cowork pre-flight + post-flight):**
+
+- ✅ Pre-flight: only two non-hardcoded URL references in
+  `src/` — both correctly use `process.env.NEXT_PUBLIC_APP_URL`
+  with a `localhost:3000` fallback (`api/invite/route.ts:130`,
+  `app/trip/[slug]/page.tsx:70`).
+- ✅ Post-flight grep across `src/` + `supabase/` for
+  `rally-gold.vercel.app`, `*.vercel.app`,
+  `onboarding@resend.dev`, and non-fallback `localhost:3000`
+  returned **zero hits**. Phase 6 (CC verification pass) was
+  collapsed into Cowork pre-flight + post-flight grep —
+  no CC session needed.
+
+**Scope deviations — captured + accepted:**
+
+1. **Phase 1 (Vercel domain) collapsed to verification-only**
+   because the domain was purchased through Vercel
+   directly. DNS, SSL, and project attachment were
+   automatic.
+2. **Resend Phase 2 collapsed to verification-only** because
+   Andrew used Resend's auto-configure with Vercel's API.
+   No manual DNS record entry.
+3. **www subdomain redirect** initially set up backwards
+   (apex → www) by Vercel default. Andrew flipped it to
+   www → apex after Cowork pushback (apex canonical is
+   the right choice for Rally given the matching email
+   sender at apex + cleaner URLs).
+4. **Phase 6 (CC verification pass) skipped** — the
+   pre-flight + post-flight grep confirmed zero stale
+   URL references. Spinning up CC for what was already
+   verified would have been overhead.
+5. **10A regression surfaced during Phase 5 smoke test**
+   (the trip-page 500). Resolved by committing + pushing
+   the previously-uncommitted 10A code. See §Session 10A
+   Actuals "Regression + fix" addendum.
+
+**Known issues / carryover:**
+
+1. **DMARC policy is `p=none`** (monitor-only). Best
+   practice for v0 — start collecting reports without
+   risking legitimate mail being blocked. Tighten to
+   `p=quarantine` or `p=reject` later once domain
+   reputation is established and DMARC reports show no
+   spoofing.
+2. **First-send deliverability** — first email from a
+   fresh sender domain landed in inbox, which is a good
+   sign. Worth monitoring for the next few invite sends
+   in case any hit spam (especially on Outlook / Yahoo /
+   corporate inboxes which are stricter than Gmail).
+3. **Supabase Site URL** is now `https://rallyapp.travel`,
+   which means dev sign-ins from `localhost:3000` use
+   the localhost redirect URL but Site URL says prod.
+   Should not cause issues since redirect URLs are
+   allowlisted, but flag if anything weird surfaces.
+4. **Old preview URL `rally-gold.vercel.app` still
+   functions.** Vercel-managed; not removed. No harm —
+   any in-flight bookmarks or shares of preview URLs
+   continue to work. Could be removed later as a hygiene
+   pass.
+
+**Ship state:** Production domain is live. Email-fan-out
+work in 10C now has a proper sender domain to use. The
+attendee-arc implementation is unblocked from
+infrastructure side.
+
+---
 
 **Items NOT dependent on the strategy doc** (could ship in parallel
 or after):

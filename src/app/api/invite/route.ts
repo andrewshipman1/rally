@@ -141,10 +141,20 @@ export async function POST(request: NextRequest) {
         destination: trip.destination,
         dateStr,
         coverImageUrl: trip.cover_image_url,
-        shareUrl: `${appUrl}/trip/${trip.share_slug}`,
+        shareUrl: `${appUrl}/i/${member.invite_token}`,
       });
       if (!emailResult.ok) {
         console.error('Invite email failed:', emailResult.error);
+      } else {
+        // 10C — stamp invite_sent_at so a re-publish event won't
+        // re-fire to this row. Mirror the pattern in transitionToSell.
+        const { error: stampError } = await adminClient
+          .from('trip_members')
+          .update({ invite_sent_at: new Date().toISOString() })
+          .eq('id', member.id);
+        if (stampError) {
+          console.error('invite_sent_at stamp failed:', stampError.message);
+        }
       }
     }
 
