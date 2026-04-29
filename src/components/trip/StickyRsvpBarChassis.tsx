@@ -9,8 +9,9 @@
 //   - chip icons are LOCKED GLOBAL (🙌 / 🧗 / —) — never themed
 //   - button CTA TEXT is themeable
 //
-// The DB now stores 'in' | 'holding' | 'out' | 'pending' directly
-// (migration 008). No boundary mapping needed.
+// The DB now stores 'in' | 'holding' | 'out' | 'awaiting' directly
+// (migration 008 created the four-state enum; migration 025 renamed
+// 'pending' to 'awaiting'). No boundary mapping needed.
 
 import { useState, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -32,7 +33,7 @@ type Props = {
   isOrganizer?: boolean;
 };
 
-const STATES: { id: Exclude<RallyRsvp, 'pending'>; copyKey: string }[] = [
+const STATES: { id: Exclude<RallyRsvp, 'awaiting'>; copyKey: string }[] = [
   { id: 'in',      copyKey: 'rsvp.in.button' },
   { id: 'holding', copyKey: 'rsvp.holding.button' },
   { id: 'out',     copyKey: 'rsvp.out.button' },
@@ -70,7 +71,7 @@ export function StickyRsvpBarChassis({
     );
   }
 
-  const submit = async (state: Exclude<RallyRsvp, 'pending'>) => {
+  const submit = async (state: Exclude<RallyRsvp, 'awaiting'>) => {
     setError(null);
     setOptimistic(state);
     try {

@@ -11,7 +11,7 @@ import type { TripPhase } from '@/types';
 
 // ─── Chassis enums ─────────────────────────────────────────────────────────
 
-export type RallyRsvp = 'in' | 'holding' | 'out' | 'pending';
+export type RallyRsvp = 'in' | 'holding' | 'out' | 'awaiting';
 export type RallyPhase = 'sketch' | 'sell' | 'lock' | 'go' | 'done';
 
 // ─── Boundary mapper: DB → chassis (phase only) ───────────────────────────

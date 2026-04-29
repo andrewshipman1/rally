@@ -8,5 +8,5 @@ export const tripPageSketch: Record<string, Templated> = {
   'tagline.placeholder':  '"throwing this out there 🤞"',
   'sticky.cta':           "i'm into it",
   'sticky.cta.organizer': 'turn this into the real thing',
-  'rsvp.pendingMsg':      "we're not asking yet. just feeling it out.",
+  'rsvp.awaitingMsg':     "we're not asking yet. just feeling it out.",
 };

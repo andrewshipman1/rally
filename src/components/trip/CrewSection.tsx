@@ -26,7 +26,7 @@ type Props = {
   slug: string;
 };
 
-const STATE_ORDER: readonly RallyRsvp[] = ['in', 'holding', 'out', 'pending'] as const;
+const STATE_ORDER: readonly RallyRsvp[] = ['in', 'holding', 'out', 'awaiting'] as const;
 const PILE_LIMIT = 5;
 
 export function CrewSection({
@@ -39,14 +39,14 @@ export function CrewSection({
     in: false,
     holding: false,
     out: false,
-    pending: false,
+    awaiting: false,
   });
 
   const buckets: Record<RallyRsvp, MemberRow[]> = {
     in: [],
     holding: [],
     out: [],
-    pending: [],
+    awaiting: [],
   };
   for (const m of members) {
     buckets[m.rsvp].push(m);
@@ -96,8 +96,14 @@ export function CrewSection({
             >
               <span className="crew-state-header-left">
                 <span className={`crew-tally-pill ${state}`}>
-                  <strong>{rows.length}</strong>{' '}
-                  {getCopy(themeId, `rsvp.crew.section.${state}`)}
+                  {state === 'awaiting' ? (
+                    getCopy(themeId, `rsvp.crew.section.${state}`, { count: rows.length })
+                  ) : (
+                    <>
+                      <strong>{rows.length}</strong>{' '}
+                      {getCopy(themeId, `rsvp.crew.section.${state}`)}
+                    </>
+                  )}
                 </span>
               </span>
               <span className="crew-state-pile">
@@ -173,7 +179,7 @@ function CrewRow({
   const initial = name.slice(0, 1).toUpperCase();
 
   let subtext: string | null = null;
-  if (state === 'pending') {
+  if (state === 'awaiting') {
     subtext = member.invite_opened_at
       ? getCopy(themeId, 'crew.rowSubOpened')
       : getCopy(themeId, 'crew.rowSubUnopened');

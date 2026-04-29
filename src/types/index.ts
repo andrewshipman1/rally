@@ -3,7 +3,7 @@
 
 export type TripPhase = 'sketch' | 'sell' | 'lock' | 'go';
 export type ComponentStatus = 'estimated' | 'confirmed';
-export type RsvpStatus = 'in' | 'holding' | 'out' | 'pending';
+export type RsvpStatus = 'in' | 'holding' | 'out' | 'awaiting';
 export type PaymentStatus = 'unpaid' | 'paid';
 export type MemberRole = 'organizer' | 'guest';
 export type PollType = 'date_range' | 'option_vote';
@@ -481,19 +481,21 @@ export function pickLodgingForRollup(
 }
 
 export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
-  // Count members who are 'in' or 'holding' (not 'out' or 'pending')
-  const confirmed = trip.members.filter(m => m.rsvp === 'in' || m.rsvp === 'holding').length;
+  // Session 10A — optimistic divisor philosophy (strategy doc
+  // §Dimension 3). Count every member except explicit 'out';
+  // 'awaiting' members are included. The legacy `group_size`
+  // fallback is gone because the optimistic filter never returns
+  // <2 on a real trip (organizer + invitees are all 'in' or
+  // 'awaiting' by default).
+  const effectiveCrew = trip.members.filter(m => m.rsvp !== 'out').length;
+  const divisor_used = Math.max(1, effectiveCrew);
 
-  // If fewer than 2 actual confirmed, fall back to group_size as an estimate
-  let divisor_used: number;
-  let divisor_is_estimate: boolean;
-  if (confirmed < 2 && trip.group_size && trip.group_size > 0) {
-    divisor_used = trip.group_size;
-    divisor_is_estimate = true;
-  } else {
-    divisor_used = Math.max(1, confirmed);
-    divisor_is_estimate = false;
-  }
+  // True while any member is still 'awaiting' — the per-person
+  // figure shifts as those members RSVP. False once everyone has
+  // explicitly RSVP'd (in / holding / out). Consumed by
+  // CostBreakdown.tsx:179 to toggle "estimated for N people" vs.
+  // "N going" copy.
+  const divisor_is_estimate = trip.members.some(m => m.rsvp === 'awaiting');
 
   // Session 9P — use the shared `pickLodgingForRollup` util so the server
   // rollup agrees with the client row (locked → leading-vote → first-added).
@@ -580,7 +582,7 @@ export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
     individual_total,
     per_person_shared,
     per_person_total,
-    confirmed_count: confirmed,
+    confirmed_count: effectiveCrew,
     divisor_used,
     divisor_is_estimate,
     headliner_per_person,

@@ -276,7 +276,7 @@ This is a 5-step flow. Each step is one question, one input.
 | Tagline placeholder | "throwing this out there 🤞" |
 | Sticky CTA | i'm into it |
 | Sticky CTA (organizer view) | turn this into the real thing |
-| RSVP-pending state copy | we're not asking yet. just feeling it out. |
+| RSVP-awaiting state copy | we're not asking yet. just feeling it out. |
 
 ### 5.6 Trip page — sell state
 
@@ -830,9 +830,11 @@ Crew is a simple expanded view of the guest list, grouped by RSVP state. Read-on
 | Section header: in | in |
 | Section header: holding | holding |
 | Section header: out | out |
+| Section header: awaiting (templated) | waiting on {count} |
 | Section caption: in (default) | locked and loaded |
 | Section caption: holding (default) | thinking about it |
 | Section caption: out (default) | catch the next one |
+| Section caption: awaiting (default) | hasn't weighed in yet |
 | Host marker (visual) | 👑 |
 | You tag | you |
 | +1 sub-text | +1 · bringing {name} |

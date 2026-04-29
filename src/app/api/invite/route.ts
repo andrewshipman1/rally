@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         trip_id: tripId,
         user_id: inviteeId,
         role: 'guest',
-        rsvp: 'pending',
+        rsvp: 'awaiting',
       })
       .select('*, user:users(*)')
       .single();

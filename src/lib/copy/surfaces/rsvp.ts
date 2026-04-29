@@ -50,14 +50,18 @@ export const rsvp: Record<string, Templated> = {
     `${n_in ?? 0} in · ${n_hold ?? 0} holding · ${n_out ?? 0} out · cutoff in ${days ?? 0} days`,
 
   // ─── Crew section captions (default; themeable) ────────────────
-  'crew.section.in':      'in',
-  'crew.section.holding': 'holding',
-  'crew.section.out':     'out',
-  'crew.section.pending': 'pending',
-  'crew.caption.in':      'locked and loaded',
-  'crew.caption.holding': 'thinking about it',
-  'crew.caption.out':     'catch the next one',
-  'crew.caption.pending': "hasn't weighed in yet",
+  // Session 10A — `crew.section.awaiting` is templated (count-aware)
+  // because Andrew's voice choice ("waiting on N") interpolates the
+  // tally. Other states stay bare-word; CrewSection composes them
+  // with a separate `<strong>{count}</strong>` wrapper.
+  'crew.section.in':       'in',
+  'crew.section.holding':  'holding',
+  'crew.section.out':      'out',
+  'crew.section.awaiting': ({ count }: ThemeVars) => `waiting on ${count ?? 0}`,
+  'crew.caption.in':       'locked and loaded',
+  'crew.caption.holding':  'thinking about it',
+  'crew.caption.out':      'catch the next one',
+  'crew.caption.awaiting': "hasn't weighed in yet",
 
   // RsvpSection — prompt + share + button labels (distinct from default buttons above)
   'share.story':         'Share to Story \ud83d\udcf8',

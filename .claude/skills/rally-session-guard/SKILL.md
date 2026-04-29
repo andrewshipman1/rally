@@ -173,13 +173,15 @@ scroll, social login (Google/Apple), co-host/admin roles.
 
 | File | What it tells you |
 |------|-------------------|
-| `rally-fix-plan-v1.md` | Session plans, constraints, what NOT to build |
+| `rally-fix-plan-v1.md` | Session plans, constraints, what NOT to build, all session briefs + Actuals |
 | `rally-qa-punch-list-v2.md` | All 45 known issues with severity |
 | `rally-microcopy-lexicon-v0.md` | Every approved user-facing string |
 | `rally-brand-brief-v0.md` | Voice rules, tone, banned words |
 | `rally-theme-content-system.md` | Per-theme copy, emoji, countdown labels |
 | `rally-qa-checklist-v0.md` | Full QA walkthrough procedure |
-| `rally-phase-*.html` | Design specs for each feature/phase |
+| `rally-attendee-strategy-v0.md` | Locked decisions for the attendee experience: state model, journey, consumer alignment. Required reading for any Session 10A–10E work. |
+| `rally-attendee-implementation-roadmap-v0.md` | Sub-session breakdown of the attendee arc (10A → 10E): scope, deps, size, asset needs, open scoping questions per sub-session. |
+| `rally-phase-*.html`, `rally-9*-mockup.html`, `rally-9w-organizer-sticky-mockup.html`, `rally-9y-dashboard-trip-menu-mockup.html` | Visual + interaction specs for shipped features and active design work |
 
 ---
 

@@ -18102,40 +18102,590 @@ into a future Tier-3 hygiene session alongside `DatePoll.tsx`.
 
 ---
 
-### Session 10+: "Sell+ Module Depth" (briefs TBD)
+### Session 10: "Attendee Experience Strategy" (Cowork-only, 2026-04-27)
 
-These sessions deepen each module for sell/lock/go/done phases. Updated
-2026-04-17 after Session 9 scope was aligned with Andrew. Expected sequence:
+**Status: in progress.** Strategy session that produces a living
+doc, NOT code. Anchored in the attendee's perspective; aligns
+with the existing organizer-side build (don't re-think the
+organizer side — it's already been the lens).
 
-- **Session 10:** Teaser layer — upgrade `InviteeShell` to wireframe view 1
-  (blur veil, lock overlay, called-up sticker, passwordless signup CTA,
-  unblur reveal animation into view 2). Resolves wireframe Q1 (login
-  mechanics) and Q2 (blur cutline).
-- **Session 11:** Invite delivery on publish — `transitionToSell` currently
-  just flips the phase; it does NOT fire the queued invite emails for
-  sketch-captured roster entries (per `/api/invite` line 129). Session 11
-  wires up the delivery fan-out on phase transition. Also: phone-only
-  invitees currently have no delivery rail (Resend is email-only) —
-  decide SMS path or defer.
-- **Session 12:** RSVP sticky bar depth — per-view state machine (teaser /
-  pre-RSVP / crew-committed / organizer), confetti burst on RSVP, micro-
-  interactions, haptic where available.
-- **Session 13:** Buzz feed liveness — event row polish, live-dot refine,
-  scroll-into-view on new events, basic compose (gating per Q3). No
-  reactions, no @mentions.
-- **Session 14:** Motion pass — countdown scoreboard (d:h:m:s tiles with
-  live tick, lock-emoji wobble), called-up sticker variants, marquee
+**Deliverable:** `rally-attendee-strategy-v0.md` — three-dimension
+scaffold (state model → journey → consumers). Each subsequent
+implementation session in the attendee arc references this doc
+for state semantics, transition rules, and consumer alignment.
+
+**Why this comes before implementation:** the current `rsvp`
+column is overloaded; "pending" conflates ≥5 distinct invitee
+situations; downstream code (cost-split divisor, "firming up"
+eyebrow, needsMove, marquee, crew tally) consumes the states
+inconsistently. Patching the divisor in isolation, or shipping
+email delivery in isolation, just moves the inconsistency
+around. The strategic move is define states first, design the
+journey, then update consumers.
+
+**No code shipped this session.** Sub-sessions 10A → 10E
+implement against the strategy doc. See
+`rally-attendee-implementation-roadmap-v0.md` for the
+sub-session breakdown.
+
+---
+
+### Session 10A: "RSVP state rename + cost-split divisor fix"
+
+**Status: SCOPED 2026-04-27.** First implementation
+sub-session of the attendee arc. Foundation work that
+unblocks everything downstream. Renames the `pending` enum
+value to `awaiting` across DB + code + lexicon. Updates
+the cost-split divisor to the optimistic philosophy locked
+in strategy doc Dimension 3. Replaces the user-facing
+"pending" copy with `waiting on N` per Andrew's voice
+choice.
+
+**Reference artifacts (read before editing):**
+
+- `rally-attendee-strategy-v0.md` §Dimension 1 (state model
+  rename) + §Dimension 3 (optimistic divisor + consumer
+  ripple list)
+- `rally-attendee-implementation-roadmap-v0.md` §10A
+  (this sub-session's scoping notes + context dependencies
+  + playbook reference)
+- `rally-fix-plan-v1.md` §Session 9X (the migration-apply
+  + comment-update playbook — 10A mirrors 9X's structure)
+
+**Playbook: 9X.** Same shape — small enum-adjacent
+migration, hand-applied via Supabase SQL editor (no Docker
+in local), code consumer rename pass, careful comment
+accuracy, no UI structural changes.
+
+**Pre-existing infra (no work needed):**
+
+- Migration 008 created the current `rsvp_status` enum
+  with values `('in', 'holding', 'out', 'pending')`. No
+  RLS policies, triggers, functions, or check constraints
+  hardcode the literal `'pending'` (Cowork-verified
+  2026-04-27). Clean rename surface.
+- 9X established the hand-apply convention. Migration
+  files committed for history; Andrew runs the SQL via
+  Supabase SQL editor.
+
+**Scope:**
+
+1. **Migration 025** —
+   `supabase/migrations/025_rename_pending_to_awaiting.sql`.
+   Two DDLs:
+
+   ```sql
+   alter type rsvp_status rename value 'pending' to 'awaiting';
+
+   alter table trip_members
+     alter column rsvp set default 'awaiting'::rsvp_status;
+   ```
+
+   Postgres handles the `rename value` in-place; existing
+   rows automatically follow the rename. The `set default`
+   is belt-and-suspenders; the existing default likely
+   tracks the rename automatically. Include the same
+   header-comment + run-note convention as 019/021/022/024
+   (committed for history, hand-applied via Supabase SQL
+   editor).
+
+2. **Type defs.** Update `'pending'` → `'awaiting'` in:
+
+   - `src/types/index.ts:6` — `RsvpStatus` type union
+   - `src/lib/rally-types.ts:14` — `RallyRsvp` type union
+
+3. **Code consumer rename ripple.** Replace each `'pending'`
+   literal with `'awaiting'`:
+
+   - `src/app/api/invite/route.ts:119` — invite-row
+     creation default
+   - `src/components/trip/CrewSection.tsx:29` — `STATE_ORDER`
+     array
+   - `src/components/trip/CrewSection.tsx:176` — branch
+     `if (state === 'pending')`
+   - `src/components/trip/StickyRsvpBarChassis.tsx:12, 35,
+     73` — comment + `Exclude<RallyRsvp, 'pending'>` types
+   - `src/types/index.ts:484` — comment in
+     `calculateTripCost`
+
+4. **Lexicon key renames** in
+   `src/lib/copy/surfaces/rsvp.ts` and
+   `src/lib/copy/surfaces/trip-page-sketch.ts`:
+
+   - `'crew.section.pending'` → `'crew.section.awaiting'`
+   - `'rsvp.pendingMsg'` → `'rsvp.awaitingMsg'`
+
+   The KEY change is mandatory because
+   `CrewSection.tsx:100` does templated key access:
+   `getCopy(themeId, \`rsvp.crew.section.${state}\`)`. With
+   `state` now resolving to `'awaiting'`, the lexicon key
+   must match or lookup fails.
+
+5. **User-facing copy: "waiting on N".** Replace the
+   `'crew.section.awaiting'` value (currently bare word
+   `'pending'`) with a templated function, mirroring the
+   precedent set by `archived.pillFormat` in 9Y:
+
+   ```typescript
+   'crew.section.awaiting': ({ count }: ThemeVars) =>
+     `waiting on ${count}`,
+   ```
+
+   Other RSVP states (`in`, `holding`, `out`) keep their
+   bare-word values for now — only the renamed state gets
+   the templated form. CrewSection's render logic at the
+   call site needs a small restructure to interpolate the
+   count via the function rather than appending it
+   externally. Don't change the count source — just thread
+   it through.
+
+6. **Cost-split divisor logic** in `src/types/index.ts`,
+   `calculateTripCost` function (lines 483-496):
+
+   - **Filter swap.** Replace
+     `trip.members.filter(m => m.rsvp === 'in' || m.rsvp === 'holding')`
+     with
+     `trip.members.filter(m => m.rsvp !== 'out')`.
+   - **Drop the `group_size` fallback branch.** Remove the
+     `if (confirmed < 2 && trip.group_size && trip.group_size > 0)`
+     conditional. The new filter makes it unnecessary —
+     a fresh trip with N invitees + 1 organizer all
+     `awaiting` returns N+1, never 1.
+   - **Variable rename.** `confirmed` → `effectiveCrew`
+     to reflect what it actually counts.
+   - **Redefine `divisor_is_estimate`.** TRUE when any
+     `awaiting` member exists in `effectiveCrew`; FALSE
+     when all members have explicitly RSVP'd (in or holding).
+     The existing CostBreakdown copy
+     (`CostBreakdown.tsx:179-181`) stays accurate under
+     the new definition: "estimated for N people" reads
+     correctly when the divisor includes still-awaiting
+     members.
+
+7. **Lexicon markdown cross-ref.** Update
+   `rally-microcopy-lexicon-v0.md` for the renamed lexicon
+   keys (`crew.section.pending` → `crew.section.awaiting`,
+   `rsvp.pendingMsg` → `rsvp.awaitingMsg`) and the new
+   templated value `waiting on $1`.
+
+**Hard constraints:**
+
+- DO NOT create new routes.
+- DO NOT change the RSVP submission flow
+  (`/api/rsvp`) or sticky-bar interaction shape — only
+  state names and divisor logic change.
+- DO NOT touch other cost-summary logic beyond the divisor
+  and `divisor_is_estimate` flag.
+- DO NOT fix unrelated lexicon-debt (e.g., the JSX
+  literals in `CostBreakdown.tsx:180-181` that should be
+  in lexicon). Log + leave per single-module discipline.
+- DO NOT add reachability metadata, engagement sub-states,
+  or stale-awaiting nudges. v1 punts.
+- DO NOT change other RSVP state values (`in`, `holding`,
+  `out` stay as-is in DB, code, and lexicon).
+- DO NOT touch consumers in `src/lib/passport.ts` or
+  `src/app/trip/[slug]/page.tsx` that filter on `'in'` —
+  those are correct as-is.
+- DO NOT modify `commit-trip-theme.ts`,
+  `transition-to-sell.ts`, or any unrelated server action.
+
+**Acceptance criteria:**
+
+*Code-side:*
+- [ ] `supabase/migrations/025_rename_pending_to_awaiting.sql`
+      exists with the rename DDL + default reset.
+- [ ] `RsvpStatus` and `RallyRsvp` type unions both contain
+      `'awaiting'` and not `'pending'`.
+- [ ] `grep -rn "'pending'\|\"pending\"" src/` returns zero
+      hits in source files (excluding tests + comments
+      that historically referenced the old name; grep
+      target is the literal `'pending'` enum value).
+- [ ] Lexicon keys `crew.section.awaiting` and
+      `rsvp.awaitingMsg` exist; old `pending` keys
+      removed.
+- [ ] `crew.section.awaiting` value is a templated
+      function that interpolates count and returns
+      `"waiting on N"`.
+- [ ] `calculateTripCost`:
+  - [ ] Filter is `m.rsvp !== 'out'`
+  - [ ] No `group_size` fallback branch
+  - [ ] Variable `effectiveCrew` (or equivalent rename)
+  - [ ] `divisor_is_estimate` true ⇔ any awaiting member
+        in effectiveCrew
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `npm run build` succeeds.
+
+*Migration apply (gated on Andrew):*
+- [ ] **Andrew applies migration 025** via Supabase SQL
+      editor.
+- [ ] Post-apply: `select unnest(enum_range(null::rsvp_status))`
+      returns 4 values including `awaiting` and NOT
+      `pending`.
+- [ ] `select rsvp, count(*) from trip_members group by rsvp`
+      shows previously-`pending` rows now appear as
+      `awaiting` (auto-renamed).
+
+*Live-verifiable:*
+- [ ] Crew tally on a sell-phase trip with awaiting
+      invitees renders "waiting on N" instead of
+      "N pending."
+- [ ] Cost summary on the same trip shows a per-person
+      lodging cost that reflects the optimistic divisor
+      (e.g., $750/person on a 4-person crew with $3000
+      lodging, NOT $3000 raw).
+- [ ] CostBreakdown copy reads "estimated for N people"
+      while any member is awaiting; switches to "N going"
+      once all members RSVP.
+
+**Files expected to change:**
+
+- `supabase/migrations/025_rename_pending_to_awaiting.sql`
+  (new)
+- `src/types/index.ts`
+- `src/lib/rally-types.ts`
+- `src/app/api/invite/route.ts`
+- `src/components/trip/CrewSection.tsx`
+- `src/components/trip/StickyRsvpBarChassis.tsx`
+- `src/lib/copy/surfaces/rsvp.ts`
+- `src/lib/copy/surfaces/trip-page-sketch.ts`
+- `rally-microcopy-lexicon-v0.md`
+
+9 files modified + 1 added.
+
+**Files to read before editing (per roadmap §10A context
+dependencies):**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `CLAUDE.md` + `AGENTS.md`
+- `rally-attendee-strategy-v0.md` §Dimension 1 +
+  §Dimension 3
+- `rally-attendee-implementation-roadmap-v0.md` §10A
+- `rally-fix-plan-v1.md` §Session 9X (the playbook —
+  brief shape, Actuals format, hand-apply convention)
+- `supabase/migrations/008_holding_rsvp.sql` (current
+  enum definition)
+- `supabase/migrations/024_transport_subtype_nullable.sql`
+  (9X's migration file — model 025's header / run-note
+  on it)
+- `src/types/index.ts` lines 480-590 (calculateTripCost
+  current state)
+- `src/components/trip/CostBreakdown.tsx:179-181` (where
+  `divisor_is_estimate` is consumed)
+
+**How to QA solo:**
+
+1. Pre-flight: grep `'pending'` baseline across `src/`
+   to record current count. Confirm
+   `divisor_is_estimate` consumers (only
+   `CostBreakdown.tsx:179` per Cowork's pre-flight check;
+   verify no others appeared since).
+2. Write the migration file. Verify SQL syntax by
+   reading.
+3. Run rename ripple file by file. After each,
+   `npx tsc --noEmit` to catch any type errors.
+4. Update `calculateTripCost` and `divisor_is_estimate`
+   redefinition.
+5. Update the lexicon templated function value.
+6. Update lexicon md cross-ref.
+7. `npx tsc --noEmit` final check; `npm run build`.
+8. STOP. Hand off to Andrew for migration apply (don't
+   apply it yourself — same 9X handoff pattern).
+9. Andrew applies migration 025 via Supabase SQL editor.
+10. Post-apply: verify enum values + grep for any orphan
+    `'pending'` references.
+11. Live test on a seeded trip:
+    - Crew tally renders "waiting on N"
+    - Cost summary shows optimistic per-person cost
+    - CostBreakdown switches between "estimated for N
+      people" and "N going" copy correctly
+12. `git status` — confirm scope.
+
+**Escalate before coding if:**
+
+- Pre-flight grep finds a NEW `divisor_is_estimate`
+  consumer beyond `CostBreakdown.tsx:179`. Means another
+  surface depends on the flag's old meaning, and the
+  redefinition needs broader review.
+- Any `rsvp_status` consumer in the DB (RLS, triggers,
+  functions) appears that Cowork's pre-flight missed.
+- The templated lexicon function pattern conflicts with
+  how `CrewSection.tsx:100` resolves the value (e.g., if
+  the call-site doesn't pass count or expects a string,
+  the function approach won't drop in cleanly). May
+  require restructuring the render to thread count
+  through.
+- Old data in prod has `rsvp = 'maybe'` rows from the
+  pre-008 era (shouldn't exist — 008 created a fresh
+  enum — but worth a `select distinct rsvp from
+  trip_members` sanity check before the rename to confirm
+  no orphans).
+
+#### Session 10A — Release Notes
+
+**What was built:**
+
+1. **New migration 025** — `supabase/migrations/025_rename_pending_to_awaiting.sql`. Two DDLs in sequence: `alter type rsvp_status rename value 'pending' to 'awaiting'` and `alter table trip_members alter column rsvp set default 'awaiting'::rsvp_status`. Header comment block mirrors 024's run-note convention (root cause = strategy doc §Dimension 1, hand-apply pattern, post-apply verify SQL inline). File committed for local history; Andrew runs the SQL via the Supabase SQL editor.
+2. **Type unions renamed** — `'pending'` → `'awaiting'` at [src/types/index.ts:6](src/types/index.ts:6) (`RsvpStatus`) and [src/lib/rally-types.ts:14](src/lib/rally-types.ts:14) (`RallyRsvp`). Doc comment at the top of `rally-types.ts` already speaks in terms of post-008 enum identity, stays accurate.
+3. **Code consumer rename ripple.** Replaced `'pending'` literal (and one bare property-name pair) at:
+   - [src/app/api/invite/route.ts:119](src/app/api/invite/route.ts:119) — invite-row creation default.
+   - [src/components/trip/CrewSection.tsx:29](src/components/trip/CrewSection.tsx:29) (`STATE_ORDER`), [:42 + :49](src/components/trip/CrewSection.tsx:42) (useState + buckets initializer keys for the `Record<RallyRsvp, …>` type), [:176](src/components/trip/CrewSection.tsx:176) (`if (state === 'awaiting')` subtext branch).
+   - [src/components/trip/StickyRsvpBarChassis.tsx:12-14](src/components/trip/StickyRsvpBarChassis.tsx:12) (header comment, with rename-history breadcrumb), [:35](src/components/trip/StickyRsvpBarChassis.tsx:35) + [:73](src/components/trip/StickyRsvpBarChassis.tsx:73) (`Exclude<RallyRsvp, 'awaiting'>` type narrowings).
+   - [src/types/index.ts:484](src/types/index.ts:484) — comment block in `calculateTripCost` rewritten as part of item 6 below.
+4. **Lexicon key renames** in [src/lib/copy/surfaces/rsvp.ts](src/lib/copy/surfaces/rsvp.ts) and [src/lib/copy/surfaces/trip-page-sketch.ts](src/lib/copy/surfaces/trip-page-sketch.ts):
+   - `'crew.section.pending'` → `'crew.section.awaiting'`
+   - `'crew.caption.pending'` → `'crew.caption.awaiting'` (matching key in the same captions table; rename was non-optional once the section key changed — see "What changed from the brief" below)
+   - `'rsvp.pendingMsg'` → `'rsvp.awaitingMsg'`
+5. **Templated "waiting on N" copy.** [`crew.section.awaiting`](src/lib/copy/surfaces/rsvp.ts:60) is now a templated function `({ count }: ThemeVars) => \`waiting on ${count ?? 0}\``, mirroring the [`archived.pillFormat`](src/lib/copy/surfaces/dashboard.ts:62) precedent from 9Y. Other RSVP states (`in`, `holding`, `out`) keep their bare-word values. CrewSection's pill render at [:96-101](src/components/trip/CrewSection.tsx:96) was restructured to branch by state — `awaiting` calls `getCopy(..., { count: rows.length })` and renders the function output verbatim; the other three keep the existing `<strong>{rows.length}</strong>` + bare-word lexicon shape so no visual regression on in/holding/out pills.
+6. **`calculateTripCost` rewrite** at [src/types/index.ts:483-498](src/types/index.ts:483):
+   - Filter swapped to `m.rsvp !== 'out'` (optimistic; counts `awaiting` members).
+   - `group_size` fallback branch dropped — the optimistic filter never returns <2 on a real trip (organizer + invitees default to 'in' or 'awaiting'), so the fallback is now dead code.
+   - `confirmed` → `effectiveCrew` rename at the local-variable level. The return-object field name `confirmed_count` is part of the `TripCostSummary` shape (`types/index.ts:415-426`) — the field name was preserved to avoid a consumer-side ripple; only the local was renamed.
+   - `divisor_is_estimate` redefined: TRUE when any member is still `awaiting`; FALSE once all have explicitly RSVP'd. Matches the existing `CostBreakdown.tsx:179-181` copy contract — "estimated for N people" reads correctly while awaiting members are in the divisor; "N going" reads correctly once everyone has resolved.
+7. **Lexicon markdown cross-ref** at [rally-microcopy-lexicon-v0.md](rally-microcopy-lexicon-v0.md):
+   - §5.5 row label `RSVP-pending state copy` → `RSVP-awaiting state copy` (string value unchanged).
+   - §5.25 (Crew subsurface) added two rows: `Section header: awaiting (templated)` → `waiting on {count}` and `Section caption: awaiting (default)` → `hasn't weighed in yet`. The table previously enumerated only `in / holding / out`; the awaiting rows now reflect what the surface code actually exposes.
+
+**What changed from the brief:**
+
+- **Added `crew.caption.pending` → `crew.caption.awaiting` to the rename pair.** The brief enumerated `crew.section.pending` + `rsvp.pendingMsg` as the two key renames but didn't mention `crew.caption.pending`. It's the matching captions-table entry in the same surface (`src/lib/copy/surfaces/rsvp.ts:60`); leaving it as `crew.caption.pending` would have created a stale orphan key and broken the §5.25 lexicon contract. Confirmed in-scope with Andrew during planning before coding.
+- **Added the two CrewSection initializer-key sites at lines 42 + 49** to the rename ripple. The brief's enumerated CrewSection sites were :29, :100 (templated key access), :176; the useState + buckets initializers (`pending: false`, `pending: []`) are object-property-name positions, not string literals, so they didn't show up in a `'pending'` grep. They're required because the `Record<RallyRsvp, …>` type forces a key for every enum value, so leaving them stale would have failed `tsc`. Confirmed in-scope during planning.
+- **Migration NOT applied this session.** Per the 9X playbook hand-off pattern: SQL file written and syntax-verified by reading; Andrew runs it via the Supabase SQL editor.
+- **Added a rename-history breadcrumb** in the StickyRsvpBarChassis header comment ("migration 008 created the four-state enum; migration 025 renamed 'pending' to 'awaiting'"). Comment-only; helps the next reader trace why the file talks about both old and new state names.
+
+**Pre-flight escalation check (no escalation needed):**
+
+- `grep -rn "'pending'\|\"pending\"" src/` returned exactly the 9 sites the brief enumerated — no new consumer surfaces appeared since 2026-04-27.
+- `grep -rn "divisor_is_estimate" src/` returned only [`CostBreakdown.tsx:179`](src/components/trip/CostBreakdown.tsx:179) as a downstream consumer (the rest are inside `calculateTripCost` itself or the `TripCostSummary` return-shape definition). Redefinition is safe under the brief's scope.
+- No theme-side overrides for any of the renamed lexicon keys (`crew.section.pending`, `crew.caption.pending`, `rsvp.pendingMsg`) — checked `grep -rn` across `src/`.
+- `supabase/migrations/025_*` slot was free.
+
+**What to test — code-side ACs (passing now):**
+
+- [x] [`supabase/migrations/025_rename_pending_to_awaiting.sql`](supabase/migrations/025_rename_pending_to_awaiting.sql) exists with the rename DDL + default reset.
+- [x] `RsvpStatus` and `RallyRsvp` type unions both contain `'awaiting'` and not `'pending'`.
+- [x] `grep -rn "'pending'\|\"pending\"" src/` returns zero hits in source files (one stray hit at `StickyRsvpBarChassis.tsx:14` is a quoted reference inside a doc comment documenting the rename history, not an enum literal — intentional).
+- [x] Lexicon keys `crew.section.awaiting`, `crew.caption.awaiting`, `rsvp.awaitingMsg` exist; old `pending` keys removed.
+- [x] `crew.section.awaiting` value is a templated function returning `waiting on {count}`.
+- [x] CrewSection pill render restructured to thread `count` through for the awaiting state; other states keep the existing `<strong>` count + bare-word shape.
+- [x] `calculateTripCost` filter is `m.rsvp !== 'out'`; no `group_size` fallback branch; `effectiveCrew` local rename; `divisor_is_estimate` true ⇔ any member is `awaiting`.
+- [x] `npx tsc --noEmit` exits 0.
+- [x] `npm run build` succeeds (compiled in 1928ms; 17/17 static pages generated; all routes intact).
+- [x] `git status` scope: 8 modified source files (lexicon md + 7 src files) + 1 new migration file + this `rally-fix-plan-v1.md` release-notes append. Matches brief's "9 files modified + 1 added."
+
+**What to test — GATED on Andrew's migration apply (AWAITING ANDREW):**
+
+- [ ] **Pre-apply DB sanity check** in Supabase SQL editor: `select distinct rsvp from trip_members;` — expected exactly 4 values from {`in`, `holding`, `out`, `pending`}. If `maybe` or any other value appears, escalate before running 025 (would indicate orphan rows from the pre-008 era).
+- [ ] **Andrew applies migration 025** via Supabase SQL editor (paste both DDLs, run, confirm success). Same flow as 019 / 021 / 022 / 023 / 024.
+- [ ] Post-apply enum check: `select unnest(enum_range(null::rsvp_status));` returns 4 values including `awaiting` and NOT `pending`.
+- [ ] Post-apply row check: `select rsvp, count(*) from trip_members group by rsvp;` shows previously-`pending` rows now appear as `awaiting` (auto-renamed in place).
+- [ ] Post-apply default check: `select column_default from information_schema.columns where table_name = 'trip_members' and column_name = 'rsvp';` returns `'awaiting'::rsvp_status`.
+- [ ] Live: crew tally pill on a sell-phase trip with awaiting invitees renders `waiting on N` instead of `N pending`. Other states (in / holding / out) still render as `<strong>N</strong> {state}` (unchanged shape).
+- [ ] Live: cost summary on the same trip shows a per-person lodging cost reflecting the optimistic divisor (e.g., $750/person on a 4-person crew with $3000 lodging, NOT $3000 raw).
+- [ ] Live: CostBreakdown copy reads `estimated for N people` while any member is `awaiting`; switches to `N going` once all members have explicitly RSVP'd (in / holding / out).
+- [ ] Regression: `/api/rsvp` POST flow unchanged — invitee can still RSVP `in` / `holding` / `out` from the sticky bar.
+- [ ] Regression: `goingMembers` filter on the trip page (`page.tsx:158`) and passport "trips you went on" filter (`passport.ts:96+`) still work — both filter on `'in'`, unchanged by this session.
+
+**Known issues / carryover:**
+
+1. **Stale comment at [SketchTripShell.tsx:55](src/components/trip/builder/SketchTripShell.tsx:55)** — currently reads "(in+holding, fallback to group_size)", which is no longer accurate after 10A's divisor rewrite (now: "any member !== 'out'", no group_size fallback). Out of scope per single-module discipline; flagged for whichever future session next touches that file (or a hygiene sweep).
+2. **`CostBreakdown.tsx:180-181` JSX literals** — `estimated for ${count} people` and `${count} going` are hardcoded in JSX, not lexicon-routed. Pre-existing lexicon debt the brief explicitly logs and leaves; the strings still read correctly under the redefined `divisor_is_estimate` semantics, so no behavior change.
+3. **`pending` remains in §3 word-bank "Never say" list** ([rally-microcopy-lexicon-v0.md:68](rally-microcopy-lexicon-v0.md:68)). No edit needed — the user-facing string after this session is `waiting on N`, which uses neither `pending` nor `awaiting` in copy. Both words remain banned in user-facing strings; `awaiting` is now an internal enum value only.
+4. **`confirmed_count` field name preserved** in the `TripCostSummary` return shape ([types/index.ts:421](src/types/index.ts:421)). The local variable is now `effectiveCrew`, but the field name reflects the legacy semantics. Consumers that read this field should not be relied on as "confirmed" in the strict sense (the field counts `in + holding + awaiting`). Worth a follow-up rename in a hygiene pass if a consumer-side audit is done; out of scope here per single-module discipline.
+5. **Migration 025 in the migrations tree but not via `supabase migration up`.** Same hand-apply pattern as 019, 021, 022, 023, 024 — ledger drift between this directory and Supabase's migrations history table is the established project-level pattern, not a 10A issue.
+6. **Reachability metadata, engagement sub-states, stale-awaiting nudges, sticky-bar post-RSVP UI** — all explicitly punted in strategy doc §Dimension 1 / §Dimension 3 and re-stated as hard constraints in this brief. Targets for 10C / 10D / 10E and v1.
+
+#### Session 10A — Actuals (QA'd, Cowork 2026-04-27)
+
+**Status: closed.** First sub-session of the attendee arc
+shipped. Code verified from disk; migration applied to prod
+by Andrew via Supabase SQL editor; column default
+verification returned `'awaiting'::rsvp_status`, which
+confirms both DDLs ran cleanly (the SET DEFAULT couldn't
+have succeeded if the enum rename had failed).
+
+**AC verification summary:**
+
+- **Code-verified by Cowork (disk inspection):**
+  - ✅ Migration 025 file exists with the expected DDLs +
+    9X-style header convention + inline post-apply
+    verification SQL.
+  - ✅ `RsvpStatus` (`types/index.ts:6`) and `RallyRsvp`
+    (`rally-types.ts:14`) type unions now contain
+    `'awaiting'`, not `'pending'`.
+  - ✅ `calculateTripCost` rewrite at lines 488-498:
+    `effectiveCrew = trip.members.filter(m => m.rsvp !==
+    'out').length` (line 490); `divisor_used = Math.max(1,
+    effectiveCrew)` (line 491, no fallback branch);
+    `divisor_is_estimate = trip.members.some(m => m.rsvp
+    === 'awaiting')` (line 498). `confirmed_count` field
+    name preserved on the return shape per scope deviation
+    note.
+  - ✅ `CrewSection.tsx` rename ripple complete: `:29`
+    STATE_ORDER, `:42 + :49` initializer keys (the
+    escalation Andrew approved mid-session), `:99`
+    branch for templated copy, `:182` subtext branch.
+  - ✅ Lexicon: `crew.section.awaiting` is a templated
+    function `({ count }: ThemeVars) => \`waiting on
+    ${count ?? 0}\`` matching the `archived.pillFormat`
+    precedent. `crew.caption.awaiting`,
+    `rsvp.awaitingMsg` keys present; old `pending` keys
+    removed.
+  - ✅ Stray `'pending'` reference at
+    `StickyRsvpBarChassis.tsx:14` is intentional — a
+    rename-history breadcrumb in a doc comment. CC
+    flagged it explicitly.
+  - ✅ `git diff` scope: 7 source files + lexicon md
+    modified + 1 new migration = matches brief's expected
+    file list.
+
+- **CC-verified (per release notes):**
+  - ✅ `npx tsc --noEmit` exits 0.
+  - ✅ `npm run build` succeeds (1928ms; 17/17 static
+    pages; routes intact).
+
+- **Migration apply verified by Andrew (2026-04-27):**
+  - ✅ Migration 025 applied via Supabase SQL editor
+    (same flow as 019/021/022/023/024).
+  - ✅ Post-apply column default check:
+    `'awaiting'::rsvp_status`. Confirms enum rename took
+    effect (the default-reset DDL couldn't have succeeded
+    if the rename had failed).
+  - ⏳ Other post-apply queries (enum_range,
+    row-count-by-rsvp) not run individually but are
+    redundant with the column-default verification —
+    the rename is in-place, atomic, and verified.
+
+- **Live-behavior ACs (acceptable to defer):**
+  - ⏳ Crew tally renders `waiting on N` instead of
+    `N pending` on a sell-phase trip with awaiting
+    invitees.
+  - ⏳ Cost summary on the same trip shows optimistic
+    per-person cost (e.g., $750/person on a 4-person
+    crew with $3000 lodging, not $3000 raw).
+  - ⏳ CostBreakdown copy reads "estimated for N people"
+    while any awaiting; switches to "N going" when all
+    resolved.
+  - ⏳ `/api/rsvp` POST flow regression-clean.
+  - ⏳ `goingMembers` and passport `'in'` filters
+    unchanged.
+
+  These are low-risk: TypeScript + build are clean, the
+  changes are mechanical renames + a 2-line filter swap,
+  and no behavior-altering branches were introduced.
+  Worth a 5-minute live spot-check at next opportunity
+  but NOT gating the close — 10A is shipped on the data
+  side and the consumers track the new state name
+  correctly per code review.
+
+**Scope deviations — captured + accepted:**
+
+1. **Added `crew.caption.pending` → `crew.caption.awaiting`
+   to the rename pair.** Brief enumerated 2 lexicon-key
+   renames; CC found a 3rd matching key in the same
+   surface and renamed for consistency. Confirmed
+   in-scope mid-session.
+2. **Added `CrewSection.tsx:42 + :49` initializer-key
+   sites** to the rename ripple. The brief's enumeration
+   missed object-property-name positions (`pending: false`,
+   `pending: []`); CC escalated, Andrew approved option 1
+   (in-scope) per single-source-of-truth + TS-compilation
+   reasoning.
+3. **Migration NOT applied by CC** — per the 9X playbook,
+   SQL file written + STOP; Andrew applies via Supabase
+   SQL editor. Honored.
+4. **Comment breadcrumb** added in the
+   `StickyRsvpBarChassis` header noting the migration
+   008 → migration 025 rename history. Comment-only;
+   helps future readers trace why the file mentions both
+   old and new state names.
+5. **`confirmed_count` field name preserved** on
+   `TripCostSummary` return shape (only the local var
+   was renamed). Avoided a consumer-side ripple beyond
+   10A's scope. Logged in known issues for a future
+   hygiene pass.
+
+**Known issues (documented, deferred):**
+
+1. **Stale comment at `SketchTripShell.tsx:55`** — still
+   references "in+holding, fallback to group_size" which
+   no longer matches the divisor logic. Out of scope per
+   single-module discipline; flagged for the next session
+   that touches that file.
+2. **`CostBreakdown.tsx:180-181` JSX literals** —
+   "estimated for N people" / "N going" hardcoded,
+   pre-existing lexicon debt. Strings still read
+   correctly under the redefined `divisor_is_estimate`
+   semantics. Not a 10A regression.
+3. **`pending` in §3 word-bank "Never say" list**
+   (lexicon md:68) — left intact. The user-facing string
+   is `waiting on N`, which uses neither `pending` nor
+   `awaiting`; both words remain banned in user copy.
+   `awaiting` is now an internal enum value only.
+4. **`confirmed_count` field name preservation.**
+   Counts `in + holding + awaiting` despite the
+   "confirmed" name. Worth a follow-up rename in a
+   hygiene pass; not 10A scope.
+5. **Migration 025 in tree but not via
+   `supabase migration up`** — established project
+   pattern, not a 10A issue.
+
+**Ship state:** Shipped on the data side. Working tree
+has uncommitted source changes + new migration file.
+Hand off the commit to CC using the same pattern as 9T-9Y
+when ready. Migration is already live in prod.
+
+---
+
+### Sessions 11+: "TBD — re-scope after Session 10 strategy lands"
+
+Previous placeholders (teaser layer, invite delivery, RSVP sticky
+bar depth) are deliberately NOT re-numbered. Session 10's strategy
+doc redesigns the state model + journey + consumer alignment that
+each of those implementations depends on, so their shape, scope,
+and ordering will likely change. Re-scope after the strategy doc
+lands.
+
+**Items expected to land somewhere in 11+ (sequencing TBD):**
+
+- **Teaser layer / `InviteeShell`** — blur veil, lock overlay,
+  called-up sticker, passwordless signup CTA, unblur reveal
+  animation. Wireframe Q1 (login mechanics) and Q2 (blur cutline)
+  may need re-thinking once the strategy doc clarifies the
+  invitee state model.
+- **Invite delivery on publish** — `transitionToSell` currently
+  just flips the phase; it does NOT fire the queued invite emails
+  for sketch-captured roster entries (per `/api/invite:129`). Email
+  delivery + the state transitions it triggers are central to
+  the strategy doc; this implementation session falls out of
+  Dimension 2 (Journey).
+- **RSVP sticky bar depth** — per-view state machine, confetti on
+  RSVP, micro-interactions, haptics. The "state machine" here is
+  literally what Dimension 1 of the strategy doc defines. Cannot
+  scope this session before strategy lands.
+- **Phone-only invitees** — Resend is email-only; phone-only
+  invitees have no delivery rail. Strategy doc Dimension 2 should
+  resolve whether to build SMS, defer phone-only as a known gap,
+  or reframe phone as an alternate identifier rather than a
+  delivery channel.
+
+**Items NOT dependent on the strategy doc** (could ship in parallel
+or after):
+
+- **Buzz feed liveness** — event row polish, live-dot refine,
+  scroll-into-view on new events, basic compose. No reactions, no
+  @mentions.
+- **Motion pass** — countdown scoreboard (d:h:m:s tiles with live
+  tick, lock-emoji wobble), called-up sticker variants, marquee
   scroll animation. Uses existing tokens; no new primitives.
-- **Session 15+:** Per-module pixel-polish sub-sessions (9A-style) — one
-  sell module at a time, working through lexicon adherence, layout,
-  responsive edge cases.
+- **Per-module pixel-polish sub-sessions** (9A-style) — one sell
+  module at a time, lexicon adherence, layout, responsive edge
+  cases.
+- **Lock-phase work** — full crew arrival roster, firming estimates,
+  meetup details, payment collection, the lock-in commit moment.
+  Own direction block when sell ships.
 
-Lock-phase work (full crew arrival roster, firming estimates, meetup
-details, payment collection, the lock-in commit moment) gets its own
-direction block when sell ships.
-
-These are placeholders. Exact scope and sequencing depends on what we
-learn shipping Sessions 9–11.
+These are placeholders. Exact scope and sequencing depends on the
+strategy doc.
 
 #### Organizer edit-on-sell — "back to sketch" view toggle (direction logged 2026-04-22)
 
