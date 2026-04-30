@@ -111,7 +111,7 @@ export function InviteeStickyBar({
           className="sticky-sent sticky-error"
           onClick={() => void send()}
         >
-          {getCopy(themeId, 'inviteeStickyBar.sendError')}
+          {getCopy(themeId, 'inviteeState.inviteeStickyBar.sendError')}
         </button>
       </div>
     );
@@ -123,7 +123,7 @@ export function InviteeStickyBar({
       <div className="sticky-sent">
         <span className="sticky-sent-check">✓</span>
         <span>
-          {getCopy(themeId, 'inviteeStickyBar.linkSentTo', {
+          {getCopy(themeId, 'inviteeState.inviteeStickyBar.linkSentTo', {
             email: maskEmail(inviteeEmail),
           })}
         </span>
@@ -131,12 +131,12 @@ export function InviteeStickyBar({
       <div className="sticky-resend">
         {cooldown > 0 ? (
           <span>
-            {getCopy(themeId, 'inviteeStickyBar.resendLink')} ·{' '}
-            {getCopy(themeId, 'inviteeStickyBar.resendCooldown', { seconds: cooldown })}
+            {getCopy(themeId, 'inviteeState.inviteeStickyBar.resendLink')} ·{' '}
+            {getCopy(themeId, 'inviteeState.inviteeStickyBar.resendCooldown', { seconds: cooldown })}
           </span>
         ) : (
           <button type="button" onClick={() => void send()}>
-            {getCopy(themeId, 'inviteeStickyBar.resendLink')}
+            {getCopy(themeId, 'inviteeState.inviteeStickyBar.resendLink')}
           </button>
         )}
       </div>

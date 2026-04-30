@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { getCopy } from '@/lib/copy/get-copy';
 import { mergeOrphan } from '@/lib/auth/merge-orphan';
@@ -10,7 +11,20 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// 10D Bug 2 — same-origin path guard, mirrors the helper in
+// src/app/auth/callback/route.ts. Defense-in-depth: /auth/callback
+// already sanitizes `next` before forwarding, but ProfileSetup is a
+// client component reading its own URL, so a hand-crafted
+// /auth/setup?next=... could otherwise coerce the post-save redirect.
+function isSafeNextPath(value: string | null): value is string {
+  if (!value) return false;
+  if (!value.startsWith('/')) return false;
+  if (value.startsWith('//')) return false;
+  return true;
+}
+
 export function ProfileSetup() {
+  const searchParams = useSearchParams();
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [instagram, setInstagram] = useState('');
@@ -55,7 +69,21 @@ export function ProfileSetup() {
       );
 
       if (insertError) throw insertError;
-      window.location.href = '/';
+
+      // 10D Bug 2 — post-save redirect priority: explicit `next`
+      // (path-only same-origin) → trip slug → dashboard. The `next`
+      // path is what carries the new-user invitee back to
+      // /i/<token>?just_authed=1 so InviteeShellClient's freshAuth
+      // mount-effect can play the unblur reveal. AuthSurface
+      // organizer signup passes neither and falls through to `/`.
+      const nextParam = searchParams.get('next');
+      const tripParam = searchParams.get('trip');
+      const target = isSafeNextPath(nextParam)
+        ? nextParam
+        : tripParam
+          ? `/trip/${encodeURIComponent(tripParam)}`
+          : '/';
+      window.location.href = target;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to save profile');
     } finally {

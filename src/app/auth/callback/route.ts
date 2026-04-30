@@ -53,13 +53,15 @@ export async function GET(request: NextRequest) {
   }
 
   // First-time user: collect display name + profile bits.
-  // 10D-followup limitation: ProfileSetup hardcodes its post-save
-  // redirect to `/`, so first-time invitees skip the same-tab reveal.
-  // Existing-user invitees (orphan-merged earlier) hit the `next`
-  // branch below and get the in-place animation.
+  // 10D Bug 2 fix: also propagate `next` so ProfileSetup can land
+  // the user on /i/<token>?just_authed=1 after profile save and
+  // trigger the same-tab unblur reveal. Without this, new invitees
+  // (the dominant case while Rally has no existing user base) skip
+  // the FOMO reveal entirely.
   if (result.isNewUser) {
     const setupUrl = new URL(`${origin}/auth/setup`);
     if (tripSlug) setupUrl.searchParams.set('trip', tripSlug);
+    if (isSafeNextPath(nextPath)) setupUrl.searchParams.set('next', nextPath);
     return NextResponse.redirect(setupUrl);
   }
 

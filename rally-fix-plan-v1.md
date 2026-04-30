@@ -20123,6 +20123,137 @@ uncommitted source changes spanning the 10D + 10D-followup edits.
 Hand off the commit pattern + Andrew's Supabase URL allowlist update
 + deploy.
 
+#### Session 10D — Lexicon prefix hotfix (post-deploy QA, 2026-04-30)
+
+Andrew's QA caught 4 `inviteeStickyBar.*` strings rendering as
+literal keys instead of resolved copy on the live teaser. Cause:
+the `getCopy()` lookup contract requires the surface prefix, so
+`inviteeStickyBar.linkSentTo` had to be addressed as
+`inviteeState.inviteeStickyBar.linkSentTo`. The keys were defined
+correctly in `src/lib/copy/surfaces/invitee-state.ts`; only the
+call sites in `InviteeStickyBar.tsx` were missing the prefix.
+
+Five `getCopy()` call sites updated in
+`src/components/trip/InviteeStickyBar.tsx`:
+
+- `:114` — `sendError`
+- `:126` — `linkSentTo`
+- `:134` — `resendLink` (cooldown line)
+- `:135` — `resendCooldown`
+- `:139` — `resendLink` (active button)
+
+All now use `inviteeState.inviteeStickyBar.<key>`. tsc clean,
+build clean (Next 16.2.2 / Turbopack, 17/17 static pages, route
+manifest unchanged). Single-file change; no other surfaces
+affected.
+
+#### Session 10D — Bug 2 fix (new-user reveal propagation)
+
+**Status: code complete; deploy gates the live test.** TypeScript
+clean, production build succeeds (Next 16.2.2 / Turbopack, 17/17
+static pages, route manifest unchanged). Exactly 2 source files
+modified.
+
+**Why this exists:** the same-tab reveal follow-up notes flagged
+"first-time invitees still skip the reveal" as a known limitation
+and punted because /auth/callback's `isNewUser` branch redirects
+to /auth/setup, which hardcoded its post-save redirect to `/`.
+Cowork pushed back: Rally has no existing user base, so the
+dominant invitee case IS new users — punting the reveal for them
+gut-shot the FOMO conversion mechanic the entire teaser → reveal
+flow was built around. The fix extends the same `next`-threading
+pattern through one more hop.
+
+**What was built:**
+
+1. **`src/app/auth/callback/route.ts`** — `isNewUser` branch now
+   appends `next` to the setup-URL searchParams when
+   `isSafeNextPath(nextPath)` passes. The same path-only same-origin
+   guard the returning-user branch already uses. Existing-user
+   branch is untouched (works as shipped). Comment block above the
+   branch updated to drop the now-stale "limitation" disclaimer.
+2. **`src/components/auth/ProfileSetup.tsx`** — reads `next` and
+   `trip` from URL via `useSearchParams()`. Inlined `isSafeNextPath`
+   helper (mirrors the route-handler's logic; defense-in-depth
+   because /auth/setup?next=… is reachable directly). After
+   successful profile save, redirect priority is:
+   `next` (path-only same-origin) → `trip` (→ `/trip/<slug>`) → `/`.
+   Form fields, validation, mergeOrphan call, and upsert logic all
+   unchanged.
+
+**Files changed (2 source + this release note):**
+
+- `src/app/auth/callback/route.ts` — `next` propagation in `isNewUser`.
+- `src/components/auth/ProfileSetup.tsx` — `useSearchParams` + tiered
+  redirect target.
+
+**Hard boundaries honored:**
+
+- ✅ Existing-user branch of `/auth/callback` untouched.
+- ✅ ProfileSetup UI / form fields / form submission logic unchanged.
+- ✅ No new lexicon keys.
+- ✅ AuthSurface organizer-signup flow unmodified — its callbacks
+      pass neither `next` nor `trip`, so ProfileSetup's tiered fallback
+      lands them on `/` exactly as before.
+- ✅ No 10D component touched (`InviteeStickyBar`, `InviteeShellClient`,
+      `LockedPlan`, etc. — all unmodified).
+
+**Code-side ACs (verified by CC):**
+
+- ✅ `npx tsc --noEmit` exits 0.
+- ✅ `npm run build` succeeds (Next 16.2.2 / Turbopack; 17/17 static
+      pages; route manifest unchanged).
+- ✅ `git status` for this fix: exactly 2 source files modified
+      (`src/app/auth/callback/route.ts` + `src/components/auth/ProfileSetup.tsx`).
+      No new files.
+
+**Live-verifiable ACs (gated on deploy):**
+
+- [ ] Tap an invite link as a brand-new user (no `users` row yet) →
+      teaser → tap "see the plan" → magic-link arrives → click → land
+      on `/auth/callback` → redirected to
+      `/auth/setup?trip=<slug>&next=/i/<token>%3Fjust_authed%3D1` →
+      fill in profile → submit → land on `/i/<token>?just_authed=1`
+      → unblur reveal animates → `router.replace('/trip/<slug>')`.
+      The same FOMO reveal first-time invitees were missing.
+- [ ] AuthSurface organizer signup regression: `/auth` (no `next`,
+      no `trip`) → magic-link → `/auth/callback` → new-user branch →
+      `/auth/setup` (no params) → fill profile → submit → land on `/`.
+      Bit-identical to pre-fix behavior.
+- [ ] Trip-only fallback regression: a hypothetical
+      `/auth/setup?trip=foo` (no `next`) → submit → `/trip/foo`. Not
+      an active code path today (callback always passes `trip` via
+      query), but the fallback is in place if any future caller
+      drops `next` while keeping `trip`.
+- [ ] Tampered URL guard: directly visit
+      `/auth/setup?next=https://evil.com/steal` → fill profile →
+      submit → `isSafeNextPath` rejects (not path-only) → falls
+      through to `trip` (none) → `/`. Open-redirect closed.
+
+**Known limitations / deviations:**
+
+1. **Tiered fallback in ProfileSetup goes beyond previous behavior.**
+   Pre-fix it always landed on `/`; post-fix it honors `trip` too if
+   `next` is absent. No active call site uses just-`trip`-no-`next`
+   today, but adding the tier costs nothing and gives parity with
+   `/auth/callback`'s existing-user branch.
+2. **Brief mentioned "bring the helper over OR re-implement inline"
+   for `isSafeNextPath`** — went with the inline copy to avoid
+   touching a third file (or creating a new shared helper) and to
+   keep the brief's "exactly 2 files modified" target. If a third
+   `isSafeNextPath` site ever appears, lift to a shared helper at
+   that point.
+3. **`useSearchParams` Suspense.** Next.js can warn that
+   `useSearchParams` should be wrapped in a `<Suspense>` boundary
+   for static-rendering pages. `/auth/setup` is a dynamic page
+   (server-side auth check + DB read), so the warning shouldn't fire
+   — build output didn't surface one. Flag if it shows up at QA.
+
+**Ship state:** code complete + tsc + build clean. Working tree
+holds the Bug 2 edits alongside the prior lexicon prefix hotfix
+(both safe to bundle into one commit; no overlap, no semantic
+collision).
+
 #### Session 10D — Actuals (QA'd, Cowork 2026-04-27)
 
 **Status: code complete; pre-flight + live ACs gated on Andrew.**
