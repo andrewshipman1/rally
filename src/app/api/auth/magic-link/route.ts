@@ -4,6 +4,13 @@
 // interface so the backend can swap once TODO(prd):auth-backend-confirm
 // resolves. Enforces the 30s cooldown + 5/hr rate limit upstream of the
 // provider so every backend honors the same constraints.
+//
+// 10D-followup: accepts an optional `redirectTo` to override the
+// default `${origin}/auth/callback?trip=<slug>` redirect URL. Used by
+// the invitee teaser (InviteeStickyBar) to land magic-link clicks back
+// at /i/<token>?just_authed=1 for the same-tab in-place reveal flow.
+// AuthSurface (organizer signup) continues to omit `redirectTo` and
+// inherits the legacy callback construction unchanged.
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -14,6 +21,8 @@ const schema = z.object({
   email: z.string().email().max(254),
   /** Optional invite trip slug — preserved through the magic link redirect. */
   trip: z.string().max(120).optional(),
+  /** Optional override for the magic-link redirect URL. Must be same-origin. */
+  redirectTo: z.string().url().max(500).optional(),
 });
 
 export async function POST(req: Request) {
@@ -28,7 +37,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'invalid_email' }, { status: 400 });
   }
-  const { email, trip } = parsed.data;
+  const { email, trip, redirectTo: redirectToOverride } = parsed.data;
 
   // Rate limit BEFORE hitting the provider so we don't accidentally
   // burn through Supabase's own ceiling.
@@ -41,7 +50,24 @@ export async function POST(req: Request) {
   }
 
   const origin = new URL(req.url).origin;
-  const redirectTo = `${origin}/auth/callback${trip ? `?trip=${encodeURIComponent(trip)}` : ''}`;
+
+  // Same-origin guard on the override — prevents a malicious caller
+  // from coercing magic-link redirects to an attacker-controlled host.
+  let redirectTo: string;
+  if (redirectToOverride) {
+    let provided: URL;
+    try {
+      provided = new URL(redirectToOverride);
+    } catch {
+      return NextResponse.json({ error: 'invalid_redirect' }, { status: 400 });
+    }
+    if (provided.origin !== origin) {
+      return NextResponse.json({ error: 'invalid_redirect' }, { status: 400 });
+    }
+    redirectTo = redirectToOverride;
+  } else {
+    redirectTo = `${origin}/auth/callback${trip ? `?trip=${encodeURIComponent(trip)}` : ''}`;
+  }
 
   const result = await authProvider.sendMagicLink(email, redirectTo);
   if (!result.ok) {

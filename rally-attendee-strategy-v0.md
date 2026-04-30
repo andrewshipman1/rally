@@ -606,6 +606,46 @@ reference these decisions.)*
   divisor refinement (snap awaiting → out at sell→lock
   transition) deferred to v1 / lock-phase work. v0 keeps
   the optimistic rule across all phases.
+- **2026-04-27** [Dimension 2 — clarification, supersedes
+  phase 5] — Signup is required for ALL RSVP states
+  (in / holding / out). Phase 5's `rally-phase-5-invitee.html`
+  design includes a "can't make it" frictionless decline
+  button on the teaser sticky bar; that path is REJECTED
+  for v0. Rationale: signup is the data capture moment;
+  curiosity converts; one consistent gate is simpler than
+  splitting yes/no friction. The teaser sticky bar shows a
+  single primary CTA ("see the plan →") that routes to
+  magic-link auth. Implementation impact: 10D's `InviteeShell`
+  diverges from phase 5 on the sticky bar specifically;
+  rest of phase 5's design (blur veil, called-up sticker,
+  countdown, going-row) stays authoritative.
+
+- **2026-04-27** [Dimension 2 — resolver branch logic
+  locked]. The `/i/<token>` route handler branches as:
+
+  | State at link-click | Resolver behavior |
+  |---|---|
+  | Not signed in | Render teaser → magic-link auth → in-place unblur → trip view |
+  | Signed in + identity matches token | Redirect to `/trip/<slug>` (skip teaser) |
+  | Signed in + identity mismatch | Redirect to `/trip/<slug>` as normal viewer |
+  | Token invalid/not found | Redirect to `/auth/invalid` (existing page) |
+
+  Identity-mismatch behavior accepts that token isn't a
+  security primitive — it's an invite-delivery tracker. Trip
+  URLs are already shareable in sell phase; the resolver
+  doesn't add restrictions beyond existing share-URL
+  semantics.
+
+- **2026-04-27** [Dimension 2 — unblur reveal architecture
+  locked]. In-place: teaser is a client component that
+  listens for auth state changes (via Supabase). Magic-link
+  click → auth completes → teaser detects → triggers
+  unblur animation in the same DOM → transitions inline
+  to full sell view. No redirect-based state-passing through
+  `/auth/callback`. Edge case (magic link clicked in a
+  different tab) handled via Supabase's cross-tab auth
+  storage events; v0 acceptable to punt edge case if it
+  complicates 10D scope.
 
 ---
 

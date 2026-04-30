@@ -533,20 +533,21 @@ The first screen a non-user sees. Login gate (not RSVP gate). Every string here 
 | Sticker | you're invited 💌 |
 | Eyebrow | ★ for {trip_title_short} |
 | Live-row (replaced by inviter row) | — |
-| Going label | {n} already in (1 seat with your name) 👇 |
-| Empty avatar label | you? |
 | Locked section header | the plan |
 | Locked section pill | 🔒 locked |
 | Locked overlay message (Caveat, rotated) | sign in to see the plan ↑ |
+| Locked overlay message (post-tap, sent state) | check your email ✉ |
 | Primary CTA (locked state) | see the plan → |
-| Secondary CTA (locked state) | can't make it |
-| Pre-login "can't make it" confirmation | no worries. tell {inviter} yourself? |
+| Sticky bar — link-sent pill (post-tap) | ✓ link sent to {email} |
+| Sticky bar — resend label | didn't get it? send another |
+| Sticky bar — resend cooldown | {seconds}s |
+| Sticky bar — send error | couldn't send · try again |
 | Share-link copy action (invitee can re-share) | copy the invite link ↗ |
 | Footer (pre-login) | made with rally |
 
 **Post-sign-in transition:** the locked section unblurs in place, the sticky bar swaps to the three-state RSVP (§5.10), and the page becomes the full trip page. Same chassis, new permissions.
 
-**"Can't make it" from the locked state** should still log the no for the organizer's pipeline, but with an asterisk (`{n} declined before seeing the plan`) so they know whether a no was informed.
+**10D update (2026-04-30):** the going row + "can't make it" confirm modal were removed from the teaser. Signup is now the gate for ALL RSVP states — invitees can't decline before seeing the plan. The single primary CTA fires `signInWithOtp` (via `/api/auth/magic-link`) using the email already known from the resolved invite token; the sticky bar morphs to a post-tap pill ("✓ link sent to j**@example.com") with a 30s resend cooldown and a "couldn't send · try again" error fallback. URL stays at `/i/<token>` through the round-trip; the unblur reveal animates in-place when Supabase's `onAuthStateChange` fires SIGNED_IN.
 
 ### 5.18 Nudge automations (cutoff + pipeline chasing)
 

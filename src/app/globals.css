@@ -1358,6 +1358,8 @@ button:active {
   opacity: 0.85;
   user-select: none;
   pointer-events: none;
+  /* 10D — reveal: blur drops over 600ms when .locked-section.unlocked. */
+  transition: filter 600ms ease-out;
 }
 .chassis .locked-body .locked-row {
   display: flex;
@@ -1385,6 +1387,11 @@ button:active {
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  opacity: 1;
+  transform: scale(1);
+  /* 10D — reveal: pill clears ~300ms before the blur completes so the
+     plan rows emerge cleanly. */
+  transition: opacity 200ms ease-out 300ms, transform 200ms ease-out 300ms;
 }
 .chassis .locked-overlay .locked-overlay-pill {
   background: var(--bg);
@@ -1397,22 +1404,34 @@ button:active {
   box-shadow: 3px 3px 0 var(--ink);
   transform: rotate(-2deg);
 }
-
-/* Invitee sticky bar — two CTAs: outline "can't make it" + primary "see the plan". */
-.chassis .sticky .cant-make-it {
-  flex: 0 0 auto;
-  background: transparent;
-  color: var(--ink);
-  border: 3px solid var(--ink);
-  height: 52px;
-  padding: 0 18px;
-  border-radius: 100px;
-  font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow: none;
-  cursor: pointer;
+/* 10D — reveal end states: triggered by InviteeShellClient toggling
+   `.unlocked` on `.locked-section` after onAuthStateChange SIGNED_IN. */
+.chassis .locked-section.unlocked .locked-body {
+  filter: blur(0);
 }
+.chassis .locked-section.unlocked .locked-overlay {
+  opacity: 0;
+  transform: scale(0.92);
+}
+/* 10D — sent-state overlay variant: lime accent treatment after the
+   magic link is dispatched, while the body is still blurred. */
+.chassis .locked-overlay.sent .locked-overlay-pill {
+  background: var(--accent2);
+  color: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .chassis .locked-body,
+  .chassis .locked-overlay {
+    transition: none;
+  }
+}
+
+/* Invitee sticky bar — single primary CTA + post-tap status pill (10D).
+   Idle state uses .see-plan (full-width); after the magic link is sent
+   the bar swaps to .sticky-sent + .sticky-resend; on failure the pill
+   becomes a tappable .sticky-sent.sticky-error retry button. The
+   "can't make it" outline button + invitee-confirm modal were removed
+   in 10D — signup is the gate for ALL RSVP states. */
 .chassis .sticky .see-plan {
   flex: 1;
   background: var(--accent);
@@ -1433,69 +1452,76 @@ button:active {
 .chassis .sticky .see-plan:hover {
   animation: hover-wobble 0.4s ease-in-out;
 }
+.chassis .sticky .see-plan:disabled {
+  cursor: default;
+  opacity: 0.6;
+  animation: none;
+}
 @keyframes pulse-cta {
   0%, 100% { transform: scale(1); }
   50%      { transform: scale(1.02); }
 }
 
-/* Dashed empty avatar — the "you?" slot in the invitee going row. */
-.chassis .avatars .av.av-empty {
-  background: transparent;
-  border-style: dashed;
-  opacity: 0.45;
-  font-family: var(--font-hand), 'Caveat', cursive;
-  font-size: 16px;
-  font-weight: 400;
-}
-
-/* Invitee soft-decline confirm modal — minimal overlay. */
-.chassis .invitee-confirm-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+/* 10D — invitee sticky bar post-tap pill. Replaces .see-plan when the
+   magic-link request returns (or after 429 cooldown). The .sticky-error
+   variant turns the pill into a tappable retry button. */
+.chassis .sticky .sticky-sent {
+  height: 52px;
+  width: 100%;
+  border-radius: 100px;
+  background: var(--bg);
+  border: 3px solid var(--ink);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
-  padding: 24px;
-}
-.chassis .invitee-confirm {
-  background: var(--bg);
-  border: 3px solid var(--stroke);
-  border-radius: 22px;
-  box-shadow: 6px 6px 0 var(--stroke);
-  padding: 22px 22px 18px;
-  max-width: 340px;
-  width: 100%;
-  text-align: center;
-}
-.chassis .invitee-confirm .invitee-confirm-msg {
-  font-family: var(--font-hand), 'Caveat', cursive;
-  font-size: 22px;
-  color: var(--ink);
-  margin-bottom: 16px;
-}
-.chassis .invitee-confirm .invitee-confirm-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-.chassis .invitee-confirm .invitee-confirm-actions button {
-  flex: 1;
-  height: 44px;
-  border-radius: 100px;
-  border: 3px solid var(--ink);
-  background: transparent;
-  color: var(--ink);
+  gap: 8px;
+  padding: 0 18px;
   font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-size: 13px;
   font-weight: 700;
-  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.2;
 }
-.chassis .invitee-confirm .invitee-confirm-actions button.primary {
+.chassis .sticky .sticky-sent .sticky-sent-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent2);
+  border: 2px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.chassis .sticky .sticky-sent.sticky-error {
   background: var(--accent);
   color: var(--on-accent);
   border-color: var(--stroke);
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--stroke);
+}
+.chassis .sticky .sticky-resend {
+  text-align: center;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.7;
+  padding: 2px 0 0;
+}
+.chassis .sticky .sticky-resend button {
+  background: none;
+  border: none;
+  color: var(--ink);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+.chassis .sticky .sticky-resend button:disabled {
+  cursor: default;
+  opacity: 0.5;
+  text-decoration: none;
 }
 
 /* Poetic footer — only on the live trip page */

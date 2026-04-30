@@ -1,22 +1,19 @@
-// Phase 5 — Invitee pre-login shell.
+// Phase 5 — invitee pre-login shell.
 //
-// Rendered by /trip/[slug]/page.tsx when the viewer has no auth session
-// AND no guest cookie AND the trip is in a non-sketch phase. This is a
-// LOGIN gate, not an RSVP gate: the hero + countdown + going row stay
-// visible; only the plan details are blurred behind a "sign in to see
-// the plan ↑" overlay.
+// Rendered by /trip/[slug]/page.tsx (unauthed branch in non-sketch phases)
+// and by /i/[token]/page.tsx (10C resolver). Login gate, not RSVP gate:
+// hero + countdown stay visible; the plan is blurred behind a "sign in
+// to see the plan" overlay until the magic-link round-trip completes.
 //
-// Composition strategy: reuse PostcardHero and ChassisCountdown as-is
-// (they render identically to the live view). The going row is inline
-// here because the invitee variant adds a dashed "you?" empty slot
-// that the live going row doesn't need. LockedPlan + InviteeStickyBar
-// are Phase-5-only primitives.
+// Composition strategy: server-render the static-state pieces
+// (PostcardHero + ChassisCountdown) here, then delegate the
+// auth-state-aware portion (LockedPlan, PoeticFooter, InviteeStickyBar)
+// to InviteeShellClient. The client wrapper owns the unlocked + linkSent
+// state driven by Supabase's onAuthStateChange listener (10D).
 
 import { PostcardHero } from '@/components/trip/PostcardHero';
 import { ChassisCountdown } from '@/components/trip/ChassisCountdown';
-import { LockedPlan } from '@/components/trip/LockedPlan';
-import { InviteeStickyBar } from '@/components/trip/InviteeStickyBar';
-import { PoeticFooter } from '@/components/trip/PoeticFooter';
+import { InviteeShellClient } from '@/components/trip/InviteeShellClient';
 import { getCopy } from '@/lib/copy/get-copy';
 import { getTheme } from '@/lib/themes';
 import type { ThemeId } from '@/lib/themes/types';
@@ -26,18 +23,24 @@ type Props = {
   themeId: ThemeId;
   slug: string;
   trip: TripWithDetails;
-  goingMembers: TripWithDetails['members'];
-  inCount: number;
   cost: TripCostSummary;
+  inviteeEmail: string;
+  inviteToken: string;
+  /** 10D-followup — set by the resolver when the viewer arrived via a
+   *  same-tab magic-link click (`?just_authed=1`). Triggers the reveal
+   *  animation on InviteeShellClient mount without waiting for an
+   *  onAuthStateChange event. */
+  freshAuth?: boolean;
 };
 
 export function InviteeShell({
   themeId,
   slug,
   trip,
-  goingMembers,
-  inCount,
   cost,
+  inviteeEmail,
+  inviteToken,
+  freshAuth = false,
 }: Props) {
   const theme = getTheme(themeId);
   const organizer = trip.organizer;
@@ -78,44 +81,17 @@ export function InviteeShell({
         <ChassisCountdown target={trip.date_start} label={heroLabel} flag={fomoFlag} />
       )}
 
-      {/* Going row — label + avatar cascade + dashed "you?" slot */}
-      <div className="going">
-        <div className="going-label">
-          {getCopy(themeId, 'inviteeState.goingLabel', { n: inCount })}
-        </div>
-        <div className="avatars">
-          {goingMembers.slice(0, 5).map((m) => {
-            const initial = (m.user.display_name ?? '?').slice(0, 1).toUpperCase();
-            const photoUrl = m.user.profile_photo_url;
-            return (
-              <div
-                key={m.id}
-                className="av"
-                style={photoUrl ? {
-                  background: `url(${photoUrl}) center/cover`,
-                } : { background: 'var(--sticker-bg)' }}
-              >
-                {!photoUrl && initial}
-              </div>
-            );
-          })}
-          <div className="av av-empty">
-            {getCopy(themeId, 'inviteeState.emptyAvatarLabel')}
-          </div>
-        </div>
-      </div>
-
-      <LockedPlan
+      <InviteeShellClient
         themeId={themeId}
+        slug={slug}
+        inviteeEmail={inviteeEmail}
+        inviteToken={inviteToken}
         lodging={trip.lodging ?? []}
         flights={trip.flights ?? []}
         activities={trip.activities ?? []}
         cost={cost}
+        freshAuth={freshAuth}
       />
-
-      <PoeticFooter themeId={themeId} />
-
-      <InviteeStickyBar themeId={themeId} slug={slug} inviterFirst={inviterFirst} />
     </>
   );
 }

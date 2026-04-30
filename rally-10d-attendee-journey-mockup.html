@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 10D: Attendee end-to-end journey</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     10D SCOPE — ATTENDEE END-TO-END JOURNEY (Cowork wireframe,
+     2026-04-27)
+
+     CONSOLIDATES TWO EXISTING WIREFRAMES + FILLS GAPS:
+     - rally-phase-5-invitee.html — teaser / "called up" surface,
+       2 themed variants. AUTHORITATIVE for the teaser frame.
+       Open it to see the polished design at full resolution.
+     - rally-phase-11-auth.html — 4 auth states (landing /
+       check email / expired / invalid). AUTHORITATIVE for
+       auth round-trip frames.
+
+     NEW CONTENT IN THIS DOC:
+     - The invite email itself (no prior wireframe)
+     - The token-resolve transition (server-side)
+     - Post-signup unblur reveal animation
+     - The full sell view + RSVP moment that follows reveal
+
+     PRODUCT DECISION TO LOCK (surfaced from phase 5 reading):
+     Login gate vs. RSVP gate? Phase 5 has a "can't make it"
+     opt-out on the teaser that bypasses signup entirely. Strategy
+     doc didn't address this — see open question section below.
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --doc-bg: #2a2a2a;
+    --doc-text: #faf8f5;
+    --doc-muted: #888;
+    --doc-accent: #ffd84d;
+    --doc-step: #5bb7d8;
+    --doc-flag: #d8654f;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    min-height: 100vh;
+    padding: 24px 16px 96px;
+    line-height: 1.5;
+  }
+  .doc-header { max-width: 920px; margin: 0 auto 32px; text-align: center; }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 26px;
+    color: var(--doc-text);
+    margin-bottom: 6px;
+  }
+  .doc-sub {
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.6;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+  .doc-sub code {
+    background: #1a1a1a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+  }
+
+  /* Step labels */
+  .step-label {
+    max-width: 920px;
+    margin: 56px auto 0;
+    padding: 0 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .step-num {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 32px;
+    color: var(--doc-step);
+    line-height: 1;
+  }
+  .step-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--doc-text);
+  }
+  .step-marker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--doc-muted);
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #1a1a1a;
+    margin-left: 8px;
+  }
+  .step-marker.new { background: var(--doc-step); color: #0a1a2a; }
+  .step-marker.ref { background: var(--doc-muted); color: #1a1a1a; }
+
+  .step-note {
+    max-width: 920px;
+    margin: 4px auto 18px;
+    padding: 0 8px;
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.6;
+  }
+  .step-note code {
+    background: #1a1a1a;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+  }
+  .step-note a { color: var(--doc-accent); }
+
+  /* Frame display */
+  .row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  /* Email client mockup frame — wider than phone */
+  .email-frame {
+    width: 580px;
+    max-width: 100%;
+    background: #f5f5f5;
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    overflow: hidden;
+  }
+  .email-toolbar {
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .email-tool-dot {
+    width: 12px; height: 12px; border-radius: 100px;
+    background: #ddd;
+  }
+  .email-tool-dot:nth-child(1) { background: #ff5f57; }
+  .email-tool-dot:nth-child(2) { background: #febc2e; }
+  .email-tool-dot:nth-child(3) { background: #28c840; }
+  .email-tool-label {
+    margin-left: 14px;
+    font-size: 11px;
+    color: #888;
+  }
+  .email-meta {
+    background: #fff;
+    padding: 14px 20px;
+    border-bottom: 1px solid #f0ece4;
+  }
+  .email-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .email-from {
+    font-size: 13px;
+    color: #1a2a33;
+    font-weight: 600;
+  }
+  .email-from-addr {
+    font-size: 11px;
+    color: #98a5ab;
+    font-weight: 400;
+    margin-left: 6px;
+  }
+  .email-time {
+    font-size: 11px;
+    color: #98a5ab;
+  }
+  .email-subject {
+    font-size: 15px;
+    color: #1a2a33;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+  .email-preview {
+    font-size: 12px;
+    color: #98a5ab;
+    margin-top: 4px;
+  }
+  .email-body {
+    background: #f5f1ea;
+    padding: 32px 20px;
+  }
+  .email-card {
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,.06);
+  }
+  .email-cover {
+    height: 140px;
+    background: linear-gradient(135deg, #1a3d4a, #2d6b5a, #3a8a7a);
+  }
+  .email-content {
+    padding: 26px 28px;
+  }
+  .email-eyebrow {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #7a8a90;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .email-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 28px;
+    line-height: 1.1;
+    color: #122c35;
+    margin-bottom: 8px;
+  }
+  .email-tagline {
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: #556b73;
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+  .email-meta-line {
+    color: #556b73;
+    font-size: 12px;
+    margin-bottom: 22px;
+  }
+  .email-greeting {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #2a3a43;
+    margin-bottom: 22px;
+  }
+  .email-cta-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .email-cta {
+    display: inline-block;
+    background: #122c35;
+    color: #fff;
+    text-decoration: none;
+    padding: 13px 28px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .email-link-fallback {
+    text-align: center;
+    font-size: 10px;
+    color: #98a5ab;
+  }
+  .email-link-fallback a {
+    color: #556b73;
+    word-break: break-all;
+  }
+  .email-footer {
+    background: #fff;
+    padding: 14px 28px;
+    border-top: 1px solid #f0ece4;
+    text-align: center;
+  }
+  .email-footer-text {
+    font-family: Georgia, serif;
+    font-size: 11px;
+    color: #98a5ab;
+  }
+  .email-footer-text strong { color: #556b73; }
+
+  /* Server transition diagram */
+  .transition-frame {
+    width: 580px;
+    max-width: 100%;
+    background: #1a1a1a;
+    border-radius: 14px;
+    padding: 28px 32px;
+    border: 1px solid #444;
+  }
+  .transition-step {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .transition-step:last-child { margin-bottom: 0; }
+  .transition-num {
+    width: 24px; height: 24px;
+    border-radius: 100px;
+    background: var(--doc-step);
+    color: #0a1a2a;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .transition-body {
+    font-size: 12px;
+    color: var(--doc-text);
+    line-height: 1.6;
+  }
+  .transition-body code {
+    background: #2a2a2a;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--doc-accent);
+    font-size: 10px;
+  }
+  .transition-body strong { color: var(--doc-accent); }
+
+  /* Phone frame for inline references */
+  .phone-frame {
+    width: 350px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 16px 0 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+    overflow: hidden;
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --accent: #ffd84d;
+    --muted: #8a8680;
+  }
+  .phone-frame.dark {
+    --bg: #0a0a0c;
+    --ink: #faf8f5;
+  }
+  .phone-frame-label {
+    position: absolute;
+    top: -22px; left: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+
+  /* Teaser pseudo-frame stub (since real one is in phase-5) */
+  .teaser-stub {
+    padding: 14px 18px 18px;
+  }
+  .teaser-stub-marquee {
+    text-align: center;
+    font-size: 10px;
+    color: var(--ink);
+    opacity: 0.5;
+    margin-bottom: 14px;
+    letter-spacing: 0.1em;
+  }
+  .teaser-stub-sticker {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--ink);
+    padding: 4px 10px;
+    border-radius: 6px;
+    transform: rotate(-3deg);
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .teaser-stub-inviter {
+    font-size: 11px;
+    color: var(--ink);
+    opacity: 0.7;
+    margin-bottom: 12px;
+  }
+  .teaser-stub-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 28px;
+    line-height: 1.1;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .teaser-stub-tagline {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink);
+    opacity: 0.7;
+    margin-bottom: 16px;
+  }
+  .teaser-stub-countdown {
+    font-family: Georgia, serif;
+    font-weight: 800;
+    font-size: 28px;
+    color: var(--ink);
+    text-align: center;
+    margin: 12px 0;
+  }
+  .teaser-stub-countdown small {
+    display: block;
+    font-size: 10px;
+    color: var(--ink);
+    opacity: 0.6;
+    font-weight: 400;
+    margin-top: 2px;
+  }
+  .teaser-stub-locked {
+    margin: 20px 0;
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    padding: 12px 14px;
+    position: relative;
+  }
+  .teaser-stub-locked-rows {
+    filter: blur(4px);
+    user-select: none;
+    pointer-events: none;
+  }
+  .teaser-stub-locked-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--ink);
+    opacity: 0.7;
+    padding: 4px 0;
+  }
+  .teaser-stub-locked-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(250, 248, 245, 0.6);
+    border-radius: 12px;
+  }
+  .teaser-stub-locked-msg {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .teaser-stub-sticky {
+    display: flex;
+    gap: 6px;
+    padding: 12px 0 0;
+  }
+  .teaser-stub-btn {
+    flex: 1;
+    padding: 10px 0;
+    border-radius: 10px;
+    border: 1.5px solid var(--ink);
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--bg);
+  }
+  .teaser-stub-btn.primary {
+    flex: 1.6;
+    background: var(--ink);
+    color: var(--bg);
+  }
+
+  /* Reveal sequence visualization */
+  .reveal-sequence {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .reveal-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .reveal-arrow {
+    font-size: 24px;
+    color: var(--doc-step);
+    font-weight: 700;
+  }
+
+  /* Annotation cards */
+  .card {
+    max-width: 920px;
+    margin: 8px auto 0;
+    padding: 14px 20px;
+    background: #3a3a3a;
+    border-radius: 10px;
+    border-left: 3px solid var(--doc-accent);
+  }
+  .card.muted { border-left-color: #666; background: #2f2f2f; }
+  .card.flag { border-left-color: var(--doc-flag); }
+  .card-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .card.muted .card-title { color: #aaa; }
+  .card.flag .card-title { color: var(--doc-flag); }
+  .card p {
+    font-size: 13px;
+    color: var(--doc-text);
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+  .card p:last-child { margin-bottom: 0; }
+  .card strong { color: var(--doc-accent); font-weight: 700; }
+  .card.flag strong { color: var(--doc-flag); }
+  .card code {
+    background: #1a1a1a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+  }
+  .card a { color: var(--doc-accent); }
+  .card ul {
+    margin: 8px 0 0 18px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--doc-text);
+  }
+
+  .questions {
+    max-width: 920px;
+    margin: 64px auto 0;
+    padding: 22px 26px;
+    background: #1f1f1f;
+    border-radius: 12px;
+    border: 1px solid #444;
+  }
+  .questions h2 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 18px;
+    color: var(--doc-accent);
+    margin-bottom: 14px;
+  }
+  .questions dl { font-size: 13px; line-height: 1.6; }
+  .questions dt {
+    font-weight: 700;
+    color: var(--doc-text);
+    margin-top: 14px;
+  }
+  .questions dt:first-child { margin-top: 0; }
+  .questions dd {
+    margin-left: 0;
+    color: var(--doc-muted);
+    margin-top: 4px;
+  }
+  .questions dd code {
+    background: #1a1a1a;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--doc-accent);
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">Session 10D — Cowork wireframe · 2026-04-27</div>
+  <div class="doc-title">attendee end-to-end journey</div>
+  <div class="doc-sub">
+    The full path from organizer's <em>publish</em> → invitee RSVP. Consolidates
+    two existing wireframes (<code>rally-phase-5-invitee.html</code> for the
+    teaser, <code>rally-phase-11-auth.html</code> for the auth round-trip) and
+    fills three gaps: the email itself, the post-signup unblur reveal, and the
+    RSVP moment. Read this top-to-bottom to see how the pieces stitch together.
+  </div>
+</div>
+
+<!-- =================================================================
+     STEP 1 — INVITE EMAIL (NEW)
+     ================================================================= -->
+<div class="step-label">
+  <span class="step-num">1.</span>
+  <span class="step-title">the invitation email lands</span>
+  <span class="step-marker new">new frame</span>
+</div>
+<div class="step-note">
+  Sent by Resend on <code>transitionToSell</code> publish (10C wires the
+  fan-out). Subject + body shapes are already implemented in
+  <code>src/lib/email.ts</code>. This frame visualizes what the invitee
+  actually sees in their inbox.
+</div>
+<div class="row">
+  <div class="email-frame">
+    <div class="email-toolbar">
+      <div class="email-tool-dot"></div>
+      <div class="email-tool-dot"></div>
+      <div class="email-tool-dot"></div>
+      <div class="email-tool-label">inbox · 1 new message</div>
+    </div>
+    <div class="email-meta">
+      <div class="email-meta-row">
+        <span class="email-from">Rally <span class="email-from-addr">&lt;hi@rallyapp.travel&gt;</span></span>
+        <span class="email-time">10:42 AM</span>
+      </div>
+      <div class="email-subject">andrew invited you to coachella '26</div>
+      <div class="email-preview">andrew is planning a trip and wants you there. tap below to see the full plan, check the cost, and RSVP.</div>
+    </div>
+    <div class="email-body">
+      <div class="email-card">
+        <div class="email-cover"></div>
+        <div class="email-content">
+          <div class="email-eyebrow">andrew invited you</div>
+          <div class="email-title">coachella '26</div>
+          <div class="email-tagline">desert weekend · friends only</div>
+          <div class="email-meta-line">indio, ca · apr 10–13</div>
+          <div class="email-greeting">
+            Hey jen,<br><br>
+            andrew is planning a trip and wants you there. Tap below
+            to see the full plan, check the cost, and RSVP.
+          </div>
+          <div class="email-cta-wrap">
+            <a href="#" class="email-cta">See the trip →</a>
+          </div>
+          <div class="email-link-fallback">
+            Or copy this link:<br>
+            <a href="#">https://rallyapp.travel/i/8c4f...e9a2</a>
+          </div>
+        </div>
+        <div class="email-footer">
+          <div class="email-footer-text">Made with <strong>Rally</strong> — the group trip planner</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card muted">
+  <div class="card-title">already implemented · what works today</div>
+  <p><code>sendInviteEmail</code> at <code>src/lib/email.ts</code> already
+  produces this exact email. Subject is <code>${organizerName} invited you to
+  ${tripName}</code>. HTML + plain-text fallback included. Cover image pulled
+  from trip when available; otherwise renders a themed gradient.</p>
+  <p><strong>10C ships:</strong> the publish-time fan-out (currently the email
+  fires on individual sell-phase invitee adds, but NOT on the bulk publish
+  moment). Plus the <code>/i/&lt;token&gt;</code> URL shape replaces today's
+  slug-based share URL.</p>
+  <p><strong>Brand pass deferred:</strong> subject + preview copy could use a
+  voice review against <code>rally-brand-brief-v0.md</code>. The current strings
+  are functional but not polished. Tag for 10E or a small lexicon session.</p>
+</div>
+
+<!-- =================================================================
+     STEP 2 — TOKEN RESOLVE (NEW)
+     ================================================================= -->
+<div class="step-label">
+  <span class="step-num">2.</span>
+  <span class="step-title">tap link → token resolves server-side</span>
+  <span class="step-marker new">new flow</span>
+</div>
+<div class="step-note">
+  No UI here — this is what happens between the invitee tapping the email link
+  and seeing the teaser. Documented for completeness; 10C wires it.
+</div>
+<div class="row">
+  <div class="transition-frame">
+    <div class="transition-step">
+      <div class="transition-num">1</div>
+      <div class="transition-body">
+        Invitee taps <code>https://rallyapp.travel/i/8c4f...e9a2</code> in their email.
+      </div>
+    </div>
+    <div class="transition-step">
+      <div class="transition-num">2</div>
+      <div class="transition-body">
+        Server route <code>app/i/[token]/page.tsx</code> looks up the
+        <code>invite_token</code> in <code>trip_members</code>. Resolves to
+        <strong>trip + invitee identity</strong>.
+      </div>
+    </div>
+    <div class="transition-step">
+      <div class="transition-num">3</div>
+      <div class="transition-body">
+        Branch:
+        <ul style="margin:6px 0 0 16px; padding:0;">
+          <li><strong>Not signed in:</strong> render teaser (step 3)</li>
+          <li><strong>Signed in AND <code>auth.uid()</code> = <code>trip_members.user_id</code>:</strong> redirect to <code>/trip/&lt;slug&gt;</code> (full sell view)</li>
+          <li><strong>Signed in but identity doesn't match:</strong> redirect to <code>/trip/&lt;slug&gt;</code> as a normal viewer (still works, just no invitee context)</li>
+          <li><strong>Token invalid / expired / not found:</strong> redirect to <code>/auth/invalid</code> (existing page, see step 4)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =================================================================
+     STEP 3 — TEASER (REFERENCE phase 5)
+     ================================================================= -->
+<div class="step-label">
+  <span class="step-num">3.</span>
+  <span class="step-title">the teaser landing</span>
+  <span class="step-marker ref">reuses phase 5</span>
+</div>
+<div class="step-note">
+  Authoritative design lives in <code>rally-phase-5-invitee.html</code> with two
+  themed variants ("bachelorette · invitee" + "park city · invitee"). Open that
+  file for the polished frame. Stub below is illustrative only — sketch of the
+  shape so you can see how it fits in the journey.
+</div>
+<div class="row">
+  <div class="phone-frame">
+    <div class="phone-frame-label">teaser · stub (see phase 5)</div>
+    <div class="teaser-stub">
+      <div class="teaser-stub-marquee">57 days · cabo bound · 5 going · 57 days</div>
+      <div style="text-align:center;">
+        <span class="teaser-stub-sticker">you're invited 💌</span>
+        <div class="teaser-stub-inviter">★ jen called you up</div>
+      </div>
+      <div class="teaser-stub-title">sarah's last sail</div>
+      <div class="teaser-stub-tagline">cabo, before she's a wife 💍</div>
+      <div class="teaser-stub-countdown">
+        57
+        <small>days until margs at sunset</small>
+      </div>
+      <div class="teaser-stub-locked">
+        <div style="font-size: 11px; color: var(--ink); opacity: 0.6; margin-bottom: 6px;">the plan · 🔒 locked</div>
+        <div class="teaser-stub-locked-rows">
+          <div class="teaser-stub-locked-row"><span>jetblue · jfk → sjd</span><span>$412</span></div>
+          <div class="teaser-stub-locked-row"><span>casa pacifica · 3 nights</span><span>$386</span></div>
+          <div class="teaser-stub-locked-row"><span>your share, all in</span><span>$893</span></div>
+        </div>
+        <div class="teaser-stub-locked-overlay">
+          <span class="teaser-stub-locked-msg">sign in to see the plan ↑</span>
+        </div>
+      </div>
+      <div class="teaser-stub-sticky">
+        <button class="teaser-stub-btn primary" style="flex: 1;">see the plan →</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-title">✓ locked 2026-04-27 — signup required for all RSVPs</div>
+  <p>Phase 5's design included a "can't make it" opt-out button that
+  recorded <code>out</code> without signup. <strong>That path is rejected
+  for v0.</strong> Teaser sticky bar shows a single primary CTA
+  ("see the plan →") that routes to the magic-link auth flow.</p>
+  <p><strong>Rationale (Andrew, locked 2026-04-27):</strong> signup is the
+  data capture moment — that's the point of the teaser, not just gating
+  yes/holding. Curiosity drives signup conversion. One consistent gate is
+  simpler UX than splitting yes-from-no friction.</p>
+  <p>Implementation impact: 10D's <code>InviteeShell</code> diverges from
+  phase 5 on the sticky bar specifically. Rest of phase 5
+  (blur veil, called-up sticker, countdown, going-row) stays authoritative.</p>
+</div>
+
+<!-- =================================================================
+     STEP 4 — AUTH ROUND-TRIP (REFERENCE phase 11)
+     ================================================================= -->
+<div class="step-label">
+  <span class="step-num">4.</span>
+  <span class="step-title">tap "see the plan" → auth round-trip</span>
+  <span class="step-marker ref">reuses phase 11</span>
+</div>
+<div class="step-note">
+  Phase 11 authoritatively designs four states: landing (state 1) → check email
+  (state 2) → optionally expired (3a) or invalid (3b). Open
+  <code>rally-phase-11-auth.html</code> for the polished frames. Already wired
+  in code: <code>/auth</code>, <code>/auth/expired</code>,
+  <code>/auth/invalid</code> all exist; <code>signInWithOtp</code> via Supabase
+  is already firing.
+</div>
+<div class="card muted">
+  <div class="card-title">auth flow at a glance</div>
+  <ul>
+    <li><strong>State 1 — Landing:</strong> "what's your email?" + email input
+      + "send link" CTA. Renders at <code>/auth</code>.</li>
+    <li><strong>State 2 — Check email:</strong> "we sent a link to
+      <em>jen@example.com</em>." + "didn't get it? send another" with 30s
+      cooldown.</li>
+    <li><strong>State 3a — Expired:</strong> magic link clicked > 15 min
+      after issue. "this link expired — try again" + restart flow.</li>
+    <li><strong>State 3b — Invalid:</strong> tampered or fully invalid
+      token. Same shape, different copy.</li>
+    <li>On successful magic-link click: invitee returns to Rally signed in,
+      hits the <code>auth/callback</code> route, which redirects them — for
+      invitees, redirect target should be <code>/i/&lt;token&gt;</code> so the
+      teaser surfaces with auth context (or directly to <code>/trip/&lt;slug&gt;</code>
+      bypassing the teaser, since they're now authenticated). See open
+      question below.</li>
+  </ul>
+</div>
+
+<!-- =================================================================
+     STEP 5 — UNBLUR REVEAL (NEW)
+     ================================================================= -->
+<div class="step-label">
+  <span class="step-num">5.</span>
+  <span class="step-title">post-signup → unblur reveal animation</span>
+  <span class="step-marker new">new frame</span>
+</div>
+<div class="step-note">
+  Once authenticated, the locked plan section "unblurs" and the teaser
+  transitions into the full sell view. This is the FOMO payoff moment.
+  Animation specifics are 10D implementation detail; this frame just
+  illustrates the before/after.
+</div>
+<div class="reveal-sequence">
+  <div class="phone-frame" style="width:280px;">
+    <div class="phone-frame-label">before</div>
+    <div class="teaser-stub" style="padding:14px;">
+      <div class="teaser-stub-title" style="font-size:18px;">sarah's last sail</div>
+      <div class="teaser-stub-locked" style="margin:14px 0;">
+        <div class="teaser-stub-locked-rows">
+          <div class="teaser-stub-locked-row"><span>flight</span><span>$412</span></div>
+          <div class="teaser-stub-locked-row"><span>lodging</span><span>$386</span></div>
+        </div>
+        <div class="teaser-stub-locked-overlay">
+          <span class="teaser-stub-locked-msg">🔒 sign in to see</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="reveal-step"><span class="reveal-arrow">→</span></div>
+  <div class="phone-frame" style="width:280px;">
+    <div class="phone-frame-label">during (animating)</div>
+    <div class="teaser-stub" style="padding:14px;">
+      <div class="teaser-stub-title" style="font-size:18px;">sarah's last sail</div>
+      <div class="teaser-stub-locked" style="margin:14px 0;">
+        <div class="teaser-stub-locked-rows" style="filter:blur(2px);">
+          <div class="teaser-stub-locked-row"><span>flight</span><span>$412</span></div>
+          <div class="teaser-stub-locked-row"><span>lodging</span><span>$386</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="reveal-step"><span class="reveal-arrow">→</span></div>
+  <div class="phone-frame" style="width:280px;">
+    <div class="phone-frame-label">after</div>
+    <div class="teaser-stub" style="padding:14px;">
+      <div class="teaser-stub-title" style="font-size:18px;">sarah's last sail</div>
+      <div style="margin:14px 0; border:1.5px solid var(--ink); border-radius:12px; padding:12px 14px;">
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--ink); padding:4px 0;"><span>flight</span><span>$412</span></div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--ink); padding:4px 0;"><span>lodging</span><span>$386</span></div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--ink); padding:4px 0; border-top:1px solid var(--ink); margin-top:4px;"><span>your share</span><span>$893</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-title">animation spec (proposed)</div>
+  <p><strong>Duration:</strong> ~600-800ms total. Long enough to feel
+  intentional, short enough not to stall.</p>
+  <p><strong>Sequence:</strong> blur radius animates from
+  <code>blur(8px)</code> → <code>blur(0)</code> over 400ms ease-out. Lock
+  pill fades + scales down (200ms). Sticky bar transitions from teaser shape
+  (can't make it / see the plan) to the full RSVP three-pill bar
+  (in / holding / out) with 200ms cross-fade.</p>
+  <p><strong>Implementation:</strong> CSS transitions on a class swap. No
+  JS animation library needed. Triggered when client-side state flips from
+  <code>teaser</code> to <code>authenticated</code> after the magic-link
+  callback completes.</p>
+</div>
+
+<!-- =================================================================
+     STEP 6 — FULL SELL VIEW + RSVP (REFERENCE existing trip page)
+     ================================================================= -->
+<div class="step-label">
+  <span class="step-num">6.</span>
+  <span class="step-title">full sell view + RSVP moment</span>
+  <span class="step-marker ref">reuses /trip/[slug]</span>
+</div>
+<div class="step-note">
+  After the unblur reveal, the invitee is on the standard sell-phase trip page.
+  Sticky bar shows the three RSVP chips
+  (<code>in</code> / <code>holding</code> / <code>out</code>). Tap any →
+  <code>POST /api/rsvp</code> → <code>trip_members.rsvp</code> updates from
+  <code>awaiting</code> to the selected state. Confetti on <code>in</code> is
+  already wired.
+</div>
+<div class="card muted">
+  <div class="card-title">already implemented · no design work needed</div>
+  <p>The full sell view at <code>/trip/[slug]</code> renders for any
+  authenticated viewer (including invitees post-signup). The non-organizer
+  branch of <code>StickyRsvpBarChassis</code> shows three RSVP buttons.
+  10E will polish the post-RSVP'd state (currently the bar still shows three
+  buttons even after the invitee picks one).</p>
+  <p>For 10D scope, the RSVP moment is a "you arrive here" endpoint — no new
+  design work. The invitee's experience IS the existing sell view, just with
+  the dramatic teaser-to-full transition having just happened.</p>
+</div>
+
+<!-- =================================================================
+     OPEN QUESTIONS
+     ================================================================= -->
+<div class="questions">
+  <h2>open questions to lock before 10C/10D briefs</h2>
+  <dl>
+    <dt>1. ~~Login gate vs. RSVP gate~~ — LOCKED 2026-04-27.</dt>
+    <dd>
+      Signup required for all RSVPs (in / holding / out). Phase 5's
+      "can't make it" opt-out is rejected. Single CTA on the teaser
+      sticky bar.
+    </dd>
+
+    <dt>2. ~~Post-signup redirect target~~ — LOCKED 2026-04-27.</dt>
+    <dd>
+      In-place unblur reveal. Teaser is a client component that listens
+      for auth state changes (via Supabase). Magic-link auth completes →
+      teaser detects → unblur animation fires in same DOM → transitions
+      inline to full sell view. No redirect-based state-passing.
+    </dd>
+
+    <dt>3. ~~Token URL shape~~ — LOCKED 2026-04-27.</dt>
+    <dd>
+      Stays <code>/i/&lt;token&gt;</code>. Re-confirmed; no change.
+    </dd>
+
+    <dt>4. ~~Identity-mismatch behavior~~ — LOCKED 2026-04-27.</dt>
+    <dd>
+      Render <code>/trip/&lt;slug&gt;</code> as a normal viewer. Token
+      isn't a security primitive — trip URLs are already share-link-
+      viewable in sell phase. Identity mismatch = they don't gain
+      invitee context (can't RSVP via that token), but they can browse
+      the trip. Forwarded links work for viewing only, which is consistent
+      with existing share-URL semantics.
+    </dd>
+
+    <dt>5. ~~Already-signed-in edge case~~ — LOCKED 2026-04-27.</dt>
+    <dd>
+      Signed in + identity matches token → redirect straight to
+      <code>/trip/&lt;slug&gt;</code> (skip teaser). They've already
+      converted; teaser would be friction without payoff.
+    </dd>
+  </dl>
+
+  <p style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #444; font-size: 13px; color: var(--doc-muted);">
+    <strong>All open questions resolved.</strong> 10C brief is now ready
+    to write. 10D wireframe direction is locked except for animation
+    timing details (CSS specifics — implementation call).
+  </p>
+</div>
+
+<!-- =================================================================
+     IMPLEMENTATION SCOPE BREAKDOWN
+     ================================================================= -->
+<div class="card" style="max-width:920px; margin: 32px auto 0;">
+  <div class="card-title">what 10C ships vs. 10D vs. later</div>
+  <p><strong>10C (publish-time fan-out + invite tokens):</strong></p>
+  <ul>
+    <li>Migration: <code>invite_token uuid</code> + <code>invite_sent_at timestamptz</code> on <code>trip_members</code></li>
+    <li><code>transitionToSell</code> action: enumerate trip_members + call <code>sendInviteEmail</code> for each (sets <code>invite_sent_at</code>)</li>
+    <li>New route: <code>app/i/[token]/page.tsx</code> → resolves token + branches per Step 2 above</li>
+    <li>Update <code>shareUrl</code> in email construction → use <code>/i/&lt;token&gt;</code></li>
+    <li><strong>UI for not-signed-in branch:</strong> render existing partial <code>InviteeShell</code> as-is (10D polishes)</li>
+  </ul>
+  <p><strong>10D (teaser polish + auth integration):</strong></p>
+  <ul>
+    <li>Complete <code>InviteeShell</code> against phase 5 design (locked + blurred plan + called-up sticker + sticky bar with SINGLE primary CTA per locked decision)</li>
+    <li>Wire "see the plan" → magic-link request via existing AuthSurface</li>
+    <li>Build the unblur reveal animation per Step 5 spec</li>
+    <li>Wire <code>/auth/callback</code> redirect to return to <code>/i/&lt;token&gt;</code> for invitees</li>
+    <li>Brand-pass on email subject + preview text (small lexicon work)</li>
+  </ul>
+  <p><strong>10E (post-RSVP polish, deferred):</strong></p>
+  <ul>
+    <li>Sticky bar reflects RSVP'd state ("you're in" / "you're holding" / "you're out") instead of always showing three buttons</li>
+    <li>Confetti / micro-interaction polish on RSVP moment</li>
+  </ul>
+  <p><strong>Beyond v0 (deferred):</strong> bounce handling, phone-only invitees, drip campaigns, reachability tracking, lock-phase divisor refinement.</p>
+</div>
+
+</body>
+</html>

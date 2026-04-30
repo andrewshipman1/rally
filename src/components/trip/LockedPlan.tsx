@@ -1,14 +1,18 @@
 // Phase 5 — locked plan summary shown to unauthenticated invitees.
 //
 // Renders a small "the plan" card (flight / lodging / activity / total)
-// using real trip data, then applies filter: blur(4px) via `.locked-body`
-// and drops an absolutely-positioned "sign in to see the plan ↑" pill
-// over it via `.locked-overlay`. The blurred body is aria-hidden so
-// screen readers don't read garbled numbers.
+// using real trip data. By default `.locked-body` blurs via filter:
+// blur(4px) + aria-hidden=true and the `.locked-overlay` shows a
+// "sign in to see the plan ↑" pill.
 //
-// Semantics: login gate, not RSVP gate. The numbers exist on the page
-// (so the blur has something to blur), but they're unreadable until
-// the viewer converts via the sticky bar's primary CTA.
+// 10D additions:
+//   - `unlocked` prop adds an `.unlocked` class to the root section,
+//     triggering the CSS reveal transition (blur 4px → 0 over 600ms,
+//     overlay opacity 1 → 0 starting ~300ms in). aria-hidden flips
+//     to "false" so screen readers can read the rows once revealed.
+//   - `linkSent` prop swaps the overlay copy from
+//     `inviteeState.lockedOverlayMessage` to `…lockedOverlayMessageSent`
+//     and adds a `.sent` modifier class for the lime-accent treatment.
 
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
@@ -20,15 +24,36 @@ type Props = {
   flights: Flight[];
   activities: Activity[];
   cost: TripCostSummary;
+  unlocked?: boolean;
+  linkSent?: boolean;
 };
 
-export function LockedPlan({ themeId, lodging, flights, activities, cost }: Props) {
+export function LockedPlan({
+  themeId,
+  lodging,
+  flights,
+  activities,
+  cost,
+  unlocked = false,
+  linkSent = false,
+}: Props) {
   const lodgingRow = lodging[0];
   const flightRow = flights[0];
   const activityRow = activities[0];
 
+  // Sent state only matters while still locked — once unlocked, the
+  // overlay fades out regardless of its copy.
+  const showSentOverlay = linkSent && !unlocked;
+  const overlayMessageKey = showSentOverlay
+    ? 'inviteeState.lockedOverlayMessageSent'
+    : 'inviteeState.lockedOverlayMessage';
+
   return (
-    <div className="locked-section" role="region" aria-label="Trip plan preview">
+    <div
+      className={`locked-section${unlocked ? ' unlocked' : ''}`}
+      role="region"
+      aria-label="Trip plan preview"
+    >
       <div className="locked-header">
         <div className="locked-title">
           {getCopy(themeId, 'inviteeState.lockedSectionHeader')}
@@ -38,7 +63,7 @@ export function LockedPlan({ themeId, lodging, flights, activities, cost }: Prop
         </div>
       </div>
 
-      <div className="locked-body" aria-hidden="true">
+      <div className="locked-body" aria-hidden={unlocked ? 'false' : 'true'}>
         {flightRow && (
           <div className="locked-row">
             <span className="locked-label">
@@ -81,9 +106,13 @@ export function LockedPlan({ themeId, lodging, flights, activities, cost }: Prop
         </div>
       </div>
 
-      <div className="locked-overlay" role="alert" aria-live="polite">
+      <div
+        className={`locked-overlay${showSentOverlay ? ' sent' : ''}`}
+        role="alert"
+        aria-live="polite"
+      >
         <div className="locked-overlay-pill">
-          {getCopy(themeId, 'inviteeState.lockedOverlayMessage')}
+          {getCopy(themeId, overlayMessageKey)}
         </div>
       </div>
     </div>

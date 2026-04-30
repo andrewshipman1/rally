@@ -19299,6 +19299,1003 @@ already drafted at `rally-10d-attendee-journey-mockup.html`.
 
 ---
 
+### Session 10D: "Teaser polish + auth listener + unblur reveal"
+
+**Status: SCOPED 2026-04-27.** Visual + auth-integration
+session. Completes the invitee teaser shell that 10C wired
+up at `/i/<token>` — adds the in-place auth listener, the
+unblur reveal animation, the single-CTA + post-tap sticky-bar
+rewrite, and removes the going row per Andrew's locked
+direction. **Architecture is mostly already in place** —
+`InviteeShell`, `LockedPlan`, `InviteeStickyBar`, and
+`PostcardHero` all exist; 10D extends them rather than
+building net-new.
+
+**Reference artifacts (read before editing):**
+
+- `rally-attendee-strategy-v0.md` §Dimension 2 (locked
+  decisions: signup-for-all-RSVPs, in-place reveal, four-
+  branch resolver, magic-link expiry, token URL shape)
+- `rally-attendee-implementation-roadmap-v0.md` —
+  current-state snapshot at top, §10D entry, **reuse
+  inventory** (mandatory references), and **anti-patterns
+  list**
+- `rally-10d-attendee-journey-mockup.html` — end-to-end
+  flow context (email → token resolve → teaser → auth →
+  reveal → trip view → RSVP)
+- `rally-10d-teaser-mockup.html` — focused teaser frame
+  with both states (default + post-tap), animation spec
+  in Call 3, blur cutline + going-row removal in Call 4
+- `rally-phase-5-invitee.html` — original visual source
+  for the chassis (port verbatim except for the sticky bar
+  per the Cowork mockup); `rally-phase-11-auth.html` for
+  auth-state visual context
+- `rally-fix-plan-v1.md` §Session 10A + §Session 10C
+  Actuals — playbook for migration apply (10D has no
+  migration), deploy-ordering convention, scope discipline
+
+**Playbook: 9W (organizer edit-on-sell) + 10C (auth-flow
+integration).** 9W established the wireframe-first refine
+process + the new-component-with-mode-prop pattern; 10D's
+sticky-bar rewrite mirrors the discipline. 10C established
+the auth-adjacent flow shape; 10D's auth listener attaches
+to the same Supabase `signInWithOtp` integration 10C
+already wired.
+
+**Pre-existing infra (no work needed):**
+
+- `src/components/trip/InviteeShell.tsx` — exists,
+  composes `PostcardHero` + `ChassisCountdown` + going
+  row + `LockedPlan` + `PoeticFooter` + `InviteeStickyBar`.
+  Architecture already aligned to the locked design except
+  for the going row.
+- `src/components/trip/LockedPlan.tsx` — exists, already
+  does the hybrid blur + overlay pattern (Call 1 locked).
+  4-row compact summary; `filter: blur(4px)` +
+  `aria-hidden="true"`; overlay pill with the
+  `inviteeState.lockedOverlayMessage` lexicon string.
+- `src/components/trip/PostcardHero.tsx` — supports
+  invitee overrides (sticker, inviter row, eyebrow) per
+  9W's null-tolerance work. No changes needed.
+- `src/app/i/[token]/page.tsx` (10C) — resolver renders
+  `InviteeShell` with `themeId / slug / trip /
+  goingMembers / inCount / cost`. 10D extends the prop
+  set with invitee email + token.
+- `signInWithOtp` via Supabase — already wired in
+  `src/lib/auth/supabase-provider.ts`. 10D calls it from
+  the sticky-bar tap handler with `emailRedirectTo` set.
+
+**Pre-flight Andrew task (gates the live test):**
+
+- **Configure Supabase Auth's SMTP to use Resend.**
+  Supabase dashboard → Authentication → SMTP Settings →
+  point at Resend's SMTP credentials so magic-link emails
+  come from `Rally <hi@rallyapp.travel>` instead of
+  Supabase's default sender. ~5 min. Without this, the
+  flow still works but the invitee receives the magic link
+  from a different domain than the original invite.
+
+**Scope:**
+
+1. **Remove the going row from `InviteeShell.tsx`.** Delete
+   the inline going-row JSX block (lines 81-106 today).
+   Per Andrew's Call 4 lock: keep RSVP context mysterious,
+   no social proof at the teaser layer. The `goingMembers`
+   + `inCount` props become unused at the InviteeShell
+   level; drop them from the type if no other consumer
+   reads them. ~5-line removal.
+
+2. **Rewrite `InviteeStickyBar.tsx`.** Replace the existing
+   two-button + confirm-modal design with the single-CTA +
+   post-tap-state pattern from `rally-10d-teaser-mockup.html`:
+   - **State A — default:** single full-width "see the plan
+     →" button. Shrikhand font, accent fill, pulse-cta
+     animation. On tap: enters loading state for ~300ms
+     while `signInWithOtp` fires.
+   - **State B — post-tap (link sent):** status pill
+     replacing the button — "✓ link sent to j**@example.com"
+     with masked email. Below: "didn't get it? send
+     another · 30s" resend link with cooldown timer.
+     Reuses the 30s cooldown pattern from phase 11 state 2
+     (existing `auth.sent.resendButton` lexicon).
+   - **State C — error:** if `signInWithOtp` fails, replace
+     status pill with "couldn't send · try again" copy;
+     tapping re-fires the request.
+   - Component takes new props: invitee email (for
+     `signInWithOtp`) + invite token (for the
+     `emailRedirectTo` URL). Reads from `Props` set by
+     `InviteeShell` which gets them from the resolver.
+   - Confirm modal + "can't make it" path REMOVED entirely.
+     Strip the related lexicon (`cantMakeItConfirm`,
+     `cantMakeItConfirmYes`, `cantMakeItConfirmNo`,
+     `secondaryCta`).
+   - File rewritten in place. Same path
+     (`src/components/trip/InviteeStickyBar.tsx`). Don't
+     fork into `InviteeStickyBarV2.tsx`.
+
+3. **Add auth listener to `InviteeShell.tsx`.** Convert
+   the component (or extract a small client wrapper) so it
+   can subscribe to Supabase's `onAuthStateChange`. On
+   `SIGNED_IN` event: set state that triggers the unblur
+   reveal in `LockedPlan` + sticky-bar cross-fade to RSVP
+   buttons + a `router.replace('/trip/<slug>')` after the
+   animation completes. Cross-tab via Supabase's storage
+   events (default behavior of `onAuthStateChange` —
+   handled automatically).
+
+   Implementation note: `InviteeShell` is a server
+   component today (no `'use client'`). The auth listener
+   requires a client boundary. Two options:
+   - (a) Convert InviteeShell to `'use client'`. Simpler,
+     but loses server-rendered SEO for the teaser.
+   - (b) Extract a small client wrapper
+     (`InviteeShellClient.tsx` or similar) that owns the
+     auth listener + reveal state, while InviteeShell
+     stays server-rendered for the initial paint.
+   - **Lean (b)** for SEO + initial paint preservation.
+     The wrapper composes the server-rendered children
+     and adds the client-side auth listener layer.
+
+4. **Add unblur reveal animation to `LockedPlan.tsx`.**
+   Component accepts a new `unlocked: boolean` prop. When
+   `unlocked` is true, CSS transitions:
+   - `.locked-body` `filter: blur(4px)` → `blur(0)` over
+     600ms ease-out
+   - `.locked-overlay` opacity 1 → 0 + scale 1 → 0.92
+     over 200ms (starts ~200ms before blur completes,
+     so the overlay clears before the rows are sharp)
+   - All transitions disabled when
+     `prefers-reduced-motion: reduce` — instant snap from
+     blurred to unblurred. Industry-standard a11y default.
+   - `aria-hidden` toggles from "true" to "false" when
+     unlocked.
+
+5. **Update `/i/[token]/page.tsx` resolver to pass new
+   props.** The resolver from 10C currently passes
+   `themeId / slug / trip / goingMembers / inCount / cost`.
+   Add: `inviteeEmail` (from the resolved `trip_members.user.email`)
+   + `inviteToken` (the URL parameter). Drop `goingMembers`
+   + `inCount` from the prop set if InviteeShell no longer
+   reads them after item 1.
+
+6. **Lexicon updates** in
+   `src/lib/copy/surfaces/invitee-state.ts`:
+   - **Update** `lockedOverlayMessage`: keep current
+     value as the default-state copy ("sign in to see
+     the plan ↑"). Add a new key `lockedOverlayMessageSent`
+     for the post-tap state (e.g., "check your email ✉"
+     or similar — Andrew should pre-pick during refinement
+     OR brand-pass at QA).
+   - **Add** `inviteeStickyBar.linkSentTo`: templated
+     function `({ email }: ThemeVars) => \`✓ link sent
+     to ${email}\`` (or similar — match
+     `archived.pillFormat` pattern from 9Y).
+   - **Add** `inviteeStickyBar.resendLink`: "didn't get
+     it? send another"
+   - **Add** `inviteeStickyBar.resendCooldown`: templated
+     `({ seconds }: ThemeVars) => \`${seconds}s\``
+   - **Add** `inviteeStickyBar.sendError`: "couldn't send · try again"
+   - **Remove** the rejected `cantMakeItConfirm`,
+     `cantMakeItConfirmYes`, `cantMakeItConfirmNo`,
+     `secondaryCta` keys (along with their consumer in
+     the rewritten InviteeStickyBar).
+   - Cross-reference all new keys + the deletions in
+     `rally-microcopy-lexicon-v0.md`.
+
+7. **CSS additions** in `src/app/globals.css`:
+   - Reveal-animation transitions on
+     `.chassis .locked-body` and
+     `.chassis .locked-overlay` (gated by an unlocked
+     class on the parent).
+   - `prefers-reduced-motion: reduce` media query that
+     zeroes out animation durations.
+   - Sticky-bar post-tap state classes (status pill,
+     resend link, error variant). Reuse phase 5's chassis
+     namespace conventions.
+   - Email-mask helper if any visual treatment is needed
+     (probably none — masked email is plain text).
+
+**Hard constraints:**
+
+- DO NOT touch the RSVP submission flow (`/api/rsvp`).
+- DO NOT modify `sendInviteEmail` in `src/lib/email.ts`.
+- DO NOT redesign `/auth`, `/auth/expired`, or
+  `/auth/invalid` pages. Reuse as-is for the magic-link
+  callback flow.
+- DO NOT add SMS / phone-only delivery handling.
+  Phone-only invitees never reach the teaser (10C's
+  fan-out skips them).
+- DO NOT touch the going row OUTSIDE `InviteeShell.tsx`.
+  Other surfaces (the live trip page's sell-phase render,
+  the sketch crew section) still render their own going
+  rows; those are out of scope.
+- DO NOT introduce new components beyond what's listed.
+  No `InviteeShellV2.tsx`, no `TeaserStickyBar.tsx`, no
+  forked variants. Extend in place.
+- DO NOT redesign `LockedPlan`'s structure or content.
+  Add the `unlocked` prop + animation; keep the 4-row
+  summary intact.
+- DO NOT use native `confirm()` for any UX. Inline
+  patterns only.
+- DO NOT navigate away from `/i/<token>` on tap. The URL
+  stays stable through the auth round-trip; in-place
+  state change is the locked architecture.
+- DO NOT add a confirm modal for any sticky-bar action.
+  The rejected "can't make it" confirm modal is being
+  removed; don't reintroduce a similar pattern elsewhere.
+- DO NOT migrate any DB schema. 10D is purely client +
+  server-component changes.
+- DO NOT introduce new email templates. The magic-link
+  email is Supabase's default; the invite email already
+  exists. No new Resend templates this session.
+
+**Acceptance criteria:**
+
+*Code-side:*
+- [ ] `InviteeShell.tsx` no longer renders the going row.
+      `goingMembers` + `inCount` props removed if unused;
+      `inviteeEmail` + `inviteToken` props added.
+- [ ] `InviteeStickyBar.tsx` rewritten with single-CTA +
+      post-tap-state pattern. Calls `signInWithOtp` via
+      Supabase. Confirm-modal + "can't make it" code
+      removed.
+- [ ] Client wrapper introduced (or InviteeShell converted
+      to `'use client'`) to host the auth listener.
+- [ ] `LockedPlan.tsx` accepts `unlocked` prop; CSS
+      transitions on blur + overlay; `aria-hidden` toggles
+      with the prop.
+- [ ] `/i/[token]/page.tsx` resolver passes new props
+      (`inviteeEmail`, `inviteToken`).
+- [ ] Lexicon: 4 new keys added; 4 rejected keys removed;
+      cross-referenced in lexicon md.
+- [ ] CSS: animation transitions + reduced-motion fallback +
+      sticky-bar post-tap classes added to `globals.css`.
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `npm run build` succeeds.
+- [ ] `git status` scope: 4 modified components + 1
+      modified resolver + lexicon ts + lexicon md + css +
+      this fix plan = ~8 files. No new component files
+      (per anti-patterns).
+
+*Pre-flight Andrew task (gates live test):*
+- [ ] Supabase Auth SMTP configured to use Resend (so
+      magic-link emails come from `hi@rallyapp.travel`).
+
+*Live-verifiable (after deploy + Andrew's SMTP config):*
+- [ ] Tap an invite link as not-signed-in → teaser renders;
+      going row absent; LockedPlan blurred with overlay
+      pill.
+- [ ] Tap "see the plan →" → button enters loading state →
+      sticky bar morphs to "✓ link sent to j**@example.com"
+      pill + 30s resend cooldown link below.
+- [ ] Locked-overlay copy updates from "sign in to see the
+      plan ↑" to the post-tap message ("check your email ✉"
+      or whatever Andrew picks).
+- [ ] URL stays at `/i/<token>` — no navigation.
+- [ ] Magic-link email arrives in invitee's inbox from
+      `Rally <hi@rallyapp.travel>` (post-SMTP config).
+- [ ] Click magic link → invitee returns to `/i/<token>`;
+      teaser detects auth via `onAuthStateChange`; unblur
+      reveal animates over ~600-800ms; sticky bar
+      cross-fades to the three-button RSVP pattern.
+- [ ] After reveal, URL silently updates to
+      `/trip/<slug>` via `router.replace` (no flash, no
+      reload).
+- [ ] User can RSVP from the now-revealed sticky bar
+      (existing `/api/rsvp` flow — regression check).
+- [ ] `prefers-reduced-motion: reduce` set in OS →
+      reveal is instant snap, no animation.
+- [ ] Cross-tab: open magic link in a new tab; original
+      tab also detects auth + reveals (Supabase's storage
+      events). v0 acceptable if flaky; flag for v1.
+- [ ] Resend cooldown enforced: tapping "send another"
+      before 30s elapsed is a no-op (or shows "wait Ns").
+- [ ] Error state: simulate `signInWithOtp` failure (e.g.,
+      malformed email) → sticky bar shows "couldn't send ·
+      try again"; tapping re-fires the request.
+
+**Files expected to change:**
+
+- `src/components/trip/InviteeShell.tsx`
+- `src/components/trip/InviteeShellClient.tsx` (new — if
+  the client-wrapper pattern is chosen per item 3 (b))
+- `src/components/trip/InviteeStickyBar.tsx` (rewritten)
+- `src/components/trip/LockedPlan.tsx`
+- `src/app/i/[token]/page.tsx`
+- `src/lib/copy/surfaces/invitee-state.ts`
+- `rally-microcopy-lexicon-v0.md`
+- `src/app/globals.css`
+- `rally-fix-plan-v1.md` (release notes)
+
+8-9 files. 1 potentially new (client wrapper).
+
+**Files to read before editing (per roadmap §10D context
+dependencies):**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `CLAUDE.md` + `AGENTS.md`
+- `rally-attendee-strategy-v0.md` §Dimension 2
+- `rally-attendee-implementation-roadmap-v0.md` —
+  current-state snapshot, §10D entry, reuse inventory,
+  anti-patterns
+- `rally-10d-attendee-journey-mockup.html`
+- `rally-10d-teaser-mockup.html` — Call 1 (locked-overlay),
+  Call 3 (animation spec), Call 4 (blur cutline + going
+  row removal)
+- `rally-phase-5-invitee.html` — visual reference for the
+  chassis pieces (port verbatim except sticky bar)
+- `rally-phase-11-auth.html` — auth-state visual context
+- `src/components/trip/InviteeShell.tsx` — current state
+- `src/components/trip/LockedPlan.tsx` — current state
+- `src/components/trip/InviteeStickyBar.tsx` — current
+  state (the rewrite target)
+- `src/app/i/[token]/page.tsx` — 10C resolver
+- `src/lib/auth/supabase-provider.ts` — `signInWithOtp`
+  pattern
+- `src/components/auth/AuthSurface.tsx` — for
+  `signInWithOtp` call patterns + cooldown timer reference
+- `rally-fix-plan-v1.md` §Session 9W (sticky-bar redesign
+  playbook), §Session 10C (auth-flow integration playbook)
+
+**How to QA solo:**
+
+1. Pre-flight read all referenced files.
+2. Confirm with Andrew that the Supabase SMTP config is
+   queued (he'll do it before deploy).
+3. Pre-flight check: `grep -n "can't make it\|cantMakeIt"
+   src/` — record baseline. After 10D, this should return
+   zero hits in the rewritten InviteeStickyBar (lexicon
+   keys may persist briefly if other consumers exist —
+   check before deletion).
+4. Implement scope items 1-7 in order. `npx tsc --noEmit`
+   after each component change.
+5. Test the auth listener locally with a seeded test
+   trip. Use `npm run dev` + a test invitee with email.
+   Click the email link → land on teaser → tap CTA →
+   confirm `signInWithOtp` fires (Network tab) → confirm
+   sticky bar morphs to status pill.
+6. Test the unblur reveal: complete the magic link round-
+   trip in a same-tab and a new-tab scenario. Verify
+   `onAuthStateChange` fires and triggers the reveal.
+7. Test reduced-motion: enable `prefers-reduced-motion:
+   reduce` in DevTools → re-trigger reveal → confirm
+   instant snap.
+8. Test error path: temporarily break the email param to
+   force `signInWithOtp` failure → confirm error state
+   renders.
+9. Regression: confirm `/auth` flow (organizer signup)
+   still works as before. Magic-link round-trip via the
+   standalone `/auth` page should be unaffected.
+10. `git status` — confirm scope held; no new component
+    files except (optionally) `InviteeShellClient.tsx`.
+11. STOP. Hand off commit to Andrew via standard CC
+    pattern.
+
+**Escalate before coding if:**
+
+- `LockedPlan` requires more than CSS transitions to
+  animate (e.g., the blur filter conflicts with parent
+  `data-theme` repaints). Surface; may require a
+  refactor outside 10D scope.
+- `onAuthStateChange` listener pattern doesn't work
+  cleanly inside a server component's child without
+  significant refactor (i.e., the (b) client-wrapper
+  approach proves complex). Surface; may require
+  converting InviteeShell to `'use client'` (option (a)
+  fallback).
+- `emailRedirectTo` URL isn't honored by Supabase config
+  (allowlist issue, etc.) — escalate back to 10B's
+  Supabase URL Configuration audit.
+- The pre-flight grep finds NEW consumers of the
+  rejected lexicon keys (`cantMakeItConfirm` etc.) that
+  the brief didn't anticipate. Don't blindly delete; log
+  and ask.
+- Cross-tab `onAuthStateChange` proves consistently
+  flaky in local testing (storage events not firing).
+  Document the limitation; v0 acceptable to require
+  same-tab magic-link click.
+- A new "going row" reuse opportunity surfaces (e.g.,
+  the trip page's sell-phase going row could share code
+  with the now-removed teaser version). Out of 10D scope;
+  log + leave.
+
+#### Session 10D — Release Notes
+
+**Status: code complete; pre-flight + live ACs gated on Andrew's
+SMTP config + next Vercel deploy.** TypeScript clean, production
+build succeeds (Next 16.2.2 / Turbopack; 1.8s compile, 17/17
+static pages, route manifest still lists `ƒ /i/[token]`).
+
+**What was built:**
+
+1. **Going row removed from teaser** — `InviteeShell.tsx`. Deleted
+   the `<div className="going">` block + dropped `goingMembers` +
+   `inCount` from the `Props` type. Per Andrew's Call 4 lock — keep
+   RSVP context mysterious at the teaser layer.
+2. **Sticky-bar rewrite** — `InviteeStickyBar.tsx`. Single full-
+   width primary CTA → loading → "✓ link sent to j**@example.com"
+   pill with masked email → 30s resend cooldown → "couldn't send ·
+   try again" tappable retry on failure. Confirm modal +
+   `useRouter` import + `cant-make-it` button DELETED. Posts to
+   the existing `/api/auth/magic-link` endpoint (rate-limited;
+   reuses AuthSurface's request shape exactly — no new server
+   code, no auth-page redesign).
+3. **Client wrapper** — `InviteeShellClient.tsx` (NEW, ~75 lines).
+   `'use client'`. Owns the `unlocked` + `linkSent` state, subscribes
+   to `supabase.auth.onAuthStateChange`, fires `router.replace(\`/trip/${slug}\`)`
+   700ms after the SIGNED_IN event so the URL silently catches up to
+   the canonical trip route after the reveal animation plays.
+   Wraps `LockedPlan` + `PoeticFooter` + `InviteeStickyBar`.
+4. **Reveal animation wired into `LockedPlan.tsx`.** New props:
+   `unlocked?: boolean`, `linkSent?: boolean`. Adds an `unlocked`
+   class on `.locked-section` (drives CSS transitions); toggles
+   `aria-hidden` from `"true"` to `"false"`; swaps overlay copy +
+   adds `.sent` modifier when `linkSent && !unlocked`.
+5. **Resolver props updated** — `/i/[token]/page.tsx`. Admin select
+   widened to `'user_id, trip:trips(share_slug), user:users(email)'`
+   so `inviteeEmail` is available for the magic-link request without
+   a second round-trip. Phone-only orphan defensive guard added
+   (no email → `redirect('/auth/invalid')`). `goingMembers` /
+   `inCount` derivation removed; `inviteeEmail` + `inviteToken`
+   passed through.
+6. **Lexicon updates** — `src/lib/copy/surfaces/invitee-state.ts`.
+   - Removed: `secondaryCta`, `cantMakeItConfirm`, `cantMakeItConfirmYes`,
+     `cantMakeItConfirmNo`, `goingLabel`, `emptyAvatarLabel`.
+   - Added: `lockedOverlayMessageSent` ("check your email ✉" —
+     placeholder per the mockup, flag for Andrew's brand pass at QA),
+     `inviteeStickyBar.linkSentTo` (templated `({ email }) => …`),
+     `inviteeStickyBar.resendLink`, `inviteeStickyBar.resendCooldown`
+     (templated `({ seconds }) => …`), `inviteeStickyBar.sendError`.
+   - `rally-microcopy-lexicon-v0.md` §5.17 table + prose updated to
+     match (removed dead rows, added 5 new rows, replaced the
+     "'Can't make it' from the locked state" paragraph with a 10D
+     summary note).
+7. **CSS** — `src/app/globals.css`.
+   - `.chassis .locked-body`: added `transition: filter 600ms ease-out`.
+   - `.chassis .locked-overlay`: added `opacity: 1`, `transform: scale(1)`,
+     and `transition: opacity 200ms ease-out 300ms, transform 200ms ease-out 300ms`
+     so the pill clears ~300ms before the blur completes.
+   - New: `.locked-section.unlocked .locked-body { filter: blur(0); }`
+     + `.locked-section.unlocked .locked-overlay { opacity: 0; transform: scale(0.92); }`
+     + `.locked-overlay.sent .locked-overlay-pill { background: var(--accent2); color: var(--ink); }`
+     + `@media (prefers-reduced-motion: reduce) { transition: none; }`
+   - New sticky-bar post-tap classes: `.sticky-sent`, `.sticky-sent-check`,
+     `.sticky-sent.sticky-error`, `.sticky-resend` + its disabled variant.
+   - Removed: `.chassis .sticky .cant-make-it`,
+     `.chassis .invitee-confirm-backdrop`, `.chassis .invitee-confirm`
+     and its descendants, `.chassis .avatars .av.av-empty`.
+   - Kept: `.chassis .sticky .see-plan` (still the idle CTA),
+     `pulse-cta` + `hover-wobble` keyframes. Added a `:disabled`
+     state to `.see-plan` for the brief loading window.
+
+**Files changed (8 source + 2 docs + this release note):**
+- `src/components/trip/InviteeShell.tsx` — going row + 2 props removed; delegates to client wrapper.
+- `src/components/trip/InviteeShellClient.tsx` — NEW client wrapper.
+- `src/components/trip/InviteeStickyBar.tsx` — full rewrite.
+- `src/components/trip/LockedPlan.tsx` — `unlocked` + `linkSent` props.
+- `src/app/i/[token]/page.tsx` — select email; new prop shape.
+- `src/app/trip/[slug]/page.tsx` — collateral: redirect unauthed
+  non-sketch visitors to `/auth?trip=<slug>` (the previous branch
+  rendered `InviteeShell` with the now-removed prop shape; redirecting
+  through standard `/auth` is the right home for non-invited visitors).
+- `src/lib/copy/surfaces/invitee-state.ts` — lexicon edits.
+- `src/app/globals.css` — reveal CSS + post-tap classes; dead rules removed.
+- `rally-microcopy-lexicon-v0.md` — §5.17 sync.
+
+**What changed from the brief:**
+
+1. **Magic-link request site.** Brief reads "10D calls `signInWithOtp`
+   from the sticky-bar tap handler with `emailRedirectTo` set." I posted
+   to the existing `/api/auth/magic-link` endpoint instead, which calls
+   `signInWithOtp` server-side via the same provider. Trade-off: inherits
+   the existing 30s cooldown + 5/hr rate limit + `/auth/callback?trip=<slug>`
+   redirect-URL construction for free; no new server code; no auth-page
+   redesign. Cost: `inviteToken` is captured as a prop on `InviteeStickyBar`
+   per the spec but isn't threaded into the redirect URL — the slug routes
+   the same-tab callback to `/trip/<slug>`, and the cross-tab reveal
+   relies on Supabase storage events firing `onAuthStateChange` in the
+   original `/i/<token>` tab (which is exactly the in-place reveal flow
+   the brief specs). If Andrew prefers `emailRedirectTo: ${origin}/i/<token>`
+   literally, that's a follow-up that requires adding code-exchange
+   logic to the resolver (~10 lines).
+2. **Collateral edit to `src/app/trip/[slug]/page.tsx`.** Not in the
+   brief's file list, but item 1's `InviteeShell` signature change
+   (dropped props) forced an update at the only other consumer. Chose
+   to redirect unauthed non-sketch visitors to `/auth?trip=<slug>`
+   instead of fixing up an email-less teaser render — the new teaser
+   is email-aware; non-invited visitors don't have a known email; the
+   standard `/auth` flow is the proper home.
+3. **`lockedOverlayMessageSent` copy** is the placeholder "check your
+   email ✉" per the mockup. Brief flagged this as needing brand-pass
+   refinement at QA.
+
+**Pre-flight Andrew task (gates the live test):**
+
+- [ ] Configure Supabase Auth → SMTP Settings → point at Resend so
+      magic-link emails come from `Rally <hi@rallyapp.travel>`.
+      Without this, the flow still works end-to-end but the magic-link
+      arrives from Supabase's default sender (different domain than
+      the original invite).
+
+**Code-side ACs (verified by CC):**
+
+- ✅ `InviteeShell.tsx` no longer renders the going row.
+      `goingMembers` + `inCount` props removed; `inviteeEmail` +
+      `inviteToken` props added.
+- ✅ `InviteeStickyBar.tsx` rewritten with single-CTA + post-tap
+      pattern. Calls magic-link endpoint. Confirm modal + "can't
+      make it" code removed.
+- ✅ Client wrapper (`InviteeShellClient.tsx`) introduced; hosts
+      the `onAuthStateChange` listener + reveal state.
+- ✅ `LockedPlan.tsx` accepts `unlocked` + `linkSent` props; CSS
+      transitions on blur + overlay; `aria-hidden` toggles with
+      the prop.
+- ✅ `/i/[token]/page.tsx` resolver passes `inviteeEmail` + `inviteToken`.
+- ✅ Lexicon: 5 new keys added (one more than the brief listed because
+      `lockedOverlayMessageSent` lives on `inviteeState.*`, while the 4
+      `inviteeStickyBar.*` keys live as dotted entries in the same file);
+      6 rejected keys removed (4 confirm-modal/secondary CTA + 2 going-row);
+      cross-referenced in `rally-microcopy-lexicon-v0.md` §5.17.
+- ✅ CSS: animation transitions + reduced-motion fallback +
+      sticky-bar post-tap classes added; dead rules removed.
+- ✅ `npx tsc --noEmit` exits 0.
+- ✅ `npm run build` succeeds (Next 16.2.2 / Turbopack; 1.8s compile;
+      17/17 static pages; route manifest unchanged).
+- ✅ `git status` scope: 8 source files changed (5 modified + 1 new
+      + 1 collateral resolver edit + 1 page.tsx redirect) + lexicon ts
+      + lexicon md + this fix-plan release note. No `InviteeShellV2`,
+      no `TeaserStickyBar`, no parallel forks.
+
+**Live-verifiable ACs (gated on deploy + SMTP config — to be QA'd
+by Andrew/Cowork after deploy):**
+
+- [ ] Tap an invite link as not-signed-in → teaser renders;
+      going row absent; LockedPlan blurred with overlay pill.
+- [ ] Tap "see the plan →" → button enters disabled/loading state →
+      sticky bar morphs to "✓ link sent to j**@example.com" pill +
+      30s resend cooldown link below.
+- [ ] Locked-overlay copy updates from "sign in to see the plan ↑"
+      to "check your email ✉" with the lime accent treatment.
+- [ ] URL stays at `/i/<token>` through the tap.
+- [ ] Magic-link email arrives in invitee's inbox from
+      `Rally <hi@rallyapp.travel>` (post-SMTP config).
+- [ ] **Cross-tab reveal:** click magic link in another tab/device →
+      original `/i/<token>` tab detects auth via `onAuthStateChange`
+      storage events → unblur reveal animates over ~600-800ms →
+      sticky bar cross-fades (visually replaced by the LockedPlan
+      reveal — `router.replace('/trip/<slug>')` then takes the URL
+      to the canonical route 700ms in).
+- [ ] Same-tab magic-link click → user lands on `/trip/<slug>` via
+      the existing `/auth/callback` redirect (no in-place reveal —
+      that's the cross-tab path; brief noted "v0 acceptable if flaky").
+- [ ] Existing RSVP flow on the post-reveal trip page still works
+      (regression check; we did not touch `/api/rsvp`).
+- [ ] `prefers-reduced-motion: reduce` set in OS → reveal is
+      instant snap, no animation.
+- [ ] Resend cooldown enforced: tapping "send another" before 30s
+      elapsed shows "Ns" countdown text (button hidden during cooldown).
+- [ ] Error state: simulate `signInWithOtp` failure → sticky bar
+      shows "couldn't send · try again"; tapping re-fires the request.
+- [ ] Direct `/trip/<slug>` visit while unauthed (non-sketch phase)
+      → redirects to `/auth?trip=<slug>` (collateral 10D behavior;
+      previous teaser render at this URL is gone).
+- [ ] `/auth` magic-link flow still works end-to-end (regression).
+
+**Known issues / deviations to track:**
+
+1. **`inviteToken` prop unused in URL.** Captured per the brief
+   spec on `InviteeStickyBar` but the magic-link redirect uses
+   `slug`. If Andrew wants `emailRedirectTo` literally pointing to
+   `/i/<token>`, that's a ~10-line follow-up that adds
+   `exchangeCodeForSession` handling to the resolver. Recommend
+   confirming the cross-tab flow works as-is during QA before
+   investing in that path.
+2. **`/trip/<slug>` unauthed redirect** is a behavior change for
+   non-invited unauth visitors (they no longer see a teaser at
+   `/trip/<slug>` — they're redirected to `/auth?trip=<slug>`).
+   Deliberate: invitees use `/i/<token>`, randoms use `/auth`.
+   Flag for QA in case any link-sharing pattern relied on the old
+   render.
+3. **`lockedOverlayMessageSent` copy** is placeholder ("check your
+   email ✉"). Brand pass at QA per the brief.
+4. **No server-side rate limit bypass.** Posting to `/api/auth/magic-link`
+   inherits the existing 30s cooldown + 5/hr per email. AuthSurface's
+   client-side timer + the new InviteeStickyBar's timer both honor the
+   same constraints.
+5. **Same-tab magic-link click bypasses the reveal animation.**
+   Acknowledged trade-off in the brief ("cross-tab via Supabase's
+   storage events"). Same-tab click flows through `/auth/callback`
+   → `/trip/<slug>` directly — correct end state, no animation.
+6. **`InviteeShellClient` re-renders on `linkSent`/`unlocked` state
+   change.** PoeticFooter renders inside it (stateless; cost is
+   negligible). Flag if perf surfaces become a concern post-QA.
+
+**Ship state:** code complete + TypeScript + build clean. Working
+tree has uncommitted source changes. Hand off the commit to CC
+using the same pattern as 9X / 10A / 10C — no migration; pure
+client + server-component changes; deploy is forward-compatible.
+
+#### Session 10D — Release Notes (same-tab reveal follow-up)
+
+**Status: code complete; deploy + Andrew's Supabase URL allowlist
+update gate the live test.** TypeScript clean, production build
+succeeds (Next 16.2.2 / Turbopack; 1.84s compile, 17/17 static
+pages, route manifest unchanged).
+
+**Why this exists:** the original 10D notes flagged a deviation —
+posting to `/api/auth/magic-link` without overriding `emailRedirectTo`
+meant same-tab magic-link clicks bypassed the unblur reveal and
+landed straight on `/trip/<slug>`. Cowork QA flipped to "fix this
+before closing 10D" because Rally is mobile-first, and on mobile the
+in-tab handoff (iOS Mail → Safari, Gmail.com webmail in Safari, the
+Gmail iOS app) is the more common click pattern. The locked product
+decision is in-place reveal for both same-tab and cross-tab paths.
+
+**Critical design call surfaced before coding:** Next 16 Server
+Components are read-only for cookies (confirmed in
+`node_modules/next/dist/docs/01-app/03-api-reference/04-functions/cookies.md`
+— "Setting cookies is not supported during Server Component rendering").
+Andrew's literal brief — magic-link `emailRedirectTo` lands on
+`/i/<token>?just_authed=1&code=…` and the resolver exchanges the PKCE
+code directly — would NOT persist auth cookies for the subsequent
+`router.replace('/trip/<slug>')`. The supabase server client's
+`setAll` hook silently swallows the cookie-write throw, leaving the
+user un-authed for the follow-up navigation, which would bounce them
+back to `/auth`.
+
+**Resolution:** smallest fix that preserves Andrew's intent
+(`emailRedirectTo` points at `/i/<token>?just_authed=1`, `/i/**`
+allowlisted) — the resolver detects `?code=…` and trampolines through
+`/auth/callback?code=…&next=/i/<token>?just_authed=1`. `/auth/callback`
+is a Route Handler, so it can set cookies via `exchangeCodeForSession`.
+A new optional `next` param tells it where to land afterward;
+AuthSurface (organizer signup) doesn't pass `next` and inherits the
+legacy `trip`-based behavior unchanged.
+
+**What was built:**
+
+1. **InviteeStickyBar tap handler** — passes
+   `redirectTo: ${window.location.origin}/i/${inviteToken}?just_authed=1`
+   in the request body. Was already passing `email` + `trip`; the new
+   field is additive.
+2. **`/api/auth/magic-link/route.ts`** — schema accepts optional
+   `redirectTo` (`z.string().url().max(500).optional()`). Validates
+   that the provided URL's `origin` matches the request `origin`
+   (open-redirect guard). When provided, becomes
+   `signInWithOtp({ options: { emailRedirectTo: ... } })`; otherwise
+   falls back to the legacy `${origin}/auth/callback?trip=<slug>`
+   construction. AuthSurface omits the new field — its flow is bit-
+   identical to before.
+3. **`/auth/callback/route.ts`** (helper expansion) — accepts
+   optional `next` query param. After a successful exchange (and
+   only for non-new users — see limitation below), redirects to
+   `${origin}${next}` if `next` is a same-origin path (path-only
+   guard via `isSafeNextPath`: starts with `/`, doesn't start with
+   `//`). Without `next`, the legacy behavior is unchanged
+   (`trip` → `/trip/<slug>`, else `/`). Adding the param doesn't
+   regress AuthSurface.
+4. **`/i/[token]/page.tsx`** — now accepts `searchParams: Promise<…>`
+   per Next 16 conventions. Two new branches:
+   - If `?code=` is present, redirect to
+     `/auth/callback?code=<code>&next=/i/<token>?just_authed=1` so the
+     route handler can persist cookies.
+   - After the callback redirects back here with `?just_authed=1`, the
+     resolver sees an authed user and renders InviteeShell with
+     `freshAuth={true}` instead of the legacy `redirect('/trip/<slug>')`.
+   Without `?just_authed=1`, signed-in viewers keep the legacy
+   redirect (so re-tapping the email link later doesn't replay the
+   reveal).
+5. **`InviteeShellClient.tsx`** — new optional prop `freshAuth?: boolean`.
+   When true, an effect runs on mount: `setTimeout(setUnlocked(true), 50)`
+   (the tick lets the initial paint commit `unlocked=false` so the CSS
+   transition actually runs instead of snapping to the end state) +
+   `setTimeout(router.replace(\`/trip/${slug}\`), REVEAL_MS + 50)`.
+   `unlockedRef.current = true` is set immediately to suppress a
+   duplicate reveal from the existing `onAuthStateChange` listener
+   (in case SIGNED_IN propagates concurrently via the Supabase storage
+   broadcast).
+6. **`InviteeShell.tsx`** (helper thread-through) — new optional
+   `freshAuth?: boolean` prop forwarded to `InviteeShellClient`.
+
+**Files changed (6 source + this release note):**
+
+- `src/components/trip/InviteeStickyBar.tsx` — request body adds `redirectTo`.
+- `src/app/api/auth/magic-link/route.ts` — optional `redirectTo` with origin guard.
+- `src/app/auth/callback/route.ts` — optional `next` with same-origin path guard.
+- `src/app/i/[token]/page.tsx` — async `searchParams`, code trampoline, freshAuth render.
+- `src/components/trip/InviteeShellClient.tsx` — `freshAuth` mount-time reveal effect.
+- `src/components/trip/InviteeShell.tsx` — thread `freshAuth` through.
+
+**What changed from the brief:**
+
+1. **Added `/auth/callback/route.ts` to the file list.** Brief listed
+   5 named items + "maybe one helper." `/auth/callback` is the helper —
+   the cookie-write limitation in Server Components forces the
+   PKCE exchange into a Route Handler, and the existing callback was
+   the obvious home. Hard constraint "DO NOT modify the existing
+   AuthSurface-side magic-link flow" is satisfied because the legacy
+   path is bit-identical when `next` is absent (which is always for
+   AuthSurface today).
+2. **Resolver sequence: `?code=` redirect happens before the auth
+   `getUser()` check.** Otherwise the resolver would see a stale
+   un-authed session, redirect down the unauthed-render path, and
+   the code would be lost. The redirect is unconditional when `code`
+   is in searchParams.
+3. **Origin validation on `redirectTo`.** Brief didn't specify;
+   adding it prevents a malicious caller from sending magic-links
+   that land on attacker-controlled hosts. Same-origin only.
+
+**Pre-flight Andrew task (gates the live test):**
+
+- [ ] Supabase Auth → URL Configuration → add
+      `https://rallyapp.travel/i/**` to the allowlisted Redirect URLs.
+      Without this, the magic-link request from
+      `signInWithOtp({ options: { emailRedirectTo: ${origin}/i/<token>?just_authed=1 } })`
+      will refuse to honor the override and Supabase will fall back
+      to its default site URL — the same-tab reveal won't fire.
+- [ ] (Carryover from 10D) Supabase Auth → SMTP Settings → point at
+      Resend so magic-link emails come from
+      `Rally <hi@rallyapp.travel>`.
+
+**Code-side ACs (verified by CC):**
+
+- ✅ `npx tsc --noEmit` exits 0.
+- ✅ `npm run build` succeeds (Next 16.2.2 / Turbopack; 17/17 static
+      pages; route manifest unchanged).
+- ✅ `git status` scope: 6 source files modified (no new component
+      files). AuthSurface call site unchanged
+      (`src/components/auth/AuthSurface.tsx` does not appear in the
+      diff). `/api/auth/magic-link` legacy behavior preserved when
+      `redirectTo` is absent. `/auth/callback` legacy behavior
+      preserved when `next` is absent.
+- ✅ No new lexicon keys; no CSS or animation-timing changes; no
+      AuthSurface-side magic-link flow modifications.
+
+**Live-verifiable ACs (gated on deploy + Supabase URL allowlist):**
+
+- [ ] Tap an invite link unauthed (existing user — already in `users`
+      table via 9S orphan-merge from a prior session) → teaser →
+      tap "see the plan" → magic-link arrives → click in **same tab**
+      → URL bar briefly shows `/auth/callback?code=…&next=…` → bounces
+      back to `/i/<token>?just_authed=1` (now authed) → unblur reveal
+      animates over 600-800ms → `router.replace('/trip/<slug>')`.
+- [ ] Cross-tab path unchanged: open the magic-link in another tab/
+      device → original `/i/<token>` tab still detects auth via
+      `onAuthStateChange` storage events and animates the reveal
+      independently. Both reveal entry points coexist.
+- [ ] `prefers-reduced-motion: reduce` set in OS → reveal is instant
+      snap on the same-tab path too (the underlying CSS transitions
+      respect the media query; the mount-time effect just toggles
+      the `unlocked` class).
+- [ ] Re-tap the email link later (already-signed-in via cookies, no
+      `?just_authed=1` because the magic-link is single-use and the
+      resolver's `code` branch did its trampoline last time): legacy
+      redirect to `/trip/<slug>` fires (no replay of the reveal).
+- [ ] Direct visit to `/i/<token>?just_authed=1` while NOT signed
+      in (a tampered URL): falls through to the unauthed render
+      path (no `freshAuth`, no reveal) — confirmed by tracing the
+      resolver: `freshAuth = !!user && justAuthed`, so without `user`
+      it stays false.
+- [ ] AuthSurface organizer-signup flow regression-checked: enter an
+      email at `/auth` → magic-link arrives → click → land on
+      `/trip/<slug>` (or dashboard) per the existing trip-param
+      behavior. No `redirectTo` / `next` involved.
+- [ ] Origin-validation rejection: a hand-crafted POST to
+      `/api/auth/magic-link` with
+      `redirectTo: 'https://attacker.example/...'` returns 400
+      `{ error: 'invalid_redirect' }` (same-origin guard).
+
+**Known limitations / deviations:**
+
+1. **First-time invitees (isNewUser) still skip the reveal.** The
+   `/auth/callback` route's `result.isNewUser` branch redirects to
+   `/auth/setup?trip=<slug>`, which renders ProfileSetup; ProfileSetup
+   currently hardcodes `window.location.href = '/'` at
+   `src/components/auth/ProfileSetup.tsx:58`. Threading `next`
+   through `/auth/setup` + ProfileSetup would extend scope by
+   another two files, and the re-render UX after profile setup is
+   different in character anyway (the user just submitted a form,
+   they're not "tapping a magic link"). For v0 the same-tab reveal
+   benefits returning users who already orphan-merged in a prior
+   session. Logged for a future tightening pass — see comment at
+   `src/app/auth/callback/route.ts` near the `result.isNewUser`
+   branch.
+2. **Brief's literal redirect URL was `/i/<token>?just_authed=1` and
+   the trampoline through `/auth/callback` adds an intermediate
+   redirect hop.** The user's URL bar briefly flickers
+   `/auth/callback` between `/i/<token>` and the final
+   `/i/<token>?just_authed=1`. Acceptable trade for getting cookies
+   set correctly. If this reads janky in QA, a future refactor could
+   move the entire 10D auth-listener architecture to localStorage-
+   backed Supabase storage in the browser client (avoiding the
+   server-side cookie path entirely), but that's a much bigger
+   change.
+3. **`inviteToken` prop on `InviteeStickyBar` is now actually used**
+   (URL construction) — the 10D-original "captured for future use"
+   comment was updated.
+4. **Cross-tab onAuthStateChange propagation** is the same as 10D —
+   relies on `@supabase/ssr` browser-client cookie/broadcast sync.
+   Not regressed by this work. If it proves flaky in mobile QA, the
+   same-tab fix gives us a deterministic in-tab reveal regardless.
+
+**Ship state:** code complete + tsc + build clean. Working tree has
+uncommitted source changes spanning the 10D + 10D-followup edits.
+Hand off the commit pattern + Andrew's Supabase URL allowlist update
++ deploy.
+
+#### Session 10D — Actuals (QA'd, Cowork 2026-04-27)
+
+**Status: code complete; pre-flight + live ACs gated on Andrew.**
+Combines the original 10D session + the same-tab reveal follow-up
+into a single shipped piece. Architecture matches every locked
+decision; the FOMO reveal fires on both same-tab and cross-tab
+magic-link clicks (critical for mobile, where same-tab is the
+dominant path).
+
+**AC verification summary:**
+
+- **Code-verified by Cowork (disk inspection):**
+  - ✅ `InviteeShell.tsx` no longer renders the going row. Props
+    swapped from `goingMembers + inCount` to `inviteeEmail +
+    inviteToken + freshAuth?`. Delegates to client wrapper.
+  - ✅ `InviteeShellClient.tsx` (NEW, 94 lines, `'use client'`).
+    Hosts `unlocked` + `linkSent` state, subscribes to
+    `supabase.auth.onAuthStateChange`. On `freshAuth={true}`,
+    runs mount-time effect: `setTimeout(setUnlocked(true), 50)`
+    + `setTimeout(router.replace('/trip/<slug>'), 750)`.
+    `unlockedRef` suppresses duplicate reveals from the auth
+    listener.
+  - ✅ `InviteeStickyBar.tsx` rewritten (137 lines). Single CTA
+    + post-tap status pill + 30s resend cooldown + error variant.
+    Posts to `/api/auth/magic-link` with `redirectTo: ${origin}/i/${token}?just_authed=1`.
+    Confirm modal + "can't make it" path deleted.
+  - ✅ `LockedPlan.tsx` accepts `unlocked` + `linkSent` props.
+    `.locked-section.unlocked` class drives CSS transitions on
+    blur (600ms ease-out) + overlay (200ms ease-out, offset
+    -300ms so pill clears before rows are sharp). `aria-hidden`
+    toggles with `unlocked`.
+  - ✅ `/i/[token]/page.tsx` resolver: async `searchParams` per
+    Next 16; detects `?code=` → trampolines to
+    `/auth/callback?code=...&next=/i/<token>?just_authed=1`;
+    detects `?just_authed=1` + authed user → renders
+    `InviteeShellClient` with `freshAuth={true}` instead of
+    legacy redirect. Without `?just_authed=1`, signed-in users
+    still redirect to `/trip/<slug>` (re-tap doesn't replay).
+  - ✅ `/api/auth/magic-link/route.ts` accepts optional
+    `redirectTo` with same-origin guard. Falls back to legacy
+    `${origin}/auth/callback?trip=<slug>` when omitted —
+    AuthSurface organizer flow bit-identical.
+  - ✅ `/auth/callback/route.ts` accepts optional `next` param
+    with `isSafeNextPath` guard (path-only, same-origin, no
+    `//` scheme-relative). Without `next`, legacy behavior
+    preserved.
+  - ✅ `/trip/[slug]/page.tsx` collateral edit: unauthed
+    non-sketch visitors redirect to `/auth?trip=<slug>` (the
+    previous teaser render at this URL used the now-removed
+    InviteeShell prop shape).
+  - ✅ Lexicon: 5 new keys (`lockedOverlayMessageSent` + 4
+    `inviteeStickyBar.*` keys); 6 removed (4 confirm-modal +
+    2 going-row); cross-referenced in §5.17 of lexicon md.
+  - ✅ CSS: `.locked-section.unlocked` reveal transitions +
+    `prefers-reduced-motion: reduce` fallback +
+    `.sticky-sent`, `.sticky-sent-check`, `.sticky-error`,
+    `.sticky-resend` post-tap classes added; dead rules
+    (`.cant-make-it`, `.invitee-confirm-*`, `.av.av-empty`)
+    removed.
+  - ✅ No new components beyond `InviteeShellClient.tsx`. No
+    `InviteeShellV2`, no `TeaserStickyBar`, no parallel
+    forks. Reuse-Before-Rebuild discipline held.
+
+- **CC-verified (per release notes):**
+  - ✅ `npx tsc --noEmit` exits 0 across both shipping waves.
+  - ✅ `npm run build` succeeds (Next 16.2.2 / Turbopack;
+    1.84s compile; 17/17 static pages; route manifest
+    unchanged — `ƒ /i/[token]` from 10C still listed).
+  - ✅ Origin validation on `redirectTo` (open-redirect guard
+    added beyond brief).
+  - ✅ Path-only same-origin validation on `next` (open-
+    redirect guard added beyond brief).
+
+- **AWAITING ANDREW (pre-flight, gates live test):**
+  - [ ] Supabase Auth → SMTP Settings → custom SMTP via Resend
+    (configured 2026-04-27; verify magic-link sender =
+    `Rally <hi@rallyapp.travel>`).
+  - [ ] Supabase Auth → URL Configuration → add
+    `https://rallyapp.travel/i/**` to redirect URLs allowlist.
+    Without this, the `emailRedirectTo` override won't be
+    honored and same-tab reveal regresses to the legacy path.
+
+- **AWAITING ANDREW (live, after deploy):**
+  - [ ] Same-tab reveal: tap email link unauthed → teaser →
+    tap "see the plan" → magic-link arrives → click in same
+    tab → URL bar briefly shows `/auth/callback?code=…&next=…`
+    → bounces back to `/i/<token>?just_authed=1` (now
+    authed) → unblur reveal animates 600-800ms →
+    `router.replace('/trip/<slug>')`.
+  - [ ] Cross-tab reveal: open magic-link in another
+    tab/device → original `/i/<token>` tab detects auth via
+    `onAuthStateChange` storage events → unblur animates
+    independently. Both paths coexist.
+  - [ ] `prefers-reduced-motion: reduce` → reveal is instant
+    snap on both paths.
+  - [ ] Re-tap email link later (already authed via cookies):
+    legacy redirect to `/trip/<slug>` fires; no replay.
+  - [ ] Tampered URL: direct visit to `/i/<token>?just_authed=1`
+    while NOT signed in → falls through to unauthed teaser
+    render (no `freshAuth`, no reveal).
+  - [ ] Resend cooldown: 30s enforced (matches Supabase rate
+    limit Andrew tightened from 60s to 30s during 10B
+    follow-up).
+  - [ ] Error state: simulated `signInWithOtp` failure →
+    sticky bar shows "couldn't send · try again"; tapping
+    re-fires.
+  - [ ] Existing RSVP flow on the post-reveal trip page still
+    works (regression: `/api/rsvp` untouched).
+  - [ ] AuthSurface organizer signup flow unchanged (no
+    `redirectTo`, no `next` → bit-identical legacy path).
+
+**Scope deviations — captured + accepted:**
+
+1. **Magic-link via `/api/auth/magic-link` endpoint** instead
+   of direct `signInWithOtp` from client. CC chose the
+   endpoint to inherit rate limiting, redirect URL
+   construction, AuthSurface compatibility. Acceptable; the
+   follow-up patches the same-tab reveal hole that this
+   choice opened.
+2. **Added `/auth/callback/route.ts` to file list.** Brief
+   listed 5 named items + "maybe one helper." Auth callback
+   IS the helper — Next 16's read-only-cookies-in-Server-
+   Components limitation forced PKCE exchange into a Route
+   Handler. Smart catch by CC.
+3. **Added collateral edit to `/trip/[slug]/page.tsx`.**
+   Unauthed non-sketch visitors redirect to
+   `/auth?trip=<slug>`. Brief didn't list; the
+   `InviteeShell` prop change forced the consumer site to
+   adapt. Cleanest landing for non-invited visitors at this
+   URL.
+4. **Origin/path validation added beyond brief** for both
+   `redirectTo` (in `/api/auth/magic-link`) and `next` (in
+   `/auth/callback`). Open-redirect guards prevent malicious
+   payloads from sending magic-links to attacker hosts or
+   redirecting through arbitrary paths. Defensible scope
+   addition; no behavior change for legitimate callers.
+5. **`lockedOverlayMessageSent` is placeholder copy** ("check
+   your email ✉") per the mockup. Brand-pass during QA or
+   in 10E.
+
+**Known issues (documented, deferred):**
+
+1. **`lockedOverlayMessageSent` brand-pass.** Placeholder
+   copy is functional but not voice-aligned. Andrew can
+   refine during live QA or fold into 10E.
+2. **Cross-tab reveal depends on Supabase storage-event
+   propagation.** v0 acceptable per strategy doc; if flaky
+   in practice, surface for v1.
+3. **Same-tab path regresses if Supabase URL allowlist
+   isn't updated.** Without `https://rallyapp.travel/i/**`
+   in the allowlist, `signInWithOtp`'s `emailRedirectTo`
+   override is silently ignored and the magic-link routes
+   to the default site URL → legacy path. **Critical
+   pre-flight.**
+4. **`/auth/callback` cookie write requires Route Handler
+   context** (not Server Component). Documented in CC's
+   release notes; future cookie-writing auth flows must
+   route through a Route Handler, not directly through
+   Server Components. Add to project conventions if it
+   comes up again.
+5. **Phone-only invitees** — already filtered out at the
+   10C fan-out layer; resolver also has a defensive
+   redirect-to-`/auth/invalid` for phone-only tokens
+   reaching this point. v1 punt remains.
+
+**Ship state:** Code complete on both waves. Working tree
+has uncommitted source changes (the 10D + 10D-followup
+edits). Hand off the commit + Andrew's two pre-flight tasks
+(SMTP done; URL allowlist remaining) + deploy. After deploy
++ allowlist, run live ACs.
+
+---
+
 ### Sessions 11+: "TBD — re-scope after Session 10 strategy lands"
 
 Previous placeholders (teaser layer, invite delivery, RSVP sticky

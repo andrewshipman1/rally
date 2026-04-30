@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { getGuestUserId, refreshGuestCookie } from '@/lib/guest-auth';
@@ -20,7 +20,6 @@ import { LodgingCard } from '@/components/trip/builder/LodgingCard';
 import { StickyRsvpBarChassis } from '@/components/trip/StickyRsvpBarChassis';
 import { PoeticFooter } from '@/components/trip/PoeticFooter';
 import { SketchTripShell } from '@/components/trip/builder/SketchTripShell';
-import { InviteeShell } from '@/components/trip/InviteeShell';
 // Session 5: inline sections + module slots
 import { ModuleSlot } from '@/components/trip/ModuleSlot';
 import { CrewSection } from '@/components/trip/CrewSection';
@@ -167,26 +166,13 @@ export default async function TripPage({ params, searchParams }: Props) {
   // subtree. The rest of this function's logic (going counts,
   // cards, sticky RSVP) applies only to sell/lock/go.
   // ─── Invitee pre-login short-circuit ──────────────────────────────────
-  // Phase 5: an unauthenticated viewer (no Supabase session AND no guest
-  // cookie) on a non-sketch trip sees the locked/blurred invitee shell
-  // instead of the full plan. Login gate, not RSVP gate — the header,
-  // countdown, and going row stay visible; only the plan is blurred
-  // behind a "sign in to see the plan ↑" overlay. Sketch trips are
-  // handled by the block below (the organizer is always authenticated
-  // in sketch phase, so this check never fires for them).
+  // Phase 5 + 10D: invitees with a token reach the teaser through
+  // /i/<token>, where their email is known and the in-place magic-
+  // link flow attaches. A non-invited unauth visitor hitting
+  // /trip/<slug> directly has no email context — route them through
+  // the standard /auth flow instead of rendering an email-less teaser.
   if (currentUserId === null && trip.phase !== 'sketch') {
-    return (
-      <div className="chassis" data-theme={themeId}>
-        <InviteeShell
-          themeId={themeId}
-          slug={slug}
-          trip={trip}
-          goingMembers={goingMembers}
-          inCount={inCount}
-          cost={cost}
-        />
-      </div>
-    );
+    redirect(`/auth?trip=${encodeURIComponent(slug)}`);
   }
 
   if (trip.phase === 'sketch' || isEditMode) {
