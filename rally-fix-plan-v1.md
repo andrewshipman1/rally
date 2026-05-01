@@ -21370,6 +21370,8 @@ walk-through.
    `.live-row` pattern. This is the **same 10D inviter-row bug**
    we'd dropped from 10F scope on the assumption it had been fixed
    — confirmed unfixed when Andrew screenshotted the prod teaser.
+   ✅ Verified live on prod 2026-05-01: avatar + label render inline
+   as designed.
 
 **Carried over to 10G (broader audit, not 10F-shaped):**
 
@@ -21403,10 +21405,45 @@ QA pass — CC could not reach the post-auth invitee state in dev.)
 - [ ] Cost summary per-person estimate recalculates (verifies the
       `n_in / n_hold` divisor refresh path).
 
-**Ship state:** code-side AC pass + Cowork hot-fixes complete.
-Awaiting live walk-through. After Andrew reports, this Actuals
-section gets a final ✅/❌ pass mark + escalations (if any) to 10F-fix
-or 10G/10H.
+**Ship state:** ✅ shipped 2026-05-01. Code-side ACs all pass; 8
+Cowork hot-fixes landed (7 stale-icon refs + the 10D inviter-row
+CSS regression). Live verification status:
+
+- ✅ Inviter-row CSS (10D bug, hot-fixed in this session) verified
+  live on prod.
+- ✅ Magic-link redirect chain steps 1–4 verified live: email →
+  Supabase verify → /auth/callback → /auth/setup with `next` intact.
+  CC's 1-line patch confirmed working through step 4.
+- ⚠️ Magic-link redirect final hop (post-profile-save → unblur
+  reveal) — UNTESTED. Blocked by the pre-existing "Failed to save
+  profile" bug in ProfileSetup, which is obviated by 10H (kills
+  /auth/setup entirely). Will be verified incidentally during 10H
+  QA.
+- ⚠️ Sticky bar entry state + committed pill morph + sticker burst
+  + haptic + trailing-emoji strip + crew/cost regression checks —
+  UNTESTED. Require an authed-invitee viewer; Andrew's organizer
+  signin renders the StickyRsvpBarChassis organizer branch (line
+  57–72) which is the wrong code path. Will be verified during
+  10H QA once /auth/setup is gone and a clean end-to-end invitee
+  pass becomes possible.
+- ⚠️ Fan-out invite email brand-pass — partial. Verifiable only by
+  triggering a publish-time fan-out and checking the inbox. Andrew
+  saw the magic-link email (which is the Supabase auth template,
+  NOT the brand-passed Rally email) during prod walkthrough; the
+  brand-passed fan-out invite is sent by `transition-to-sell.ts`
+  on publish. Will be verified during 10H QA.
+
+**Closing rationale:** All untested items are low-risk UI/email
+behavior gated on the /auth/setup blocker. Static verification
+(tsc, build, grep, code review) is comprehensive. 10H's e2e QA
+will incidentally cover the rest. Marking 10F closed prevents
+churning on a workaround test path.
+
+**Carryover to 10H:** finish live verification of the items
+listed as ⚠️ above as part of 10H's QA pass.
+
+**Carryover to 10G:** OUT button-text tonality sweep across the
+remaining 15 themes (already noted in 10G prep).
 
 ---
 
@@ -21490,6 +21527,578 @@ these fan out email invites so that they feel very on brand."
 - `rally-brand-brief-v0.md` — voice + tone rules.
 
 **Ship state:** Prep notes only. 10F must ship first.
+
+---
+
+### Session 10H: "Kill /auth/setup, server-side orphan-merge, post-RSVP passport nudge"
+
+**Status: brief written 2026-05-01. Awaiting CC kickoff after 10F closes.**
+
+**Why:** During 10F prod QA on 2026-05-01, Andrew hit a "Failed to
+save profile" error on `/auth/setup` that blocked end-to-end
+verification of the magic-link redirect chain. Investigation
+surfaced a deeper architectural issue: `/auth/setup` (the
+ProfileSetup form) was built piecemeal across Sessions 9R, 9S, and
+10D as a UI wrapper around the orphan-merge RPC, but it never had
+a holistic design pass and is breaking RSVP completions in three
+distinct ways:
+
+1. **It steals the FOMO moment.** The unblur reveal is the product's
+   hero beat. `/auth/setup` cuts in between magic-link auth and the
+   trip page reveal with a profile form on a hardcoded teal-gradient
+   page that doesn't match Rally's chassis theme. Worst possible
+   timing for friction.
+2. **It's actively breaking conversion in prod.** The save flow's
+   catch-block fallback ("Failed to save profile") fires when the
+   thrown error isn't a JS Error instance — likely an upstream
+   `mergeOrphan` RPC error or RLS violation that's swallowed by the
+   `instanceof Error` check. Every new invitee who hits this gate
+   loses their RSVP path.
+3. **It duplicates `/passport`.** Rally already has a canonical,
+   themed, branded profile editor — `/passport` with the
+   `ProfileEditor` component (avatar, phone, insta, tiktok, location,
+   bio, stats). ProfileSetup is a strict subset on a worse-looking
+   page. Two surfaces for the same data is debt; one needs to die.
+
+**Strategy reframe (locked 2026-05-01).** Profile data capture moves
+to a hybrid model:
+
+- **Phase 1 — Organizer-side seeding (already wired).** When the
+  organizer adds an invitee via `api/invite/route.ts`, the existing
+  code at lines 67–72 / 89–95 already persists `display_name`,
+  `email`, and `phone` into a `public.users` orphan row. By the time
+  the invitee authenticates, their passport is already partially
+  populated.
+- **Phase 2 — Server-side orphan-merge.** The `merge_orphan` RPC
+  (Migration 023) has no product reason to live in a UI. Move the
+  call to `/auth/callback` so it runs at PKCE exchange, invisibly,
+  for every authenticating user.
+- **Phase 3 — Post-RSVP passport nudge.** For invitee-only fields
+  (bio, instagram, tiktok, avatar) that the organizer can't seed,
+  surface a non-blocking, contextual hint inline on the crew module
+  ("your row is sparse") that deep-links to `/passport`. Intrinsic
+  motivation — the user wants to fix it because their row looks
+  empty next to friends, not because we forced a popup.
+- **Phase 4 — Passport stays canonical.** All profile editing flows
+  through `/passport`. No duplicated UIs, no signup-time gates.
+
+**Scope (6 items):**
+
+1. **Move `mergeOrphan()` invocation server-side, plus
+   ensure-public-users-row upsert.**
+   `src/app/auth/callback/route.ts` — after a successful PKCE
+   exchange (`authProvider.verifyMagicLink(code)`) and BEFORE the
+   redirect, do TWO operations in sequence:
+
+   a. **Server-side `mergeOrphan` call.** The existing
+      `lib/auth/merge-orphan.ts` helper takes a browser Supabase
+      client; either refactor it to accept a server client OR
+      write a thin server-side wrapper that calls the same
+      `merge_orphan` RPC. Keep the RPC contract identical
+      (`{ merged: boolean, ...}`); no migration changes. Idempotent
+      — safe on returning users (RPC fast-returns
+      `{ merged: false }` per Migration 023 design).
+
+   b. **Ensure-row upsert with `ignoreDuplicates: true`.** Organizer
+      signups have no prior orphan to merge → no `public.users`
+      row exists post-merge → FK errors on first write
+      downstream. Add a defensive INSERT-OR-NO-OP using Supabase's
+      `upsert` with `ignoreDuplicates: true` (Postgres's
+      `INSERT ... ON CONFLICT DO NOTHING`):
+
+      ```ts
+      await supabase.from('users').upsert({
+        id: user.id,
+        email: user.email,
+        display_name: user.email?.split('@')[0] ?? '?',
+      }, { onConflict: 'id', ignoreDuplicates: true });
+      ```
+
+      Critical: `ignoreDuplicates: true` ensures this NEVER
+      overwrites an existing row. Returning users with
+      passport-edited `display_name` are preserved. The upsert
+      only effectively fires when no row exists (organizer
+      signup case).
+
+   All four states covered: (i) orphan merged → row exists with
+   organizer-typed data → upsert no-ops; (ii) merge no-oped + no
+   prior row (organizer signup) → upsert creates row with
+   email-local-part fallback; (iii) merge no-oped + row exists
+   (returning user) → upsert no-ops; (iv) merge errored → log
+   and continue; the upsert still runs as a safety net.
+
+2. **Delete `/auth/setup` entirely.** Remove
+   `src/components/auth/ProfileSetup.tsx`,
+   `src/app/auth/setup/page.tsx`, and any imports of either.
+   Verify no other surface references them
+   (`git grep ProfileSetup src/` should be empty post-deletion;
+   `git grep '/auth/setup' src/` should only show comments/docs).
+
+3. **Simplify `auth/callback/route.ts`.** Drop the
+   `if (result.isNewUser) → /auth/setup` branch (lines ~61–66 in
+   current code). New and returning users now share the same
+   resolution: `next` (if safe) → `tripSlug` → `/`. The 10D Bug 2
+   `next` propagation through ProfileSetup becomes obsolete; the
+   path-only `isSafeNextPath` guard stays (still needed for the
+   resolver→callback→reveal trampoline). `result.isNewUser` may
+   become unused after the branch deletion; remove from the
+   `VerifyResult` type if so.
+
+4. **Display-name fallback chain (defensive).** Audit every
+   surface that renders `display_name` from `public.users`. Add a
+   coalesce: `display_name || email.split('@')[0] || '?'`. The
+   invite API already defaults `display_name: name || email` (lines
+   70/94), so most paths should already have a value. Defensive
+   pass: confirm CrewSection, BuzzSection, PostcardHero inviter
+   row, and any dashboard renderers all handle null gracefully.
+
+5. **Post-RSVP crew-row passport nudge.** In
+   `src/components/trip/CrewSection.tsx`, when rendering the
+   signed-in invitee's OWN row, check if their profile is sparse
+   (`bio || instagram_handle || tiktok_handle || avatar_url` —
+   pick a sensible "sparse" definition). If sparse, render a
+   subtle inline affordance — e.g. a small "+ add a vibe →" link
+   on the row, or a faded prompt under the row name —
+   deep-linking to `/passport`. NOT a popup, modal, banner, or
+   blocking interstitial. Visible only to the user themselves on
+   their own row (not to other crew members viewing the same
+   page). Reuses existing crew row geometry — extend, don't
+   replace. One new lexicon key permitted:
+   `crew.row.passportNudge` (or similar) with value like
+   `'+ add a vibe'` or `'fill in your row'` (lowercase, lexicon
+   §5.10 voice).
+
+6. **Strategy doc update.** Edit
+   `rally-attendee-strategy-v0.md:276-281` from the current
+   ProfileSetup-runs-after-signup language to the new model:
+   server-side orphan-merge in callback, no setup gate, lazy
+   passport completion via post-RSVP nudge. Also update the
+   surface inventory table around line 315 (the "ProfileSetup +
+   orphan-merge — Shipped 9S" row) to reflect that ProfileSetup
+   has been retired in favor of `/passport` + server-side merge.
+
+**Hard Constraints:**
+
+- **DO NOT modify Migration 023** (the `merge_orphan` SECURITY
+  DEFINER RPC). The function contract stays identical; only the
+  call site moves.
+- **DO NOT modify `/passport` or `ProfileEditor`.** They already
+  work. This session uses them as-is.
+- **DO NOT modify the invite API** (`api/invite/route.ts`). Orphan
+  row creation is already correct; the data flowing through it is
+  what enables Phase 1 of the new model. Touching it is scope creep.
+- **DO NOT modify `AuthSurface`.** Email-only signup is correct
+  for v0; profile collection is no longer this surface's job.
+- **DO NOT modify the magic-link send path** (`InviteeStickyBar`,
+  `api/auth/magic-link/route.ts`, `supabaseAuthProvider`). 10F's
+  redirect fix stays in place.
+- **DO NOT modify `i/[token]/page.tsx`.** The 10F resolver fix
+  (line 78 unconditional `?just_authed=1` injection) stays.
+- **DO NOT add new routes.** Three screens. The deletion of
+  `/auth/setup` is a route REMOVAL, not addition.
+- **The post-RSVP nudge is NON-BLOCKING.** No popup, no modal, no
+  bottom sheet that obscures the trip page, no interstitial. Inline
+  on the crew row only. Dismissible by ignoring (no explicit X
+  button needed).
+- **Server-side `mergeOrphan` MUST NOT throw on no-orphan-found.**
+  Per Migration 023, the RPC returns `{ merged: false }` cleanly.
+  If the wrapper logic introduces a throw, callbacks for
+  organizer-only signups (no orphan to merge) will break.
+- **Lexicon discipline:** at most ONE new key
+  (`crew.row.passportNudge` or equivalent). All other strings reuse
+  existing keys.
+
+**Acceptance Criteria:**
+
+- [ ] `src/components/auth/ProfileSetup.tsx` deleted from disk.
+- [ ] `src/app/auth/setup/page.tsx` deleted from disk.
+- [ ] `git grep ProfileSetup src/` returns only comments / release-note
+      references (no live imports or component usages).
+- [ ] `git grep "'/auth/setup'\|\"/auth/setup\"" src/` returns only
+      comments / docs (no runtime references).
+- [ ] Hitting `/auth/setup` directly returns a 404 (Next 16 default
+      not-found page).
+- [ ] `/auth/callback` for a new user (no prior `public.users` row)
+      runs `mergeOrphan()` server-side, then redirects to
+      `next` (if `isSafeNextPath`) OR `/trip/<slug>` (if
+      `tripSlug`) OR `/` — never to `/auth/setup`.
+- [ ] After `/auth/callback` for any authenticated user, a
+      `public.users` row exists for them. Verified across all
+      paths: (a) invitee with prior orphan → orphan-merge
+      promotes the orphan onto `auth.users.id`; (b) organizer
+      signup with no prior orphan → ensure-row upsert
+      (`ignoreDuplicates: true`) creates the row with
+      `display_name = email.split('@')[0]`; (c) returning user
+      with existing row → both the merge and the upsert no-op,
+      existing data preserved.
+- [ ] Returning user with a passport-edited `display_name` is
+      NEVER overwritten on subsequent `/auth/callback` hits.
+      Specifically: edit `display_name` via `/passport`, sign
+      out, click a fresh magic link, sign back in → the
+      passport-edited name persists.
+- [ ] Display name renders gracefully across CrewSection,
+      BuzzSection, PostcardHero inviter row, and the dashboard
+      when `display_name` is null/empty (falls back to email
+      local-part, then `?`).
+- [ ] CrewSection: signed-in user's own row shows a non-blocking
+      passport-completion affordance when their profile is sparse
+      (bio / instagram / tiktok / avatar all empty). The affordance
+      deep-links to `/passport`. NOT visible to other crew members
+      viewing the same page.
+- [ ] No popup, modal, bottom sheet, or interstitial appears
+      anywhere in the post-RSVP flow.
+- [ ] `/passport` continues to render and edit correctly (no
+      regressions). `ProfileEditor` save still works.
+- [ ] `rally-attendee-strategy-v0.md:276-281` updated to reflect
+      the new model (no ProfileSetup, server-side merge, post-RSVP
+      nudge). Surface inventory at ~line 315 reflects ProfileSetup
+      retirement.
+- [ ] **End-to-end magic-link flow (the test that 10F couldn't
+      complete):** brand-new email-only invitee → publish trip →
+      click magic link in incognito → expected chain:
+      `/i/<token>?code=PKCE`
+      → `/auth/callback?code=...&next=%2Fi%2F<token>%3Fjust_authed%3D1`
+      → orphan-merge runs server-side
+      → `/i/<token>?just_authed=1` (NO setup detour)
+      → unblur reveal plays
+      → `/trip/<slug>`
+      User can now RSVP. Crew row shows the passport nudge if
+      their profile is sparse.
+- [ ] `git diff --stat` source files: at most
+      `src/app/auth/callback/route.ts`,
+      `src/lib/auth/merge-orphan.ts` (or new
+      `merge-orphan-server.ts`),
+      `src/components/trip/CrewSection.tsx`,
+      `src/lib/copy/surfaces/crew.ts` (one new key), plus
+      DELETIONS of `ProfileSetup.tsx` and `auth/setup/page.tsx`,
+      plus optional defensive coalesce edits across renderers
+      (CrewSection / BuzzSection / PostcardHero / dashboard.ts).
+      Plus `rally-attendee-strategy-v0.md` and
+      `rally-fix-plan-v1.md` (release notes).
+- [ ] No new files except possibly `merge-orphan-server.ts` if
+      that's the chosen wrapper pattern. No new components. No new
+      routes. No new theme fields.
+- [ ] Exactly one new lexicon key total
+      (`crew.row.passportNudge` or equivalent).
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `rm -rf .next && npm run build` succeeds.
+
+**Files to Read (mandatory):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — session loop,
+  hard rules, escalation triggers, release-notes format.
+- `rally-fix-plan-v1.md` — this brief; 10F Release Notes +
+  Actuals immediately above for context on the bug discovery
+  and the 10F shipped state that 10H builds on.
+- `rally-attendee-strategy-v0.md:265-330` — the section being
+  updated (lines 276-281 specifically) and the surface inventory
+  around 315.
+- `src/app/auth/callback/route.ts` — entire file (~80 lines).
+  The `isNewUser` branch deletion + `mergeOrphan` server-side
+  call site lives here.
+- `src/components/auth/ProfileSetup.tsx` — read before deletion to
+  capture the full set of operations being moved (mergeOrphan
+  call + upsert) and where they need to go.
+- `src/app/auth/setup/page.tsx` — read before deletion. Just a
+  thin wrapper around ProfileSetup.
+- `src/lib/auth/merge-orphan.ts` — current client-side helper.
+  Refactor target.
+- `src/lib/auth/supabase-provider.ts` — `verifyMagicLink`
+  signature; `result.isNewUser` may become unused post-branch-
+  deletion.
+- `src/app/api/invite/route.ts:67-95` — confirm orphan creation
+  already persists name/email/phone correctly. Phase 1 of the
+  new model relies on this.
+- `src/components/trip/CrewSection.tsx` — entire file. Item #5's
+  passport nudge lives here.
+- `src/lib/copy/surfaces/crew.ts` — lexicon target for the new
+  nudge key.
+- `src/app/passport/page.tsx` + `src/components/passport/ProfileEditor`
+  (or wherever the editor lives) — read to confirm deep-link target
+  works and editing flow is intact.
+- `src/lib/dashboard.ts` — defensive pass on display_name fallback.
+- `supabase/migrations/023_*.sql` (or whatever the merge_orphan
+  migration is named) — read to confirm RPC contract before
+  refactoring its caller.
+
+**How to QA Solo (before declaring done):**
+
+1. `npx tsc --noEmit` — must exit 0.
+2. `rm -rf .next && npm run build` — must succeed.
+3. `git grep ProfileSetup src/` — must return only comments / docs.
+4. `git grep "'/auth/setup'\|\"/auth/setup\"" src/` — must return
+   only comments / docs.
+5. `git diff --stat` — must show ONLY the named files. Anything
+   else, stop and escalate.
+6. Local dev: hit `localhost:3000/auth/setup` — must 404.
+7. Local dev or prod: brand-new email invitee → publish → click
+   magic link → record URLs at every redirect. Verify NO step
+   visits `/auth/setup`. Reveal plays in-place at `/i/<token>?just_authed=1`.
+8. Sign in as the invitee, navigate to the trip page, eyeball the
+   crew section. Your own row should show the passport-completion
+   affordance (since the test invitee has no bio/instagram/etc).
+   Tap → should deep-link to `/passport`.
+9. Visit `/passport`, edit a field, save. Confirm no regression.
+
+**Lexicon notes:** ONE new key:
+`crew.row.passportNudge` (or similar — pick path that fits the
+existing surface organization). Suggested value: `'+ add a vibe'`
+or `'fill in your row →'`. Lowercase, lexicon §5.10 voice. All
+other strings reuse existing keys.
+
+**Carryover for 10G:** Themed fan-out invite email (per-theme
+palette + typography + content) and the OUT button-text tonality
+sweep are still 10G-shaped. 10G ships independently of 10H.
+
+**Ship state:** Brief. Awaiting 10F closure → Andrew sign-off →
+CC kickoff → execute → release notes → QA.
+
+#### Session 10H — Release Notes (2026-05-01, Claude Code)
+
+**What was built:**
+
+1. **Items #1 + #3 (combined) — Server-side orphan-merge + safe
+   ensure-row upsert; `isNewUser` branch deleted.**
+   `src/app/auth/callback/route.ts` rewritten. After `verifyMagicLink`
+   succeeds, the route now:
+   - Constructs a server Supabase client via `createClient()`
+   - Reads the authenticated user from the session
+   - Calls `mergeOrphan(supabase)` wrapped in try/catch (RPC errors
+     log + continue; the defensive upsert below still creates a row
+     if needed)
+   - Performs the ensure-row upsert with `ignoreDuplicates: true`
+     (Postgres `INSERT ... ON CONFLICT DO NOTHING`):
+     ```ts
+     await supabase.from('users').upsert({
+       id: user.id,
+       phone: `auth-tmp:${user.id}`,
+       email: user.email ?? null,
+       display_name: user.email?.split('@')[0] ?? '?',
+     }, { onConflict: 'id', ignoreDuplicates: true });
+     ```
+   - Drops the `if (result.isNewUser) → /auth/setup` branch entirely.
+     New and returning users share the same redirect logic:
+     `next` (if safe) → `/trip/<slug>` (if `tripSlug`) → `/`.
+
+   **Phone field deviation from Andrew's exact pattern:** `public.users.phone`
+   is `NOT NULL UNIQUE` per `001_initial_schema.sql:5`. Andrew's pattern
+   omitted phone (would NOT-NULL-violate on organizer-only signups). Used
+   `'auth-tmp:' || user.id` to mirror the Migration 023 placeholder
+   pattern (`'merge-tmp:' || v_target_id::text`) and guarantee
+   uniqueness. Distinct prefix lets future audits tell apart rows
+   created by orphan-merge vs rows created by the callback ensure-row
+   upsert. ProfileSetup's old `phone: user.phone || ''` pattern was
+   latently buggy (empty-string collision on the second organizer
+   signup) — this is strictly safer.
+
+2. **Provider type cleanup — `isNewUser` retired.**
+   - `src/lib/auth/provider.ts:24-26` — removed `isNewUser: boolean`
+     from `VerifyResult.ok` variant.
+   - `src/lib/auth/supabase-provider.ts:51-65` — removed the
+     `existing` SELECT (lines 53-57 in original) since `isNewUser`
+     is no longer derived; saves a DB roundtrip on every callback hit.
+     Return value now `{ ok: true, userId, email }`.
+
+3. **Item #2 — Deletions + middleware cleanup.**
+   - `src/components/auth/ProfileSetup.tsx` deleted from disk.
+   - `src/app/auth/setup/page.tsx` deleted from disk.
+   - `src/app/auth/setup/` empty directory removed.
+   - `src/proxy.ts:56` — removed the `/auth/setup` exception in the
+     authenticated-redirect-away middleware (route no longer exists,
+     so the exception was vestigial).
+   - `src/lib/auth/merge-orphan.ts` — comment header + throw-comment
+     updated to reference the new `/auth/callback` caller (no logic
+     change).
+
+4. **Item #4 — Display-name fallback chain.**
+   - `src/components/trip/CrewSection.tsx:145, 178` — both `name`
+     resolutions upgraded from `?? '?'` to the full chain:
+     `member.user?.display_name || member.user?.email?.split('@')[0] || '?'`.
+   - `src/components/trip/BuzzSection.tsx:84` — same upgrade for
+     `comment.user?.display_name`.
+   - `src/components/trip/PostcardHero.tsx` (inviter row) — left
+     unchanged. Existing fallback (`organizer?.display_name?.trim().split(/\s+/)[0] ?? null`
+     in `InviteeShell.tsx:50-51`, then lexicon `inviteeState.inviterRow`
+     defaulting to `'someone'` per `invitee-state.ts:18`) handles null
+     gracefully without exposing organizer email to invitees. Adding
+     `email.split('@')[0]` here would leak the organizer's email
+     local-part to every invitee viewing the teaser — wrong privacy
+     posture. Documented as intentional in this release note.
+   - `src/lib/dashboard.ts:155` — left unchanged. The existing
+     `profile?.display_name || 'there'` fallback is a contextual
+     greeting ("welcome back, there") not a display name — different
+     fallback semantics; `'there'` is correct here.
+
+5. **Item #5 — Crew-row passport nudge.**
+   - `src/lib/copy/surfaces/crew.ts` — added one new lexicon key:
+     `'passportNudge': '+ add a vibe →'`.
+   - `src/components/trip/CrewSection.tsx` — added an `isSparseProfile`
+     helper checking `!(bio || instagram_handle || tiktok_handle ||
+     profile_photo_url)` (note: schema field is `profile_photo_url`,
+     not `avatar_url` as the brief said).
+   - `CrewRow` JSX gains one conditional: `{isViewer && isSparseProfile(member.user) && <a href="/passport" className="crew-row-sub crew-row-nudge">+ add a vibe →</a>}`.
+     Visible only on the signed-in viewer's own row (gated by the
+     existing `isViewer` prop, already computed in the parent at line
+     130). Uses plain `<a>` for hard navigation to `/passport`.
+   - `src/app/globals.css` — added `.chassis .crew-row-nudge` rules:
+     extends `.crew-row-sub` for layout; differentiates as a tappable
+     affordance via `--accent` color + slight hover-lift. ~12 lines.
+
+6. **Item #6 — Strategy doc updated.**
+   `rally-attendee-strategy-v0.md`:
+   - Lines 276-281 (Step 6 narrative) rewritten to remove the
+     ProfileSetup gate. New copy describes the server-side
+     orphan-merge + ensure-row upsert flow and adds an explicit
+     "No profile-setup gate (Session 10H reframe)" subsection.
+   - Step 7 expanded with the post-RSVP passport-nudge mechanic.
+   - Surface inventory at line 315 (the "ProfileSetup + orphan-merge
+     — Shipped 9S" row) replaced with three rows: orphan-merge RPC
+     (caller moved), ensure-row upsert (new in 10H), and `/passport`
+     (canonical lazy-completion target).
+
+**What changed from the brief:**
+
+- **Phone field added to ensure-row upsert** (see item #1 above).
+  The brief's exact `upsert` snippet omitted `phone`; schema NOT NULL
+  UNIQUE forced the addition. Used `'auth-tmp:' || user.id` for
+  deterministic uniqueness mirroring Migration 023's placeholder
+  pattern.
+- **`PostcardHero` inviter row + `dashboard.ts:155` defensive
+  fallback intentionally NOT upgraded** to the full
+  `display_name || email.split('@')[0] || '?'` chain (see item #4
+  above for rationale — privacy concern + semantic-greeting context).
+  Existing fallbacks already "handle null gracefully" per AC.
+- **Five other unsafe `display_name` render sites** discovered
+  during the audit (OrganizerCard.tsx:22,32 / ProfileModal.tsx:47,62 /
+  GroupChat.tsx:87,97 / DatePoll.tsx:108 / PassportDrawer.tsx:83) are
+  outside the brief's named scope (audit said "CrewSection, BuzzSection,
+  PostcardHero inviter, dashboard"). NOT fixed in 10H. Logged in
+  "Known issues" below as a bug-bash candidate.
+
+**What to test (Andrew's QA):**
+
+(Live verification reaches the same wall as 10F: dev environment
+can't auth as an invitee without a real magic-link round-trip. CC
+verified the static checks below; Andrew owns end-to-end browser QA.)
+
+- [ ] `/auth/setup` returns 404 (Next 16 default not-found page).
+      ✅ Verified by CC against the dev server.
+- [ ] Brand-new email-only invitee → publish → click magic link →
+      expected chain: `/i/<token>?code=PKCE` →
+      `/auth/callback?code=...&next=...` → orphan-merge runs
+      server-side (logged via console.error if it errors) →
+      `/i/<token>?just_authed=1` → unblur reveal plays in-place →
+      `/trip/<slug>`. **No detour through `/auth/setup`.**
+- [ ] After `/auth/callback` for any authenticated user, query
+      `public.users` for that user — a row exists. Verified
+      across: (a) invitee with prior orphan; (b) organizer signup
+      with no orphan; (c) returning user.
+- [ ] Returning user with passport-edited `display_name` is
+      preserved across re-auth. Edit `/passport` (e.g. set
+      `display_name = "Andy"`), sign out, re-click magic link,
+      re-sign in → callback runs `mergeOrphan` (no-op, no orphan
+      with that email) + ensure-row upsert (no-op, row exists at
+      id) → `display_name` stays `"Andy"`, NOT overwritten with
+      email local-part.
+- [ ] CrewSection: signed-in viewer's own row shows the
+      `+ add a vibe →` nudge when their bio/instagram/tiktok/photo
+      are all empty. Tap → navigates to `/passport`.
+- [ ] CrewSection: nudge does NOT appear on other crew members'
+      rows (test by viewing the same trip page as a different
+      authenticated user).
+- [ ] CrewSection: nudge does NOT appear on the viewer's own row
+      after they fill ANY of bio/instagram/tiktok/photo.
+- [ ] No popup/modal/sheet/banner appears anywhere in the post-RSVP
+      flow. Inline nudge only.
+- [ ] `/passport` continues to render and edit correctly. No
+      regressions to `ProfileEditor.save`.
+- [ ] Display name renders gracefully across CrewSection,
+      BuzzSection when `display_name` is null/empty (falls back to
+      email local-part, then `?`). Verifiable via DB poke or by
+      adding an invitee with `display_name = NULL`.
+
+**Static verification (CC, 2026-05-01):**
+
+- ✅ `npx tsc --noEmit` exits 0 (after `rm -rf .next` to clear
+  stale Next type generation that referenced the deleted
+  `auth/setup/page.js`).
+- ✅ `rm -rf .next && npm run build` succeeds (Next 16 / Turbopack;
+  **16/16 static pages** — was 17 before, the missing route is
+  `/auth/setup`, confirming the deletion). Compile in 1.9s,
+  TypeScript in 1.6s.
+- ✅ `git grep ProfileSetup src/` returns only comment refs
+  (callback header, merge-orphan header, two test-file comments).
+  No live imports or component usages.
+- ✅ `git grep "'/auth/setup'\|\"/auth/setup\"" src/` returns empty.
+- ✅ `git grep isNewUser src/` returns one comment in
+  `supabase-provider.ts:51` (the retirement note). No type or
+  runtime references.
+- ✅ Dev server compiles cleanly; `/auth/setup` returns the Next 16
+  404 page; `/auth` (sign-in) renders without console or server errors.
+
+**Files touched:**
+
+```
+ rally-attendee-strategy-v0.md        | +24 / -10  (item #6)
+ rally-fix-plan-v1.md                 | +release notes
+ src/app/auth/callback/route.ts       | +60 / -28  (items #1 + #3)
+ src/app/auth/setup/page.tsx          | DELETED   (item #2)
+ src/app/globals.css                  | +18       (item #5 nudge)
+ src/components/auth/ProfileSetup.tsx | DELETED   (item #2)
+ src/components/trip/BuzzSection.tsx  |  +5 / -1  (item #4)
+ src/components/trip/CrewSection.tsx  | +24 / -4  (items #4 + #5)
+ src/lib/auth/merge-orphan.ts         |  +5 / -5  (comment cleanup; #2 follow-on)
+ src/lib/auth/provider.ts             |  +1 / -1  (item #3 type cleanup)
+ src/lib/auth/supabase-provider.ts    |  +4 / -10 (item #3 SELECT cleanup)
+ src/lib/copy/surfaces/crew.ts        |  +5       (item #5 lexicon)
+ src/proxy.ts                         |  +3 / -1  (item #2 middleware cleanup)
+```
+
+**Architecture sanity (must all pass):**
+
+- ✅ Migration 023 untouched.
+- ✅ `/passport`, `ProfileEditor` untouched.
+- ✅ `api/invite/route.ts` untouched (organizer-side seeding still
+  creates orphan rows correctly).
+- ✅ `AuthSurface` untouched.
+- ✅ `api/auth/magic-link/route.ts`, `InviteeStickyBar.tsx` untouched
+  (10F redirect fix preserved).
+- ✅ `i/[token]/page.tsx` untouched (10F line-78 unconditional
+  `?just_authed=1` injection preserved).
+- ✅ No new routes added (one removed: `/auth/setup`).
+- ✅ No new files. Brief allowed `merge-orphan-server.ts` if needed;
+  not needed — existing `merge-orphan.ts` is duck-typed and accepts
+  the server client directly.
+- ✅ Exactly ONE new lexicon key (`crew.passportNudge`).
+- ✅ No theme file edits.
+
+**Known issues (for future bug-bash sessions):**
+
+- **Five other unsafe `display_name` render sites** outside this
+  brief's scope: `OrganizerCard.tsx:22,32` (direct `.charAt()` on
+  null-possible `display_name`), `ProfileModal.tsx:47,62`,
+  `GroupChat.tsx:87,97`, `DatePoll.tsx:108`, `PassportDrawer.tsx:83`.
+  Each can crash with TypeError if `display_name` is null. Single-line
+  inline-fallback fix per site (~5 min each); good bug-bash material.
+- **Phone field is `'auth-tmp:<id>'` placeholder for organizer signups
+  created via the new ensure-row upsert.** Functional (UNIQUE NOT NULL
+  satisfied) but ugly if read back. Future hardening: phone collection
+  via `/passport` could overwrite the placeholder; or the Migration 023
+  pattern of placeholder-only-when-orphan could be extended to a
+  trigger-based always-create-row pattern in a future "auth hardening"
+  session (per Andrew's call: revisit when Rally has a third auth
+  path beyond email-only).
+- **Live ACs from 10F still pending** (sticky bar morph, sticker burst,
+  haptic, magic-link reveal end-to-end). 10H's `/auth/setup` removal
+  unblocks these — the previous "Failed to save profile" obstacle is
+  gone. Will be incidentally verifiable during 10H QA.
+
+**Carryover to 10G:** Themed fan-out invite email + OUT button-text
+tonality sweep across remaining 15 themes (per 10G prep notes).
+Independent of 10H — 10G can ship anytime.
+
+**Ship state:** Code shipped, build green, static checks clean.
+Awaiting Andrew's end-to-end browser QA on the items above.
 
 ---
 

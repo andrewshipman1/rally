@@ -81,7 +81,10 @@ function BuzzRow({ item, themeId }: { item: BuzzItem; themeId: ThemeId }) {
   }
 
   const { comment, isMine } = item;
-  const name = comment.user?.display_name ?? '?';
+  const name =
+    comment.user?.display_name ||
+    comment.user?.email?.split('@')[0] ||
+    '?';
   const initial = name.slice(0, 1).toUpperCase();
 
   return (

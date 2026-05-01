@@ -275,19 +275,36 @@ existing wireframe:
 
 Signup mechanics: passwordless via email link
 (Supabase magic links — already in use elsewhere in the
-app). No password creation. After signup completes,
-`ProfileSetup.tsx` runs and the orphan-merge from Session
-9S reconciles the invitee's `users` row with their
-`trip_members` row by email match.
+app). No password creation. After PKCE exchange in
+`/auth/callback`, the orphan-merge RPC (Session 9S,
+Migration 023) runs server-side, reconciling the invitee's
+`users` row with their `trip_members` row by email match.
+A defensive `ignoreDuplicates` ensure-row upsert in the
+same handler guarantees a `public.users` row exists for
+every authenticated user (catches the organizer-only
+signup case where no orphan exists).
 
-**Step 7: Unblur → RSVP.** After signup completes,
-the page transitions from teaser to full sell view (unblur
-animation per existing wireframe). The sticky bar at the
-bottom shows the three RSVP chips (in / holding / out) per
-the current `StickyRsvpBarChassis` non-organizer branch.
-Tap → `POST /api/rsvp` → state transitions
+**No profile-setup gate** (Session 10H reframe). Profile
+data capture is hybrid: organizer-side seeding via
+`api/invite/route.ts` populates `display_name`/`email`/
+`phone` at invite time; server-side orphan-merge promotes
+the orphan onto the auth user's id; remaining fields
+(bio, instagram, tiktok, photo) are filled lazily via
+`/passport` driven by a post-RSVP nudge on the crew row
+(see Step 7).
+
+**Step 7: Unblur → RSVP → passport nudge.** After signup
+completes, the page transitions from teaser to full sell
+view (unblur animation per existing wireframe). The sticky
+bar at the bottom shows the three RSVP chips (in / holding /
+out) per the current `StickyRsvpBarChassis` non-organizer
+branch. Tap → `POST /api/rsvp` → state transitions
 `awaiting` → `in`/`holding`/`out`. Confetti on the "in"
-state is already wired.
+state is already wired. **Post-RSVP**, if the user's
+`/passport` profile is sparse (no bio/instagram/tiktok/
+photo), an inline `+ add a vibe →` link renders on their
+own crew row, deep-linking to `/passport`. Non-blocking,
+viewer-only, intrinsic motivation (10H).
 
 ### State transitions across the journey
 
@@ -312,7 +329,9 @@ action) or implicitly when the org-side adds/removes them.
 | Invite token | Doesn't exist | New: column on `trip_members` + token generator + resolver route |
 | Magic link auth (Supabase) | Already used elsewhere | Reuse for invitee signup |
 | `InviteeShell` component | Partially built | Complete teaser per wireframe |
-| `ProfileSetup` + orphan-merge | Shipped 9S | Confirm it works end-to-end with the new invite flow |
+| Orphan-merge RPC (Migration 023) | Shipped 9S; caller moved 10H | Server-side in `/auth/callback`; `ProfileSetup` retired |
+| Ensure-row upsert (`ignoreDuplicates: true`) | Shipped 10H | In `/auth/callback`; safety net for organizer-only signups |
+| `/passport` (lazy profile completion) | Shipped (`ProfileEditor`) | Post-RSVP nudge on crew row drives discovery (10H) |
 | `StickyRsvpBarChassis` (attendee) | Shipped | No change |
 
 ### Failure modes (deferred to v1)

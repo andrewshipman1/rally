@@ -22,7 +22,7 @@ export type MagicLinkResult =
   | { ok: false; reason: 'invalid_email' | 'send_failed'; message?: string };
 
 export type VerifyResult =
-  | { ok: true; userId: string; email: string; isNewUser: boolean }
+  | { ok: true; userId: string; email: string }
   | { ok: false; reason: 'expired' | 'invalid' };
 
 export type SessionInfo = {

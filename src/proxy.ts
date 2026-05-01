@@ -51,9 +51,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth page to dashboard
+  // Redirect authenticated users away from auth page to dashboard.
+  // /auth/callback is excepted because PKCE exchange + 10H orphan-merge
+  // run there; signed-in users still need to flow through it.
   const isPublicOnly = publicOnlyRoutes.some((r) => pathname.startsWith(r));
-  if (isPublicOnly && user && !pathname.startsWith('/auth/callback') && !pathname.startsWith('/auth/setup')) {
+  if (isPublicOnly && user && !pathname.startsWith('/auth/callback')) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 

@@ -2,9 +2,7 @@
 //
 // Magic-link verification endpoint. Routes through the AuthProvider
 // interface so the backend can swap. Returns redirects:
-//   ok + new user → /auth/setup (profile collection per §5.15)
-//   ok + existing → / (dashboard)  OR  /trip/<slug> if a trip param was preserved
-//                  OR  the `next` path if one was passed (10D-followup)
+//   ok            → `next` (if same-origin path) → /trip/<slug> (if `trip`) → /
 //   expired       → /auth/expired
 //   invalid       → /auth/invalid
 //
@@ -16,12 +14,20 @@
 // happen in this route handler. Existing AuthSurface callers don't
 // pass `next` and inherit the legacy `trip`-based redirect unchanged.
 //
+// 10H: server-side orphan-merge + ensure-row upsert run on every
+// successful PKCE exchange. ProfileSetup form gate retired — profile
+// data capture is now lazy via /passport (post-RSVP nudge in
+// CrewSection drives discovery). New and returning users share the
+// same redirect logic.
+//
 // Backend choice still TODO(prd):auth-backend-confirm; this layer is
 // provider-agnostic.
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { authProvider } from '@/lib/auth/supabase-provider';
+import { createClient } from '@/lib/supabase/server';
+import { mergeOrphan } from '@/lib/auth/merge-orphan';
 
 /**
  * Same-origin path guard. Accepts only relative paths starting with a
@@ -52,27 +58,58 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // First-time user: collect display name + profile bits.
-  // 10D Bug 2 fix: also propagate `next` so ProfileSetup can land
-  // the user on /i/<token>?just_authed=1 after profile save and
-  // trigger the same-tab unblur reveal. Without this, new invitees
-  // (the dominant case while Rally has no existing user base) skip
-  // the FOMO reveal entirely.
-  if (result.isNewUser) {
-    const setupUrl = new URL(`${origin}/auth/setup`);
-    if (tripSlug) setupUrl.searchParams.set('trip', tripSlug);
-    if (isSafeNextPath(nextPath)) setupUrl.searchParams.set('next', nextPath);
-    return NextResponse.redirect(setupUrl);
+  // 10H — server-side data wiring. Two ops in sequence:
+  //
+  //   (a) mergeOrphan: if an invitee orphan row matches the auth user's
+  //       email, migrate every FK onto auth.users.id and create the
+  //       canonical public.users row (Migration 023). Fast no-op when no
+  //       orphan exists (organizer signups, returning users).
+  //
+  //   (b) ensure-row upsert with `ignoreDuplicates: true`: belt-and-braces
+  //       guarantee that a public.users row exists post-callback. Maps to
+  //       Postgres `INSERT ... ON CONFLICT DO NOTHING`. Critical: this
+  //       NEVER overwrites an existing row, so passport-edited
+  //       display_names on returning users are preserved across re-auth.
+  //       Effectively fires only for organizer-only signups (no orphan,
+  //       no prior row).
+  //
+  // Phone gets a deterministic per-id placeholder to satisfy the
+  // NOT NULL UNIQUE constraint on public.users.phone (mirrors the
+  // 'merge-tmp:<id>' pattern in Migration 023's placeholder row).
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    try {
+      await mergeOrphan(supabase);
+    } catch (err) {
+      // RPC errors (RLS, network, schema drift) shouldn't block sign-in.
+      // The defensive upsert below still creates a row if needed.
+      console.error('[10H mergeOrphan] failed, continuing:', err);
+    }
+
+    const { error: upsertError } = await supabase.from('users').upsert(
+      {
+        id: user.id,
+        phone: `auth-tmp:${user.id}`,
+        email: user.email ?? null,
+        display_name: user.email?.split('@')[0] ?? '?',
+      },
+      { onConflict: 'id', ignoreDuplicates: true },
+    );
+    if (upsertError) {
+      console.error('[10H ensure-row upsert] failed:', upsertError.message);
+    }
   }
 
-  // 10D-followup: explicit `next` overrides the trip-based default.
-  // Path-only + same-origin per isSafeNextPath; rejects malformed
-  // input by silently falling through to the legacy default.
+  // Same redirect rules for new and returning users. 10H dropped the
+  // /auth/setup branch — there's no profile gate anymore.
   if (isSafeNextPath(nextPath)) {
     return NextResponse.redirect(`${origin}${nextPath}`);
   }
 
-  // Returning user: trip slug overrides dashboard if present.
   return NextResponse.redirect(
     tripSlug ? `${origin}/trip/${encodeURIComponent(tripSlug)}` : `${origin}/`
   );

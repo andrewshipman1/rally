@@ -34,6 +34,11 @@ export const crew: Record<string, Templated> = {
   'rowSubUnopened':       "hasn't opened the invite",
   'rowSubOutReason':      ({ reason }: ThemeVars) => `"${reason ?? ''}"`,
 
+  // 10H — non-blocking inline nudge on the signed-in viewer's own row
+  // when their /passport profile is sparse (no bio/instagram/tiktok/photo).
+  // Deep-links to /passport. Visible only to the user themselves.
+  'passportNudge':        '+ add a vibe →',
+
   // ─── Empty states ───────────────────────────────────────────────
   'emptyStateIn':         "nobody's rallied yet",
   'emptyStateHolding':    "everyone's decided",

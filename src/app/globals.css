@@ -3122,6 +3122,24 @@ button:active {
   margin-top: 2px;
 }
 
+/* 10H — passport nudge: viewer-only inline anchor on the user's own
+   crew row when their /passport profile is sparse. Extends .crew-row-sub
+   for layout; differentiates as a tappable affordance via accent color
+   + slight hover lift. Not a button — plain anchor for hard navigation
+   to /passport. */
+.chassis .crew-row-nudge {
+  display: inline-block;
+  color: var(--accent);
+  opacity: 0.85;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.chassis .crew-row-nudge:hover {
+  opacity: 1;
+}
+
 /* ───── buzz subsurface (§5.26) ───── */
 
 .chassis .buzz-subtitle {

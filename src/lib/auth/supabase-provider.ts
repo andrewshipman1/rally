@@ -48,19 +48,13 @@ export const supabaseAuthProvider: AuthProvider = {
       return { ok: false, reason };
     }
 
-    // Account creation is implicit on first verify. Check whether a row
-    // exists in our app users table; if not, this is a new user.
-    const { data: existing } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', data.user.id)
-      .single();
-
+    // 10H — `isNewUser` retired. The /auth/setup form gate it gated
+    // is gone; orphan-merge + ensure-row upsert run unconditionally
+    // in the callback for both new and returning users.
     return {
       ok: true,
       userId: data.user.id,
       email: data.user.email ?? '',
-      isNewUser: !existing,
     };
   },
 

@@ -1,18 +1,19 @@
 // Session 9S — invite-then-signup orphan merge flow.
+// 10H — caller moved from ProfileSetup (browser, retired) to
+// /auth/callback (server route handler, runs on every PKCE exchange).
 //
 // Thin TypeScript wrapper over the `merge_orphan_user_by_email` RPC
 // (migration 023). The heavy lifting — FK migration, collision
 // resolution, orphan deletion — happens atomically server-side in a
-// PL/pgSQL function body. This wrapper exists so ProfileSetup and
-// future callers can trigger the merge via a named function instead
-// of a raw `.rpc()` call.
+// PL/pgSQL function body. This wrapper exists so callers can trigger
+// the merge via a named function instead of a raw `.rpc()` call.
 //
 // The RPC takes no arguments. It pulls the caller's email from
 // `auth.uid()` and `auth.users.email` server-side, so an unauthenticated
 // caller or one whose email doesn't match any orphan gets `null` back
 // with zero DB changes. That makes this function safe to call
-// unconditionally on every ProfileSetup submission — the "no orphan"
-// fast path is a single indexed SELECT plus a return.
+// unconditionally on every callback hit — the "no orphan" fast path
+// is a single indexed SELECT plus a return.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -28,8 +29,8 @@ export async function mergeOrphan(
   if (error) {
     // The RPC is authoritative on data integrity. If it throws, we
     // let the caller handle the error rather than swallowing it —
-    // ProfileSetup's existing catch surfaces "Failed to save profile"
-    // which is the right failure mode (user retries).
+    // /auth/callback (10H) logs and continues; the defensive ensure-row
+    // upsert in the same handler still creates a public.users row.
     throw error;
   }
 

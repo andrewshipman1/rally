@@ -16,6 +16,20 @@ import { CrewAvatarTap } from './CrewAvatarTap';
 
 type MemberRow = TripMember & { user: User };
 
+// 10H — sparse-profile predicate for the viewer-only passport nudge.
+// "Sparse" = no bio, no instagram_handle, no tiktok_handle, no photo.
+// Returns false defensively when user is missing (no nudge if we can't
+// confirm sparseness).
+function isSparseProfile(user: User | null | undefined): boolean {
+  if (!user) return false;
+  return !(
+    user.bio ||
+    user.instagram_handle ||
+    user.tiktok_handle ||
+    user.profile_photo_url
+  );
+}
+
 type Props = {
   members: MemberRow[];
   organizerId: string;
@@ -142,7 +156,10 @@ export function CrewSection({
 }
 
 function PileAvatar({ member }: { member: MemberRow }) {
-  const name = member.user?.display_name ?? '?';
+  const name =
+    member.user?.display_name ||
+    member.user?.email?.split('@')[0] ||
+    '?';
   const initial = name.slice(0, 1).toUpperCase();
   if (member.user?.profile_photo_url) {
     return (
@@ -175,7 +192,10 @@ function CrewRow({
   isViewer: boolean;
   themeId: ThemeId;
 }) {
-  const name = member.user?.display_name ?? '?';
+  const name =
+    member.user?.display_name ||
+    member.user?.email?.split('@')[0] ||
+    '?';
   const initial = name.slice(0, 1).toUpperCase();
 
   let subtext: string | null = null;
@@ -227,6 +247,11 @@ function CrewRow({
         </div>
         {subtext && <div className="crew-row-sub">{subtext}</div>}
         {plusOneSubtext && <div className="crew-row-sub">{plusOneSubtext}</div>}
+        {isViewer && isSparseProfile(member.user) && (
+          <a className="crew-row-sub crew-row-nudge" href="/passport">
+            {getCopy(themeId, 'crew.passportNudge')}
+          </a>
+        )}
       </div>
     </li>
   );
