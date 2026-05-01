@@ -14,11 +14,15 @@
 // happen in this route handler. Existing AuthSurface callers don't
 // pass `next` and inherit the legacy `trip`-based redirect unchanged.
 //
-// 10H: server-side orphan-merge + ensure-row upsert run on every
-// successful PKCE exchange. ProfileSetup form gate retired — profile
-// data capture is now lazy via /passport (post-RSVP nudge in
-// CrewSection drives discovery). New and returning users share the
-// same redirect logic.
+// 10H: ProfileSetup gate retired; orphan-merge + ensure-row upsert
+// added here. Regression: auth.uid() wasn't reliably available in this
+// route handler immediately post-PKCE-exchange, so RLS silently denied
+// the upsert. See 10H Actuals + 10I brief.
+//
+// 10I: identity creation moved to a DB trigger on auth.users INSERT
+// (Migration 024 — public.handle_new_user → public.handle_new_user_for).
+// This route is now pure routing: PKCE exchange → redirect logic. No DB
+// writes, no auth.uid() race, no SDK calls beyond verifyMagicLink.
 //
 // Backend choice still TODO(prd):auth-backend-confirm; this layer is
 // provider-agnostic.
@@ -26,8 +30,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { authProvider } from '@/lib/auth/supabase-provider';
-import { createClient } from '@/lib/supabase/server';
-import { mergeOrphan } from '@/lib/auth/merge-orphan';
 
 /**
  * Same-origin path guard. Accepts only relative paths starting with a
@@ -58,54 +60,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // 10H — server-side data wiring. Two ops in sequence:
-  //
-  //   (a) mergeOrphan: if an invitee orphan row matches the auth user's
-  //       email, migrate every FK onto auth.users.id and create the
-  //       canonical public.users row (Migration 023). Fast no-op when no
-  //       orphan exists (organizer signups, returning users).
-  //
-  //   (b) ensure-row upsert with `ignoreDuplicates: true`: belt-and-braces
-  //       guarantee that a public.users row exists post-callback. Maps to
-  //       Postgres `INSERT ... ON CONFLICT DO NOTHING`. Critical: this
-  //       NEVER overwrites an existing row, so passport-edited
-  //       display_names on returning users are preserved across re-auth.
-  //       Effectively fires only for organizer-only signups (no orphan,
-  //       no prior row).
-  //
-  // Phone gets a deterministic per-id placeholder to satisfy the
-  // NOT NULL UNIQUE constraint on public.users.phone (mirrors the
-  // 'merge-tmp:<id>' pattern in Migration 023's placeholder row).
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    try {
-      await mergeOrphan(supabase);
-    } catch (err) {
-      // RPC errors (RLS, network, schema drift) shouldn't block sign-in.
-      // The defensive upsert below still creates a row if needed.
-      console.error('[10H mergeOrphan] failed, continuing:', err);
-    }
-
-    const { error: upsertError } = await supabase.from('users').upsert(
-      {
-        id: user.id,
-        phone: `auth-tmp:${user.id}`,
-        email: user.email ?? null,
-        display_name: user.email?.split('@')[0] ?? '?',
-      },
-      { onConflict: 'id', ignoreDuplicates: true },
-    );
-    if (upsertError) {
-      console.error('[10H ensure-row upsert] failed:', upsertError.message);
-    }
-  }
-
-  // Same redirect rules for new and returning users. 10H dropped the
-  // /auth/setup branch — there's no profile gate anymore.
+  // Same redirect rules for new and returning users. The DB trigger
+  // (Migration 024) has already populated public.users + consolidated
+  // any matching orphan inside the auth signup transaction.
   if (isSafeNextPath(nextPath)) {
     return NextResponse.redirect(`${origin}${nextPath}`);
   }

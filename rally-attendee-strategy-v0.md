@@ -275,23 +275,28 @@ existing wireframe:
 
 Signup mechanics: passwordless via email link
 (Supabase magic links — already in use elsewhere in the
-app). No password creation. After PKCE exchange in
-`/auth/callback`, the orphan-merge RPC (Session 9S,
-Migration 023) runs server-side, reconciling the invitee's
-`users` row with their `trip_members` row by email match.
-A defensive `ignoreDuplicates` ensure-row upsert in the
-same handler guarantees a `public.users` row exists for
-every authenticated user (catches the organizer-only
-signup case where no orphan exists).
+app). No password creation. Identity wiring runs as a DB
+trigger (`public.handle_new_user` AFTER INSERT on
+`auth.users`, Session 10I, Migration 024). The trigger
+fires synchronously inside the auth signup transaction —
+no HTTP cookie races, no `auth.uid()` timing dependency.
+Its body delegates to a parameterized helper
+(`public.handle_new_user_for(target_id, target_email)`) that
+performs an idempotent `INSERT ... ON CONFLICT DO NOTHING`
+into `public.users` and, when an orphan with the same email
+exists, consolidates by migrating every FK onto the auth
+user's id and deleting the orphan. The `/auth/callback`
+route is now pure routing — PKCE exchange + redirect, no DB
+writes.
 
-**No profile-setup gate** (Session 10H reframe). Profile
-data capture is hybrid: organizer-side seeding via
-`api/invite/route.ts` populates `display_name`/`email`/
-`phone` at invite time; server-side orphan-merge promotes
-the orphan onto the auth user's id; remaining fields
-(bio, instagram, tiktok, photo) are filled lazily via
-`/passport` driven by a post-RSVP nudge on the crew row
-(see Step 7).
+**No profile-setup gate** (Session 10H reframe; identity
+mechanism re-architected in 10I). Profile data capture is
+hybrid: organizer-side seeding via `api/invite/route.ts`
+populates `display_name`/`email`/`phone` at invite time;
+the new-user trigger promotes the orphan onto the auth
+user's id; remaining fields (bio, instagram, tiktok, photo)
+are filled lazily via `/passport` driven by a post-RSVP
+nudge on the crew row (see Step 7).
 
 **Step 7: Unblur → RSVP → passport nudge.** After signup
 completes, the page transitions from teaser to full sell
@@ -329,8 +334,10 @@ action) or implicitly when the org-side adds/removes them.
 | Invite token | Doesn't exist | New: column on `trip_members` + token generator + resolver route |
 | Magic link auth (Supabase) | Already used elsewhere | Reuse for invitee signup |
 | `InviteeShell` component | Partially built | Complete teaser per wireframe |
-| Orphan-merge RPC (Migration 023) | Shipped 9S; caller moved 10H | Server-side in `/auth/callback`; `ProfileSetup` retired |
-| Ensure-row upsert (`ignoreDuplicates: true`) | Shipped 10H | In `/auth/callback`; safety net for organizer-only signups |
+| `handle_new_user` trigger (Migration 024) | Shipped 10I | AFTER INSERT on `auth.users`; calls `handle_new_user_for(NEW.id, NEW.email)`; runs inside the auth signup transaction (no cookie race) |
+| `handle_new_user_for(uuid, text)` helper | Shipped 10I | Parameterized; idempotent INSERT + orphan consolidation. Single source of truth — also runnable manually for cleanup |
+| Orphan-merge RPC (Migration 023) | Shipped 9S; superseded 10I | Preserved unchanged for back-compat; no live callers post-10I (10H caller deleted) |
+| `/auth/callback` route | Simplified 10I | Pure routing: PKCE exchange + redirect. Zero DB writes |
 | `/passport` (lazy profile completion) | Shipped (`ProfileEditor`) | Post-RSVP nudge on crew row drives discovery (10H) |
 | `StickyRsvpBarChassis` (attendee) | Shipped | No change |
 

@@ -22102,6 +22102,547 @@ Awaiting Andrew's end-to-end browser QA on the items above.
 
 ---
 
+### Session 10I: "Auth identity hardening — DB trigger for public.users creation"
+
+**Status: brief written 2026-05-01. Awaiting CC kickoff.**
+
+**Why:** During 10H prod QA, surfaced that 10H's `mergeOrphan` +
+ensure-row upsert in `/auth/callback` silently fail. Root cause:
+`auth.uid()` isn't reliably available in a Next 16 route handler
+immediately after `supabase.auth.exchangeCodeForSession(code)` writes
+session cookies — there's a request/response cycle race where the
+freshly-issued session token isn't yet readable by subsequent calls
+from the same handler.
+
+Symptoms observed on prod (Andrew, 2026-05-01):
+- Brand-new invitee `ashipman680@gmail.com` magic-links through
+  `/auth/callback` successfully (PKCE exchange works, redirect
+  works) → unblur reveal plays → lands on `/trip/<slug>`.
+- BUT: `mergeOrphan` silently fails (logs `[10H mergeOrphan] failed,
+  continuing` but the `auth.uid()`-dependent function returns NULL).
+- AND: ensure-row upsert silently fails (RLS `WITH CHECK
+  (auth.uid() = id)` denies the insert when `auth.uid()` is NULL).
+- Result: NO `public.users` row created. Trip-members FKs still
+  point at the orphan's old random-UUID id. Dashboard shows "no
+  trips" because `trip_members.user_id ≠ auth.users.id`. `/passport`
+  redirects to `/auth` (no profile found) → middleware bumps
+  signed-in users to `/`. Display name renders as "there" fallback.
+
+The architecture is wrong: identity creation shouldn't run in a
+route handler that races with cookie propagation. The canonical
+Supabase pattern is a `handle_new_user()` trigger on `auth.users`
+INSERT — runs synchronously inside the auth signup transaction,
+has full DB context, never races with HTTP cookies. We rejected this
+pattern during 10H scoping ("out of brief"). The 10H regression
+justifies revisiting it.
+
+**Scope (3 items):**
+
+1. **New migration: `024_handle_new_user_trigger.sql`.** Creates
+   `public.handle_new_user()` SECURITY DEFINER function + AFTER
+   INSERT trigger on `auth.users`. The function:
+
+   a. **Idempotent insert into public.users.** Uses
+      `INSERT ... ON CONFLICT (id) DO NOTHING` keyed off `NEW.id`.
+      Values: `id = NEW.id`, `email = NEW.email`,
+      `phone = 'auth-tmp:' || NEW.id::text` (matches the
+      `auth-tmp:<id>` placeholder pattern CC introduced in 10H to
+      satisfy the NOT NULL UNIQUE phone constraint),
+      `display_name = split_part(NEW.email, '@', 1)`. Idempotent —
+      if a row with `id = NEW.id` already exists, no-op.
+
+   b. **Inline orphan consolidation.** If `NEW.email` matches an
+      existing orphan in `public.users` (different id, same email
+      — from a prior `api/invite/route.ts` orphan creation), the
+      function migrates every FK from the orphan's id onto
+      `NEW.id`, then deletes the orphan. Mirrors the FK coverage
+      Migration 023 lists (12 tables: trip_members, lodging_votes,
+      poll_votes, trips.organizer_id, lodging.booked_by,
+      transport.booked_by, restaurants.reserved_by,
+      activities.booked_by, groceries.booked_by, comments,
+      expenses.paid_by, activity_log.actor_id). Apply the same
+      collision resolution Migration 023 uses for unique-indexed
+      tables (delete redundant rows when the auth user already has
+      an entry with the same composite key). After the FK
+      migration, the orphan row is deleted; THEN run step (a) so
+      the canonical row exists at NEW.id with auth-linked data.
+
+      Note: this is essentially Migration 023's logic refactored
+      to take `NEW.id` and `NEW.email` as inputs instead of pulling
+      them from `auth.uid()`. CC can choose the cleanest factoring:
+      either inline the logic in the trigger function, OR write a
+      parameterized variant of `merge_orphan_user_by_email`
+      (e.g. `merge_orphan_user_by_id_and_email(target_id uuid,
+      target_email text)`) and call it from both the trigger AND
+      keep the existing RPC as a thin wrapper for backward compat.
+      Recommend the latter — single source of truth for the merge
+      logic.
+
+   c. **Safety patterns from Migration 023:** SECURITY DEFINER,
+      `SET search_path = public, pg_temp`, no client-passable
+      parameters that could be forged.
+
+   d. **Down migration.** A reversible companion in the same
+      migration file (or a paired `024_handle_new_user_trigger_down.sql`)
+      that drops the trigger and function cleanly. Required for
+      rollback safety.
+
+2. **Strip identity-creation logic from `/auth/callback/route.ts`.**
+   Remove the `mergeOrphan(supabase)` call (lines 86-91 in current
+   code) and the ensure-row upsert (lines 93-104). Remove the
+   imports for `mergeOrphan` and the post-verify `getUser()` /
+   `createClient()` block — none of it is needed anymore. The
+   route handler becomes pure routing: PKCE exchange (via
+   `verifyMagicLink`) → redirect logic. ~30 lines deleted, no
+   replacement.
+
+   `src/lib/auth/merge-orphan.ts` stays on disk for now — the
+   trigger uses the same RPC under the hood (or its parameterized
+   variant), and the helper might still be useful for future
+   manual-trigger flows. Its only current caller (the deleted
+   `/auth/callback` block) goes away in this session; that's fine,
+   the helper becomes unused-but-not-dead-code.
+
+3. **Strategy doc minor update.**
+   `rally-attendee-strategy-v0.md:279` (and surrounding) — replace
+   the "10H reframe: server-side orphan-merge in /auth/callback"
+   language with "10I reframe: identity creation via DB trigger
+   on auth.users INSERT." Surface inventory at ~line 332-334 gets
+   one row updated (orphan-merge caller is now the trigger, not
+   the callback).
+
+**Cleanup (NOT part of this session — Andrew runs in Supabase Studio
+post-deploy):**
+
+After 10I deploys, any `auth.users` rows created during the 10H
+window without a corresponding `public.users` row need to be
+backfilled. One-time SQL Andrew runs manually:
+
+```sql
+-- For each orphaned auth.users entry (no public.users row), trigger
+-- the new handle_new_user logic synthetically. Simplest path: invoke
+-- the trigger function directly with the auth row's data.
+-- (CC should expose this as a callable function or document the
+--  exact SQL to run.)
+
+-- Example shape:
+DO $$
+DECLARE
+  au RECORD;
+BEGIN
+  FOR au IN
+    SELECT id, email FROM auth.users
+    WHERE NOT EXISTS (SELECT 1 FROM public.users WHERE id = auth.users.id)
+  LOOP
+    -- Call the trigger function with synthesized NEW row, OR
+    -- run the consolidation logic inline.
+    PERFORM public.handle_new_user_for(au.id, au.email);
+  END LOOP;
+END $$;
+```
+
+CC should expose a parameterized helper function (e.g.
+`handle_new_user_for(target_id, target_email)`) that the trigger
+calls AND that's runnable manually for cleanup. That single helper
+is the canonical implementation; the trigger and the cleanup query
+both invoke it.
+
+**Hard Constraints:**
+
+- **DO NOT modify Migration 023's existing function.** Its current
+  signature (`merge_orphan_user_by_email()`, no args, uses
+  `auth.uid()`) stays intact. The new parameterized variant is
+  ADDITIVE; existing callers (the `mergeOrphan` helper) keep
+  working unchanged. Two functions can coexist.
+- **DO NOT modify `/passport`, `ProfileEditor`, `AuthSurface`,
+  `api/invite/route.ts`, the magic-link send path, or
+  `i/[token]/page.tsx`.** None of these change for 10I.
+- **DO NOT add new routes.** Three screens.
+- **DO NOT modify the `public.users` schema.** No column changes,
+  no RLS policy changes, no constraint changes. The trigger uses
+  existing schema as-is.
+- **The trigger MUST be idempotent.** Running it twice (e.g., via
+  the cleanup query AND a fresh signup) on the same user produces
+  identical state. `INSERT ... ON CONFLICT (id) DO NOTHING`
+  handles the row creation; the orphan-consolidation step must
+  also no-op when no orphan exists.
+- **The trigger MUST handle the no-orphan case cleanly.** Most
+  organizer signups have no orphan; the function must fast-return
+  after the row insert without erroring.
+- **The migration MUST include a working DOWN migration.** Rollback
+  safety. Tested by running up → down → up.
+- **If implementation surfaces a Supabase platform limitation**
+  (e.g., free-tier disallows triggers on `auth.users`, RLS-related
+  RPC permissions in the trigger context), STOP and escalate. Do
+  not improvise around it.
+- **Lexicon discipline:** zero new lexicon keys.
+
+**Acceptance Criteria:**
+
+- [ ] `supabase/migrations/024_handle_new_user_trigger.sql` exists
+      with both up and down migrations. Migration runs cleanly
+      (`supabase migration up`, then `supabase migration down`,
+      then `supabase migration up` again — all succeed).
+- [ ] `public.handle_new_user()` trigger function exists in the
+      DB; pinned `search_path`; SECURITY DEFINER.
+- [ ] Trigger is wired AFTER INSERT on `auth.users`.
+- [ ] Brand-new email signup (organizer path, no orphan): auth.users
+      insert fires trigger → public.users row exists with
+      `id = auth.users.id`, `email = signup email`,
+      `display_name = email.split('@')[0]`, `phone = 'auth-tmp:<id>'`.
+- [ ] Invite-then-signup (orphan exists): organizer adds invitee →
+      orphan public.users row created with random id + email +
+      display_name + phone (per existing `api/invite/route.ts`).
+      Invitee signs up via magic link → trigger fires → consolidation
+      runs → final state: ONE public.users row keyed by auth.users.id
+      with the orphan's data preserved (display_name, phone, etc.),
+      orphan deleted, all FKs (trip_members, lodging_votes, poll_votes,
+      etc.) now point at auth.users.id.
+- [ ] Returning user signing in: trigger fires (NEW.id matches
+      existing public.users.id) → ON CONFLICT DO NOTHING fires →
+      no row changes → existing display_name preserved.
+- [ ] Brand-new invitee end-to-end (the test that 10H broke):
+      magic link → /auth/callback → /i/<token>?just_authed=1 →
+      unblur reveal → /trip/<slug>. Then: dashboard shows the
+      trip. /passport renders the user's profile (display_name =
+      email local-part if untouched).
+- [ ] `/auth/callback/route.ts` contains NO calls to `mergeOrphan`,
+      `from('users').upsert`, or `getUser()`. Only routing logic.
+      `git grep "mergeOrphan\|from('users').upsert" src/app/auth/callback/`
+      returns empty.
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `rm -rf .next && npm run build` succeeds.
+- [ ] Strategy doc updated to reflect trigger model.
+- [ ] `git diff --stat` source files: at most
+      `src/app/auth/callback/route.ts`,
+      `supabase/migrations/024_*.sql`,
+      `rally-attendee-strategy-v0.md`. Plus the fix plan release
+      notes. NO modifications to passport/ProfileEditor/AuthSurface/
+      invite-route/magic-link-send/resolver/sticky-bar/etc.
+
+**Files to Read (mandatory):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — session loop,
+  hard rules, escalation triggers, release-notes format.
+- `rally-fix-plan-v1.md` — this brief; 10H Release Notes + Actuals
+  immediately above for context on the regression 10I fixes.
+- `supabase/migrations/023_merge_orphan_user.sql` — entire file
+  (~150 lines). The new trigger consolidates with this function's
+  logic. Read the FK coverage list (lines 33-46) and the collision
+  resolution explanation (lines 47-52) carefully.
+- `supabase/migrations/001_initial_schema.sql` — `public.users`
+  schema (especially the NOT NULL UNIQUE constraints) and RLS
+  policies (the trigger's SECURITY DEFINER bypasses RLS but the
+  function still needs to honor data integrity).
+- `supabase/migrations/003_master_features.sql` — INSERT policy
+  on public.users (line 24-26). Trigger bypasses but worth knowing.
+- `src/app/auth/callback/route.ts` — current state, ~117 lines.
+  Strip the merge + upsert blocks; route becomes ~50 lines.
+- `src/lib/auth/merge-orphan.ts` — current helper, stays on disk.
+  Read to understand the wrapper pattern; may stay unused-but-
+  available after 10I.
+- `src/lib/auth/supabase-provider.ts` — `verifyMagicLink` returns
+  `{ ok, userId, email }`; the callback no longer needs to derive
+  isNewUser or fetch the user post-exchange.
+- `src/app/api/invite/route.ts:62-101` — orphan creation flow.
+  Confirm the trigger doesn't conflict with this path (orphan
+  creates use admin client → inserts public.users directly →
+  no auth.users insert → trigger doesn't fire). Should be clean.
+
+**How to QA Solo (before declaring done):**
+
+1. `npx tsc --noEmit` — must exit 0.
+2. `rm -rf .next && npm run build` — must succeed.
+3. Local Supabase: `supabase migration up` — migration 024 applies
+   cleanly. Then `supabase migration down` — reverses cleanly.
+   Then `supabase migration up` again — re-applies cleanly.
+4. Local dev: brand-new email signup via AuthSurface → check
+   `public.users` table → row exists with correct values.
+5. Local dev: organizer invites a new email → check `public.users`
+   for the orphan → invitee signs up via magic link → check
+   `public.users` again — ONE row at auth.users.id, orphan gone,
+   FKs consolidated.
+6. `git grep "mergeOrphan" src/app/auth/callback/` — must return
+   empty.
+7. `git diff --stat` — must show ONLY the named files. Anything
+   else, stop and escalate.
+
+**Lexicon notes:** Zero new lexicon keys. No application copy
+changes.
+
+**Carryover for 10F (verification still pending):** Once 10I
+deploys, the 10F live ACs unblocked by 10H removal — sticky bar
+morph, sticker burst, haptic, full reveal end-to-end, fan-out
+email render, regression checks — can finally be verified in a
+single clean QA pass. Bundle into 10I QA.
+
+**Carryover for 10G:** unchanged. Themed fan-out invite email
++ OUT button-text tonality sweep, independent.
+
+**Ship state:** Brief. Awaiting Andrew sign-off → CC kickoff →
+execute → release notes → QA.
+
+#### Session 10I — Release Notes (2026-05-01, Claude Code)
+
+**What was built:**
+
+1. **Item #1 — `supabase/migrations/024_handle_new_user_trigger.sql`.**
+   New migration adding three things:
+
+   - **`public.handle_new_user_for(target_id uuid, target_email text)`** —
+     parameterized helper. Single source of truth. SECURITY DEFINER,
+     `search_path = public, pg_temp`. Two ops in sequence:
+     - Idempotent `INSERT ... ON CONFLICT (id) DO NOTHING` into
+       `public.users` with `phone = 'auth-tmp:' || target_id`,
+       `email = target_email`,
+       `display_name = split_part(target_email, '@', 1)`. Re-running
+       on the same id no-ops; passport-edited fields on returning users
+       are NEVER overwritten (this is the same `ignoreDuplicates: true`
+       semantic 10H wired in JS, now enforced at the DB layer).
+     - Orphan consolidation when an orphan with matching email exists:
+       same FK migration logic Migration 023 owns, applied to all 12
+       FK-referencing tables (3 collision-handled + 9 plain UPDATE),
+       then orphan delete. After consolidation, if we just inserted the
+       placeholder row AND the orphan had a non-null display_name,
+       transfer it to the target row (via `GET DIAGNOSTICS ROW_COUNT`
+       guard so we never clobber a pre-existing customized row).
+
+   - **`public.handle_new_user()`** — trigger function. Wraps the helper
+     with `PERFORM public.handle_new_user_for(NEW.id, NEW.email)`,
+     returns NEW. SECURITY DEFINER, same search_path safety.
+
+   - **`on_auth_user_created`** — `AFTER INSERT FOR EACH ROW` trigger
+     on `auth.users`. Wired with `DROP TRIGGER IF EXISTS ... CREATE
+     TRIGGER ...` so re-running the migration is safe (CREATE TRIGGER
+     has no `OR REPLACE`).
+
+   **Down migration:** documented as a `-- ROLLBACK / DOWN MIGRATION`
+   comment block at the bottom of the file (Supabase CLI's standard
+   migration model is forward-only; the comment block is the
+   "companion in the same migration file" pattern the brief allowed).
+   Andrew runs the three DROP statements in Supabase Studio or via
+   `psql` if rollback is needed.
+
+2. **Item #2 — `/auth/callback/route.ts` stripped to pure routing.**
+   Deleted: `mergeOrphan` import, `createClient` import, the
+   `await createClient()` + `auth.getUser()` block, the `try/catch
+   mergeOrphan` block, the ensure-row upsert. Route handler shrank
+   from 117 → 75 lines (-42 lines / +0 lines net of the comment
+   updates documenting the shift to the 10I trigger model). The
+   handler is now PKCE exchange (`verifyMagicLink`) → redirect logic.
+   Zero DB writes; zero `auth.uid()` race surface.
+
+3. **Item #3 — Strategy doc updated.**
+   `rally-attendee-strategy-v0.md`:
+   - Step 6 narrative (lines 276-285) rewritten to describe the
+     trigger model (`public.handle_new_user` AFTER INSERT on
+     `auth.users`, runs synchronously inside the auth signup
+     transaction — no HTTP cookie races).
+   - "No profile-setup gate" subsection updated to reference 10I as
+     the identity-mechanism re-architecture.
+   - Surface inventory table at line 332-334 replaced with five rows:
+     new `handle_new_user` trigger, new `handle_new_user_for` helper,
+     Migration 023 marked superseded (preserved for back-compat;
+     no live callers post-10I), `/auth/callback` route marked
+     simplified, `/passport` row unchanged.
+
+**What changed from the brief:**
+
+- **Down migration is a documented comment block, not a separately-
+  executable file or `migrate:down` marker.** Supabase CLI's
+  migrations are forward-only; there's no `supabase migration down`
+  command in the standard tooling (the closest is `supabase db reset`
+  which rolls back ALL migrations, not a single one). The brief's
+  "supabase migration up / down / up" test cycle therefore translates
+  to: apply the migration, manually run the documented DROP block,
+  re-apply the migration. All three steps work — the migration uses
+  `CREATE OR REPLACE FUNCTION` for both functions and `DROP TRIGGER
+  IF EXISTS ... CREATE TRIGGER` for the trigger, so re-application
+  is idempotent. Andrew tests by pasting the rollback SQL into
+  Supabase Studio after the first apply, then re-applying.
+- **Migration not run in CC's environment.** `supabase` CLI is not
+  installed at `~/Desktop/claude/rally`; no local Supabase project
+  config exists. Migrations are applied via Supabase Studio per
+  Andrew's existing workflow. CC verified the SQL syntax visually
+  + via Postgres conventions; the up/down test runs on Andrew's
+  side.
+- **Migration 023 preserved unchanged per hard constraint.** The new
+  `handle_new_user_for` helper duplicates Migration 023's FK
+  migration logic (same 12 tables, same collision rules). After 10I
+  ships, Migration 023's `merge_orphan_user_by_email()` has no live
+  app callers (the `mergeOrphan` import is deleted from
+  `/auth/callback`); it persists as dead-code-but-supported. Future
+  hygiene session can collapse the duplication by either dropping
+  023's function or refactoring it to delegate to
+  `handle_new_user_for(auth.uid(), <email-from-auth.users>)`.
+- **`src/lib/auth/merge-orphan.ts` and its test file untouched.**
+  The wrapper has no live callers post-10I (the callback no longer
+  imports it), but per the brief it stays on disk as
+  unused-but-not-dead-code. Tests still pass against the existing
+  Migration 023 RPC.
+
+**Cleanup SQL — Andrew runs in Supabase Studio after deploying
+Migration 024:**
+
+This is the post-deploy backfill the brief specifies. Run as
+service-role / postgres user in the SQL editor. Backfills any
+`auth.users` rows created during the 10H window that ended up
+without a corresponding `public.users` row:
+
+```sql
+DO $$
+DECLARE
+  au RECORD;
+BEGIN
+  FOR au IN
+    SELECT id, email FROM auth.users
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.users WHERE public.users.id = auth.users.id
+    )
+  LOOP
+    PERFORM public.handle_new_user_for(au.id, au.email);
+  END LOOP;
+END $$;
+```
+
+For each orphaned `auth.users` row, this calls the same helper
+function the trigger calls — synthesizing what should have happened
+at signup time. Idempotent: re-running it after the first execution
+is a no-op (no more orphaned auth rows to find).
+
+**Verifying the cleanup worked:**
+
+```sql
+-- Should return 0 after running the backfill above:
+SELECT COUNT(*) FROM auth.users
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.users WHERE public.users.id = auth.users.id
+);
+```
+
+For Andrew's specific case (`ashipman680@gmail.com` per the 10H
+QA observation):
+
+```sql
+-- Verify the row exists post-backfill:
+SELECT id, email, display_name, phone FROM public.users
+WHERE email = 'ashipman680@gmail.com';
+
+-- Verify FKs (e.g. trip_members) point at the auth.users.id, not
+-- some orphan id:
+SELECT tm.user_id, u.email, u.display_name
+FROM public.trip_members tm
+JOIN public.users u ON u.id = tm.user_id
+WHERE u.email = 'ashipman680@gmail.com';
+```
+
+**What to test (Andrew's QA after applying Migration 024):**
+
+(All gated on the migration being applied via Supabase Studio. CC
+cannot exercise the trigger in dev without applying the SQL to a
+real Postgres instance.)
+
+- [ ] **Migration 024 applies cleanly** in Supabase Studio (paste
+      the file contents; run). No errors. The trigger
+      `on_auth_user_created` appears in `pg_trigger` (verify in
+      Studio's Database tab).
+- [ ] **Up → down → up cycle works.** Apply Migration 024 → paste
+      the rollback DROP block from the file's bottom → re-apply
+      Migration 024. All three runs succeed without errors.
+- [ ] **Backfill SQL runs cleanly** for the 10H-window orphans.
+      `ashipman680@gmail.com` gets a `public.users` row;
+      `trip_members.user_id` references that row.
+- [ ] **Brand-new email signup (organizer path):** sign in with a
+      fresh email via `/auth` → trigger fires → `public.users` row
+      exists with `id = auth.users.id`, `email = signup email`,
+      `display_name = email.split('@')[0]`,
+      `phone = 'auth-tmp:<id>'`.
+- [ ] **Invite-then-signup (orphan path):** organizer adds invitee
+      via crew section → orphan `public.users` row created
+      (verifiable in Studio) → invitee clicks magic link → trigger
+      fires → final state: ONE row at `auth.users.id` with the
+      orphan's `display_name` preserved, orphan deleted, all FKs
+      consolidated onto `auth.users.id`.
+- [ ] **Returning user re-auth:** existing user signs in again →
+      trigger fires → `INSERT ... ON CONFLICT (id) DO NOTHING`
+      no-ops → existing display_name (especially if
+      passport-edited) is preserved.
+- [ ] **End-to-end magic-link flow (the test 10H broke):** brand-
+      new invitee → publish trip → click magic link → expected
+      chain: `/i/<token>?code=PKCE` → `/auth/callback?code=...` →
+      no DB writes in callback → redirect to
+      `/i/<token>?just_authed=1` → unblur reveal → `/trip/<slug>`.
+      Then: dashboard shows the trip; `/passport` renders the
+      user's profile.
+- [ ] **10F live ACs (incidentally unblocked by 10H removal +
+      10I trigger).** Sticky bar entry/committed morph, sticker
+      burst, haptic, change affordance, holding-emoji strip,
+      `+ add a vibe →` nudge. All testable in a single clean
+      end-to-end pass once the trigger is live.
+
+**Static verification (CC, 2026-05-01):**
+
+- ✅ `npx tsc --noEmit` exits 0 (after `rm -rf .next`).
+- ✅ `rm -rf .next && npm run build` succeeds (Next 16 / Turbopack;
+  16/16 static pages — route manifest unchanged from 10H).
+- ✅ `git grep "mergeOrphan\|from('users').upsert\|getUser" src/app/auth/callback/`
+  returns empty.
+- ✅ `git grep mergeOrphan src/` returns refs only in the helper
+  itself + the test file (no live app callers).
+- ✅ Dev server compiles cleanly; `/auth` renders without errors;
+  `/auth/setup` continues to return Next 16's 404 page.
+
+**Files touched:**
+
+```
+ rally-attendee-strategy-v0.md                    | +21 / -8  (item #3)
+ rally-fix-plan-v1.md                             | +release notes
+ src/app/auth/callback/route.ts                   | +9 / -51  (item #2: ~30 lines net deletion + comment refresh)
+ supabase/migrations/024_handle_new_user_trigger.sql | NEW    (item #1, ~225 lines incl. comments + ROLLBACK block)
+```
+
+**Architecture sanity (must all pass):**
+
+- ✅ Migration 023 untouched.
+- ✅ `/passport`, `ProfileEditor`, `AuthSurface` untouched.
+- ✅ `api/invite/route.ts`, `api/auth/magic-link/route.ts`,
+  `InviteeStickyBar`, `i/[token]/page.tsx` untouched.
+- ✅ `public.users` schema untouched (no column / RLS / constraint
+  changes).
+- ✅ No new routes added.
+- ✅ No new lexicon keys.
+- ✅ No theme file edits.
+- ✅ Sticky-bar / crew-section / buzz-section all untouched.
+
+**Known issues (logged for future hygiene):**
+
+- **Migration 023 + new `handle_new_user_for` duplicate FK-migration
+  logic.** Twelve tables, two implementations. If a future schema
+  change adds a new `public.users(id)` FK, BOTH functions need
+  updating. Mitigated by clear comments in both files. Future
+  hygiene session can collapse — either drop 023's function (no
+  live callers) or refactor it to delegate.
+- **Trigger requires Supabase plan + Postgres permissions to create
+  AFTER INSERT trigger on `auth.users`.** Standard hosted Supabase
+  supports this; if the trigger creation step in the migration fails
+  with a permissions error, Andrew needs to escalate to Supabase
+  support or run the SQL with elevated privileges (service role / DB
+  owner). Per brief, this is an escalation trigger.
+- **Live ACs from 10F still pending Andrew's prod walkthrough.**
+  10I is the architectural unblock. Once Andrew applies Migration
+  024 + runs the backfill, all of 10F + 10H + 10I can be verified
+  in one clean end-to-end QA pass.
+
+**Carryover to 10G:** unchanged — themed fan-out invite email +
+OUT button-text tonality sweep. Independent of 10I.
+
+**Ship state:** Code shipped, build green, static checks clean.
+Awaiting (1) Andrew applying Migration 024 in Supabase Studio,
+(2) Andrew running the backfill SQL, (3) Andrew's end-to-end
+browser QA on the unblocked test list above.
+
+---
+
 ### Sessions 11+: "TBD — re-scope after Session 10 strategy lands"
 
 Previous placeholders (teaser layer, invite delivery, RSVP sticky
