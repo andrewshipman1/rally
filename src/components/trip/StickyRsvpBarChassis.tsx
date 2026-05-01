@@ -152,7 +152,7 @@ export function StickyRsvpBarChassis({
           onClick={() => setChanging(true)}
           disabled={pending}
         >
-          {getCopy(themeId, 'inviteeStickyBar.change')}
+          {getCopy(themeId, 'inviteeState.inviteeStickyBar.change')}
         </button>
         {showBurst && (
           <span className="sticky-burst" aria-hidden="true">
