@@ -21359,6 +21359,17 @@ walk-through.
    "can't make it"`. Em-dash was the OLD out chip icon; dropped
    since em-dash isn't covered by CC's `\p{Extended_Pictographic}`
    strip.
+8. `app/globals.css` — added rules for `.chassis .header .inviter`,
+   `.av-mini`, `.label`. Pure missing-CSS bug surfaced on the
+   deployed teaser during Andrew's prod walkthrough (2026-05-01):
+   the "A" mini-avatar was wrapping above "Andrew called you up"
+   instead of rendering inline. JSX rendered the divs but `globals.css`
+   had ZERO rules for these selectors, so block-level `<div
+   class="av-mini">` stacked above the inline `<span class="label">`.
+   Added flex container + 22px circular initial badge matching the
+   `.live-row` pattern. This is the **same 10D inviter-row bug**
+   we'd dropped from 10F scope on the assumption it had been fixed
+   — confirmed unfixed when Andrew screenshotted the prod teaser.
 
 **Carried over to 10G (broader audit, not 10F-shaped):**
 

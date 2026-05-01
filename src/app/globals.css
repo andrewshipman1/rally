@@ -486,6 +486,38 @@ button:active {
   animation: blink-dot 1.4s ease-in-out infinite;
 }
 
+/* Inviter row — mini avatar + "{name} called you up" label, sits above
+   the wordmark on the invitee teaser (Phase 5 inviteeOverrides). Mirrors
+   .live-row's flex pattern; av-mini is a circular initial badge. */
+.chassis .header .inviter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.chassis .header .inviter .av-mini {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.chassis .header .inviter .label {
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.85;
+}
+
 /* Wordmark — `rally!` in Shrikhand, accent color, constantly wiggling.
    9F: 28px → 18px to balance the bigger title tiers. */
 .chassis .wordmark {
