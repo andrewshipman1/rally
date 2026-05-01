@@ -166,24 +166,25 @@ export function PostcardHero({
   // 9W — suppress live row when sketch override is null (edit-on-sell).
   const showLiveRow = liveRowText != null && (isSketch || isLive);
 
-  // 9E: trip-meta row (sell only, data render — no lexicon).
+  // 9E: trip-meta row (data render — no lexicon).
   // Same-month collapse: "Nov 20 → 26"; otherwise "Nov 20 → Dec 2".
   // Partial render when only some of (dates, destination) are set;
   // returns null when all three are unset.
-  let tripMetaText: string | null = null;
-  if (isSignedInSell) {
-    let range: string | null = null;
-    if (dateStartIso && dateEndIso) {
-      const s = new Date(dateStartIso);
-      const e = new Date(dateEndIso);
-      const sameMonth = s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth();
-      range = sameMonth
-        ? `${format(s, 'MMM d')} → ${format(e, 'd')}`
-        : `${format(s, 'MMM d')} → ${format(e, 'MMM d')}`;
-    }
-    const parts = [range, destination].filter((p): p is string => !!p);
-    tripMetaText = parts.length ? parts.join(' · ') : null;
+  // 10D.5: dropped the isSignedInSell gate. The teaser (which passes
+  // inviteeOverrides) now inherits the same trip-meta row as the
+  // signed-in sell page. Sketch is still gated at the JSX level — this
+  // assignment is read inside the `!isSketch` render branch only.
+  let range: string | null = null;
+  if (dateStartIso && dateEndIso) {
+    const s = new Date(dateStartIso);
+    const e = new Date(dateEndIso);
+    const sameMonth = s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth();
+    range = sameMonth
+      ? `${format(s, 'MMM d')} → ${format(e, 'd')}`
+      : `${format(s, 'MMM d')} → ${format(e, 'MMM d')}`;
   }
+  const tripMetaParts = [range, destination].filter((p): p is string => !!p);
+  const tripMetaText: string | null = tripMetaParts.length ? tripMetaParts.join(' · ') : null;
 
   return (
     <>

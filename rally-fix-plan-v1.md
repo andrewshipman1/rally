@@ -20427,6 +20427,357 @@ edits). Hand off the commit + Andrew's two pre-flight tasks
 
 ---
 
+### Session 10D.5: "Teaser hero parity — date row + RSVP countdown"
+
+**Why:** Live QA of 10D surfaced a parity gap between the
+unauthed teaser (`InviteeShell`) and the post-login sell
+page. The teaser hero is missing the trip-meta date row
+("may 26 → 29 · palm spring, ca") and counts down to trip
+start instead of the lock-in deadline. Both gaps come from
+`inviteeOverrides` gates baked into `PostcardHero` and
+`InviteeShell` back when the teaser was meant to feel
+distinct from the sell page; now that the teaser is
+designed as an invitation-flavored sell-page-equivalent,
+those gates are wrong.
+
+This is a small, surgical fix. NOT a layered-overlay
+architecture rework (that scoping was considered and
+explicitly rejected as overkill). Original Session 10E
+content (post-RSVP polish — sticky bar reflects RSVP'd
+state, email subject brand-pass, micro-interactions) is
+deferred to 10F.
+
+**Scope (2 items, ~20 lines total):**
+
+1. **Drop the `isSignedInSell` gate on the trip-meta row**
+   in `src/components/trip/PostcardHero.tsx` (~line 174).
+   Currently `tripMetaText` is computed only when
+   `isSignedInSell === true`; since `isSignedInSell` is
+   `phase === 'sell' && !inviteeOverrides`, the teaser
+   (which always passes `inviteeOverrides`) never gets a
+   date row. Lift the computation out of the gate so the
+   teaser inherits the "may 26 → 29 · palm spring, ca"
+   render unchanged. Sketch path stays gated (existing
+   `isSketch` branch above the assignment). Behavior on
+   the regular sell page is bit-identical.
+
+2. **Swap `ChassisCountdown` for `CountdownScoreboard`**
+   in `src/components/trip/InviteeShell.tsx`. Current
+   render:
+   ```tsx
+   {trip.date_start && (
+     <ChassisCountdown target={trip.date_start} label={heroLabel} flag={fomoFlag} />
+   )}
+   ```
+   Replace with the same shape `page.tsx` lines 287–295
+   already use for sell-phase trips:
+   ```tsx
+   {cutoffIso && (
+     <CountdownScoreboard
+       target={cutoffIso}
+       units={sbUnits}
+       kicker={sbKicker}
+       hint={sbHint}
+       hintEmoji={sbHintEmoji}
+     />
+   )}
+   ```
+   `cutoffIso = trip.commit_deadline`. `sbUnits / sbKicker
+   / sbHint / sbHintEmoji` come from the same lexicon
+   keys (`tripPageShared.scoreboard.units.*`,
+   `tripPageSell.scoreboard.kicker / hint / hintEmoji`).
+   No new lexicon, no new component, no new variant.
+   Delete the now-unused `heroLabel` + `fomoFlag`
+   computations from InviteeShell. Drop `ChassisCountdown`
+   import if no other callers in the file.
+
+**Hard Constraints:**
+
+- **DO NOT create new routes.** Three screens.
+- **DO NOT add new components, props, variants, or lexicon
+  keys.** This session is "delete a gate, swap an import."
+  If you find yourself adding files, stop and escalate.
+- **DO NOT touch the regular sell-page render.** The
+  `PostcardHero` change must preserve sell-page output
+  bit-identically. Verify by reading `page.tsx` lines
+  263–281 and confirming the props passed there don't
+  rely on the gate behavior we're removing.
+- **DO NOT touch `InviteeShellClient.tsx` or
+  `InviteeStickyBar.tsx`.** The 10D unblur reveal +
+  sticky-bar mechanics are out of scope — only the
+  countdown that sits between hero and locked-plan
+  changes.
+- **DO NOT modify the cover postcard gate.** Andrew
+  explicitly scoped to date row + countdown. Cover image
+  parity stays in `inviteeOverrides`-gated territory for
+  this session.
+- **No marquee changes.** The static theme marquee on the
+  teaser stays as-is. Dynamic marquee with "lock by /
+  N already in" is out of scope.
+- **Reuse-Before-Rebuild.** `CountdownScoreboard` already
+  exists; do not fork or copy.
+
+**Acceptance Criteria:**
+
+- [ ] Teaser at `/i/<token>` (unauthed, incognito) renders
+  the trip-meta row "may 26 → 29 · palm spring, ca"
+  immediately below the title, before the tagline. Source
+  of truth: same row that appears on the post-login sell
+  page hero.
+- [ ] Teaser at `/i/<token>` renders `CountdownScoreboard`
+  targeting `commit_deadline` with the "★ lock in by ·
+  may 8 · 8pm edt" kicker treatment, tiles, and hint
+  emoji — visually identical to sell-page sell-phase
+  scoreboard.
+- [ ] Old `ChassisCountdown` no longer renders on the
+  teaser. `git grep ChassisCountdown src/components/trip/InviteeShell.tsx`
+  returns nothing.
+- [ ] Regular sell page (post-login `/trip/<slug>`) hero
+  + countdown render unchanged. Diff against pre-session
+  screenshot: bit-identical.
+- [ ] Sketch page hero unchanged (the `isSketch` branch
+  in PostcardHero still gates correctly above the lifted
+  assignment).
+- [ ] No new files. No new components. No new lexicon
+  keys. No new CSS classes. `git diff --stat` shows
+  `src/components/trip/PostcardHero.tsx` and
+  `src/components/trip/InviteeShell.tsx` only.
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `npm run build` succeeds.
+
+**Files to Read (mandatory):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — session
+  loop, hard rules, escalation triggers.
+- `rally-fix-plan-v1.md` — this brief; 10D Actuals above
+  for the InviteeShell / PostcardHero context that 10D.5
+  builds on.
+- `src/components/trip/PostcardHero.tsx` — read all of it,
+  especially lines 113–186 around the `isSignedInSell`
+  gate, the marquee branches, and the trip-meta
+  assignment.
+- `src/app/trip/[slug]/page.tsx` — lines 263–302 for the
+  canonical `PostcardHero` + `CountdownScoreboard` call
+  shapes that the teaser is converging toward.
+- `src/components/trip/InviteeShell.tsx` — entire file;
+  it's only ~98 lines.
+- `src/components/trip/CountdownScoreboard.tsx` — the
+  component being swapped in. Confirm prop shape matches
+  what `page.tsx` already passes.
+
+**How to QA Solo (before declaring done):**
+
+1. `npx tsc --noEmit` — must exit 0.
+2. `npm run build` — must succeed.
+3. `git grep ChassisCountdown src/components/trip/InviteeShell.tsx`
+   — must return nothing.
+4. `git diff --stat` — must show only the two files
+   listed above; if anything else appears, stop and
+   escalate.
+5. Read the diff against `page.tsx` lines 287–295 and
+   confirm the InviteeShell `<CountdownScoreboard ... />`
+   call is structurally equivalent (same prop names,
+   same lexicon keys).
+
+**Lexicon notes:** Zero new keys. Reuses existing:
+`tripPageShared.scoreboard.units.{days,hours,minutes,seconds}`,
+`tripPageSell.scoreboard.{kicker,hint,hintEmoji}`. The
+`heroLabel` / `fomoFlag` computations being deleted from
+InviteeShell are bit-identical-removable; no other caller.
+
+**Ship state:** Brief. Awaiting Andrew sign-off → CC
+kickoff → execute → release notes → QA.
+
+#### Session 10D.5 — Release Notes
+
+**Status: code complete; deploy gates the live test.** TypeScript
+clean, production build succeeds (Next 16.2.2 / Turbopack; 17/17
+static pages; route manifest unchanged). Source diff: exactly the
+two files the brief named — `PostcardHero.tsx` + `InviteeShell.tsx`.
+
+**What was built:**
+
+1. **`src/components/trip/PostcardHero.tsx` — `isSignedInSell` gate
+   on `tripMetaText` dropped.** The computation now runs whenever
+   the data is available (sketch is still gated at the JSX render
+   level — `tripMetaText` is read inside the `!isSketch` branch
+   only). The teaser, which always passes `inviteeOverrides`,
+   inherits the "may 26 → 29 · palm spring, ca" row that signed-in
+   sell trips already render. Sell-page output is bit-identical: the
+   same `dateStartIso + dateEndIso + destination` produce the same
+   string, and the JSX render condition (`{tripMetaText && ...}`)
+   is unchanged.
+2. **`src/components/trip/InviteeShell.tsx` — countdown swap +
+   date-prop wire-up.** `ChassisCountdown` (targeting `trip.date_start`)
+   replaced with `CountdownScoreboard` (targeting `trip.commit_deadline`,
+   matching the call shape at `src/app/trip/[slug]/page.tsx:287-295`).
+   `dateStartIso={trip.date_start}` and `dateEndIso={trip.date_end}`
+   added to the `PostcardHero` call so the now-ungated trip-meta row
+   actually has data to render. Removed: `ChassisCountdown` import,
+   `getTheme` import, `theme` derivation, `themedSignature`,
+   `heroLabel`, `fomoFlag`. Added: `CountdownScoreboard` import +
+   `cutoffIso / sbKicker / sbHint / sbHintEmoji / sbUnits` derivations
+   that mirror `page.tsx:255-263` exactly.
+
+**Files changed (2 source + this release note):**
+
+- `src/components/trip/PostcardHero.tsx` — gate drop on tripMetaText.
+- `src/components/trip/InviteeShell.tsx` — countdown swap + date props +
+  unused-import cleanup.
+
+**Hard boundaries honored:**
+
+- ✅ No new files. No new components. No new props on any component
+      definition. No new lexicon keys. No new CSS classes.
+- ✅ Regular sell-page render bit-identical: the gate-drop is
+      idempotent for `phase === 'sell' && !inviteeOverrides` (same
+      data → same `tripMetaText` string → same render path).
+- ✅ Sketch path unchanged: the sketch render replaces title/tagline
+      via `sketchOverrides.renderBody`, and `tripMetaText` is only
+      read inside the non-sketch JSX branch.
+- ✅ Cover-postcard gate untouched (`!inviteeOverrides` still gates
+      the postcard frame at line 240).
+- ✅ Marquee branches untouched. `isSignedInSell` is still computed
+      and still gates the dynamic sell marquee — only the trip-meta
+      assignment was lifted out.
+- ✅ `InviteeShellClient.tsx` and `InviteeStickyBar.tsx` untouched.
+- ✅ `git grep ChassisCountdown src/components/trip/InviteeShell.tsx`
+      returns nothing (only the new `CountdownScoreboard` reference
+      exists).
+
+**Lock/go side-effect (acceptable per brief reading):** the gate
+drop also makes `tripMetaText` computable on lock/go phase pages
+that pass `dateStartIso + dateEndIso`. Those pages currently show
+`PostcardHero` and previously had `tripMetaText === null` because of
+`isSignedInSell` (lock/go fail `phase === 'sell'`). Now they'll
+show the same date row the teaser/sell does. Reading the brief: it
+said "drop the gate," not "narrow the gate to `phase === 'sell'`,"
+and explicitly only required bit-identical sell-page output. Lock/go
+showing the date row is arguably an improvement — the trip is real
+and the dates matter — but flagging here in case Andrew wants the
+narrower gate. One-line fix: change `tripMetaText` block to gate on
+`phase === 'sell'` if so.
+
+**Code-side ACs (verified by CC):**
+
+- ✅ `npx tsc --noEmit` exits 0.
+- ✅ `npm run build` succeeds (Next 16.2.2 / Turbopack; 17/17 static
+      pages; route manifest unchanged).
+- ✅ `git grep ChassisCountdown src/components/trip/InviteeShell.tsx`
+      returns nothing.
+- ✅ `git diff --stat` source files: exactly `PostcardHero.tsx` +
+      `InviteeShell.tsx`. (Plus this release-note edit on the fix plan;
+      no other docs / lexicon / CSS files modified.)
+- ✅ `<CountdownScoreboard>` call in InviteeShell is structurally
+      identical to `page.tsx:287-295` — same prop names, same lexicon
+      keys, same `cutoffIso = trip.commit_deadline` source.
+
+**Live-verifiable ACs (gated on deploy):**
+
+- [ ] Teaser at `/i/<token>` (unauthed, incognito) renders the
+      trip-meta row "may 26 → 29 · palm spring, ca" immediately
+      below the title, before the tagline. Same row signed-in sell
+      page renders.
+- [ ] Teaser at `/i/<token>` renders `CountdownScoreboard`
+      targeting `commit_deadline` with the "★ lock in by · may 8 ·
+      8pm edt" kicker treatment, tiles, and hint emoji. Visually
+      identical to the post-login sell-phase scoreboard.
+- [ ] Old `ChassisCountdown` no longer renders on the teaser.
+- [ ] Regular sell page (post-login `/trip/<slug>`) hero +
+      countdown render unchanged. Diff against pre-session
+      screenshot: bit-identical.
+- [ ] Sketch page hero unchanged.
+
+**Known limitations / deviations:**
+
+1. **Lock/go phase pages now show the trip-meta row** if they have
+   `date_start + date_end`. Side-effect of the literal gate-drop;
+   see "Lock/go side-effect" above. Not regressed; arguably
+   improved.
+2. **Trip-meta row positioning relative to tagline** is unchanged
+   (renders before tagline, matching the existing `!isSketch` JSX
+   order). The brief AC says "immediately below the title, before
+   the tagline" — that's the existing render order; no JSX
+   restructuring needed.
+3. **`fomoFlag` / `heroLabel` derivations were dropped** because
+   they were only consumed by the now-removed `ChassisCountdown`
+   call. No other callers in this file — confirmed by grep.
+   `theme` and `getTheme` are unused after the deletion and were
+   removed too.
+
+**Ship state:** code complete + tsc + build clean + scope held to
+the two named files. Working tree carries this alongside the prior
+post-deploy bugfix commit (already pushed as `c08de82`). Hand off
+the commit when ready.
+
+#### Session 10D.5 — Actuals (QA'd, Cowork 2026-04-30)
+
+**Status: code complete, code-side ACs all pass; live ACs gated on
+deploy.** Scope held tightly — exactly the two files the brief
+named, no creep.
+
+**AC verification summary:**
+
+- **Code-verified by Cowork (disk + grep + tsc):**
+  - ✅ AC #3: `git grep ChassisCountdown src/components/trip/InviteeShell.tsx`
+        returns nothing. `ChassisCountdown.tsx` itself remains on
+        disk (not deleted; comment in `SketchCountdownEmpty.tsx`
+        and `dashboard.ts` still reference it — fine, no functional
+        callers in the changed surface).
+  - ✅ AC #5: No new files, no new components, no new lexicon keys,
+        no new CSS classes. `git diff --stat` source-files = exactly
+        `PostcardHero.tsx` + `InviteeShell.tsx`.
+  - ✅ AC #6: `git status` shows only the two named source files
+        plus the fix plan (this doc).
+  - ✅ AC #7: `npx tsc --noEmit` exits 0 (re-verified independent
+        of CC's run).
+  - ✅ Sketch render unchanged: confirmed by reading PostcardHero
+        JSX. `tripMetaText` is read inside `!isSketch` branch only
+        (line 220+); sketch substitutes `sketchOverrides.renderBody`
+        and never reaches the trip-meta render condition.
+
+- **CC-verified (per release notes, sandbox can't replicate):**
+  - ✅ AC #8: `npm run build` succeeds (Next 16.2.2 / Turbopack;
+        17/17 static pages; route manifest unchanged). Cowork
+        sandbox can't run `next build` (ARM64 SWC binary missing)
+        — relying on CC's verification.
+
+- **Awaiting deploy (live ACs):**
+  - [ ] AC #1: Teaser at `/i/<token>` (unauthed, incognito) renders
+        the trip-meta row "may 26 → 29 · palm spring, ca" between
+        title and tagline.
+  - [ ] AC #2: Teaser renders `CountdownScoreboard` targeting
+        `commit_deadline` with the "★ lock in by · may 8 · 8pm edt"
+        kicker treatment, tiles, hint emoji — visually identical
+        to post-login sell-phase scoreboard.
+  - [ ] AC #4: Regular sell page hero + countdown bit-identical
+        diff against pre-session screenshot.
+
+**Scope deviations — captured + accepted:**
+
+1. **Lock/go phase pages now show the trip-meta row.** CC's gate
+   drop is wide — `tripMetaText` now computes on any phase that
+   has `date_start + date_end` (sell, lock, go, teaser; sketch
+   still gated at the `!isSketch` JSX boundary). Previously it
+   was sell-only. Andrew confirmed 2026-04-30: leave as-is, build
+   it out later when lock/go get their dedicated polish pass.
+   Net: arguably an improvement (date context is universally
+   useful), one fewer gate to maintain.
+2. **Bonus removal of unused theme derivations** in InviteeShell:
+   `getTheme` import, `theme`, `themedSignature`, `heroLabel`,
+   `fomoFlag`. All consumed solely by the deleted `ChassisCountdown`
+   call; safe to drop. Within scope per "no other callers in the
+   file."
+
+**Known issues:** none. The lock/go side effect is logged as a
+deviation, not a bug.
+
+**Ship state:** code complete; tsc + build clean; one local
+commit pending (the 10D.5 source diff). Hand off the commit + push
+to CC; live ACs verify post-deploy.
+
+---
+
 ### Sessions 11+: "TBD — re-scope after Session 10 strategy lands"
 
 Previous placeholders (teaser layer, invite delivery, RSVP sticky

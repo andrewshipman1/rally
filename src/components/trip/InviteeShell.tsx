@@ -6,16 +6,20 @@
 // to see the plan" overlay until the magic-link round-trip completes.
 //
 // Composition strategy: server-render the static-state pieces
-// (PostcardHero + ChassisCountdown) here, then delegate the
+// (PostcardHero + CountdownScoreboard) here, then delegate the
 // auth-state-aware portion (LockedPlan, PoeticFooter, InviteeStickyBar)
 // to InviteeShellClient. The client wrapper owns the unlocked + linkSent
 // state driven by Supabase's onAuthStateChange listener (10D).
+//
+// 10D.5: PostcardHero now inherits the date-row render path (date_start +
+// date_end passed through), and the trip-start countdown was swapped
+// for the cutoff-targeting CountdownScoreboard so the teaser matches
+// the post-login sell hero.
 
 import { PostcardHero } from '@/components/trip/PostcardHero';
-import { ChassisCountdown } from '@/components/trip/ChassisCountdown';
+import { CountdownScoreboard } from '@/components/trip/CountdownScoreboard';
 import { InviteeShellClient } from '@/components/trip/InviteeShellClient';
 import { getCopy } from '@/lib/copy/get-copy';
-import { getTheme } from '@/lib/themes';
 import type { ThemeId } from '@/lib/themes/types';
 import type { TripWithDetails, TripCostSummary } from '@/types';
 
@@ -42,22 +46,22 @@ export function InviteeShell({
   inviteToken,
   freshAuth = false,
 }: Props) {
-  const theme = getTheme(themeId);
   const organizer = trip.organizer;
   const inviterFirst =
     organizer?.display_name?.trim().split(/\s+/)[0] ?? null;
 
-  // Hero countdown label — same derivation as the live view, minus the
-  // sell-phase "days to lock it in" override (invitees don't need the
-  // cutoff messaging; they need the trip-start countdown).
-  const themedSignature =
-    typeof theme.strings.countdownSignature === 'string'
-      ? theme.strings.countdownSignature
-      : theme.strings.countdownSignature?.({});
-  const heroLabel =
-    themedSignature ?? getCopy(themeId, 'tripPageShared.countdown.label.signature');
-
-  const fomoFlag = theme.strings.fomoFlag;
+  // 10D.5 — scoreboard prop derivation mirrors /trip/[slug]/page.tsx
+  // lines 255-263 exactly. Reuses existing lexicon; no new keys.
+  const cutoffIso = trip.commit_deadline;
+  const sbKicker = getCopy(themeId, 'tripPageSell.scoreboard.kicker');
+  const sbHint = getCopy(themeId, 'tripPageSell.scoreboard.hint');
+  const sbHintEmoji = getCopy(themeId, 'tripPageSell.scoreboard.hintEmoji');
+  const sbUnits = {
+    days: getCopy(themeId, 'tripPageShared.scoreboard.units.days'),
+    hours: getCopy(themeId, 'tripPageShared.scoreboard.units.hours'),
+    minutes: getCopy(themeId, 'tripPageShared.scoreboard.units.minutes'),
+    seconds: getCopy(themeId, 'tripPageShared.scoreboard.units.seconds'),
+  };
 
   return (
     <>
@@ -70,6 +74,8 @@ export function InviteeShell({
         organizerName={organizer?.display_name ?? ''}
         phase={trip.phase}
         isLive={false}
+        dateStartIso={trip.date_start}
+        dateEndIso={trip.date_end}
         inviteeOverrides={{
           inviterRowText: getCopy(themeId, 'inviteeState.inviterRow', { inviter_first: inviterFirst }),
           inviterInitial: (inviterFirst ?? '?').slice(0, 1).toUpperCase(),
@@ -77,8 +83,14 @@ export function InviteeShell({
         }}
       />
 
-      {trip.date_start && (
-        <ChassisCountdown target={trip.date_start} label={heroLabel} flag={fomoFlag} />
+      {cutoffIso && (
+        <CountdownScoreboard
+          target={cutoffIso}
+          units={sbUnits}
+          kicker={sbKicker}
+          hint={sbHint}
+          hintEmoji={sbHintEmoji}
+        />
       )}
 
       <InviteeShellClient
