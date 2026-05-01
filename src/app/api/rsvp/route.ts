@@ -5,6 +5,14 @@ import { z } from 'zod';
 import { stripHtml } from '@/lib/sanitize';
 import { getGuestUserId, setGuestCookie } from '@/lib/guest-auth';
 import { track } from '@/lib/analytics';
+// 10I-followup — Supabase server client for authed-user lookup. The
+// /api/rsvp route was originally designed for guest-auth-only flows
+// (legacy cookie / phone / email). Post-10I, authenticated users hit
+// this endpoint via the sticky bar — they need a dedicated branch
+// that looks up their public.users row by auth.uid() directly,
+// instead of falling through to the email path which trips
+// UNIQUE(email) when the user already has a row from the trigger.
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 function getAdminClient() {
   return createSupabaseClient(
@@ -62,13 +70,45 @@ export async function POST(request: NextRequest) {
       .single();
     if (!trip) return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
 
-    // If guest cookie present, lock identity to that user (cannot impersonate others).
+    // 10I-followup — Authentication priority:
+    //   1. Supabase session (canonical identity post-10I)
+    //   2. Guest cookie (legacy unauthed flows)
+    //   3. Phone-based lookup/create
+    //   4. Email-based lookup/create
+    // Each branch resolves to (userId, displayName) and may set
+    // cookieJustIssued for guest-cookie issuance downstream.
+    const supabase = await createServerClient();
+    const {
+      data: { user: authedUser },
+    } = await supabase.auth.getUser();
+
     const existingUserId = await getGuestUserId();
     let userId: string;
     let displayName: string;
     let cookieJustIssued = false;
 
-    if (existingUserId) {
+    if (authedUser) {
+      // Supabase-authed user. Migration 024's `handle_new_user` trigger
+      // guarantees a `public.users` row at `auth.users.id`; just look
+      // it up. No INSERT — would otherwise trip UNIQUE(email).
+      const { data: existingUser } = await adminClient
+        .from('users')
+        .select('id, display_name')
+        .eq('id', authedUser.id)
+        .maybeSingle();
+      if (!existingUser) {
+        // Defensive: should be impossible post-10I, but if it ever
+        // happens (e.g. trigger never fired for some legacy auth row),
+        // surface a real error rather than the catch-all "Invalid
+        // request" string.
+        return NextResponse.json({ error: 'Profile missing — visit /passport to set up' }, { status: 404 });
+      }
+      userId = existingUser.id;
+      displayName = existingUser.display_name;
+      // Don't auto-update display_name from the RSVP request body.
+      // /passport is the canonical edit surface; this endpoint shouldn't
+      // mutate identity as a side effect.
+    } else if (existingUserId) {
       const { data: existingUser } = await adminClient
         .from('users')
         .select('id, display_name')
