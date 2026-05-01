@@ -75,7 +75,11 @@ export default async function InviteResolver({ params, searchParams }: Props) {
   // write cookies, so trampoline through /auth/callback (a route
   // handler) and let it redirect back here once the session is live.
   if (code) {
-    const nextPath = `/i/${token}${justAuthed ? '?just_authed=1' : ''}`;
+    // Supabase clobbers the existing query when appending ?code=, so
+    // ?just_authed=1 is gone by the time we get here. The presence of
+    // ?code= definitionally means a same-tab magic-link click, so the
+    // post-callback landing is always the in-place reveal.
+    const nextPath = `/i/${token}?just_authed=1`;
     redirect(
       `/auth/callback?code=${encodeURIComponent(code)}&next=${encodeURIComponent(nextPath)}`,
     );

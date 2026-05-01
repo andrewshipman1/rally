@@ -21,7 +21,7 @@ export interface Lexicon {
   tripPageLock: Record<string, Templated>;
   tripPageGo: Record<string, Templated>;
   lockFlow: Record<string, Templated>;
-  /** §5.10 — global RSVP chip icons (🙌/🧗/—) live here, NOT in themes */
+  /** §5.10 — global RSVP chip icons (🙌/🙏/👋) live here, NOT in themes */
   rsvp: Record<string, Templated>;
   emptyStates: Record<string, Templated>;
   errors: Record<string, Templated>;

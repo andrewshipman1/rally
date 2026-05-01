@@ -42,7 +42,7 @@ const EVENT_COPY_KEY: Record<string, string> = {
 
 const EVENT_ICON: Record<string, string> = {
   rsvp_in:        '🙌',
-  rsvp_holding:   '🧗',
+  rsvp_holding:   '🙏',
   rsvp_out:       '👋',
   plus_one_added: '➕',
   vote_cast:      '🗳️',

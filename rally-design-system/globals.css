@@ -1316,157 +1316,6 @@ button:active {
   font-weight: 700;
 }
 
-/* ────────────────────────────────────────────────────────────────────────
- * 10F — sticky bar entry (segmented control) + committed (status pill) +
- * sticker burst. .chassis .sticky already has position: sticky (line 854),
- * which establishes a containing block for the absolutely-positioned
- * .sticky-burst child.
- * ──────────────────────────────────────────────────────────────────────── */
-
-/* ─── Entry mode: segmented control (3 chips in one rounded container) ─ */
-.chassis .sticky.sticky--entry {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
-  padding: 10px 18px 22px;
-}
-.chassis .sticky--entry .sticky-chip {
-  flex: initial;
-  min-width: 0;
-  height: 48px;
-  border-radius: 100px;
-  border: 2px solid var(--stroke);
-  background: var(--bg);
-  color: var(--ink);
-  box-shadow: 3px 3px 0 var(--stroke);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 12px;
-  font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.chassis .sticky--entry .sticky-chip-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-.chassis .sticky--entry .sticky-chip-word {
-  font-size: 13px;
-  letter-spacing: 0.01em;
-}
-.chassis .sticky--entry .sticky-chip.active {
-  background: var(--accent);
-  color: var(--on-accent);
-  transform: scale(1.02);
-}
-
-/* ─── Committed mode: single status pill (icon + text + change) ─────── */
-.chassis .sticky.sticky--committed {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 14px 22px;
-}
-.chassis .sticky--committed .sticky-pill-icon {
-  font-size: 22px;
-  line-height: 1;
-  flex: 0 0 auto;
-}
-.chassis .sticky--committed .sticky-pill-text {
-  flex: 1 1 auto;
-  font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.005em;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* Override the legacy .chassis .sticky button rule for the change button. */
-.chassis .sticky--committed .sticky-change {
-  flex: 0 0 auto;
-  height: auto;
-  background: color-mix(in srgb, var(--ink) 12%, transparent);
-  color: var(--ink);
-  border: none;
-  border-radius: 100px;
-  padding: 8px 14px;
-  font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  text-transform: lowercase;
-  cursor: pointer;
-  box-shadow: none;
-  transition: background 0.15s ease;
-}
-.chassis .sticky--committed .sticky-change:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ink) 22%, transparent);
-  animation: none; /* defeat the inherited hover-wobble */
-}
-.chassis .sticky--committed .sticky-change:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Pill fill variants — accent for "in", muted for "holding", outline for "out". */
-.chassis .sticky--committed.is-in {
-  background: var(--accent);
-}
-.chassis .sticky--committed.is-in .sticky-pill-text,
-.chassis .sticky--committed.is-in .sticky-pill-icon {
-  color: var(--on-accent);
-}
-.chassis .sticky--committed.is-in .sticky-change {
-  background: color-mix(in srgb, var(--on-accent) 18%, transparent);
-  color: var(--on-accent);
-}
-.chassis .sticky--committed.is-in .sticky-change:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--on-accent) 30%, transparent);
-}
-
-.chassis .sticky--committed.is-holding {
-  background: color-mix(in srgb, var(--ink) 8%, var(--bg));
-}
-
-.chassis .sticky--committed.is-out {
-  background: var(--bg);
-}
-.chassis .sticky--committed.is-out .sticky-pill-text {
-  opacity: 0.78;
-}
-
-/* ─── Sticker burst (item #2) — absolutely-positioned emoji that
-   bursts above the bar on commit. Anchors to .sticky (position: sticky
-   creates a containing block in modern browsers; if not, the
-   bottom: 100% / left: 50% positioning still resolves against the
-   nearest positioned ancestor). z-index sits above the bar (z=10) but
-   below Confetti (z=999). ───────────────────────────────────────────── */
-.chassis .sticky-burst {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translate(-50%, 0) scale(0.5);
-  font-size: 48px;
-  line-height: 1;
-  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.35));
-  pointer-events: none;
-  z-index: 500;
-  animation: stickyBurst 0.8s ease-out forwards;
-}
-@keyframes stickyBurst {
-  0%   { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
-  20%  { transform: translate(-50%, -16px) scale(1.4); opacity: 1; }
-  50%  { transform: translate(-50%, -52px) scale(1.0); opacity: 0.92; }
-  100% { transform: translate(-50%, -100px) scale(0.85); opacity: 0; }
-}
-
 /* ════════════════════════════════════════════════════════════════════════
  * PHASE 5 — Invitee pre-login state. Locked plan section (blur + overlay)
  * and the two-CTA sticky bar used by <InviteeStickyBar>.
@@ -1509,8 +1358,6 @@ button:active {
   opacity: 0.85;
   user-select: none;
   pointer-events: none;
-  /* 10D — reveal: blur drops over 600ms when .locked-section.unlocked. */
-  transition: filter 600ms ease-out;
 }
 .chassis .locked-body .locked-row {
   display: flex;
@@ -1538,11 +1385,6 @@ button:active {
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  opacity: 1;
-  transform: scale(1);
-  /* 10D — reveal: pill clears ~300ms before the blur completes so the
-     plan rows emerge cleanly. */
-  transition: opacity 200ms ease-out 300ms, transform 200ms ease-out 300ms;
 }
 .chassis .locked-overlay .locked-overlay-pill {
   background: var(--bg);
@@ -1555,34 +1397,22 @@ button:active {
   box-shadow: 3px 3px 0 var(--ink);
   transform: rotate(-2deg);
 }
-/* 10D — reveal end states: triggered by InviteeShellClient toggling
-   `.unlocked` on `.locked-section` after onAuthStateChange SIGNED_IN. */
-.chassis .locked-section.unlocked .locked-body {
-  filter: blur(0);
-}
-.chassis .locked-section.unlocked .locked-overlay {
-  opacity: 0;
-  transform: scale(0.92);
-}
-/* 10D — sent-state overlay variant: lime accent treatment after the
-   magic link is dispatched, while the body is still blurred. */
-.chassis .locked-overlay.sent .locked-overlay-pill {
-  background: var(--accent2);
-  color: var(--ink);
-}
-@media (prefers-reduced-motion: reduce) {
-  .chassis .locked-body,
-  .chassis .locked-overlay {
-    transition: none;
-  }
-}
 
-/* Invitee sticky bar — single primary CTA + post-tap status pill (10D).
-   Idle state uses .see-plan (full-width); after the magic link is sent
-   the bar swaps to .sticky-sent + .sticky-resend; on failure the pill
-   becomes a tappable .sticky-sent.sticky-error retry button. The
-   "can't make it" outline button + invitee-confirm modal were removed
-   in 10D — signup is the gate for ALL RSVP states. */
+/* Invitee sticky bar — two CTAs: outline "can't make it" + primary "see the plan". */
+.chassis .sticky .cant-make-it {
+  flex: 0 0 auto;
+  background: transparent;
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  height: 52px;
+  padding: 0 18px;
+  border-radius: 100px;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: none;
+  cursor: pointer;
+}
 .chassis .sticky .see-plan {
   flex: 1;
   background: var(--accent);
@@ -1603,76 +1433,69 @@ button:active {
 .chassis .sticky .see-plan:hover {
   animation: hover-wobble 0.4s ease-in-out;
 }
-.chassis .sticky .see-plan:disabled {
-  cursor: default;
-  opacity: 0.6;
-  animation: none;
-}
 @keyframes pulse-cta {
   0%, 100% { transform: scale(1); }
   50%      { transform: scale(1.02); }
 }
 
-/* 10D — invitee sticky bar post-tap pill. Replaces .see-plan when the
-   magic-link request returns (or after 429 cooldown). The .sticky-error
-   variant turns the pill into a tappable retry button. */
-.chassis .sticky .sticky-sent {
-  height: 52px;
-  width: 100%;
-  border-radius: 100px;
+/* Dashed empty avatar — the "you?" slot in the invitee going row. */
+.chassis .avatars .av.av-empty {
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.45;
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+/* Invitee soft-decline confirm modal — minimal overlay. */
+.chassis .invitee-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+.chassis .invitee-confirm {
   background: var(--bg);
-  border: 3px solid var(--ink);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 18px;
-  font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-weight: 700;
-  font-size: 13px;
+  border: 3px solid var(--stroke);
+  border-radius: 22px;
+  box-shadow: 6px 6px 0 var(--stroke);
+  padding: 22px 22px 18px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+}
+.chassis .invitee-confirm .invitee-confirm-msg {
+  font-family: var(--font-hand), 'Caveat', cursive;
+  font-size: 22px;
   color: var(--ink);
-  line-height: 1.2;
+  margin-bottom: 16px;
 }
-.chassis .sticky .sticky-sent .sticky-sent-check {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--accent2);
-  border: 2px solid var(--ink);
+.chassis .invitee-confirm .invitee-confirm-actions {
   display: flex;
-  align-items: center;
+  gap: 10px;
   justify-content: center;
-  font-size: 11px;
-  flex-shrink: 0;
 }
-.chassis .sticky .sticky-sent.sticky-error {
+.chassis .invitee-confirm .invitee-confirm-actions button {
+  flex: 1;
+  height: 44px;
+  border-radius: 100px;
+  border: 3px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.chassis .invitee-confirm .invitee-confirm-actions button.primary {
   background: var(--accent);
   color: var(--on-accent);
   border-color: var(--stroke);
-  cursor: pointer;
-  box-shadow: 4px 4px 0 var(--stroke);
-}
-.chassis .sticky .sticky-resend {
-  text-align: center;
-  font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-size: 11px;
-  color: var(--ink);
-  opacity: 0.7;
-  padding: 2px 0 0;
-}
-.chassis .sticky .sticky-resend button {
-  background: none;
-  border: none;
-  color: var(--ink);
-  text-decoration: underline;
-  cursor: pointer;
-  font: inherit;
-  padding: 0;
-}
-.chassis .sticky .sticky-resend button:disabled {
-  cursor: default;
-  opacity: 0.5;
-  text-decoration: none;
 }
 
 /* Poetic footer — only on the live trip page */

@@ -2,14 +2,20 @@
 
 // Three-state sticky RSVP bar against the phase 2 chassis.
 //
-// Renders three pills (in / holding / out) using the GLOBAL chip icons
-// from copy/surfaces/rsvp.ts. The button label below the active row uses
-// the THEMED text from theme.strings.{state}.button via
-// getCopy(). Per lexicon §5.10:
-//   - chip icons are LOCKED GLOBAL (🙌 / 🧗 / —) — never themed
-//   - button CTA TEXT is themeable
+// Two render modes for the invitee branch (10F):
+//   - entry:     3-chip segmented control (icon + canonical state word)
+//   - committed: single status pill (icon + themed button text + change)
+// Re-tap "change" returns to entry with the previously-committed chip
+// pre-styled .active. Submitting a new state morphs back to committed.
 //
-// The DB now stores 'in' | 'holding' | 'out' | 'awaiting' directly
+// Per lexicon §5.10:
+//   - chip icons are LOCKED GLOBAL (🙌 / 🙏 / 👋) — never themed
+//   - button CTA TEXT is themeable; lives in theme.strings.{state}.button
+//
+// 10F also adds a sticker burst (theme emoji extracted from
+// sticker.invite via regex) and a haptic vibration on commit.
+//
+// The DB stores 'in' | 'holding' | 'out' | 'awaiting' directly
 // (migration 008 created the four-state enum; migration 025 renamed
 // 'pending' to 'awaiting'). No boundary mapping needed.
 
@@ -33,11 +39,15 @@ type Props = {
   isOrganizer?: boolean;
 };
 
-const STATES: { id: Exclude<RallyRsvp, 'awaiting'>; copyKey: string }[] = [
-  { id: 'in',      copyKey: 'rsvp.in.button' },
-  { id: 'holding', copyKey: 'rsvp.holding.button' },
-  { id: 'out',     copyKey: 'rsvp.out.button' },
+type EntryState = Exclude<RallyRsvp, 'awaiting'>;
+
+const STATES: { id: EntryState; word: string }[] = [
+  { id: 'in',      word: 'in' },
+  { id: 'holding', word: 'holding' },
+  { id: 'out',     word: 'out' },
 ];
+
+const TRAILING_PICTOGRAPH = /\s*\p{Extended_Pictographic}\s*$/u;
 
 export function StickyRsvpBarChassis({
   themeId,
@@ -52,7 +62,9 @@ export function StickyRsvpBarChassis({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<RallyRsvp | null>(current);
+  const [changing, setChanging] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showBurst, setShowBurst] = useState(false);
 
   if (isOrganizer) {
     return (
@@ -71,9 +83,13 @@ export function StickyRsvpBarChassis({
     );
   }
 
-  const submit = async (state: Exclude<RallyRsvp, 'awaiting'>) => {
+  const submit = async (state: EntryState) => {
     setError(null);
     setOptimistic(state);
+    setChanging(false);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(20);
+    }
     try {
       const res = await fetch('/api/rsvp', {
         method: 'POST',
@@ -96,17 +112,62 @@ export function StickyRsvpBarChassis({
       startTransition(() => router.refresh());
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 4000);
+      setShowBurst(true);
+      setTimeout(() => setShowBurst(false), 800);
     } catch {
       setError(getCopy(themeId, 'errors.networkDown'));
       setOptimistic(current);
     }
   };
 
+  const committedState: EntryState | null =
+    optimistic === 'in' || optimistic === 'holding' || optimistic === 'out'
+      ? optimistic
+      : null;
+  const mode: 'entry' | 'committed' =
+    committedState && !changing ? 'committed' : 'entry';
+
+  // Theme emoji for the sticker burst — pulled from sticker.invite, with
+  // a defensive fallback if a theme drifts and loses the trailing pictograph.
+  const stickerInvite = getCopy(themeId, 'sticker.invite');
+  const stickerEmoji =
+    stickerInvite.match(/(\p{Extended_Pictographic})\s*$/u)?.[1] ?? '🎉';
+
+  if (mode === 'committed' && committedState) {
+    const themedLabel = getCopy(themeId, `rsvp.${committedState}.button`);
+    const trailing = themedLabel.match(/\s*(\p{Extended_Pictographic})\s*$/u);
+    const stripped =
+      trailing && trailing[1] === RSVP_CHIP_ICONS[committedState]
+        ? themedLabel.replace(TRAILING_PICTOGRAPH, '')
+        : themedLabel;
+    return (
+      <div className={`sticky sticky--committed is-${committedState}`}>
+        <span className="sticky-pill-icon" aria-hidden="true">
+          {RSVP_CHIP_ICONS[committedState]}
+        </span>
+        <span className="sticky-pill-text">{stripped}</span>
+        <button
+          type="button"
+          className="sticky-change"
+          onClick={() => setChanging(true)}
+          disabled={pending}
+        >
+          {getCopy(themeId, 'inviteeStickyBar.change')}
+        </button>
+        {showBurst && (
+          <span className="sticky-burst" aria-hidden="true">
+            {stickerEmoji}
+          </span>
+        )}
+        {showConfetti && <Confetti />}
+      </div>
+    );
+  }
+
   return (
-    <div className="sticky">
-      {STATES.map(({ id, copyKey }) => {
+    <div className="sticky sticky--entry">
+      {STATES.map(({ id, word }) => {
         const isActive = optimistic === id;
-        const label = getCopy(themeId, copyKey);
         return (
           <button
             key={id}
@@ -116,12 +177,19 @@ export function StickyRsvpBarChassis({
             aria-pressed={isActive}
             className={`sticky-chip${isActive ? ' active' : ''}`}
           >
-            <span aria-hidden="true">{RSVP_CHIP_ICONS[id]}</span>
-            <span>{label}</span>
+            <span className="sticky-chip-icon" aria-hidden="true">
+              {RSVP_CHIP_ICONS[id]}
+            </span>
+            <span className="sticky-chip-word">{word}</span>
           </button>
         );
       })}
       {error && <div className="sticky-error">{error}</div>}
+      {showBurst && (
+        <span className="sticky-burst" aria-hidden="true">
+          {stickerEmoji}
+        </span>
+      )}
       {showConfetti && <Confetti />}
     </div>
   );

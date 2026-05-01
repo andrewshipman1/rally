@@ -107,7 +107,7 @@ export type Templated = string | ((vars: ThemeVars) => string);
  * a literal lookup against the theme strings tree — no manual key remap.
  *
  * Per lexicon §5.10: ONLY the button CTA text is themeable for RSVP.
- * Chip icons (🙌/🙏/👋) live globally in copy/surfaces/rsvp.ts.
+ * Chip icons (🙌/🧗/—) live globally in copy/surfaces/rsvp.ts.
  */
 export interface ThemeStrings {
   vibe: Templated;

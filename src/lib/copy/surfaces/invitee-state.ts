@@ -33,6 +33,7 @@ export const inviteeState: Record<string, Templated> = {
   'inviteeStickyBar.resendLink':     "didn't get it? send another",
   'inviteeStickyBar.resendCooldown': ({ seconds }: ThemeVars) => `${seconds ?? 0}s`,
   'inviteeStickyBar.sendError':      "couldn't send · try again",
+  'inviteeStickyBar.change':         'change',
 
   // ─── Share link ─────────────────────────────────────────────────
   'shareLinkCopyAction':  'copy the invite link ↗',

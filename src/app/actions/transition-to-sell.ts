@@ -18,6 +18,8 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { format } from 'date-fns';
 import { sendInviteEmail } from '@/lib/email';
+import { chassisThemeIdFromTemplate } from '@/lib/themes/from-db';
+import type { ThemeId } from '@/lib/themes/types';
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -46,7 +48,7 @@ export async function transitionToSell(
   const { data: trip, error: fetchError } = await supabase
     .from('trips')
     .select(
-      'organizer_id, phase, name, tagline, destination, date_start, date_end, cover_image_url, share_slug',
+      'organizer_id, phase, name, tagline, destination, date_start, date_end, cover_image_url, share_slug, chassis_theme_id, theme:themes(template_name)',
     )
     .eq('id', tripId)
     .single();
@@ -94,6 +96,16 @@ export async function transitionToSell(
       trip.date_start && trip.date_end
         ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
         : null;
+    const tripTheme = trip.theme as unknown as { template_name: string | null } | null | undefined;
+    const themeId: ThemeId =
+      (trip.chassis_theme_id as ThemeId) ||
+      chassisThemeIdFromTemplate(tripTheme?.template_name);
+    const daysOut = trip.date_start
+      ? Math.max(
+          0,
+          Math.ceil((new Date(trip.date_start).getTime() - Date.now()) / 86_400_000),
+        )
+      : null;
 
     for (const m of members) {
       // Supabase's typed-join infers `user` as an array even on 1-to-1
@@ -116,6 +128,8 @@ export async function transitionToSell(
         dateStr,
         coverImageUrl: trip.cover_image_url,
         shareUrl: `${appUrl}/i/${m.invite_token}`,
+        themeId,
+        daysOut,
       });
 
       if (result.ok) {

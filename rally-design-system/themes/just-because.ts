@@ -64,8 +64,8 @@ export const justBecause: Theme = {
     },
 
     in:      { button: "i'm in 🙌" },
-    holding: { button: 'hold my seat 🙏' },
-    out:     { button: "can't make it" },
+    holding: { button: 'hold my seat 🧗' },
+    out:     { button: "can't make it —" },
 
     nudge: {
       t14:    '2 weeks out, who\'s locked in?',

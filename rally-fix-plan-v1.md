@@ -20742,16 +20742,15 @@ named, no creep.
         sandbox can't run `next build` (ARM64 SWC binary missing)
         — relying on CC's verification.
 
-- **Awaiting deploy (live ACs):**
-  - [ ] AC #1: Teaser at `/i/<token>` (unauthed, incognito) renders
+- **Live-verified post-deploy (Andrew, 2026-04-30):**
+  - ✅ AC #1: Teaser at `/i/<token>` (unauthed, incognito) renders
         the trip-meta row "may 26 → 29 · palm spring, ca" between
         title and tagline.
-  - [ ] AC #2: Teaser renders `CountdownScoreboard` targeting
+  - ✅ AC #2: Teaser renders `CountdownScoreboard` targeting
         `commit_deadline` with the "★ lock in by · may 8 · 8pm edt"
         kicker treatment, tiles, hint emoji — visually identical
         to post-login sell-phase scoreboard.
-  - [ ] AC #4: Regular sell page hero + countdown bit-identical
-        diff against pre-session screenshot.
+  - ✅ AC #4: Regular sell page hero + countdown render unchanged.
 
 **Scope deviations — captured + accepted:**
 
@@ -20772,9 +20771,714 @@ named, no creep.
 **Known issues:** none. The lock/go side effect is logged as a
 deviation, not a bug.
 
-**Ship state:** code complete; tsc + build clean; one local
-commit pending (the 10D.5 source diff). Hand off the commit + push
-to CC; live ACs verify post-deploy.
+**Ship state:** ✅ shipped. Code complete, tsc + build clean, all
+ACs verified (code-side by Cowork, live by Andrew post-deploy
+2026-04-30). Closes 10D.5.
+
+---
+
+### Session 10F: "Post-RSVP polish + magic-link redirect repair"
+
+**Status: brief written 2026-05-01. Awaiting CC kickoff.**
+
+**Why:** Three threads converge in one session.
+
+(1) **The post-RSVP sticky bar has no shape.** `StickyRsvpBarChassis`
+always renders 3 chips with one styled `.active`. There's no visual
+signal that the commit moment happened beyond the existing 4s confetti
+flash. The bar should morph to a status pill ("you're in") with a
+small inline "change" link so the page below exhales after RSVP.
+Confirmed by reading the file: today's component already supports
+re-tapping a different chip to change state — the feature gap is
+purely visual treatment, not data flow.
+
+(2) **The fan-out invite email is genuinely off-brand.** `lib/email.ts:36`
+hardcodes `${organizer} invited you to ${tripName}` — TitleCase prose
+that ignores the lexicon entirely — even though
+`lib/copy/surfaces/emails.ts` has Rally-voice copy ready
+(`RSVP: ${organizer} is calling you to ${trip}` /
+`${organizer} just dropped a rally for ${trip}…`). The brand-pass is
+mostly wire-up: route the send path through `getCopy` instead of the
+inline strings, and voice-fix incidental shell strings ("Hey," → "hey,"
+etc.). HTML structure stays.
+
+(3) **New-user magic-link redirect lands on `/auth/setup` and the
+unblur reveal never plays.** Andrew observed on the deployed teaser:
+brand-new invitee receives the magic link, clicks it, completes
+profile setup, and lands somewhere other than the `/i/<token>?just_authed=1`
+unblur path. The 10D-followup architecture (resolver →
+`/auth/callback` → ProfileSetup) was *designed* to preserve a
+`next=/i/<token>?just_authed=1` chain through the new-user flow —
+but something in the chain drops it. Diagnose + fix with the smallest
+possible patch.
+
+**Carryover context (do not re-litigate):**
+
+- **Floating-overlay chrome architecture** was scoped + rejected
+  during 10D.5. Future work; revisit only if the chrome layer
+  keeps generating viewer-mismatch bugs.
+- **Organizer-as-invitee bug** (PostcardHero renders "Andrew Shipman
+  is calling" + "you're invited 🎂" sticker for the organizer
+  viewing their own trip) is documented + deferred. Out of 10F
+  scope. Clean fix would be a `viewerRole` prop on PostcardHero.
+- **Lock/go phase trip-meta row** (10D.5 side effect) is accepted;
+  revisit when lock/go gets dedicated polish.
+- **Inviter-row CSS bug from 10D** ("A" mini-avatar stacking above
+  "Andrew called you up") was confirmed fixed as of 2026-05-01 by
+  Andrew on the deployed teaser. Drop from scope.
+
+**Scope (5 items):**
+
+1. **Sticky-bar redesign — entry segmented control + committed
+   pill morph.** Files: `src/components/trip/StickyRsvpBarChassis.tsx`,
+   `src/lib/copy/surfaces/rsvp.ts`, `src/app/globals.css`.
+   **Entry state:** strip themed button text from the 3 chips.
+   Each chip = global icon (from `RSVP_CHIP_ICONS`) + the canonical
+   state word ('in' / 'holding' / 'out'), inline. Single rounded
+   container, segmented-control geometry. **Icon swap (locked
+   2026-05-01):** update `RSVP_CHIP_ICONS` in
+   `lib/copy/surfaces/rsvp.ts` from `{in: '🙌', holding: '🧗',
+   out: '—'}` to `{in: '🙌', holding: '🙏', out: '👋'}`.
+   Project-wide change; affects every surface that reads
+   `RSVP_CHIP_ICONS`. **Committed state:** after `submit(state)`
+   resolves, the bar renders as a single status pill — chip icon +
+   themed button label (`theme.strings.{state}.button`) + a small
+   inline "change" link. Tapping "change" returns to entry state
+   with the previously-committed chip pre-styled `.active`. Pill
+   bg: `--accent` for 'in', muted surface for 'holding', outline
+   for 'out'. **Trailing-emoji strip:** when the chip icon matches
+   the trailing pictograph of the themed button text (e.g. 🙏 icon
+   + "trying 🙏" → renders "trying"), strip the trailing emoji
+   inline at render time (~2 lines, regex like
+   `/\s*\p{Extended_Pictographic}\s*$/u`). No theme file edits.
+   Implement as a render-mode branch inside the existing component
+   (e.g. `mode = optimistic !== null && !changing ? 'committed' : 'entry'`).
+   Reuse-Before-Rebuild: do NOT fork the component. CSS for the
+   pill mode goes in `globals.css` under the existing `.sticky`
+   class family (`.sticky--entry`, `.sticky--committed`,
+   `.sticky-pill`, `.sticky-change`).
+
+2. **Sticker burst on commit.** File: `StickyRsvpBarChassis.tsx`.
+   On RSVP commit, animate a single emoji (the theme's signature
+   emoji) bursting from the bar. Extract the emoji from the existing
+   `theme.strings.sticker.invite` (every theme has this string with
+   a trailing emoji — e.g. birthday-trip's is `"you're invited 🎂"`)
+   via a regex like `/(\p{Extended_Pictographic})\s*$/u`. Animation:
+   ~800ms total — emoji fades in, scales 0.5 → 1.4 → 1, drifts up
+   ~80px, fades out. Inline keyframes or a short-lived
+   absolutely-positioned `<span>` on top of the pill. NO new theme
+   fields, NO new lexicon keys. Coexists with the existing Confetti.
+
+3. **Haptic on commit.** File: `StickyRsvpBarChassis.tsx`. Inside
+   `submit`, immediately after `setOptimistic(state)` and before
+   the `fetch`, call:
+   `if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(20);`
+   Defensive: iOS Safari does not implement the Vibration API and
+   will silently no-op (the `'vibrate' in navigator` guard handles
+   detection). Android Chrome / Firefox supports it.
+
+4. **Fan-out invite email brand-pass.** File: `src/lib/email.ts`.
+   Replace the hardcoded subject and body strings with
+   `getCopy(themeId, 'emails.invite.subject', vars)` and the body
+   equivalent. Extend `sendInviteEmail`'s prop type to include
+   `themeId: ThemeId` and `daysOut: number | null` (for the lexicon
+   `n` variable). Update the caller at `src/app/api/invite/route.ts`
+   to pass them. Voice-fix incidental shell strings: `"Hey,"` →
+   `"hey,"`, `"Or copy this link:"` → `"or paste this link:"`,
+   `"Made with Rally — the group trip planner"` → drop the line OR
+   replace with `"rally — group trip planner"` (lowercase, no
+   "Made with"). The HTML inline-styled card structure stays
+   byte-equivalent — only prose changes.
+
+5. **Magic-link redirect repair (new-user path).** Files (read-only
+   first, then patch the broken link): `src/app/i/[token]/page.tsx`,
+   `src/app/auth/callback/route.ts`, `src/components/auth/ProfileSetup.tsx`.
+   **Diagnose first:** reproduce by (a) creating a brand-new
+   email-only invitee in dev, (b) publishing the trip, (c) clicking
+   the magic link from the invite email, (d) recording the URL at
+   every step. Expected chain:
+   `/i/<token>?just_authed=1&code=...` → resolver detects `code`
+   → redirects to `/auth/callback?code=...&next=/i/<token>?just_authed=1`
+   → callback exchanges PKCE → new user → `/auth/setup?next=/i/<token>?just_authed=1`
+   → ProfileSetup save → `window.location.href = /i/<token>?just_authed=1`
+   → resolver: no `code`, `justAuthed=true`, user signed in →
+   freshAuth=true → renders `InviteeShellClient` → unblur reveal
+   plays → `router.replace(/trip/<slug>)`.
+   Likely culprits ranked by suspicion: (i) Supabase rewriting the
+   `redirectTo` URL on PKCE append — replacing `?just_authed=1`
+   with `?code=...` instead of appending — so `justAuthed` is lost
+   before the resolver sees it; (ii) `searchParams.set('next',
+   '/i/...?just_authed=1')` URL-encoding the inner `?` such that
+   ProfileSetup reads back a malformed URL; (iii) `window.location.href`
+   in ProfileSetup not preserving the inner query. Patch with the
+   smallest possible change — likely 1–3 lines.
+   **Escalation hatch:** if root cause requires architectural
+   change (new route, redesign of the trampoline, Supabase console
+   config, more than ~5 lines of patch, or touching files outside
+   the 3 named above), STOP and escalate. Items #1–4 ship
+   regardless.
+
+**Hard Constraints:**
+
+- **DO NOT create new routes.** Three screens.
+- **DO NOT touch `src/components/trip/InviteeStickyBar.tsx`** (the
+  unauthed teaser bar — separate concern from the post-RSVP bar).
+- **DO NOT redesign the email HTML shell.** Typography, color
+  palette, card layout, padding, button styling — all stay
+  byte-equivalent. ONLY the prose strings change. A full visual
+  brand-pass of the email template is a separate session.
+- **DO NOT add new theme fields, sticker keys, or per-theme emoji
+  configs.** Sticker burst extracts emoji from the existing
+  `theme.strings.sticker.invite` via regex.
+- **DO NOT touch `LockedPlan.tsx` or the 10D unblur reveal CSS
+  timing/curves.** Andrew clarified the unblur item is a functional
+  redirect bug, not animation polish.
+- **DO NOT modify `StickyRsvpBarChassis.tsx`'s organizer branch**
+  (lines 57–72). Organizer-as-invitee deferral stands.
+- **Lexicon scope:** ONE new key + TWO icon updates total.
+  New key: `inviteeState.inviteeStickyBar.change` (or `rsvp.change`),
+  value `'change'` (lowercase, one word). Icon updates in
+  `RSVP_CHIP_ICONS` (`lib/copy/surfaces/rsvp.ts`):
+  `holding: '🧗' → '🙏'`, `out: '—' → '👋'`. (`in: '🙌'` unchanged.)
+  All other strings come from existing lexicon paths
+  (`emails.invite.{subject,body}`, `theme.strings.sticker.invite`,
+  `theme.strings.{in,holding,out}.button`). NO theme file edits.
+- **Reuse-Before-Rebuild:** sticky-bar morph extends
+  `StickyRsvpBarChassis.tsx` in-place via a render-mode branch.
+  Do NOT fork, copy, or create `<X>V2` / `Sell<X>` / `<X>Alt`.
+- **Scope-creep escalation on item #5:** if the magic-link redirect
+  fix requires more than ~5 lines, more than the 3 named files, or
+  any architectural change, STOP and escalate. Items #1–4 ship
+  regardless.
+- **CSS flush:** any `globals.css` changes require
+  `rm -rf .next && npm run dev` before QA per project rule.
+- **Test in the browser before declaring done.**
+
+**Acceptance Criteria:**
+
+- [ ] Entry-state sticky bar renders as a segmented control (3
+      chips, single rounded container) with icon + canonical state
+      word per chip. Icons: 🙌 in · 🙏 holding · 👋 out.
+- [ ] `git grep "'🧗'\|'—'" src/lib/copy/surfaces/rsvp.ts` returns
+      nothing (old icons replaced).
+- [ ] On `/trip/<slug>` (sell phase, signed-in invitee, 375px
+      viewport), tapping any of the 3 RSVP chips morphs the sticky
+      bar to a single status pill displaying the chosen state's
+      icon + themed button label + an inline "change" affordance.
+- [ ] When the chip icon matches the trailing pictograph of the
+      themed button text (e.g. 🙏 icon + "trying 🙏"), the rendered
+      pill text has the trailing emoji stripped ("trying"). Verified
+      on holding state across themes.
+- [ ] Tapping "change" returns the bar to the 3-chip entry state
+      with the previously-committed chip pre-styled `.active`.
+      Tapping a different chip re-fires `/api/rsvp` and re-morphs
+      the bar to the new pill state.
+- [ ] On RSVP commit, a single theme-keyed emoji animates as a
+      sticker burst above the bar (~800ms). Verified across at
+      least 3 themes (e.g. birthday-trip 🎂, beach-trip, ski-chalet).
+- [ ] On a device with vibration support (Android Chrome devtools
+      or actual device), `navigator.vibrate(20)` fires once per
+      commit. iOS Safari produces no console error and silently
+      no-ops.
+- [ ] Existing Confetti continues to fire on commit; sticker burst
+      and Confetti coexist without z-index collision.
+- [ ] A trial fan-out invite email lands with subject
+      `RSVP: <organizer> is calling you to <trip>`.
+- [ ] Email body text matches `lib/copy/surfaces/emails.ts`
+      `invite.body`: `<organizer> just dropped a rally for <trip>.
+      <n> days out. tap the link, see the pitch, decide if you're in.`
+- [ ] Email HTML shell (typography, colors, card layout, button
+      styling, padding) is byte-equivalent to today's render. Only
+      prose strings differ.
+- [ ] **Magic-link redirect (new user):** brand-new invitee clicks
+      magic link → completes `/auth/setup` → lands on
+      `/i/<token>?just_authed=1` → unblur reveal plays in-place →
+      URL settles at `/trip/<slug>`. No detour through dashboard
+      or straight-to-`/trip/<slug>` skipping the reveal.
+- [ ] **Magic-link redirect (returning user):** invitee with
+      existing account clicks magic link → bypasses `/auth/setup`
+      → lands on `/i/<token>?just_authed=1` → unblur reveal plays.
+- [ ] `git diff --stat` source files: at most
+      `StickyRsvpBarChassis.tsx`, `globals.css`, `lib/email.ts`,
+      `app/api/invite/route.ts`, `lib/copy/surfaces/rsvp.ts`,
+      `lib/copy/surfaces/invitee-state.ts`, and at most 3 of
+      `{i/[token]/page.tsx, auth/callback/route.ts,
+      ProfileSetup.tsx}`. Plus the fix plan release-note edit. No
+      other source files.
+- [ ] No new files. No new components. No new routes. No new
+      theme fields. NO theme file edits. Exactly one new lexicon
+      key + two `RSVP_CHIP_ICONS` value updates total.
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `rm -rf .next && npm run build` succeeds (Next 16 / Turbopack;
+      17/17 static pages; route manifest unchanged).
+
+**Files to Read (mandatory):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — session loop,
+  hard rules, escalation triggers, release-notes format.
+- `rally-fix-plan-v1.md` — this brief; 10D Actuals + 10D.5
+  Release Notes + Actuals immediately above for context on the
+  attendee arc state.
+- `src/components/trip/StickyRsvpBarChassis.tsx` — entire file
+  (~130 lines). The render-mode branch lives here. Note the
+  existing `optimistic` state, `Confetti` import, organizer
+  branch (DO NOT modify), and submit flow.
+- `src/components/ui/Confetti.tsx` — already used by the bar;
+  confirm zIndex (999) and pointer-events posture before
+  layering the sticker burst.
+- `src/lib/copy/surfaces/emails.ts` — lexicon `invite.subject` +
+  `invite.body` you're wiring `lib/email.ts` to.
+- `src/lib/email.ts` — entire file (~145 lines). Both the
+  `sendInviteEmail` signature (extend with `themeId` + `daysOut`)
+  and the inline HTML/text strings change.
+- `src/app/api/invite/route.ts` — caller of `sendInviteEmail`.
+  Update the call site to pass the new props; you'll need to
+  derive `themeId` and `daysOut` from the trip.
+- `src/lib/themes/types.ts` — `ThemeStrings` shape, especially
+  `sticker.invite`.
+- `src/lib/themes/birthday-trip.ts` — concrete theme example
+  for the regex extraction (sticker.invite = `"you're invited 🎂"`).
+- `src/app/i/[token]/page.tsx` — resolver, ~138 lines. Item #5
+  starts here. The `code` and `just_authed` handling at lines
+  46–82 is the key.
+- `src/app/auth/callback/route.ts` — callback handler, ~80 lines.
+  The `next` propagation through the `result.isNewUser` branch
+  is at lines 61–66.
+- `src/components/auth/ProfileSetup.tsx` — entire file. Post-save
+  redirect logic at lines 79–86.
+- `src/components/trip/InviteeStickyBar.tsx` — read-only reference
+  for the magic-link redirectTo construction at line 64
+  (`/i/<token>?just_authed=1`). DO NOT modify.
+- `src/lib/copy/surfaces/rsvp.ts` and
+  `src/lib/copy/surfaces/invitee-state.ts` — read both to
+  determine which surface the new `change` lexicon key fits in.
+- `src/lib/copy/get-copy.ts` (or wherever `getCopy` is defined) —
+  confirm it accepts a vars object for templated strings.
+
+**How to QA Solo (before declaring done):**
+
+1. `npx tsc --noEmit` — must exit 0.
+2. `rm -rf .next && npm run build` — must succeed.
+3. `git diff --stat` — must show only the named files. Anything
+   else, stop and escalate.
+4. `git grep "Hey,\|Tap below\|Made with Rally" src/lib/email.ts`
+   — must return nothing.
+5. `git grep "is calling\|just dropped a rally" src/lib/email.ts`
+   — must return nothing (lexicon does the work; no Rally-voice
+   strings hardcoded inline).
+6. `git grep "viewerRole\|isOrganizer.*PostcardHero" src/components/trip/PostcardHero.tsx`
+   — must be unchanged from main (organizer-as-invitee deferral
+   stands).
+7. Local dev: create a sketch trip, publish, open Chrome incognito,
+   trigger magic link from the invite email, watch the URL bar at
+   every step. Capture URLs at: (a) magic-link click destination,
+   (b) post-callback redirect, (c) post-ProfileSetup save, (d)
+   final landing. Compare to the expected chain in scope item #5;
+   any mismatch is the bug.
+8. On `/trip/<slug>` post-sign-in, tap each of the 3 RSVP states
+   (375px viewport in devtools mobile mode). Verify pill morph,
+   sticker burst, confetti, change-affordance, vibration (Android
+   sim or actual device).
+9. Test on iOS Safari devtools (or actual device) → confirm zero
+   console errors from `navigator.vibrate`.
+
+**Lexicon notes:** ONE new key + TWO icon updates total. New key:
+`inviteeState.inviteeStickyBar.change` (preferred — the surface
+already exists per `src/lib/copy/surfaces/invitee-state.ts`) OR
+`rsvp.change` if the change affordance copy is consistent across
+RSVP states. Value: `'change'` — single word, lowercase, lexicon
+§5.10 voice. Icon updates in `RSVP_CHIP_ICONS`
+(`lib/copy/surfaces/rsvp.ts`): `holding: '🧗' → '🙏'`,
+`out: '—' → '👋'`. (`in: '🙌'` unchanged.) All other strings
+reuse existing keys: `emails.invite.{subject,body}`,
+`theme.strings.sticker.invite`, `theme.strings.{in,holding,out}.button`.
+No theme files are touched. No new templated strings.
+
+**Carryover for 10G:** Themed fan-out invite email (per-theme
+palette + typography + content) is split out as its own session
+to keep 10F shippable. See "Session 10G" below.
+
+**Ship state:** Brief. Awaiting Andrew sign-off → CC kickoff →
+execute → release notes → QA.
+
+#### Session 10F — Release Notes (2026-05-01, Claude Code)
+
+**What was built:**
+
+1. **Item #5 — Magic-link redirect repair** (1-line patch).
+   `src/app/i/[token]/page.tsx:78` — when the resolver sees `?code=`,
+   it now unconditionally injects `?just_authed=1` into the trampoline
+   `nextPath`. Diagnosis: Supabase clobbers the existing query string
+   when appending `?code=` to the redirectTo URL, so `just_authed=1`
+   is dropped before the resolver ever sees it. Since the presence of
+   `?code=` definitionally means a same-tab magic-link click, the
+   post-callback landing should always go through the in-place reveal.
+   Returning users hit the same code path, so the flag is now
+   reliably set for both new and existing invitees.
+
+2. **Item #1 — Sticky bar redesign** (entry segmented control +
+   committed pill morph).
+   - `src/components/trip/StickyRsvpBarChassis.tsx` — added a render-mode
+     branch (`mode = optimistic !== null && !changing ? 'committed' : 'entry'`)
+     in-place. Entry state renders 3 chips (icon + canonical state word
+     `'in' / 'holding' / 'out'` inline) inside a single `.sticky--entry`
+     container. Committed state renders a single `.sticky--committed.is-${state}`
+     pill: chip icon + themed button text + `change` button. New
+     `setChanging(true)` returns to entry with the previously-committed
+     chip pre-styled `.active`. Re-tapping a different chip re-fires
+     `submit()` and morphs back. Trailing-pictograph stripping handles
+     "trying 🙏" → "trying" when the chip icon matches.
+   - `src/lib/copy/surfaces/rsvp.ts` — `RSVP_CHIP_ICONS.holding` `'🧗' → '🙏'`,
+     `RSVP_CHIP_ICONS.out` `'—' → '👋'`. (`in: '🙌'` unchanged.) Comment
+     header updated. No theme file edits.
+   - `src/lib/copy/surfaces/invitee-state.ts` — added one new key:
+     `'inviteeStickyBar.change': 'change'`.
+   - `src/app/globals.css` — new section after `.sticky-error` rule
+     (~150 lines) defining `.sticky--entry`, `.sticky--committed`,
+     `.is-in / .is-holding / .is-out` fill variants, `.sticky-pill-icon`,
+     `.sticky-pill-text`, `.sticky-change`. Reuses existing CSS variables
+     (`--bg`, `--ink`, `--accent`, `--on-accent`, `--stroke`); no new
+     tokens. Override for `.sticky-change` defeats the legacy
+     `.chassis .sticky button` rule (52px accent button) and the
+     inherited hover-wobble.
+
+3. **Item #2 — Sticker burst on commit.**
+   `src/components/trip/StickyRsvpBarChassis.tsx` — extracts the theme
+   emoji from `getCopy(themeId, 'sticker.invite')` via regex
+   (`/(\p{Extended_Pictographic})\s*$/u`), with a defensive `'🎉'`
+   fallback. New `showBurst` state fires for 800ms on RSVP success,
+   rendering an absolutely-positioned `<span class="sticky-burst">`
+   anchored to `.sticky` (which has `position: sticky`, establishing
+   the containing block). CSS keyframe `stickyBurst` matches the
+   mockup curve (fade in, scale 0.5 → 1.4 → 1, drift up ~100px, fade out).
+   Z-index 500 — above the bar (z=10), below Confetti (z=999). Coexists
+   cleanly with existing Confetti.
+
+4. **Item #3 — Haptic on commit.**
+   `src/components/trip/StickyRsvpBarChassis.tsx` — inside `submit()`,
+   immediately after `setOptimistic(state)` and before the fetch:
+   `if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(20);`.
+   iOS Safari silently no-ops via the guard.
+
+5. **Item #4 — Fan-out invite email brand-pass.**
+   - `src/lib/email.ts` — `sendInviteEmail` signature gained
+     `themeId: ThemeId` + `daysOut: number | null`. Subject and body
+     now resolve via `getCopy(themeId, 'emails.invite.{subject,body}', vars)`.
+     Voice fixes: `Hey,` → `hey,`, `Or copy this link:` → `or paste this link:`,
+     `Made with Rally — the group trip planner` → `rally — group trip planner`.
+     Text twin updated to mirror the HTML body and footer. HTML shell
+     (`<table>` layout, padding, colors, button styling) unchanged.
+   - `src/app/api/invite/route.ts` — added `chassis_theme_id, theme:themes(template_name)`
+     to the trip SELECT; resolves `themeId` via the standard pattern
+     (`(chassis_theme_id as ThemeId) || chassisThemeIdFromTemplate(theme?.template_name)`);
+     computes `daysOut` from `trip.date_start`; passes both to `sendInviteEmail`.
+   - `src/app/actions/transition-to-sell.ts` — same wire-up applied
+     identically (this is the **publish-time fan-out**, the actual
+     primary path). See "What changed from the brief" below.
+
+**What changed from the brief:**
+
+- **Scope addition: `src/app/actions/transition-to-sell.ts`** was
+  modified, even though the brief's `git diff --stat` AC enumerates only
+  `src/app/api/invite/route.ts` as the email caller. Reason:
+  `transition-to-sell.ts:109` is a SECOND caller of `sendInviteEmail`
+  (the publish-time fan-out invoked by the "send it" CTA — actually the
+  primary path Andrew was complaining about). The signature change to
+  `sendInviteEmail` made it a TypeScript build break to leave
+  `transition-to-sell.ts` unmodified. Update is purely mechanical:
+  same SELECT additions (`chassis_theme_id, theme:themes(template_name)`),
+  same `themeId` + `daysOut` derivation, same prop pass-through. No new
+  logic. Total: +12 lines in `transition-to-sell.ts`. Both fan-out
+  paths now use the lexicon.
+
+**What to test:**
+
+(All items below need an **authed invitee viewing a sell-phase trip
+at 375px** — Claude Code could not reach this state without breaking
+auth in dev. Andrew owns this QA pass.)
+
+- [ ] **Item #5 (HIGHEST PRIORITY):** brand-new email-only invitee →
+      publish trip → click magic link in incognito → record URLs at
+      every redirect. Expected chain:
+      `/i/<token>?code=PKCE`
+      → `/auth/callback?code=...&next=%2Fi%2F<token>%3Fjust_authed%3D1`
+      → `/auth/setup?next=%2Fi%2F<token>%3Fjust_authed%3D1`
+      → ProfileSetup save → `/i/<token>?just_authed=1`
+      → unblur reveal plays in-place
+      → URL settles at `/trip/<slug>`. If reveal still skipped,
+      escalate — diagnosis was upstream of line 78.
+- [ ] **Item #5 (returning user):** re-tap the same magic link as the
+      now-existing user → bypasses `/auth/setup` → lands on
+      `/i/<token>?just_authed=1` → reveal plays.
+- [ ] **Item #1 entry state:** trip page (sell phase, signed-in invitee,
+      375px) renders the bar as a single rounded container with 3 chips,
+      each `<icon> <word>` inline. Icons: 🙌 / 🙏 / 👋.
+- [ ] **Item #1 committed state:** tap each of 3 chips → bar morphs to a
+      single pill. Pill bg: `--accent` for "in", muted for "holding",
+      outline-only for "out". Pill text = themed button text from
+      `theme.strings.{state}.button`.
+- [ ] **Item #1 holding emoji strip:** on holding state in birthday-trip
+      theme, themed button text "trying 🙏" renders as "trying" (trailing
+      🙏 stripped because it matches the chip icon). Other themes where
+      the trailing pictograph differs from the chip icon should render
+      the themed text unchanged.
+- [ ] **Item #1 change flow:** tap "change" → bar returns to entry state
+      with the previously-committed chip pre-styled `.active`. Tap a
+      different chip → re-fires `/api/rsvp` and re-morphs to the new pill.
+- [ ] **Item #2 sticker burst:** verify across at least 3 themes
+      (birthday-trip 🎂, beach-trip, ski-chalet) — single emoji animates
+      ~800ms above the bar.
+- [ ] **Item #3 haptic:** Android Chrome (devtools sensors panel or real
+      device) — confirm `navigator.vibrate(20)` fires on commit. iOS
+      Safari → zero console errors from `navigator.vibrate`.
+- [ ] **Item #2/#3 coexistence:** existing Confetti continues to fire on
+      commit; no z-index collision with sticker burst.
+- [ ] **Item #4 publish-time email:** publish a trip with at least one
+      email-only invitee → confirm the fan-out email (from
+      `transition-to-sell.ts`) lands with subject
+      `RSVP: <organizer> is calling you to <trip>` and body
+      `<organizer> just dropped a rally for <trip>. <n> days out. tap the link, see the pitch, decide if you're in.`.
+      Greeting is lowercase `hey,` / `hey <name>,`. Footer is
+      `rally — group trip planner` (no "Made with"). Link prompt is
+      `or paste this link:`. HTML shell visually byte-equivalent to
+      today's render.
+- [ ] **Item #4 on-demand email:** post-publish, add a new email
+      invitee from the crew list → confirm the on-demand email (from
+      `api/invite/route.ts`) matches the same lexicon copy.
+
+**Static verification (Claude Code, 2026-05-01):**
+
+- ✅ `npx tsc --noEmit` exits 0 (after fixing 3 errors during
+  development — Supabase array-cast on the `theme:themes(...)` join,
+  and `null` → `undefined` for the lexicon `n` var).
+- ✅ `rm -rf .next && npm run build` succeeds (Next 16 / Turbopack,
+  17/17 static pages, ~1.8s compile).
+- ✅ `git grep "'🧗'\|'—'" src/lib/copy/surfaces/rsvp.ts` → empty.
+- ✅ `git grep "Hey,\|Tap below\|Made with Rally" src/lib/email.ts` → empty.
+- ✅ `git grep "is calling\|just dropped a rally" src/lib/email.ts` →
+  empty (lexicon does the work).
+- ✅ `git diff` on protected files (PostcardHero, theme files,
+  InviteeStickyBar, LockedPlan, auth/callback, ProfileSetup) → empty.
+  Organizer-as-invitee deferral stands.
+- ✅ No new files. No new components. No new routes. No theme file edits.
+- ✅ Lexicon scope: exactly 1 new key (`inviteeStickyBar.change`) +
+  2 `RSVP_CHIP_ICONS` value updates. No other lexicon edits.
+
+**Files touched:**
+
+```
+ rally-fix-plan-v1.md                         (+release notes)
+ src/app/actions/transition-to-sell.ts        | +12  (scope deviation — see above)
+ src/app/api/invite/route.ts                  | +13
+ src/app/globals.css                          | +144
+ src/app/i/[token]/page.tsx                   |  +5  (1-line patch + 4 lines of comment)
+ src/components/trip/StickyRsvpBarChassis.tsx | +75
+ src/lib/copy/surfaces/invitee-state.ts       |  +1
+ src/lib/copy/surfaces/rsvp.ts                |  +3
+ src/lib/email.ts                             | +21
+```
+
+**Known issues (deferred — flag for future sessions):**
+
+- **Email HTML eyebrow stays TitleCase.** Line 60–61 of `email.ts` still
+  reads `${organizerName} invited you` (TitleCase, ALL-CAPS via
+  letter-spacing styling). The brief enumerated three voice fixes
+  (greeting, link prompt, footer); the eyebrow was not in that list, so
+  it was preserved per single-module discipline. Will look stylistically
+  inconsistent with the new lowercase body. **Candidate for 10G** when
+  the email gets a full visual brand-pass — at that point the eyebrow
+  may be removed (now redundant with the body) or lowercased + restyled.
+- **Email CTA button text "See the trip →"** also stays TitleCase
+  (matches the mockup's "today" AND "proposed" columns — explicitly
+  preserved). Same 10G candidate.
+- **Live verification gap:** Claude Code could not reach the post-auth
+  invitee state in dev (no auth bypass, magic-link round-trip requires
+  email access). Static verification is comprehensive (typecheck +
+  build + grep + diff scope checks all pass), but the dynamic states
+  (sticky bar morph, sticker burst, haptic, email render, magic-link
+  chain) need Andrew's local browser walk-through per the test list above.
+- **Magic-link diagnosis is one hypothesis confirmed by code-trace, not
+  by live observation.** The 1-line patch is correct ON THE ASSUMPTION
+  that Supabase clobbers the redirectTo query when appending `?code=`.
+  If live testing reveals Supabase actually preserves the query and the
+  bug is elsewhere downstream, the patch is harmless (always-injecting
+  `?just_authed=1` is the correct behavior either way) but a separate
+  fix may still be needed.
+
+**Ship state:** Code shipped, build green, awaiting Andrew QA on the
+dynamic states above.
+
+#### Session 10F — Actuals (Cowork QA in progress, 2026-05-01)
+
+**Status:** code-side ACs verified by Cowork; 7 Cowork hot-fixes
+landed for stale-icon regressions; live ACs pending Andrew's browser
+walk-through.
+
+**Code-side AC verification (Cowork, disk + grep):**
+
+- ✅ `RSVP_CHIP_ICONS` correctly updated to `{in: '🙌', holding: '🙏',
+      out: '👋'}` in `lib/copy/surfaces/rsvp.ts:15-19`. Header comment
+      updated to reflect new icon set.
+- ✅ New lexicon key `inviteeStickyBar.change: 'change'` added at
+      `lib/copy/surfaces/invitee-state.ts:36`.
+- ✅ Magic-link 1-line patch landed at `app/i/[token]/page.tsx:78-86`
+      with explanatory comment ("Supabase clobbers the existing query
+      when appending ?code=").
+- ✅ `email.ts:23,35,42,46` — `themeId` accepted in props; subject +
+      body resolve via `getCopy(themeId, 'emails.invite.{subject,body}',
+      vars)`.
+- ✅ `transition-to-sell.ts` deviation accepted: signature change to
+      `sendInviteEmail` forced this update; CC's reasoning sound.
+- ✅ Static checks per CC: `tsc --noEmit` exits 0; `npm run build`
+      succeeds (Next 16 / Turbopack, 17/17 static pages); `git grep`
+      checks for protected files all empty.
+- ✅ Protected files untouched: PostcardHero, theme files,
+      InviteeStickyBar, LockedPlan, auth/callback, ProfileSetup.
+
+**Cowork hot-fixes (CSS/copy only — single file each, no logic):**
+
+1. `lib/buzz.ts:45` — `rsvp_holding: '🧗' → '🙏'`. Buzz event icon
+   was duplicating RSVP icons in its own `EVENT_ICON` map; CC's
+   icon swap missed it because brief enumerated only `rsvp.ts`.
+2. `lib/copy/surfaces/rsvp.ts:26` — `'hold my seat 🧗' → 'hold my
+   seat 🙏'`. Default `holding.button` text trailing emoji updated
+   to match new chip; CC's trailing-strip logic now collapses to
+   "hold my seat" on the pill.
+3. `lib/themes/just-because.ts:67` — `'hold my seat 🧗' → 'hold my
+   seat 🙏'`. Same fix in the default theme override. (Theme file
+   edit; brief constraint applied during execution; QA hot-fix
+   acceptable per rally guard fix-in-Cowork rules.)
+4. `lib/themes/types.ts:110` — comment `(🙌/🧗/—) → (🙌/🙏/👋)`.
+   Stale doc.
+5. `lib/copy/types.ts:24` — same comment cleanup.
+6. `lib/themes/wellness-retreat.ts:53` — `out: "can't rn 🙏" →
+   "can't rn"`. The 🙏 in OUT text conflicted with new HOLDING chip
+   icon; dropped trailing emoji entirely (chip 👋 does the visual
+   work).
+7. `lib/themes/just-because.ts:68` — `out: "can't make it —" →
+   "can't make it"`. Em-dash was the OLD out chip icon; dropped
+   since em-dash isn't covered by CC's `\p{Extended_Pictographic}`
+   strip.
+
+**Carried over to 10G (broader audit, not 10F-shaped):**
+
+- **OUT button-text tonality pass across 17 themes.** 14 of 17
+  themes have OUT text leaning uniformly regretful (😔 / 😭 / 🥲 /
+  💔 / 😩) — mis-registered against the new friendly 👋 chip. 15
+  themes still need an audit (2 already fixed above). Added as
+  scope item #0 in the 10G prep notes below.
+
+**Live ACs pending (Andrew's browser walk-through):**
+
+(See "What to test" in the Release Notes above. Andrew owns this
+QA pass — CC could not reach the post-auth invitee state in dev.)
+
+- [ ] Item #5 magic-link redirect — new user
+- [ ] Item #5 magic-link redirect — returning user
+- [ ] Item #1 entry state segmented control + new icons
+- [ ] Item #1 committed pill morph (in / holding / out)
+- [ ] Item #1 trailing-emoji strip on holding (birthday-trip)
+- [ ] Item #1 "change" affordance round-trip
+- [ ] Item #2 sticker burst across ≥3 themes
+- [ ] Item #3 haptic on Android, no error on iOS Safari
+- [ ] Item #2/#3 confetti coexistence
+- [ ] Item #4 publish-time email (subject + body match lexicon)
+- [ ] Item #4 on-demand email matches same lexicon
+
+**Regression-safety checks (per Andrew's call earlier):**
+
+- [ ] Crew module shows the user's row updated after RSVP commit
+      (verifies `router.refresh()` still propagates correctly).
+- [ ] Cost summary per-person estimate recalculates (verifies the
+      `n_in / n_hold` divisor refresh path).
+
+**Ship state:** code-side AC pass + Cowork hot-fixes complete.
+Awaiting live walk-through. After Andrew reports, this Actuals
+section gets a final ✅/❌ pass mark + escalations (if any) to 10F-fix
+or 10G/10H.
+
+---
+
+### Session 10G: "Themed fan-out invite email" — prep notes (Cowork-only, 2026-05-01)
+
+**Status: not started.** Split out from 10F during the 2026-05-01
+Cowork session so the sticky-bar redesign + magic-link redirect fix
+could ship without being blocked on email design work.
+
+**Origin.** While reviewing the 10F mockup
+(`rally-10f-mockup.html`), Andrew flagged that the fan-out invite
+email should "look and feel like the app, with the on-brand
+guidelines and the theme lexicon that we have. Maybe we add another
+component of an email design for each theme that we could apply for
+these fan out email invites so that they feel very on brand."
+
+10F kept the email scope to lexicon wire-up + voice fixes
+(byte-equivalent HTML shell). 10G is the visual brand-pass.
+
+**Target scope (placeholder, refine when 10F ships):**
+
+0. **RSVP button-text tonality pass (added 2026-05-01 during 10F QA).**
+   The 10F icon swap (`out: '—' → '👋'`) made every theme's `out:
+   { button: ... }` text feel mis-registered: chip is now a friendly
+   wave, but themed text leans uniformly regretful (😔 / 😭 / 🥲 /
+   💔 / 😩 across 14 of 17 themes). Sweep all 17 themes' `out` and
+   `holding` button text for tonality match with the new chip set
+   (🙌 in · 🙏 holding · 👋 out). Single file per theme, copy-only
+   edits. Two themes (wellness-retreat, just-because) already
+   hot-fixed during 10F QA; remaining 15 to audit.
+
+1. **Per-theme email palette + typography.** Pull theme palette
+   tokens (`bg`, `ink`, `accent`, `accent2`, `surface`,
+   `on-surface`) into the email HTML inline styles. Match Rally
+   typography (Georgia for headings, Outfit/system sans for body).
+   One template parameterized by theme tokens — NOT 17 separate
+   templates.
+2. **Hero treatment.** Themed cover postcard or accent block at
+   the top of the email. Pulls from
+   `theme.strings.sticker.invite` + theme palette. Possibly a
+   themed marquee strip (re-rendered as static HTML for email).
+3. **Themed CTA.** "See the trip →" button uses theme accent.
+4. **Themed footer / signature.** "rally — group trip planner"
+   styled with theme accent2 or muted token.
+5. **Test across ≥3 themes** before ship: birthday-trip,
+   beach-trip, ski-chalet (covers warm / blue / earth palettes).
+
+**Open questions (Cowork to resolve before writing the brief):**
+
+- Q1: Does 10G need its own mockup pass first, or is the
+  parameterized-template direction clear enough to brief CC
+  directly? (Probably mockup first — multi-theme email designs
+  warrant visual review.)
+- Q2: Does the email need the cover image from
+  `trip.cover_image_url`, or do we use a theme-default
+  illustration / accent block? Image complicates email
+  rendering across clients (Gmail / Outlook / Apple Mail).
+- Q3: Web-safe font fallbacks for Outfit/Fraunces. Email clients
+  often strip custom fonts; need a sensible fallback chain.
+- Q4: Dark-mode email rendering (Gmail dark / Apple Mail dark).
+  Theme palettes assume light surfaces; dark-mode inversion
+  could break theme intent. Test or accept as known
+  limitation?
+
+**Hard constraints (preview):**
+
+- DO NOT redesign the lexicon `emails.invite.{subject,body}` —
+  voice already shipped in 10F.
+- DO NOT add new theme fields. Use existing palette + strings.
+- DO NOT add new email types (RSVP confirmation, etc.). 10G is
+  fan-out invite only.
+
+**Files to read before writing the 10G brief:**
+
+- `.claude/skills/rally-session-guard/SKILL.md`
+- `rally-fix-plan-v1.md` — 10F Actuals (post-ship) for the
+  email lexicon wire-up that 10G builds on.
+- `src/lib/email.ts` — post-10F state.
+- `src/lib/themes/` — palette + strings shape for the
+  parameterization target.
+- `rally-brand-brief-v0.md` — voice + tone rules.
+
+**Ship state:** Prep notes only. 10F must ship first.
 
 ---
 

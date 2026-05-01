@@ -1,6 +1,6 @@
 // §5.10 — RSVP states (three-state, viewer-side).
 //
-// IMPORTANT: per lexicon §5.10, the chip icons (🙌 / 🧗 / —) are LOCKED
+// IMPORTANT: per lexicon §5.10, the chip icons (🙌 / 🙏 / 👋) are LOCKED
 // GLOBAL. They live here as constants, NOT in any theme override. Only the
 // viewer-side button CTA TEXT is themeable (e.g. "pour me in 🍷"); that
 // text lives in theme.strings.rsvp.{state}.buttonLabel.
@@ -14,8 +14,8 @@ import type { Templated, ThemeVars } from '@/lib/themes/types';
 // the three RSVP states.
 export const RSVP_CHIP_ICONS = {
   in:      '🙌',
-  holding: '🧗',
-  out:     '—',
+  holding: '🙏',
+  out:     '👋',
 } as const;
 
 export const rsvp: Record<string, Templated> = {
@@ -23,7 +23,7 @@ export const rsvp: Record<string, Templated> = {
   // in src/lib/themes/<id>.ts → strings.rsvp.{state}.buttonLabel and are
   // resolved by getCopy() before falling back to these defaults.
   'in.button':       "i'm in 🙌",
-  'holding.button':  'hold my seat 🧗',
+  'holding.button':  'hold my seat 🙏',
   'out.button':      "can't make it —",
 
   // ─── Confirmation toasts ───────────────────────────────────────

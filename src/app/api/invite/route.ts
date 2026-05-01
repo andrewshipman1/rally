@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { sendInviteEmail } from '@/lib/email';
+import { chassisThemeIdFromTemplate } from '@/lib/themes/from-db';
+import type { ThemeId } from '@/lib/themes/types';
 import { format } from 'date-fns';
 
 // Service-role client for admin operations (creating invitee users without auth)
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const { data: trip } = await supabase
       .from('trips')
-      .select('organizer_id, phase, name, tagline, destination, date_start, date_end, cover_image_url, share_slug')
+      .select('organizer_id, phase, name, tagline, destination, date_start, date_end, cover_image_url, share_slug, chassis_theme_id, theme:themes(template_name)')
       .eq('id', tripId)
       .single();
 
@@ -132,6 +134,16 @@ export async function POST(request: NextRequest) {
         trip.date_start && trip.date_end
           ? `${format(new Date(trip.date_start), 'MMM d')}–${format(new Date(trip.date_end), 'd, yyyy')}`
           : null;
+      const tripTheme = trip.theme as unknown as { template_name: string | null } | null | undefined;
+      const themeId: ThemeId =
+        (trip.chassis_theme_id as ThemeId) ||
+        chassisThemeIdFromTemplate(tripTheme?.template_name);
+      const daysOut = trip.date_start
+        ? Math.max(
+            0,
+            Math.ceil((new Date(trip.date_start).getTime() - Date.now()) / 86_400_000),
+          )
+        : null;
       emailResult = await sendInviteEmail({
         to: email,
         recipientName: name || null,
@@ -142,6 +154,8 @@ export async function POST(request: NextRequest) {
         dateStr,
         coverImageUrl: trip.cover_image_url,
         shareUrl: `${appUrl}/i/${member.invite_token}`,
+        themeId,
+        daysOut,
       });
       if (!emailResult.ok) {
         console.error('Invite email failed:', emailResult.error);

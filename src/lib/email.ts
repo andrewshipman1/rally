@@ -1,4 +1,6 @@
 import { Resend } from 'resend';
+import { getCopy } from '@/lib/copy/get-copy';
+import type { ThemeId } from '@/lib/themes/types';
 
 const FROM = process.env.RESEND_FROM_EMAIL || 'Rally <onboarding@resend.dev>';
 
@@ -18,6 +20,8 @@ export async function sendInviteEmail({
   dateStr,
   coverImageUrl,
   shareUrl,
+  themeId,
+  daysOut,
 }: {
   to: string;
   recipientName: string | null;
@@ -28,12 +32,22 @@ export async function sendInviteEmail({
   dateStr: string | null;
   coverImageUrl: string | null;
   shareUrl: string;
+  themeId: ThemeId;
+  daysOut: number | null;
 }): Promise<{ ok: boolean; error?: string }> {
   const resend = getResend();
   if (!resend) return { ok: false, error: 'RESEND_API_KEY not set' };
 
-  const greeting = recipientName ? `Hey ${recipientName},` : 'Hey,';
-  const subject = `${organizerName} invited you to ${tripName}`;
+  const greeting = recipientName ? `hey ${recipientName},` : 'hey,';
+  const subject = getCopy(themeId, 'emails.invite.subject', {
+    organizer: organizerName,
+    trip: tripName,
+  });
+  const bodyProse = getCopy(themeId, 'emails.invite.body', {
+    organizer: organizerName,
+    trip: tripName,
+    n: daysOut ?? undefined,
+  });
   const metaLine = [destination, dateStr].filter(Boolean).join(' · ');
 
   const html = `
@@ -74,7 +88,7 @@ export async function sendInviteEmail({
               }
               <p style="font-size:15px; line-height:1.6; color:#2a3a43; margin:0 0 28px;">
                 ${escapeHtml(greeting)}<br><br>
-                ${escapeHtml(organizerName)} is planning a trip and wants you there. Tap below to see the full plan, check the cost, and RSVP.
+                ${escapeHtml(bodyProse)}
               </p>
               <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 8px;">
                 <tr>
@@ -86,7 +100,7 @@ export async function sendInviteEmail({
                 </tr>
               </table>
               <p style="font-size:11px; color:#98a5ab; text-align:center; margin:24px 0 0;">
-                Or copy this link:<br>
+                or paste this link:<br>
                 <a href="${escapeAttr(shareUrl)}" style="color:#556b73; word-break:break-all;">${escapeHtml(shareUrl)}</a>
               </p>
             </td>
@@ -94,7 +108,7 @@ export async function sendInviteEmail({
           <tr>
             <td style="padding:20px 36px; border-top:1px solid #f0ece4; text-align:center;">
               <div style="font-family: Georgia, serif; font-size:13px; color:#98a5ab;">
-                Made with <strong style="color:#556b73;">Rally</strong> — the group trip planner
+                rally — group trip planner
               </div>
             </td>
           </tr>
@@ -108,11 +122,11 @@ export async function sendInviteEmail({
 
   const text = `${greeting}
 
-${organizerName} invited you to ${tripName}.
+${bodyProse}
 ${metaLine ? metaLine + '\n' : ''}
 See the trip and RSVP: ${shareUrl}
 
-— Rally`;
+— rally — group trip planner`;
 
   try {
     const { error } = await resend.emails.send({

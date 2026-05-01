@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Session 10F: Post-RSVP polish + magic-link redirect</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     10F SCOPE — POST-RSVP POLISH + MAGIC-LINK REDIRECT
+     (Cowork mockup, 2026-05-01)
+
+     FIVE THREADS — visualized below in this order:
+
+     1. Sticky bar redesign
+        - Current 3-chip bar feels overloaded: global icon
+          (🙌/🧗/—) + themed button text ("i'll be there 🎉" /
+          "trying 🙏" / "can't make it 💔") on each chip.
+          Andrew's gripe: shape + icon-text combo feel off.
+        - Proposed: strip entry state down to icon + ONE
+          neutral word ("in" / "holding" / "out"), segmented
+          control. Themed flavor moves to the committed pill
+          where there's room to breathe.
+        - Committed state: single status pill +
+          inline "change" link. Theme flavor lives here.
+
+     2. Sticker burst on commit
+        - Single emoji extracted from theme.strings.sticker.invite
+          (every theme has one). Bursts upward, 800ms.
+
+     3. Haptic on commit (no UI — flag here for completeness)
+        - navigator.vibrate(20), guarded for iOS Safari no-op.
+
+     4. Email brand-pass
+        - Current: TitleCase prose, ignores lexicon.
+        - Proposed: wire to lexicon.emails.invite.{subject,body}.
+
+     5. Magic-link redirect chain repair
+        - Diagnose where next=/i/<token>?just_authed=1 drops
+          for the new-user flow. Likely Supabase rewriting
+          redirectTo on PKCE append.
+
+     OUT OF SCOPE (deferred — see brief):
+     - Floating-overlay chrome architecture
+     - Organizer-as-invitee bug on PostcardHero
+     - Lock/go phase trip-meta row side effect
+     - Email HTML shell redesign (typography/colors stay)
+     - Unblur reveal animation timing
+     - InviteeStickyBar (unauthed teaser bar)
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --doc-bg: #2a2a2a;
+    --doc-text: #faf8f5;
+    --doc-muted: #888;
+    --doc-accent: #ffd84d;
+    --doc-dim: #555;
+    --doc-good: #4ade80;
+    --doc-bad: #ff6b6b;
+    --doc-warn: #ff9f4a;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    min-height: 100vh;
+    padding: 24px 16px 96px;
+    line-height: 1.5;
+  }
+  .doc-header {
+    max-width: 860px;
+    margin: 0 auto 32px;
+    text-align: center;
+  }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 24px;
+    color: var(--doc-text);
+    margin-bottom: 6px;
+  }
+  .doc-sub {
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.55;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+  .doc-sub code, .section-note code, .legend code {
+    background: #1a1a1a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+    font-family: 'SF Mono', Menlo, monospace;
+  }
+
+  .section-label {
+    max-width: 860px;
+    margin: 56px auto 0;
+    padding: 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    color: var(--doc-accent);
+    font-weight: 700;
+  }
+  .section-note {
+    max-width: 860px;
+    margin: 4px auto 18px;
+    padding: 0 8px;
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.6;
+  }
+
+  .pair {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .pair-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .pair-meta {
+    width: 375px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .pair-meta.bad { color: var(--doc-bad); }
+  .pair-meta.good { color: var(--doc-good); }
+
+  /* Phone frame using Rally theme tokens */
+  .frame {
+    width: 375px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 22px;
+    padding: 14px 0 0;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+    overflow: hidden;
+
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --surface: #ffffff;
+    --on-surface: #1a1a1a;
+    --accent: #ffd84d;
+    --accent2: #5bb7d8;
+    --muted: #8a8680;
+    --sticker-bg: #f2e0d0;
+    --border: #1a1a1a;
+  }
+  .frame--birthday {
+    --bg: #fff5e1;
+    --ink: #2a1a0f;
+    --accent: #ff4757;
+    --accent2: #4d9fff;
+    --sticker-bg: #ffd84d;
+    --surface: #3a1f24;
+    --on-surface: #fff5e1;
+  }
+
+  /* Page-content stubs (low-fidelity backdrop) */
+  .page-stub {
+    padding: 12px 18px 110px;
+    min-height: 320px;
+  }
+  .page-stub-hero {
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    opacity: .85;
+  }
+  .page-stub-hero-eyebrow {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--ink);
+    opacity: .55;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .page-stub-hero-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 22px;
+    color: var(--ink);
+    line-height: 1.05;
+  }
+  .page-stub-hero-meta {
+    font-size: 11px;
+    color: var(--ink);
+    opacity: .6;
+    margin-top: 4px;
+  }
+  .page-stub-module {
+    border: 2px dashed var(--ink);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    opacity: .28;
+  }
+  .page-stub-module-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .page-stub-module-body {
+    font-size: 10px;
+    color: var(--ink);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+
+  /* ─── STICKY BAR — CURRENT (the problem) ─────────────────── */
+  .sticky-current {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    right: 14px;
+    background: var(--surface);
+    color: var(--on-surface);
+    border-radius: 14px;
+    padding: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.18);
+  }
+  .sticky-current-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 6px;
+    border: 1.5px solid color-mix(in srgb, var(--on-surface) 18%, transparent);
+    border-radius: 11px;
+    font-size: 11px;
+    line-height: 1.15;
+    text-align: center;
+    color: var(--on-surface);
+  }
+  .sticky-current-chip.active {
+    background: var(--accent);
+    color: var(--surface);
+    border-color: var(--accent);
+  }
+  .sticky-current-chip-icon {
+    font-size: 18px;
+    margin-bottom: 1px;
+  }
+  .sticky-current-chip-label {
+    font-weight: 600;
+    font-size: 10px;
+  }
+
+  /* ─── STICKY BAR — PROPOSED ENTRY STATE ──────────────────── */
+  .sticky-new {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    right: 14px;
+    background: var(--surface);
+    color: var(--on-surface);
+    border-radius: 999px;
+    padding: 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.22);
+    border: 1.5px solid color-mix(in srgb, var(--on-surface) 8%, transparent);
+  }
+  .sticky-new-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 10px;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--on-surface);
+    font-family: 'Outfit', -apple-system, sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all .18s ease;
+    cursor: pointer;
+  }
+  .sticky-new-chip-icon {
+    font-size: 16px;
+    line-height: 1;
+  }
+  .sticky-new-chip-word {
+    font-size: 12px;
+    letter-spacing: .01em;
+  }
+  .sticky-new-chip:hover {
+    background: color-mix(in srgb, var(--on-surface) 6%, transparent);
+  }
+  .sticky-new-chip.active {
+    background: var(--accent);
+    color: var(--ink);
+    box-shadow: 0 2px 6px rgba(0,0,0,.15);
+    transform: scale(1.02);
+  }
+
+  /* ─── STICKY BAR — PROPOSED COMMITTED PILL ───────────────── */
+  .sticky-pill {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    right: 14px;
+    background: var(--accent);
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 12px 8px 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.22);
+  }
+  .sticky-pill-icon {
+    font-size: 22px;
+    line-height: 1;
+  }
+  .sticky-pill-text {
+    flex: 1;
+    font-family: 'Outfit', -apple-system, sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: .005em;
+  }
+  .sticky-pill-change {
+    background: color-mix(in srgb, var(--ink) 18%, transparent);
+    color: var(--ink);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: lowercase;
+    letter-spacing: .02em;
+    cursor: pointer;
+    transition: background .15s ease;
+  }
+  .sticky-pill-change:hover {
+    background: color-mix(in srgb, var(--ink) 30%, transparent);
+  }
+
+  /* ─── STICKER BURST (frozen frame for static mockup) ─────── */
+  .sticker-burst {
+    position: absolute;
+    bottom: 78px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 52px;
+    line-height: 1;
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,.35));
+    pointer-events: none;
+    animation: bsBurst 1.6s ease-out infinite;
+  }
+  @keyframes bsBurst {
+    0%   { transform: translate(-50%, 0) scale(.5); opacity: 0; }
+    20%  { transform: translate(-50%, -16px) scale(1.4); opacity: 1; }
+    50%  { transform: translate(-50%, -52px) scale(1.0); opacity: .92; }
+    100% { transform: translate(-50%, -120px) scale(.85); opacity: 0; }
+  }
+
+  .annot {
+    margin-top: 12px;
+    width: 375px;
+    font-size: 11px;
+    color: #c0c0c0;
+    line-height: 1.55;
+    padding-left: 4px;
+  }
+  .annot strong {
+    color: var(--doc-accent);
+    font-weight: 700;
+  }
+  .annot ul { padding-left: 16px; margin-top: 4px; }
+  .annot li { margin-bottom: 3px; }
+
+  /* ─── EMAIL BRAND-PASS ──────────────────────────────────── */
+  .email-pair {
+    max-width: 920px;
+    margin: 0 auto 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .email-card {
+    background: #1a1a1a;
+    border-radius: 14px;
+    padding: 18px 20px;
+    border: 1px solid #333;
+  }
+  .email-card-tag {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--doc-bad);
+  }
+  .email-card-tag.good { color: var(--doc-good); }
+  .email-from {
+    font-size: 11px;
+    color: #aaa;
+    margin-bottom: 4px;
+  }
+  .email-subject {
+    font-family: Georgia, serif;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--doc-text);
+    line-height: 1.3;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #333;
+  }
+  .email-body {
+    font-size: 12px;
+    color: #d8d8d8;
+    line-height: 1.55;
+    font-family: 'SF Mono', Menlo, monospace;
+    white-space: pre-wrap;
+  }
+  .email-note {
+    margin-top: 12px;
+    font-size: 10px;
+    color: #888;
+    font-style: italic;
+    line-height: 1.4;
+  }
+  .email-note strong {
+    color: var(--doc-accent);
+    font-style: normal;
+  }
+
+  /* ─── MAGIC-LINK REDIRECT CHAIN ─────────────────────────── */
+  .chain {
+    max-width: 920px;
+    margin: 0 auto 16px;
+    background: #1a1a1a;
+    border-radius: 14px;
+    padding: 22px 24px;
+    border: 1px solid #333;
+  }
+  .chain-step {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 14px;
+    margin-bottom: 12px;
+    align-items: start;
+  }
+  .chain-step-num {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #333;
+    color: var(--doc-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  .chain-step-num.broken { background: var(--doc-bad); color: #fff; }
+  .chain-step-num.fixed  { background: var(--doc-good); color: #1a1a1a; }
+
+  .chain-step-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .chain-step-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--doc-text);
+    margin-bottom: 4px;
+  }
+  .chain-step-url {
+    background: #0e0e0e;
+    border: 1px solid #2c2c2c;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 10.5px;
+    color: var(--doc-accent);
+    margin-bottom: 6px;
+    word-break: break-all;
+    line-height: 1.4;
+  }
+  .chain-step-url.broken { border-color: var(--doc-bad); color: var(--doc-bad); }
+  .chain-step-note {
+    font-size: 11px;
+    color: #aaa;
+    line-height: 1.55;
+  }
+  .chain-step-note strong { color: var(--doc-accent); }
+
+  .chain-arrow {
+    width: 26px;
+    text-align: center;
+    color: #555;
+    font-size: 14px;
+    line-height: 1;
+    margin: 2px 0;
+  }
+
+  /* ─── LEGEND / DECISIONS ────────────────────────────────── */
+  .decisions {
+    max-width: 920px;
+    margin: 0 auto 32px;
+    background: #1a1a1a;
+    border-radius: 14px;
+    padding: 22px 26px;
+    border: 1px solid #333;
+  }
+  .decisions h3 {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--doc-accent);
+    margin-bottom: 14px;
+  }
+  .decisions ol { padding-left: 22px; }
+  .decisions li {
+    font-size: 13px;
+    color: #d8d8d8;
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+  .decisions li strong { color: var(--doc-text); }
+  .decisions code {
+    background: #0e0e0e;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+    font-family: 'SF Mono', Menlo, monospace;
+  }
+
+  .legend {
+    max-width: 920px;
+    margin: 0 auto 28px;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: #aaa;
+    padding: 0 8px;
+  }
+  .legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .legend-dot.bad { background: var(--doc-bad); }
+  .legend-dot.good { background: var(--doc-good); }
+  .legend-dot.warn { background: var(--doc-warn); }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-kicker">Session 10F · Cowork mockup · 2026-05-01</div>
+  <div class="doc-title">post-rsvp polish + magic-link redirect</div>
+  <div class="doc-sub">
+    Five threads: sticky-bar redesign, sticker burst, haptic, email brand-pass,
+    magic-link redirect repair. Brief lives in <code>rally-fix-plan-v1.md</code>.
+    This mockup visualizes the design decisions for sign-off before CC kickoff.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 1 — STICKY BAR REDESIGN
+     ════════════════════════════════════════════════════════════ -->
+
+<div class="section-label">1 · sticky bar — entry state</div>
+<div class="section-note">
+  Current bar overloads each chip with <code>RSVP_CHIP_ICONS[id]</code> +
+  themed button text (<code>theme.strings.{state}.button</code>). Three pills,
+  three icons, three themed phrases — too much information, especially at
+  375px. Proposed: keep the global icons, drop the themed text from entry
+  state, replace with the canonical state word. One icon, one word, one
+  decision. Themed flavor moves to the <em>committed</em> pill where it
+  has room to land.
+</div>
+
+<div class="pair">
+  <div class="pair-col">
+    <div class="pair-meta bad">today (the problem) · birthday-trip theme</div>
+    <div class="frame frame--birthday">
+      <div class="page-stub">
+        <div class="page-stub-hero">
+          <div class="page-stub-hero-eyebrow">★ andrew is calling</div>
+          <div class="page-stub-hero-title">olivia turns 30</div>
+          <div class="page-stub-hero-meta">may 26 → 29 · palm springs, ca</div>
+        </div>
+        <div class="page-stub-module">
+          <div class="page-stub-module-title">the spot</div>
+          <div class="page-stub-module-body">desert house · 4 br · pool</div>
+        </div>
+        <div class="page-stub-module">
+          <div class="page-stub-module-title">cost summary</div>
+          <div class="page-stub-module-body">~$420 / person estimated</div>
+        </div>
+      </div>
+      <div class="sticky-current">
+        <div class="sticky-current-chip">
+          <div class="sticky-current-chip-icon">🙌</div>
+          <div class="sticky-current-chip-label">i'll be there 🎉</div>
+        </div>
+        <div class="sticky-current-chip">
+          <div class="sticky-current-chip-icon">🧗</div>
+          <div class="sticky-current-chip-label">trying 🙏</div>
+        </div>
+        <div class="sticky-current-chip">
+          <div class="sticky-current-chip-icon">—</div>
+          <div class="sticky-current-chip-label">can't make it 💔</div>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      <strong>Why it feels off:</strong>
+      <ul>
+        <li>3 icons + 3 phrases = 6 reading targets.</li>
+        <li>Themed phrases vary in length — chip widths feel uneven.</li>
+        <li>Emojis on chip text fight the global icon above.</li>
+        <li>Active state (when present) just inverts color; no real moment.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pair-col">
+    <div class="pair-meta good">proposed (entry state)</div>
+    <div class="frame frame--birthday">
+      <div class="page-stub">
+        <div class="page-stub-hero">
+          <div class="page-stub-hero-eyebrow">★ andrew is calling</div>
+          <div class="page-stub-hero-title">olivia turns 30</div>
+          <div class="page-stub-hero-meta">may 26 → 29 · palm springs, ca</div>
+        </div>
+        <div class="page-stub-module">
+          <div class="page-stub-module-title">the spot</div>
+          <div class="page-stub-module-body">desert house · 4 br · pool</div>
+        </div>
+        <div class="page-stub-module">
+          <div class="page-stub-module-title">cost summary</div>
+          <div class="page-stub-module-body">~$420 / person estimated</div>
+        </div>
+      </div>
+      <div class="sticky-new">
+        <div class="sticky-new-chip">
+          <span class="sticky-new-chip-icon">🙌</span>
+          <span class="sticky-new-chip-word">in</span>
+        </div>
+        <div class="sticky-new-chip">
+          <span class="sticky-new-chip-icon">🙏</span>
+          <span class="sticky-new-chip-word">holding</span>
+        </div>
+        <div class="sticky-new-chip">
+          <span class="sticky-new-chip-icon">👋</span>
+          <span class="sticky-new-chip-word">out</span>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      <strong>What changed:</strong>
+      <ul>
+        <li>Single rounded container, segmented control feel.</li>
+        <li>New icon set: <code>🙌</code> in · <code>🙏</code> holding ·
+          <code>👋</code> out. Replaces current
+          <code>🙌 / 🧗 / —</code> globally
+          (<code>RSVP_CHIP_ICONS</code> in <code>rsvp.ts</code>).</li>
+        <li>Chip text is the canonical lexicon state word
+          (<code>'in' / 'holding' / 'out'</code>), not the themed phrase.</li>
+        <li>Icon + word inline, not stacked — denser, calmer.</li>
+        <li>👋 keeps "out" neutral — friendly wave-off, not a guilt-trip.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">2 · sticky bar — committed state (option B)</div>
+<div class="section-note">
+  After commit, the segmented bar morphs to a single status pill. This is
+  where themed text lives — <code>theme.strings.in.button</code> for in-state
+  ("i'll be there 🎉"), <code>theme.strings.holding.button</code>, etc. The
+  "change" link sits on the right, tapping returns the bar to entry state
+  with the previously-committed chip pre-styled <code>.active</code>.
+</div>
+
+<div class="pair">
+  <div class="pair-col">
+    <div class="pair-meta good">committed · in · birthday-trip theme</div>
+    <div class="frame frame--birthday">
+      <div class="page-stub">
+        <div class="page-stub-hero">
+          <div class="page-stub-hero-eyebrow">★ andrew is calling</div>
+          <div class="page-stub-hero-title">olivia turns 30</div>
+          <div class="page-stub-hero-meta">may 26 → 29 · palm springs, ca</div>
+        </div>
+        <div class="page-stub-module">
+          <div class="page-stub-module-title">the spot</div>
+          <div class="page-stub-module-body">desert house · 4 br · pool</div>
+        </div>
+        <div class="page-stub-module">
+          <div class="page-stub-module-title">cost summary</div>
+          <div class="page-stub-module-body">~$420 / person estimated</div>
+        </div>
+      </div>
+      <!-- sticker burst frozen frame (animated infinitely for demo) -->
+      <div class="sticker-burst">🎂</div>
+      <div class="sticky-pill">
+        <span class="sticky-pill-icon">🙌</span>
+        <span class="sticky-pill-text">i'll be there 🎉</span>
+        <span class="sticky-pill-change">change</span>
+      </div>
+    </div>
+    <div class="annot">
+      <strong>What's happening:</strong>
+      <ul>
+        <li>Bar morphs from 3-segment control → single pill, ~250ms ease-out.</li>
+        <li>Themed text from <code>theme.strings.in.button</code>; pill bg is
+          <code>--accent</code> for the strongest "yes" state.</li>
+        <li>Theme emoji (extracted from <code>theme.strings.sticker.invite</code>
+          via regex) bursts ~80px upward, ~800ms total.</li>
+        <li>Existing <code>Confetti</code> still fires (full-screen, z=999).</li>
+        <li>"change" reverts to entry state; previous chip pre-active.</li>
+        <li>One new lexicon key: <code>inviteeState.inviteeStickyBar.change</code>
+          = <code>'change'</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pair-col">
+    <div class="pair-meta good">committed · holding · default theme</div>
+    <div class="frame">
+      <div class="page-stub">
+        <div class="page-stub-hero">
+          <div class="page-stub-hero-eyebrow">★ andrew is calling</div>
+          <div class="page-stub-hero-title">memorial weekend</div>
+          <div class="page-stub-hero-meta">may 26 → 29 · joshua tree, ca</div>
+        </div>
+        <div class="page-stub-module">
+          <div class="page-stub-module-title">the spot</div>
+          <div class="page-stub-module-body">cabin · 6 br · hot tub</div>
+        </div>
+        <div class="page-stub-module">
+          <div class="page-stub-module-title">getting here</div>
+          <div class="page-stub-module-body">drive · 2.5 hrs from LAX</div>
+        </div>
+      </div>
+      <div class="sticky-pill" style="background: color-mix(in srgb, var(--ink) 8%, var(--bg)); color: var(--ink); border: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent);">
+        <span class="sticky-pill-icon">🙏</span>
+        <span class="sticky-pill-text">trying</span>
+        <span class="sticky-pill-change" style="background: color-mix(in srgb, var(--ink) 12%, transparent);">change</span>
+      </div>
+    </div>
+    <div class="annot">
+      <strong>Why holding is muted:</strong>
+      <ul>
+        <li>"In" is a celebration → accent fill.</li>
+        <li>"Holding" is a maybe → muted fill, same shape.</li>
+        <li>"Out" → outline only, low contrast (not shown).</li>
+        <li>Visual hierarchy mirrors the social weight of the answer.</li>
+        <li><strong>Note:</strong> with new 🙏 holding icon, themed
+          <code>theme.strings.holding.button</code> ("trying 🙏" in
+          birthday-trip) duplicates the emoji. CC strips trailing
+          <code>\p{Extended_Pictographic}</code> from themed button text
+          if it matches the chip icon — ~2 lines, no theme file edits.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 3 — EMAIL BRAND-PASS
+     ════════════════════════════════════════════════════════════ -->
+
+<div class="section-label">3 · fan-out invite email — lexicon wire-up (10F) · themed redesign → 10G</div>
+<div class="section-note">
+  <strong>10F scope:</strong> wire <code>src/lib/email.ts</code> to
+  <code>lib/copy/surfaces/emails.ts</code> + voice-fix incidental shell
+  strings ("Hey," → "hey,", footer). HTML structure, typography, and color
+  palette stay byte-equivalent. Highest-ROI change with the smallest blast
+  radius.
+  <br><br>
+  <strong>10G (separate session):</strong> per-theme email design that
+  matches Rally's app palette + typography + theme content. Requires its own
+  mockup pass across at least 3 themes before CC kickoff.
+</div>
+
+<div class="email-pair">
+  <div class="email-card">
+    <div class="email-card-tag">today — TitleCase prose, lexicon ignored</div>
+    <div class="email-from">From: Rally &lt;hi@rallyapp.travel&gt;</div>
+    <div class="email-subject">Andrew Shipman invited you to Olivia turns 30</div>
+    <div class="email-body">Hey Sarah,
+
+Andrew Shipman is planning a trip and wants you there. Tap below to see the full plan, check the cost, and RSVP.
+
+[ See the trip → ]
+
+Or copy this link:
+https://rallyapp.travel/i/abc123
+
+Made with Rally — the group trip planner</div>
+    <div class="email-note">
+      <strong>What's wrong:</strong> TitleCase, generic prose, no Rally voice,
+      ignores lexicon §5.14 entirely. <code>lib/email.ts:36</code> hardcodes
+      these strings inline.
+    </div>
+  </div>
+
+  <div class="email-card">
+    <div class="email-card-tag good">proposed — wired to lexicon</div>
+    <div class="email-from">From: Rally &lt;hi@rallyapp.travel&gt;</div>
+    <div class="email-subject">RSVP: andrew shipman is calling you to olivia turns 30</div>
+    <div class="email-body">hey sarah,
+
+andrew shipman just dropped a rally for olivia turns 30. 25 days out. tap the link, see the pitch, decide if you're in.
+
+[ See the trip → ]
+
+or paste this link:
+https://rallyapp.travel/i/abc123
+
+rally — group trip planner</div>
+    <div class="email-note">
+      <strong>What changed:</strong> subject + body wired to
+      <code>getCopy('emails.invite.subject')</code> /
+      <code>'invite.body'</code>. <code>sendInviteEmail</code> gains
+      <code>themeId</code> + <code>daysOut</code> props. RSVP exception per §3
+      preserved in the subject line. HTML shell unchanged.
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 4 — MAGIC-LINK REDIRECT CHAIN
+     ════════════════════════════════════════════════════════════ -->
+
+<div class="section-label">4 · magic-link redirect chain — new-user flow</div>
+<div class="section-note">
+  Andrew observed: brand-new invitee clicks magic link → ends up at
+  <code>/auth/setup</code> instead of the unblur reveal. The architecture
+  was designed to preserve <code>next=/i/&lt;token&gt;?just_authed=1</code>
+  through the whole chain. Below: each expected step, with the suspected
+  break point marked. Diagnose by reproducing in dev and capturing the URL
+  bar at each redirect.
+</div>
+
+<div class="legend">
+  <span><span class="legend-dot good"></span>working step</span>
+  <span><span class="legend-dot warn"></span>suspect</span>
+  <span><span class="legend-dot bad"></span>likely break point</span>
+</div>
+
+<div class="chain">
+  <div class="chain-step">
+    <div class="chain-step-num">1</div>
+    <div class="chain-step-body">
+      <div class="chain-step-title">user on /i/&lt;token&gt; · taps "send me the link"</div>
+      <div class="chain-step-url">https://rallyapp.travel/i/abc123</div>
+      <div class="chain-step-note">
+        <code>InviteeStickyBar.send()</code> POSTs to
+        <code>/api/auth/magic-link</code> with
+        <code>redirectTo: ${origin}/i/abc123?just_authed=1</code>. Supabase
+        emails the link.
+      </div>
+    </div>
+  </div>
+  <div class="chain-arrow">↓</div>
+
+  <div class="chain-step">
+    <div class="chain-step-num broken">2</div>
+    <div class="chain-step-body">
+      <div class="chain-step-title">user clicks magic link · Supabase appends ?code=…</div>
+      <div class="chain-step-url broken">https://rallyapp.travel/i/abc123?<strong>code=PKCE</strong>&nbsp;&nbsp;←&nbsp;just_authed=1 dropped?</div>
+      <div class="chain-step-note">
+        <strong>Suspect #1:</strong> Supabase may be replacing the entire
+        querystring with <code>?code=…</code> instead of appending. If so,
+        <code>just_authed=1</code> is gone before the resolver sees it.
+        Resolver builds <code>nextPath = /i/abc123</code> (no <code>?just_authed=1</code>),
+        breaking the freshAuth gate later.
+      </div>
+    </div>
+  </div>
+  <div class="chain-arrow">↓</div>
+
+  <div class="chain-step">
+    <div class="chain-step-num">3</div>
+    <div class="chain-step-body">
+      <div class="chain-step-title">resolver detects code · trampolines to /auth/callback</div>
+      <div class="chain-step-url">/auth/callback?code=PKCE&amp;next=%2Fi%2Fabc123%3Fjust_authed%3D1</div>
+      <div class="chain-step-note">
+        <code>i/[token]/page.tsx:77-82</code> redirects to /auth/callback
+        with the <code>next</code> param URL-encoded. <strong>If step 2
+        dropped <code>just_authed</code>, <code>next</code> here is just
+        <code>/i/abc123</code>.</strong>
+      </div>
+    </div>
+  </div>
+  <div class="chain-arrow">↓</div>
+
+  <div class="chain-step">
+    <div class="chain-step-num">4</div>
+    <div class="chain-step-body">
+      <div class="chain-step-title">callback exchanges PKCE · new user → /auth/setup</div>
+      <div class="chain-step-url">/auth/setup?next=%2Fi%2Fabc123%3Fjust_authed%3D1&amp;trip=memorial-weekend</div>
+      <div class="chain-step-note">
+        <code>auth/callback/route.ts:61-66</code> propagates <code>next</code>
+        if it passed <code>isSafeNextPath</code>. The path
+        <code>/i/...?just_authed=1</code> starts with <code>/</code> → passes.
+      </div>
+    </div>
+  </div>
+  <div class="chain-arrow">↓</div>
+
+  <div class="chain-step">
+    <div class="chain-step-num">5</div>
+    <div class="chain-step-body">
+      <div class="chain-step-title">user fills profile · save → window.location.href = next</div>
+      <div class="chain-step-url">https://rallyapp.travel/i/abc123?just_authed=1</div>
+      <div class="chain-step-note">
+        <code>ProfileSetup.tsx:79-86</code> reads <code>next</code> from the
+        query, sanitizes via <code>isSafeNextPath</code>, navigates.
+        <strong>Suspect #2:</strong> <code>searchParams.get('next')</code>
+        returns the decoded string with <code>?</code> intact, and
+        <code>window.location.href = '/i/abc123?just_authed=1'</code> should
+        navigate correctly. Verify in browser.
+      </div>
+    </div>
+  </div>
+  <div class="chain-arrow">↓</div>
+
+  <div class="chain-step">
+    <div class="chain-step-num fixed">6</div>
+    <div class="chain-step-body">
+      <div class="chain-step-title">resolver: no code · justAuthed=true · user signed in → freshAuth=true</div>
+      <div class="chain-step-url">renders &lt;InviteeShellClient freshAuth={true}&gt; · unblur reveal plays</div>
+      <div class="chain-step-note">
+        <code>i/[token]/page.tsx:95</code> →
+        <code>freshAuth = !!user &amp;&amp; justAuthed</code>. If
+        <code>just_authed=1</code> survived the round-trip, freshAuth=true and
+        the same-tab unblur effect runs. Otherwise the resolver falls into
+        <code>if (user &amp;&amp; !freshAuth) redirect('/trip/&lt;slug&gt;')</code>
+        and the user lands on the sell page directly, skipping the moment.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-note" style="margin-top:8px;">
+  <strong>Hypothesis to test first:</strong> Step 2. If Supabase strips the
+  existing query when appending <code>?code=</code>, we never had a chance.
+  Fix candidates: (a) put <code>just_authed=1</code> in the path, not query
+  (e.g. <code>/i/&lt;token&gt;/auth-fresh</code> sub-route — but that violates
+  the no-new-routes rule); (b) detect the missing flag in step 3 and
+  re-inject it (<code>nextPath = `/i/${token}?just_authed=1`</code>
+  unconditionally, since reaching the resolver with a <code>code</code> at
+  all means we're in the same-tab return); (c) read the original
+  <code>redirectTo</code> from a cookie set in step 1. Option (b) is the
+  smallest fix.
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 5 — DECISIONS / OPEN QUESTIONS
+     ════════════════════════════════════════════════════════════ -->
+
+<div class="section-label">5 · decisions for andrew · sign-off list</div>
+
+<div class="decisions">
+  <h3>locked decisions for 10F (Andrew sign-off, 2026-05-01):</h3>
+  <ol>
+    <li>
+      <strong>Entry state: segmented control.</strong> Icon + canonical
+      state word per chip. New global icon set:
+      <code>RSVP_CHIP_ICONS = { in: '🙌', holding: '🙏', out: '👋' }</code>
+      replaces today's <code>{ in: '🙌', holding: '🧗', out: '—' }</code>.
+      One file edit (<code>lib/copy/surfaces/rsvp.ts</code>); affects every
+      surface that reads RSVP icons.
+    </li>
+    <li>
+      <strong>Committed state: single pill + "change" link.</strong>
+      <code>--accent</code> fill for "in", muted surface for "holding",
+      outline for "out". Themed text from
+      <code>theme.strings.{state}.button</code> is the pill label. CC
+      strips trailing pictograph from the themed string when it matches
+      the chip icon (handles 🙏 duplicate on holding state).
+    </li>
+    <li>
+      <strong>Sticker burst: ~800ms anim.</strong> Theme emoji extracted
+      from <code>theme.strings.sticker.invite</code> via regex. Z-index
+      above pill, below confetti. Existing Confetti continues to fire.
+    </li>
+    <li>
+      <strong>Haptic: <code>navigator.vibrate(20)</code>, guarded.</strong>
+      Android Chrome only — iOS Safari silently no-ops. No UI.
+    </li>
+    <li>
+      <strong>Email lexicon wire-up + voice fixes (10F).</strong>
+      No HTML shell redesign. Subject + body to <code>getCopy</code>.
+      <code>sendInviteEmail</code> gains <code>themeId</code> +
+      <code>daysOut</code>.
+    </li>
+    <li>
+      <strong>Themed email redesign → 10G (separate session).</strong>
+      Per-theme palette + typography + content. Mockups across ≥3 themes
+      first.
+    </li>
+    <li>
+      <strong>Magic-link redirect: diagnose first, smallest patch.</strong>
+      Hypothesis: Supabase strips existing query on PKCE append. Fix
+      candidate is ~1 line in <code>i/[token]/page.tsx</code>. Hard
+      escalation if &gt;5 lines or &gt;3 files.
+    </li>
+    <li>
+      <strong>Lexicon scope: 1 new key + 2 icon updates.</strong>
+      New: <code>inviteeState.inviteeStickyBar.change = 'change'</code>.
+      Updates: <code>RSVP_CHIP_ICONS.holding</code> ('🧗' → '🙏'),
+      <code>RSVP_CHIP_ICONS.out</code> ('—' → '👋'). All other strings
+      reuse existing keys.
+    </li>
+  </ol>
+</div>
+
+<div class="section-note" style="text-align:center; margin-top:24px;">
+  Mockup: <code>rally-10f-mockup.html</code> · Brief:
+  <code>rally-fix-plan-v1.md</code> "Session 10F" · Status: awaiting Andrew
+  sign-off → CC kickoff.
+</div>
+
+</body>
+</html>

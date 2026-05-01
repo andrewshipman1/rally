@@ -50,7 +50,7 @@ export const wellnessRetreat: Theme = {
 
     in:      { button: 'i need this 🧘' },
     holding: { button: 'manifesting 🌙' },
-    out:     { button: "can't rn" },
+    out:     { button: "can't rn 🙏" },
 
     nudge: {
       t14:    '2 weeks to reset mode',
