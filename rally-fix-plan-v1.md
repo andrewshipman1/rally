@@ -22131,6 +22131,215 @@ and confirms the 560px constraint holds on desktop + mobile, 10G
 Actuals can be written into the fix plan and 10G closes. 10G'
 tonality sweep remains independent.
 
+#### Session 10G — Actuals (Cowork QA, 2026-05-03)
+
+**Status:** ✅ shipped end-to-end. Two commits on `main` plus the
+bug-fix release: `28559a3` (initial 10G visual brand pass) and
+`f4ba6cf` (10G bug-1 layout containment fix). Working tree clean.
+Themed fan-out invite email is live in prod with proper card
+containment, themed accent-block hero, themed sticker, themed CTA
++ footer, marquee strip up top, and chassis-deviation sticker
+contrast hardcode validated against dark themes.
+
+**QA arc summary:**
+
+1. **Initial 10G shipped** (commit `28559a3`, 2026-05-03) — single-
+   file edit to `src/lib/email.ts` per the 10G brief. Static ACs
+   passed locally + on first push.
+2. **Layout bug discovered during live QA** — birthday-trip render
+   showed the email filling the entire Gmail desktop viewport
+   (~2500px wide) instead of the intended 560px-centered card.
+   Marquee items spread edge-to-edge, hero accent block + footer
+   spanned the full pane. Root cause diagnosed by Cowork: the
+   marquee's `display:inline-flex` + `white-space:nowrap` track
+   forced the table cell to expand to widest content, blowing out
+   the inner table's 560px constraint (table-cell sizing wins over
+   max-width unless `table-layout:fixed` is set). Secondary issue:
+   outer table + inner card both used `${bg}` → cream-on-cream
+   erased the visual "card sitting on a page" effect.
+3. **Bug fix brief written + CC executed** — `Session 10G — Bug Fix
+   Brief: Layout containment regression` documented the diagnosis
+   + 5 specific edits. CC delivered (commit `f4ba6cf`):
+   `table-layout:fixed` + explicit `width="560"` on all 6 inner
+   `<td>` cells + marquee container clip-wrapper + outer-bg flipped
+   to neutral `#ece7dc`. CC also added a belt-and-braces
+   `width:560px` declaration alongside the briefed `max-width:560px`
+   for Outlook compat (documented as deviation).
+4. **Re-deployed + re-tested.** Layout fix verified across 4 of 6
+   sample themes; remaining 2 trust-and-skipped per ROI cut (same
+   parameterized template, redundant coverage).
+
+**Code-side AC verification (Cowork, 2026-05-03):**
+
+- ✅ `src/lib/email.ts` resolves theme palette + strings via
+  `getTheme(themeId)` and injects values inline.
+- ✅ Marquee strip renders at top of every themed email; items
+  pulled from `theme.strings.marquee`; track duplicated for
+  seamless loop; static first frame legible without animation.
+- ✅ Sticker text color is hardcoded `#1a1a1a` (NOT a theme token).
+  Verified at `email.ts:99` with multi-line contrast-audit comment
+  at lines 94–98.
+- ✅ CTA text is lowercase `see the trip →`.
+- ✅ HTML footer is `rally · group trip planner` with sticker-bg
+  middle dot.
+- ✅ Plain-text alternative footer is `— rally — group trip
+  planner` (em dashes, byte-equivalent to 10F).
+- ✅ `coverImageUrl` and `tripTagline` params remain in signature
+  with `@deprecated 10G` JSDocs; values not rendered.
+- ✅ `git diff --stat` source files: ONLY `src/lib/email.ts` across
+  both 10G commits. No theme edits, no lexicon edits, no caller
+  edits, no schema edits.
+- ✅ `npx tsc --noEmit` exits 0; `rm -rf .next && npm run build`
+  succeeds.
+- ✅ Layout fix: `table-layout:fixed` on inner table; explicit
+  `width="560"` on all 6 `<td>` cells; marquee container
+  clip-wrapper; outer bg `#ece7dc` neutral.
+
+**Live ACs verified (Andrew QA, 2026-05-03):**
+
+- ✅ **birthday-trip** (post-bug-fix render): card 560px centered,
+  neutral page bg around it, rounded corners + box-shadow visible,
+  marquee clips cleanly, hero/sticker/CTA/footer all contained.
+- ✅ **beach-trip**: mint card body (`#e6f6f4`) on neutral page
+  reads with cleaner separation than birthday-trip; marquee
+  truncates "sunset w..." at the right edge correctly; coral CTA
+  on mint pops; yellow `accent2` paste-link rendered as expected
+  (per-theme, not a bug — see Known Issues for follow-up note).
+- ✅ **boys-trip** (dark-theme sticker contrast acid test): "the
+  boys are calling 🎲" sticker text reads clearly with the
+  hardcoded `#1a1a1a` on yellow `#ffd84d`. Without the hardcode
+  this would have been ~1.16:1 invisible. Dark `#0f0e10` body
+  against neutral page reads as a moody contained card. Sky-blue
+  `accent2` paste link clean on dark.
+- ✅ **festival-run** (marginal hero contrast empirical test):
+  trip name "Coachella 2026!!!" at 30px Georgia bold in light
+  lavender `#f4e6ff` on hot-pink `#ff3a8c` is **real-world
+  readable**. The 2.82:1 vs 3.0:1 AA-large WCAG-fail is now
+  empirically validated as "fails strict audit, parseable in
+  practice." Organizer line at 11px / 0.78 opacity is the harder
+  case but still parseable. Sticker hardcode passes; hot-pink CTA
+  on dark purple body pops; green `accent2` paste link surprisingly
+  vibrant on dark.
+- ✅ **Mobile (Gmail iOS)**: card responsive collapse works; no
+  horizontal scroll; marquee clips at viewport width; sticker /
+  trip name / CTA / footer all contained.
+- ✅ **10F email lexicon (rolled into 10G QA)**: subject = `RSVP:
+  Andrew Shipman is calling you to Coachella 2026!!!`; body opens
+  `hey <name>,` (lowercase); body prose matches lexicon; paste
+  prompt = `or paste this link:`; HTML footer = `rally · group
+  trip planner` (10G dot variant); plain-text alternative = `—
+  rally — group trip planner` (10F em-dash variant) — confirmed
+  via Gmail "View original" inspection.
+
+**Trust-and-skipped per ROI cut (no live test needed):**
+
+- **ski-chalet** — same pattern as birthday/beach (light card on
+  neutral page); layout fix held for both, expected to hold here.
+- **city-weekend** — third dark theme; boys-trip already proved
+  the dark-theme path + sticker hardcode work. Redundant.
+
+If either of these turns up broken in real use, the fix path is
+already in `email.ts` (parameterized — no per-theme code), so a
+hot-fix would be CSS-only.
+
+**Approved deviations from the original 10G brief:**
+
+- **`<head><style>@keyframes marquee-scroll{...}</style></head>`
+  shipped** (line 78 of `email.ts`). The brief AC said "No
+  `<style>` block in the rendered HTML"; CSS spec doesn't allow
+  `@keyframes` to be declared inline (only inside `<style>` or
+  external stylesheets). CC made the call during execution to
+  ship a single scoped `@keyframes` rule in `<head>` so the
+  marquee animation would honor in Apple Mail; Andrew approved
+  the deviation in chat with CC during execution (per Andrew's
+  recollection, 2026-05-03). Gmail/Outlook strip the block
+  harmlessly → static first frame; Apple Mail honors → animated.
+  Both renders are correct. AC implicitly amended.
+- **Outer table belt-and-braces `width:560px`** (bug-fix
+  deviation): CC added an explicit `width:560px` declaration
+  alongside the briefed `max-width:560px` and `table-layout:fixed`
+  on the inner table, for Outlook compat. Strictly defensive; no
+  visual or functional effect on already-correct clients.
+
+**Known issues (logged for future hygiene sessions):**
+
+- **festival-run hero text contrast 2.82:1** (light lavender on hot
+  pink). Below WCAG AA-large by 6%. Empirically validated as
+  real-world readable on 30px Georgia display type. Logged for the
+  future "all-theme contrast pass" session that would sweep
+  hero/CTA contrast across all 17 themes against email + in-app
+  surfaces and rebalance `--onSurface` values where needed.
+- **Sticker text color hardcoded `#1a1a1a`** is a one-off chassis-
+  token deviation scoped to email. The chassis pattern (`--stroke`
+  defaults to `--ink` in light themes, flips to `--on-surface` in
+  dark themes) doesn't anticipate the sticker-on-yellow combo.
+  A future "chassis hardening" session could introduce a
+  `--sticker-text` token. Documented in code at `email.ts:94-98`.
+- **Animated marquee GIF** (per-recipient theme) — deferred per
+  10G scoping discussion. Half a session for marginal visual
+  upgrade since recipients tap through to the in-app marquee
+  immediately. Revisit only if email open-to-tap proves a real
+  bottleneck in metrics.
+- **`tripTagline` + `coverImageUrl` params unused** but retained
+  for caller compat with `@deprecated 10G` JSDocs. Future cleanup
+  session can remove both params + their `api/invite/route.ts` and
+  `actions/transition-to-sell.ts` call sites in one coordinated
+  edit.
+- **beach-trip yellow paste-link readability** — `accent2 =
+  '#ffd84d'` (yellow) renders the "or paste this link:" prompt +
+  URL in yellow on the mint `bg = '#e6f6f4'` body. Readable but
+  on the lighter side. Per-theme palette consequence, not a 10G
+  bug. Polish candidate if a future session revisits per-theme
+  `accent2` values for paste-link readability across all 17
+  themes.
+- **Body prose punctuation nit** — `Andrew Shipman just dropped a
+  rally for Coachella 2026!!! . 23 days out.` has a stray space
+  + period after the trip name when the user-typed trip name ends
+  in punctuation (`!!!`). Lexicon string at
+  `emails.invite.body` joins `${trip}.` literally. 10F lexicon
+  surface, not 10G. Cosmetic; logged for a lexicon polish session.
+- **Resend deliverability flake on first sends** — Andrew observed
+  3 attempts before the first invite landed during 10G QA (likely
+  warm-up / first-touch reputation / spam filter). Not a code
+  issue; watch-item for prod email reliability monitoring. Not
+  10G-blocking; resolved on retry.
+
+**Cowork-side artifacts shipped alongside 10G:**
+
+- `rally-10g-mockup.html` — the parameterized-template visual spec
+  used to align Andrew + CC on the design before brief-writing.
+  Committed to repo for future reference.
+- `rally-10g-cc-kickoff.md` — the CC kickoff prompt (one-time-use
+  artifact, kept in repo for the session-arc audit trail).
+- `.gitignore` updated to exclude `.claude/settings.local.json`
+  (CC's per-user permissions allowlist file, which had accumulated
+  Supabase service_role + anon JWTs + `SUPABASE_ACCESS_TOKEN`
+  embedded in command exemptions). Existing tokens were NOT
+  rotated — flagged as an optional hygiene moment Andrew can
+  decide on later.
+
+**Discovered during 10G QA (NOT 10G bugs, logged separately):**
+
+- **Member-removal cascade cleanup gap** — when an organizer
+  removes a user from a trip, the user's `lodging_votes` row
+  persists and continues to count toward the property's vote
+  tally. Specifically observed on the Cap Jalouka property in the
+  Coachella 2026!!! test trip. Likely the same gap exists across
+  other user-attributable rows. Logged in the Sessions 11+
+  carryover list with severity rationale (P2 for v0; P1 post-
+  scale) and an optional cheap interim mitigation path.
+
+**Carryover to 10G':** unchanged. OUT + holding button-text
+tonality sweep across the remaining 15 themes. Independent of 10G,
+ships in either order.
+
+**Ship state:** ✅ closed. Themed fan-out invite email is live in
+prod (`https://rallyapp.travel`), all 17 themes flow through one
+parameterized template, layout containment holds across desktop +
+mobile, sticker contrast hardcode validates on dark themes,
+marginal hero text accepted as documented. Next session is 10G' or
+whatever Andrew prioritizes next.
+
 ---
 
 ### Session 10G': "OUT + holding button-text tonality sweep" (copy-only)
