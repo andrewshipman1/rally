@@ -24070,6 +24070,43 @@ Sequencing notes that affect multiple items:
     helper is small + pure + easy to retrofit a test against if
     a future session brings in a testing harness.
 
+  ##### Bug Fix Actuals (Cowork QA, 2026-05-03)
+
+  **Status:** ✅ shipped. Commit `f33475a` on `main`. Vercel deploy
+  green. Andrew verified live.
+
+  **Code-side AC verification (Cowork, 2026-05-03):**
+  - ✅ Helper exists at `src/lib/lodging-cost.ts` with JSDoc.
+  - ✅ Three call sites route through helper (CostBreakdown,
+    calculateTripCost, LodgingCard for both home_rental + hotel).
+  - ✅ LodgingCard display strings byte-identical (helper supplies
+    `groupTotalForSplit` value-only; visible `estimate` still
+    composed locally for the costLine).
+  - ✅ `git diff --stat` source files: exactly the four named
+    files. No other source touched.
+  - ✅ tsc + build green per CC release notes.
+
+  **Live ACs verified (Andrew QA, 2026-05-03):**
+  - ✅ Cap Juluca per-person value parity across property card +
+    cost summary row.
+  - ✅ Footer "shared" total reflects corrected lodging
+    contribution.
+  - ✅ Home-rental regression check passes (per-person values
+    unchanged pre/post).
+
+  **Approved deviation:** helper signature took `nights` as
+  explicit third param instead of deriving internally. CC's
+  rationale (different nights-resolution semantics across
+  callers; explicit param sidesteps the divergence) accepted as
+  the right call. AC implicitly amended to allow.
+
+  **Carryover:** none. Bug closes here. Three-place duplication
+  consolidated to one helper; future lodging math changes are
+  one-place. Member-removal cascade remains separate (next item
+  below).
+
+  **Ship state:** ✅ closed.
+
 - **Member-removal cascade cleanup (P2 for v0; P1 post-scale).**
   Discovered during 10G QA (2026-05-03, Andrew): when an organizer
   removes a user from a trip, the user's `lodging_votes` row
