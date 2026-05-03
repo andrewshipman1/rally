@@ -22299,10 +22299,10 @@ hot-fix would be CSS-only.
   `emails.invite.body` joins `${trip}.` literally. 10F lexicon
   surface, not 10G. Cosmetic; logged for a lexicon polish session.
 - **Resend deliverability flake on first sends** — Andrew observed
-  3 attempts before the first invite landed during 10G QA (likely
-  warm-up / first-touch reputation / spam filter). Not a code
-  issue; watch-item for prod email reliability monitoring. Not
-  10G-blocking; resolved on retry.
+  3 attempts before the first invite landed during initial 10G
+  QA. Did not recur on subsequent sends across the 4-theme test
+  sample. Likely a one-off cold-start or first-touch-reputation
+  warm-up artifact; no longer treated as an active watch-item.
 
 **Cowork-side artifacts shipped alongside 10G:**
 
@@ -23730,37 +23730,346 @@ is already in.
 
 ---
 
-### Sessions 11+: "TBD — re-scope after Session 10 strategy lands"
+### Backlog (TBD sessions, snapshot 2026-05-03)
 
-Previous placeholders (teaser layer, invite delivery, RSVP sticky
-bar depth) are deliberately NOT re-numbered. Session 10's strategy
-doc redesigns the state model + journey + consumer alignment that
-each of those implementations depends on, so their shape, scope,
-and ordering will likely change. Re-scope after the strategy doc
-lands.
+This is the working backlog of unscoped/queued items beyond Session
+10's arc-closes (10F + 10G + 10H + 10I shipped). Categorized by
+type so it's easy to scan for "what kind of work do I have time
+for right now." Items get migrated INTO numbered Session N briefs
+(or onto the Carryover list of an in-flight session) as they're
+scoped. Items get removed FROM here only when they ship.
 
-**Items expected to land somewhere in 11+ (sequencing TBD):**
+#### ▶️ Next Up (locked 2026-05-03)
 
-- **Teaser layer / `InviteeShell`** — blur veil, lock overlay,
-  called-up sticker, passwordless signup CTA, unblur reveal
-  animation. Wireframe Q1 (login mechanics) and Q2 (blur cutline)
-  may need re-thinking once the strategy doc clarifies the
-  invitee state model.
-- **Invite delivery on publish** — `transitionToSell` currently
-  just flips the phase; it does NOT fire the queued invite emails
-  for sketch-captured roster entries (per `/api/invite:129`). Email
-  delivery + the state transitions it triggers are central to
-  the strategy doc; this implementation session falls out of
-  Dimension 2 (Journey).
-- **RSVP sticky bar depth** — per-view state machine, confetti on
-  RSVP, micro-interactions, haptics. The "state machine" here is
-  literally what Dimension 1 of the strategy doc defines. Cannot
-  scope this session before strategy lands.
-- **Phone-only invitees** — Resend is email-only; phone-only
-  invitees have no delivery rail. Strategy doc Dimension 2 should
-  resolve whether to build SMS, defer phone-only as a known gap,
-  or reframe phone as an alternate identifier rather than a
-  delivery channel.
+The plan for the next 2-3 working sessions. Reasoning: Andrew is
+in execution mode after a full day of 10G QA + planning;
+strategic arcs need fresh head-space. So today closes a concrete
+bug, parallel-fires the only ready-to-ship polish item, and parks
+the strategic work for a fresh sitting tomorrow.
+
+- **🔥 Now (today, Cowork-driven):** Root-cause the cost-math
+  discrepancy bug → write a tight CC bug-fix brief inside this
+  fix plan → Andrew fires CC. Bug is concrete (5x mismatch
+  between `LodgingCard.tsx` divisor and `CostBreakdown.tsx`
+  divisor on the Coachella 2026!!! test trip). See "🐛 Bugs"
+  below for full context.
+- **🟢 Parallel (any time CC is free):** Kick off **Session 10'**
+  (OUT + holding button-text tonality sweep). Brief is already
+  written in the dedicated `Session 10G'` section above; CC
+  kickoff prompt is a copy-paste away. Independent of everything,
+  closes the loose 10F follow-up thread.
+- **🧠 Next strategic arc (fresh-head session, Mon morning or
+  later):** **Lock phase definition.** Picked over Go phase
+  because Andrew has stronger product intuition for "what does
+  locking feel like" than for "what does the trip become during
+  the trip" — Lock will move faster as a Cowork strategy session.
+  Go phase comes after Lock lands. See "🏗️ Strategic arcs" below
+  for the arc shape (mirrors Session 10).
+- **🧭 Defer:** Dead-end navigation audit (in-flight, paused).
+  Pick up after the cost-math bug closes OR fold into the next
+  Bug bash arc. Not blocking anything urgent.
+
+
+
+Sequencing notes that affect multiple items:
+- The **Session 10 attendee strategy doc** (status: in progress
+  since 2026-04-27, hasn't moved) is a soft blocker for several
+  strategic items below. Re-classify those if the strategy doc
+  resumes or gets formally deferred.
+- **Lock + Go phase definitions** are similarly soft blockers for
+  several downstream items (activity feed buildout, post-RSVP
+  experience polish). Strategic-definition work has a fan-out
+  effect.
+
+#### 🐛 Bugs (need triage / scoping)
+
+- **Lodging cost math — hotels missing rooms multiplier (P1).**
+  Brief written 2026-05-03 (Cowork). Awaiting Andrew sign-off →
+  CC kickoff. Scope details below.
+
+  **Why:** Discovered during 10G QA (2026-05-03, Andrew). The
+  Cap Juluca property (Coachella 2026!!! test trip) is a hotel
+  with `cost_per_night = $1,200`, `nights = 3`, `people_per_room
+  = 2`, divisor = 9. The property card correctly renders
+  `$1,200/night × 3 × 5 rooms = ~$18,000 ÷ 9 = ~$2,000/person`
+  (rooms = `ceil(9/2) = 5`). The cost summary renders `$400/person`
+  — 5x lower — because it omits the rooms multiplier
+  (`$1,200 × 3 = $3,600 ÷ 9 = $400`).
+
+  **Root cause:** Lodging cost-per-person is computed in three
+  places. `LodgingCard.tsx:107-115` correctly multiplies by rooms
+  for hotels. `CostBreakdown.tsx:52-54` and `types/index.ts:559-560`
+  (the server `calculateTripCost`) both omit the rooms multiplier
+  — they only handle the `total_cost || cost_per_night × nights`
+  shape. For home rentals (where `total_cost` is set), all three
+  paths agree. For hotels with `cost_per_night`, the two
+  non-LodgingCard paths under-count by a factor of `rooms`.
+
+  **Severity P1, not P2:** organizers and attendees see the
+  per-person figure as the basis for "is this trip in budget."
+  A 5x under-count in the summary while the property card shows
+  the correct figure creates contradictory information on the
+  same page. Likely affects ~all hotel-typed lodging in prod
+  with `people_per_room < crewCount`. Home-rental and "other"
+  paths unaffected.
+
+  **Scope (recommended: extract a shared helper).** Touches three
+  files but the underlying fix is "consolidate the lodging
+  group-total math":
+
+  1. **New helper `computeLodgingGroupTotal(spot, divisor)`** in
+     `src/types/index.ts` (or a new `src/lib/lodging-cost.ts`
+     if the types file should stay type-only). Encapsulates:
+     - home_rental + other: `spot.total_cost ?? 0`
+     - hotel: `(spot.cost_per_night || 0) * nights * ceil(divisor / (spot.people_per_room || 1))`
+     - `nights` derived from the spot's own `num_nights` falling
+       back to a passed-in trip-derived value
+     Returns the GROUP total (in dollars). Pure function,
+     deterministic, easy to unit-test.
+
+  2. **`CostBreakdown.tsx:52-54`** replaces local `lodgingCost`
+     calc with `computeLodgingGroupTotal(selectedLodging,
+     cost.divisor_used)`. Per-person stays
+     `Math.round(groupTotal / cost.divisor_used)`.
+
+  3. **`types/index.ts:559-560`** (`calculateTripCost`) replaces
+     local `lodgingCost` calc with `computeLodgingGroupTotal(
+     selectedLodging, divisor_used)`. The downstream
+     `lodging_per_person`, `per_person_shared`, and
+     `per_person_total` fields all flow from this — fixing it
+     here repairs the footer ("yours/shared" split) automatically.
+
+  4. **`LodgingCard.tsx:99-131`** replaces both home_rental and
+     hotel `groupTotalForSplit` blocks with the helper output.
+     The DISPLAY string (the costLine) still gets composed
+     locally because it shows the formula explicitly
+     (`$X/night × N nights × R rooms = ~$Y`) — that's display,
+     not math. Only the `groupTotalForSplit` value uses the
+     helper. Equivalence-tested: helper output for any hotel
+     spot must equal the existing `cost_per_night * nights * rooms`
+     calculation. Same for home_rental.
+
+  **Alternative minimal scope** (if Andrew wants smallest possible
+  diff): skip the helper extraction and just patch `CostBreakdown.tsx`
+  + `types/index.ts` to add the rooms multiplier inline. Two-line
+  fix per file. Leaves the three-place duplication in place
+  (logged as future hygiene). Faster to ship, larger surface
+  for the next regression.
+
+  **Hard Constraints:**
+
+  - **DO NOT change LodgingCard's display strings.** The visible
+    costLine + perPersonLine continue to read the same after the
+    fix (the math doesn't change for LodgingCard, only the value-
+    source is centralized).
+  - **DO NOT touch the divisor.** `cost.divisor_used` semantics
+    stay identical (`Math.max(1, members.filter(m => m.rsvp !== 'out').length)`).
+  - **DO NOT touch the home-rental or "other" lodging paths**
+    beyond rerouting through the helper. Their math is correct
+    today and must stay byte-identical.
+  - **DO NOT add new lexicon keys.** Zero copy changes.
+  - **DO NOT touch `pickLodgingForRollup` selection logic.**
+
+  **Acceptance Criteria:**
+
+  - [ ] `computeLodgingGroupTotal(spot, divisor)` helper exists,
+        exported, with JSDoc explaining the home_rental vs hotel
+        branches.
+  - [ ] `CostBreakdown.tsx` lodging row uses the helper. Per-person
+        value matches the LodgingCard's per-person value for the
+        SAME spot at the SAME divisor, byte-for-byte.
+  - [ ] `calculateTripCost` in `types/index.ts` uses the helper for
+        `lodging_per_person`. Footer "shared" total reflects the
+        corrected lodging contribution.
+  - [ ] `LodgingCard.tsx` uses the helper for `groupTotalForSplit`
+        in BOTH home_rental and hotel branches. Display strings
+        unchanged.
+  - [ ] Cap Juluca on Coachella 2026!!! test trip: card per-person
+        ($2,000) matches summary lodging row per-person ($2,000),
+        not $400. Footer total updates accordingly.
+  - [ ] A home-rental spot (any test trip with `total_cost` set)
+        renders the same per-person value pre/post fix. Regression
+        check.
+  - [ ] `npx tsc --noEmit` exits 0.
+  - [ ] `rm -rf .next && npm run build` succeeds.
+  - [ ] `git diff --stat` source files: at most
+        `src/types/index.ts`, `src/components/trip/CostBreakdown.tsx`,
+        `src/components/trip/builder/LodgingCard.tsx`. Plus possibly
+        a new `src/lib/lodging-cost.ts` if the helper goes there.
+
+  **Files to Read (mandatory):**
+
+  - `.claude/skills/rally-session-guard/SKILL.md` — session loop,
+    hard rules, escalation triggers, release-notes format.
+  - `rally-fix-plan-v1.md` — this brief; 10G Actuals immediately
+    above for context on when/how the bug was found.
+  - `src/types/index.ts` — `calculateTripCost` function (line
+    ~480-595). Especially the lodging block at 559-560 and the
+    `divisor_used` computation at 489-491.
+  - `src/components/trip/CostBreakdown.tsx` — lodging row at
+    lines 42-64. The single edit target for the row math.
+  - `src/components/trip/builder/LodgingCard.tsx` — lines 95-138
+    for the costLine + groupTotalForSplit composition. Both
+    home_rental (lines 99-103) and hotel (lines 104-122) branches
+    need to flow through the helper.
+
+  **How to QA Solo (before declaring done):**
+
+  1. `npx tsc --noEmit` — must exit 0.
+  2. `rm -rf .next && npm run build` — must succeed.
+  3. `git diff --stat` — must show only the named files.
+  4. Local dev: load the Coachella 2026!!! test trip page (or any
+     trip with a hotel-type lodging where `people_per_room <
+     crewCount`). Verify the property card per-person value matches
+     the cost summary lodging row per-person value AND matches the
+     hand-computed `cost_per_night × nights × ceil(divisor /
+     people_per_room) ÷ divisor`.
+  5. Load a trip with a home_rental lodging (where `total_cost`
+     is set). Verify per-person values pre/post fix are identical
+     (regression check).
+  6. Eyeball the cost summary footer's "shared" / "yours" split —
+     should reflect the corrected lodging contribution.
+
+  **Lexicon notes:** Zero new keys. No copy changes. The display
+  strings on LodgingCard stay byte-identical.
+
+  **Carryover:** Once this ships, the cost-math row is consistent
+  across all surfaces. Member-removal cascade bug remains its own
+  separate item below.
+
+  ##### Bug Fix Release Notes (2026-05-03, Claude Code)
+
+  **What was changed:**
+
+  1. **New helper** `computeLodgingGroupTotal(spot, divisor, nights)`
+     — `src/lib/lodging-cost.ts:1-33` (new file). Hotel branch:
+     `Math.round((cost_per_night || 0) * nights * ceil(divisor / (people_per_room || 1)))`.
+     home_rental + other branch: `spot.total_cost ?? 0`. JSDoc
+     explains both branches and the deliberate "nights passed in"
+     decision.
+
+  2. **`src/types/index.ts:4`** — added
+     `import { computeLodgingGroupTotal } from '@/lib/lodging-cost'`.
+     **`src/types/index.ts:510-512`** (was 508-510) —
+     `calculateTripCost`'s lodging block now reads
+     `computeLodgingGroupTotal(selectedLodging, divisor_used, nights)`
+     instead of inline `total_cost || cost_per_night × nights`.
+     `divisor_used` (line 491) and `nights` (line 504) derivations
+     untouched. The downstream `lodging_per_person`,
+     `per_person_shared`, and `per_person_total` fields all flow
+     from this — fixing it here repairs the footer "shared/yours"
+     split automatically.
+
+  3. **`src/components/trip/CostBreakdown.tsx:3`** — added the
+     helper import. **`src/components/trip/CostBreakdown.tsx:53-57`**
+     (was 52-54) — lodging row now reads
+     `computeLodgingGroupTotal(selectedLodging, cost.divisor_used, nights)`.
+     Per-person stays `Math.round(lodgingCost / cost.divisor_used)`.
+     `nights` derivation at lines 45-51 untouched.
+
+  4. **`src/components/trip/builder/LodgingCard.tsx:15`** — added
+     the helper import. **`LodgingCard.tsx:99-131`** — both
+     `home_rental` and `hotel` (with-nights) and "other" branches
+     route `groupTotalForSplit` through the helper. The `costLine`
+     display string remains locally composed and byte-identical
+     — `estimate` (line 112) is still computed locally and
+     interpolated into the visible `~$X` string. Only the
+     `groupTotalForSplit` value-source moved to the helper.
+
+  **What changed from the brief:**
+
+  - **Helper signature took `nights` as an explicit third param**
+    (`computeLodgingGroupTotal(spot, divisor, nights)`) instead of
+    deriving `nights` internally from `spot.num_nights ??
+    fallback`. Rationale documented in the plan file: LodgingCard
+    today uses `Math.round((end-start)/day)` and never consults
+    `spot.num_nights`, while the other two callers prefer
+    `selectedLodging.num_nights || Math.ceil((end-start)/day)`. A
+    helper that consults `num_nights` could silently change
+    LodgingCard's groupTotal in any case where `num_nights`
+    becomes non-null (it's never written today, but a future
+    backfill would regress the card). Explicit-`nights` param
+    sidesteps the divergence and makes the helper purely a
+    cost-math primitive — single responsibility, byte-identical
+    LodgingCard display preserved. Default executed per the
+    plan's "Open question" section.
+
+  - **No other deviations.** Three call sites + one new file. No
+    new lexicon keys, no copy changes, no shape changes to any
+    interface or type.
+
+  **What to test:**
+
+  - [ ] Coachella 2026!!! test trip with Cap Juluca: property
+        card shows `$1,200/night × 3 nights × 5 rooms = ~$18,000`
+        →  `÷ 9 = ~$2,000/person` **(unchanged)**, AND cost
+        summary lodging row now also reads `~$2,000/person`
+        (was `~$400`). Footer "shared" total jumps by
+        ~$1,600/person to reflect the corrected lodging.
+  - [ ] Regression — any trip with a home-rental lodging where
+        `total_cost` is set: card per-person value, summary
+        lodging row per-person value, and footer shared/yours
+        split all unchanged pre/post.
+  - [ ] Regression — rate-only hotel (trip dates unset so
+        `nights` is null): card shows `$X/night` rate-only with
+        no `groupTotalForSplit` and no `perPersonLine`; summary
+        skips the lodging row when per-person rounds to 0.
+  - [ ] Regression — sketch-mode LodgingCard inside
+        SketchModules: same crewCount=`cost.divisor_used` plumbing
+        applies; per-person tail unchanged.
+
+  **Static verification (passed):**
+
+  - `npx tsc --noEmit` — exit 0.
+  - `rm -rf .next && npm run build` — succeeded
+    (compiled in 2.0s, all 16 static pages generated).
+  - `git diff --stat` source files: exactly
+    `src/types/index.ts`, `src/components/trip/CostBreakdown.tsx`,
+    `src/components/trip/builder/LodgingCard.tsx`, plus the new
+    `src/lib/lodging-cost.ts` and the release-notes append in
+    `rally-fix-plan-v1.md`. No other source files touched.
+  - **Equivalence sanity in browser console** with canonical
+    Cap Juluca inputs (`cost_per_night: 1200, people_per_room: 2,
+    divisor: 9, nights: 3`):
+    - Helper output: `$18,000` group / `$2,000` per-person.
+    - LodgingCard's existing local `estimate` math: `$18,000`
+      (equivalent: true).
+    - Old buggy math (pre-fix): `$3,600` / `$400` per-person —
+      confirms the 5x under-count this fix repairs.
+    - home_rental passthrough (`total_cost: 5400`): helper returns
+      `$5,400` exactly (byte-identical to current).
+
+  **Architecture sanity (no-touch list confirmed):**
+
+  - `pickLodgingForRollup` selection logic — untouched.
+  - `cost.divisor_used` semantics — untouched.
+  - LodgingCard `costLine` + `perPersonLine` strings — byte-identical
+    by construction (`estimate` still composed locally for the
+    display string).
+  - home-rental + "other" math — byte-identical (helper passes
+    through `spot.total_cost`; assignment guard `total_cost != null
+    && total_cost > 0` ensures the helper's `?? 0` fallback never
+    fires in those branches).
+  - Lexicon — zero new keys, zero copy changes.
+  - Other modules (transport, headliner, activities, provisions,
+    other, crew, buzz) — untouched.
+  - No new routes, no schema changes, no RLS changes.
+
+  **Known issues / caveats:**
+
+  - **Functional QA against the live Coachella 2026!!! trip is
+    pending Andrew.** Claude Code's preview server is
+    unauthenticated and can't reach `/trip/[slug]` without a
+    magic-link session, so the per-person parity check on the
+    actual rendered surfaces (steps 4-6 of the brief's QA-Solo
+    list) is left for Cowork QA. Math is proven correct
+    statically — equivalence verified in console with the exact
+    canonical inputs.
+  - **No new tests.** The codebase doesn't have a test scaffold
+    for cost calculations and the brief didn't ask for one. The
+    helper is small + pure + easy to retrofit a test against if
+    a future session brings in a testing harness.
+
 - **Member-removal cascade cleanup (P2 for v0; P1 post-scale).**
   Discovered during 10G QA (2026-05-03, Andrew): when an organizer
   removes a user from a trip, the user's `lodging_votes` row
@@ -23792,6 +24101,141 @@ lands.
   vote counts only include active `trip_members`. Hides the bug
   without solving the underlying data gap. Ugly but cheap if
   Andrew wants to ship a fig-leaf before the proper fix lands.
+
+- **Resend invite (manual retry path).** When `transitionToSell`
+  fires the publish-time fan-out and a per-invitee send fails,
+  `invite_sent_at` stays null but there's no UI to manually
+  re-fire the send. The "auto-retry on future publish event"
+  comment in `transitionToSell.ts:11-13` is misleading — there is
+  no future publish event (trip can't return to sketch). Small
+  scope: add a "resend invite" affordance to the crew section row
+  for any member with `invite_sent_at IS NULL` that re-calls
+  `sendInviteEmail` and re-stamps. Independent of strategy doc.
+  Sub-session candidate inside the Bug bash arc.
+
+#### 🧭 In-flight (paused, pick up to finish)
+
+- **Dead-end navigation audit.** Started 2026-05-03 (Andrew + Cowork);
+  paused mid-investigation when the cost-math bug surfaced. Scope:
+  sweep `/`, `/trip/[slug]`, `/passport`, `/auth`, `/auth/expired`,
+  `/auth/invalid` for nav dead ends; ensure both organizers AND
+  attendees can always reach `/` from anywhere. Concrete trigger:
+  no clear back affordance from sell-state trip pages to
+  `https://rallyapp.travel/`. Cowork audit produces findings doc
+  → CC implementation session for the fixes (likely a wordmark
+  link in headers across surfaces). Naturally folds into the Bug
+  bash arc as a sub-session if not picked up standalone.
+
+#### 🏗️ Strategic arcs (each its own session, mirrors the Session 10 attendee shape)
+
+- **Lock phase arc** — strategic + implementation. The lock phase
+  (sketch → sell → **lock** → go → done) is currently undefined.
+  Once the RSVP deadline hits, what does the organizer do to
+  confirm and lock in the plan? What becomes immutable? What UI
+  states change for organizer + attendee? What notifications
+  fire? Sub-session shape mirrors Session 10:
+  - **A**: Lock phase strategy doc (Cowork) — defines state model,
+    organizer flow, attendee experience, edge cases.
+  - **B+**: Implementation sub-sessions cascading from strategy
+    (UI states, notifications, immutability enforcement, etc.).
+
+- **Go phase arc** — strategic + implementation. The go phase is
+  similarly undefined: what does the app look like in the days
+  leading up to and during the trip? Per project rule "pre-booked
+  costs only in sketch/sell," the go phase owns the rest of the
+  cost machinery (day-of expenses, gas, rideshare, restaurant tabs).
+  Day-of mechanics, what the trip page becomes, what live elements
+  exist, what triggers move to `done`. Sub-session shape:
+  - **A**: Go phase strategy doc (Cowork) — defines day-of
+    mechanics, expense capture, transition triggers.
+  - **B+**: Implementation sub-sessions cascading from strategy.
+
+- **Activity feed (buzz) buildout arc** — feature buildout, depends
+  on Lock + Go landing. Builds on/replaces current `BuzzSection.tsx`
+  (basic display only today). Adds dynamic event feed across
+  sell/lock/go phases, commenting flow, emoji reactions. Per project
+  rule, v0 explicitly excludes threaded replies, @mentions, and
+  media uploads — those stay punted. Sequencing: depends on Lock +
+  Go strategy landing so buzz can respect what events fire in each
+  phase. Sub-session shape TBD.
+
+- **Teaser layer / `InviteeShell` arc** (carryover from Sessions
+  11+ original list) — blur veil, lock overlay, called-up sticker,
+  passwordless signup CTA, unblur reveal animation. Wireframe Q1
+  (login mechanics) and Q2 (blur cutline) may need re-thinking
+  once the Session 10 strategy doc clarifies the invitee state
+  model. Soft-blocked on strategy doc resumption.
+
+- **RSVP sticky bar depth arc** (carryover) — per-view state
+  machine, confetti on RSVP, micro-interactions, haptics. The
+  "state machine" here is literally what Dimension 1 of the
+  Session 10 strategy doc defines. Soft-blocked on strategy doc
+  resumption.
+
+#### 🎨 Design redesign arc
+
+- **Hero region polish** — covers the trip-page hero region
+  (marquee → hero → countdown). Two distinct items but ship-
+  combinable since they touch the same region:
+  - **A**: Banner + image uploader redesign (CW mockup) — covers
+    BOTH the sketch-page uploader UX (how organizers add the cover
+    image) AND how that image presents on the sell-state hero/
+    banner. Question: is the current uploader doing the right job
+    AND is the sell-state presentation using the image well?
+  - **B**: Countdown clock rethink (CW mockup) — title vs content
+    weighting within the countdown module on the trip page. Andrew:
+    "it's not working." Typographic hierarchy + module composition
+    (signature line, big number, day-label).
+  - **C**: Combined implementation (CC) — both can ship as one CC
+    session once the mockups are locked.
+
+#### ✨ Polish batch arc (small CC sessions, parallel-shippable)
+
+- **10G' — OUT + holding button-text tonality sweep.** Brief
+  written 2026-05-02; awaiting CC kickoff. 15 themes, copy-only
+  edits to `out` + `holding` button strings to match the new
+  🙌/🙏/👋 chip set. Independent of everything; can fire any
+  time. See dedicated `Session 10G'` section above.
+- **All-theme contrast sweep.** Surfaced from 10G's festival-run
+  marginal hero contrast (2.82:1 vs 3.0:1 AA-large). Sweep
+  hero/CTA contrast across all 17 themes against email + in-app
+  surfaces; rebalance `--onSurface` values where needed. Touches
+  theme files, so requires dedicated session (single-module
+  discipline blocks bundling with other theme-touching work).
+- **Body prose punctuation nit.** `Andrew Shipman just dropped a
+  rally for Coachella 2026!!! . 23 days out.` — stray space +
+  period when user-typed trip name ends in punctuation. Lexicon
+  string at `emails.invite.body` literal-joins `${trip}.`.
+  Single-line lexicon fix; could be Cowork-fixable depending on
+  surface count.
+- **Deprecated param cleanup.** `tripTagline` and `coverImageUrl`
+  retain `@deprecated 10G` JSDocs in `sendInviteEmail`. Future
+  cleanup removes both params + their `api/invite/route.ts` and
+  `actions/transition-to-sell.ts` call sites in one coordinated
+  edit. Single CC session.
+
+#### ⏸️ Open / continuing (NOT a new session — finishes existing arc)
+
+- **Session 10 attendee strategy doc — resume.** Status "in
+  progress" since 2026-04-27, hasn't moved. Doc redesigns the
+  state model + journey + consumer alignment for the attendee
+  experience. Several items above are soft-blocked on this
+  landing (teaser layer, RSVP sticky bar depth, partial buzz
+  scoping). Cowork-only work, no CC needed.
+
+#### 🔮 Future direction (NOT near-term, parked)
+
+- **Phone-as-primary identifier reframe.** Eventual intent is to
+  flip the entire invitation + identification model from
+  email-as-primary to phone-as-primary, retiring email as the
+  delivery channel. Larger scope than v0 — touches
+  `api/invite/route.ts`, `transitionToSell.ts`, the Resend
+  integration, the auth flow (currently magic-link via Resend),
+  and the user/trip_members schema. Costly + foundational, NOT
+  near-term per Andrew's call (2026-05-03). Phone-only invitees
+  remain a documented known gap (added but never delivered to)
+  until this arc fires. Logged here so the next time identity/
+  auth work is on the table, this reframe is on the menu.
 
 ### Session 10B: "Production domain cutover (rallyapp.travel)"
 

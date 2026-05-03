@@ -12,6 +12,7 @@ import Image from 'next/image';
 import { getCopy } from '@/lib/copy/get-copy';
 import type { ThemeId } from '@/lib/themes/types';
 import type { Lodging, LodgingVote, User } from '@/types';
+import { computeLodgingGroupTotal } from '@/lib/lodging-cost';
 import { removeLodgingOption } from '@/app/actions/sketch-modules';
 import { castLodgingVote, lockLodgingWinner } from '@/app/actions/lodging';
 
@@ -99,7 +100,7 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
   if (spot.accommodation_type === 'home_rental') {
     if (spot.total_cost != null && spot.total_cost > 0) {
       costLine = `$${spot.total_cost.toLocaleString()} ${getCopy(themeId, 'builderState.lodging.totalLabel')}`;
-      groupTotalForSplit = spot.total_cost;
+      groupTotalForSplit = computeLodgingGroupTotal(spot, crewCount ?? 1, nights ?? 0);
     }
   } else if (spot.accommodation_type === 'hotel') {
     if (spot.cost_per_night != null) {
@@ -112,7 +113,7 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
         const estimate = Math.round(spot.cost_per_night * nights * rooms);
         const roomsPart = rooms > 1 ? ` ${times} ${rooms} ${getCopy(themeId, 'builderState.lodging.roomsLabel')}` : '';
         costLine = `$${spot.cost_per_night}${getCopy(themeId, 'builderState.lodging.perNightLabel')} ${times} ${nights} ${getCopy(themeId, 'builderState.lodging.nightsLabel')}${roomsPart} ${eq} ${approx}$${estimate.toLocaleString()}`;
-        groupTotalForSplit = estimate;
+        groupTotalForSplit = computeLodgingGroupTotal(spot, crewCount ?? 1, nights);
       } else {
         // 9R Open #1 — rate-only display when nights is null (trip dates
         // unset / inverted). `rate-no-nights` suffix drives the subtle
@@ -124,7 +125,7 @@ export function LodgingCard({ spot, themeId, tripId, slug, dateStart, dateEnd, o
     // Other
     if (spot.total_cost != null && spot.total_cost > 0) {
       costLine = `$${spot.total_cost.toLocaleString()} ${getCopy(themeId, 'builderState.lodging.totalLabel')}`;
-      groupTotalForSplit = spot.total_cost;
+      groupTotalForSplit = computeLodgingGroupTotal(spot, crewCount ?? 1, nights ?? 0);
     } else {
       costLine = getCopy(themeId, 'builderState.lodging.freeLabel');
     }

@@ -1,5 +1,6 @@
 import type { TripWithDetails, TripCostSummary, ArrivalMode } from '@/types';
 import { pickLodgingForRollup } from '@/types';
+import { computeLodgingGroupTotal } from '@/lib/lodging-cost';
 import type { ThemeId } from '@/lib/themes/types';
 import { formatMoney } from '@/lib/money';
 import { getCopy } from '@/lib/copy/get-copy';
@@ -49,8 +50,11 @@ export function CostBreakdown({
             (new Date(trip.date_end).getTime() - new Date(trip.date_start).getTime()) / 86400000
           )
         : 1);
-    const lodgingCost =
-      selectedLodging.total_cost || (selectedLodging.cost_per_night || 0) * nights;
+    const lodgingCost = computeLodgingGroupTotal(
+      selectedLodging,
+      cost.divisor_used,
+      nights,
+    );
     const perPerson = Math.round(lodgingCost / (cost.divisor_used));
     if (perPerson > 0) {
       const baseLabel = getCopy(themeId, 'tripPageShared.costBreakdown.lodging.label');

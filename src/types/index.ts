@@ -1,6 +1,8 @@
 // Rally Type Definitions v2
 // Typed components replacing freeform blocks
 
+import { computeLodgingGroupTotal } from '@/lib/lodging-cost';
+
 export type TripPhase = 'sketch' | 'sell' | 'lock' | 'go';
 export type ComponentStatus = 'estimated' | 'confirmed';
 export type RsvpStatus = 'in' | 'holding' | 'out' | 'awaiting';
@@ -506,7 +508,7 @@ export function calculateTripCost(trip: TripWithDetails): TripCostSummary {
       ? Math.ceil((new Date(trip.date_end).getTime() - new Date(trip.date_start).getTime()) / 86400000)
       : 1);
   const lodgingCost = selectedLodging
-    ? (selectedLodging.total_cost || (selectedLodging.cost_per_night || 0) * nights)
+    ? computeLodgingGroupTotal(selectedLodging, divisor_used, nights)
     : 0;
 
   const sharedTransport = trip.transport.filter(t => t.cost_type === 'shared').reduce((s, t) => s + (t.estimated_total || 0), 0);
