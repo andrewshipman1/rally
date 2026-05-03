@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10G — themed fan-out invite email mockup</title>
+<style>
+  body {
+    margin: 0;
+    padding: 32px 16px 64px;
+    background: #ece7dc;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'DM Sans', sans-serif;
+    color: #1a2a33;
+  }
+  .page-header {
+    max-width: 1280px;
+    margin: 0 auto 32px;
+    padding: 20px 24px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+  .page-header h1 {
+    font-family: Georgia, serif;
+    font-size: 22px;
+    margin: 0 0 8px;
+    color: #122c35;
+  }
+  .page-header p {
+    margin: 4px 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #4a5a63;
+  }
+  .page-header code {
+    background: #f5f1ea;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  @media (max-width: 980px) {
+    .grid { grid-template-columns: 1fr; max-width: 420px; }
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .col-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #6b7a82;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .inbox-preview {
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .inbox-preview .from { font-weight: 600; color: #122c35; margin-bottom: 2px; }
+  .inbox-preview .subj { color: #1a2a33; font-weight: 500; margin-bottom: 4px; }
+  .inbox-preview .snip { color: #6b7a82; font-size: 12px; }
+
+  /* The phone frame holds the actual email render at 375px-ish width */
+  .phone {
+    width: 100%;
+    max-width: 375px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.12);
+  }
+
+  /* === PARAMETERIZED EMAIL TEMPLATE ===
+     Every selector below uses CSS vars that are reset per-theme on .email[data-theme=...].
+     Single template, theme tokens swapped — NOT three forks. */
+  .email {
+    /* defaults — overridden by [data-theme=...] below */
+    --bg:        #f5f1ea;
+    --ink:       #1a2a33;
+    --accent:    #122c35;
+    --accent2:   #556b73;
+    --surface:   #122c35;
+    --on-surface:#ffffff;
+    --sticker-bg:#ffd84d;
+    --stroke:    #1a2a33;
+
+    background: var(--bg);
+    color: var(--ink);
+    padding: 0;
+  }
+  /* Marquee strip — mirrors .chassis .marquee in src/app/globals.css.
+     In-app it animates (18s scroll). In actual email shipped via Resend,
+     this renders STATIC (CSS animations strip in Gmail/Outlook); the
+     browser mockup keeps the scroll so the intended vibe is legible. */
+  .email .marquee {
+    background: var(--surface);
+    color: var(--sticker-bg);
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 6px 0;
+    border-bottom: 2px solid var(--surface);
+  }
+  .email .marquee-track {
+    display: inline-flex;
+    animation: marquee-scroll 18s linear infinite;
+    font-family: var(--font-body), 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+  }
+  .email .marquee-track span {
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .email .marquee-track span::after {
+    content: "★";
+    color: var(--accent);
+  }
+  @keyframes marquee-scroll {
+    0%   { transform: translateX(0);    }
+    100% { transform: translateX(-50%); }
+  }
+
+  .email .hero {
+    background: var(--accent);
+    padding: 28px 22px 24px;
+    color: var(--on-surface);
+    position: relative;
+  }
+  .email .sticker {
+    display: inline-block;
+    background: var(--sticker-bg);
+    color: var(--stroke);
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1.5px solid var(--stroke);
+    transform: rotate(-2deg);
+    margin-bottom: 14px;
+  }
+  .email .organizer-line {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.6px;
+    opacity: 0.78;
+    margin-bottom: 10px;
+  }
+  .email .trip-name {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 800;
+    font-size: 30px;
+    line-height: 1.08;
+    margin: 0 0 6px;
+    color: var(--on-surface);
+  }
+  .email .meta {
+    font-size: 13px;
+    opacity: 0.82;
+    margin: 0;
+  }
+
+  .email .body {
+    padding: 24px 22px 8px;
+    background: var(--bg);
+  }
+  .email .greeting,
+  .email .prose {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink);
+    margin: 0 0 16px;
+  }
+  .email .cta-wrap {
+    text-align: center;
+    padding: 8px 22px 4px;
+    background: var(--bg);
+  }
+  .email .cta {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--on-surface);
+    text-decoration: none;
+    padding: 14px 30px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.2px;
+    border: 2px solid var(--stroke);
+  }
+  .email .paste-link {
+    text-align: center;
+    font-size: 11px;
+    color: var(--accent2);
+    padding: 18px 22px 24px;
+    background: var(--bg);
+    line-height: 1.5;
+  }
+  .email .paste-link a {
+    color: var(--accent2);
+    word-break: break-all;
+  }
+  .email .footer {
+    background: var(--surface);
+    color: var(--on-surface);
+    padding: 16px 22px;
+    text-align: center;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+  }
+  .email .footer .accent-dot {
+    color: var(--sticker-bg);
+    margin: 0 6px;
+  }
+
+  /* === THEME OVERRIDES — pulled directly from src/lib/themes/<id>.ts === */
+
+  /* birthday-trip — see src/lib/themes/birthday-trip.ts */
+  .email[data-theme="birthday-trip"] {
+    --bg:         #fff5e1;
+    --ink:        #2a1a0f;
+    --accent:     #ff4757;
+    --accent2:    #4d9fff;
+    --sticker-bg: #ffd84d;
+    --stroke:     #2a1a0f;
+    --surface:    #3a1f24;
+    --on-surface: #fff5e1;
+  }
+  /* beach-trip */
+  .email[data-theme="beach-trip"] {
+    --bg:         #e6f6f4;
+    --ink:        #0a2a3a;
+    --accent:     #e55f37;
+    --accent2:    #0ea5e9;
+    --sticker-bg: #ffd84d;
+    --stroke:     #0a2a3a;
+    --surface:    #0a3a4a;
+    --on-surface: #e6f6f4;
+  }
+  /* ski-chalet */
+  .email[data-theme="ski-chalet"] {
+    --bg:         #f1ebd9;
+    --ink:        #1a1f1a;
+    --accent:     #c44d3a;
+    --accent2:    #d9a344;
+    --sticker-bg: #f4e4a0;
+    --stroke:     #1a1f1a;
+    --surface:    #1a2018;
+    --on-surface: #f1ebd9;
+  }
+
+  .notes {
+    max-width: 1280px;
+    margin: 32px auto 0;
+    padding: 18px 22px;
+    background: #fff;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #4a5a63;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+  .notes h2 { font-family: Georgia, serif; font-size: 16px; margin: 0 0 10px; color: #122c35; }
+  .notes ul { margin: 6px 0 0 18px; padding: 0; }
+  .notes li { margin-bottom: 6px; }
+  .notes code { background: #f5f1ea; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>10G — themed fan-out invite email mockup</h1>
+  <p>Three themes (<code>birthday-trip</code>, <code>beach-trip</code>, <code>ski-chalet</code>) rendered through one parameterized template. CSS vars swap; structure stays identical. Mirrors the chassis token pattern (<code>--bg / --ink / --accent / --accent2 / --surface / --on-surface / --sticker-bg / --stroke</code>) themes already use elsewhere.</p>
+  <p>Hero = themed accent block + <code>sticker.invite</code> + trip name (no cover image — locked decision). Dark-mode = accept as known limitation.</p>
+  <p>Lexicon strings are real values from <code>src/lib/copy/surfaces/emails.ts</code> + <code>src/lib/themes/&lt;id&gt;.ts</code>. Voice unchanged from 10F.</p>
+</div>
+
+<div class="grid">
+
+  <!-- =================== BIRTHDAY-TRIP =================== -->
+  <div class="col">
+    <div class="col-label">birthday-trip</div>
+
+    <div class="inbox-preview">
+      <div class="from">Rally</div>
+      <div class="subj">RSVP: Andrew is calling you to Maya's 30th</div>
+      <div class="snip">hey, Andrew just dropped a rally for Maya's 30th. 42 days out…</div>
+    </div>
+
+    <div class="phone">
+      <div class="email" data-theme="birthday-trip">
+        <div class="marquee">
+          <div class="marquee-track">
+            <span>turning 30</span><span>cake mandatory</span><span>dress to party</span><span>the big one</span><span>we love you</span>
+            <span>turning 30</span><span>cake mandatory</span><span>dress to party</span><span>the big one</span><span>we love you</span>
+          </div>
+        </div>
+        <div class="hero">
+          <span class="sticker">you're invited 🎂</span>
+          <div class="organizer-line">Andrew invited you</div>
+          <h1 class="trip-name">Maya's 30th</h1>
+          <p class="meta">Palm Springs · Jun 14 — Jun 16</p>
+        </div>
+        <div class="body">
+          <p class="greeting">hey,</p>
+          <p class="prose">Andrew just dropped a rally for Maya's 30th. 42 days out. tap the link, see the pitch, decide if you're in.</p>
+        </div>
+        <div class="cta-wrap">
+          <a href="#" class="cta">see the trip →</a>
+        </div>
+        <div class="paste-link">
+          or paste this link:<br>
+          <a href="#">rally.app/i/k7p2ax9</a>
+        </div>
+        <div class="footer">
+          rally <span class="accent-dot">·</span> group trip planner
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== BEACH-TRIP =================== -->
+  <div class="col">
+    <div class="col-label">beach-trip</div>
+
+    <div class="inbox-preview">
+      <div class="from">Rally</div>
+      <div class="subj">RSVP: Sam is calling you to Outer Banks Aug</div>
+      <div class="snip">hey, Sam just dropped a rally for Outer Banks Aug. 88 days out…</div>
+    </div>
+
+    <div class="phone">
+      <div class="email" data-theme="beach-trip">
+        <div class="marquee">
+          <div class="marquee-track">
+            <span>toes in</span><span>sunscreen check</span><span>beers on the beach</span><span>sunset walk</span><span>rosé all day</span>
+            <span>toes in</span><span>sunscreen check</span><span>beers on the beach</span><span>sunset walk</span><span>rosé all day</span>
+          </div>
+        </div>
+        <div class="hero">
+          <span class="sticker">sand szn 🏖️</span>
+          <div class="organizer-line">Sam invited you</div>
+          <h1 class="trip-name">Outer Banks Aug</h1>
+          <p class="meta">Duck, NC · Aug 9 — Aug 16</p>
+        </div>
+        <div class="body">
+          <p class="greeting">hey,</p>
+          <p class="prose">Sam just dropped a rally for Outer Banks Aug. 88 days out. tap the link, see the pitch, decide if you're in.</p>
+        </div>
+        <div class="cta-wrap">
+          <a href="#" class="cta">see the trip →</a>
+        </div>
+        <div class="paste-link">
+          or paste this link:<br>
+          <a href="#">rally.app/i/m4r8tn2</a>
+        </div>
+        <div class="footer">
+          rally <span class="accent-dot">·</span> group trip planner
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== SKI-CHALET =================== -->
+  <div class="col">
+    <div class="col-label">ski-chalet</div>
+
+    <div class="inbox-preview">
+      <div class="from">Rally</div>
+      <div class="subj">RSVP: Jess is calling you to Tahoe President's Day</div>
+      <div class="snip">hey, Jess just dropped a rally for Tahoe President's Day. 287 days out…</div>
+    </div>
+
+    <div class="phone">
+      <div class="email" data-theme="ski-chalet">
+        <div class="marquee">
+          <div class="marquee-track">
+            <span>first chair 7am</span><span>après at 3</span><span>hot tub at 9</span><span>the mountain is open</span><span>send it</span>
+            <span>first chair 7am</span><span>après at 3</span><span>hot tub at 9</span><span>the mountain is open</span><span>send it</span>
+          </div>
+        </div>
+        <div class="hero">
+          <span class="sticker">send it ❄️</span>
+          <div class="organizer-line">Jess invited you</div>
+          <h1 class="trip-name">Tahoe President's Day</h1>
+          <p class="meta">Palisades, CA · Feb 13 — Feb 16</p>
+        </div>
+        <div class="body">
+          <p class="greeting">hey,</p>
+          <p class="prose">Jess just dropped a rally for Tahoe President's Day. 287 days out. tap the link, see the pitch, decide if you're in.</p>
+        </div>
+        <div class="cta-wrap">
+          <a href="#" class="cta">see the trip →</a>
+        </div>
+        <div class="paste-link">
+          or paste this link:<br>
+          <a href="#">rally.app/i/q9w3ze6</a>
+        </div>
+        <div class="footer">
+          rally <span class="accent-dot">·</span> group trip planner
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="notes">
+  <h2>What this mockup is proving</h2>
+  <ul>
+    <li><strong>Single parameterized template.</strong> Inspect the CSS — one <code>.email</code> ruleset, then three <code>[data-theme="..."]</code> overrides that swap exactly the chassis vars. No forked HTML.</li>
+    <li><strong>Marquee strip up top.</strong> Mirrors the in-app trip-page module order (marquee → hero → countdown). Same chassis treatment: <code>--surface</code> block, <code>--sticker-bg</code> text, <code>--accent</code> star separators, DM Sans bold 11px @ 0.18em tracking. Strings pulled directly from each theme's <code>strings.marquee</code> array. <em>Browser mockup animates (18s scroll) so the vibe reads. The shipped email renders STATIC</em> — Gmail/Outlook strip CSS animations; what the recipient sees is the first frame, which is still the same brand-tight strip. Apple Mail will animate it for free.</li>
+    <li><strong>Hero = accent-block + themed sticker + trip name.</strong> No cover image; renders identically across Gmail / Outlook / Apple Mail / dark mode (accept-as-limitation: light theme palette will look slightly off in dark mode, documented).</li>
+    <li><strong>Sticker uses <code>sticker.invite</code> from each theme verbatim</strong> — birthday-trip "you're invited 🎂", beach-trip "sand szn 🏖️", ski-chalet "send it ❄️". Tilted, sticker-bg behind, stroke border — same shape as the in-app sticker pattern.</li>
+    <li><strong>Subject + body are real</strong> — pulled from <code>src/lib/copy/surfaces/emails.ts</code> with theme-id-agnostic copy (10F's voice work; 10G doesn't change it).</li>
+    <li><strong>CTA inherits <code>--accent</code></strong>; footer inherits <code>--surface</code>/<code>--on-surface</code> with a sticker-bg accent dot.</li>
+    <li><strong>What's deliberately not here</strong>: 17 template forks; cover image render path; dark-mode media queries; marquee re-render in HTML email.</li>
+  </ul>
+  <h2>Open question for the brief</h2>
+  <ul>
+    <li>Web-safe font: do we keep Georgia for the trip name (current email.ts) or try Fraunces with Georgia fallback? Fraunces likely strips in Outlook, falls to Georgia anyway. Recommendation: keep Georgia, write off Fraunces for email-shaped surfaces.</li>
+    <li>Does the sticker rotate <code>-2deg</code> survive Outlook? Worth testing — fallback is no-rotation (still readable, slightly less brand).</li>
+  </ul>
+</div>
+
+</body>
+</html>

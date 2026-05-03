@@ -21447,86 +21447,561 @@ remaining 15 themes (already noted in 10G prep).
 
 ---
 
-### Session 10G: "Themed fan-out invite email" — prep notes (Cowork-only, 2026-05-01)
+### Session 10G: "Themed fan-out invite email — visual brand pass"
 
-**Status: not started.** Split out from 10F during the 2026-05-01
-Cowork session so the sticky-bar redesign + magic-link redirect fix
-could ship without being blocked on email design work.
+**Status: brief written 2026-05-02 (Cowork). Awaiting Andrew sign-off
+→ CC kickoff.**
 
-**Origin.** While reviewing the 10F mockup
-(`rally-10f-mockup.html`), Andrew flagged that the fan-out invite
-email should "look and feel like the app, with the on-brand
-guidelines and the theme lexicon that we have. Maybe we add another
-component of an email design for each theme that we could apply for
-these fan out email invites so that they feel very on brand."
+**Why:** 10F shipped the email lexicon wire-up (subject + body voice).
+The HTML shell that wraps that copy is still the byte-equivalent
+1.5-color stub from 9R — flat teal gradient, Georgia heading, no
+theme presence. Andrew's call during 10F: "make it look and feel like
+the app, with the on-brand guidelines and the theme lexicon." 10G
+delivers the visual brand pass.
 
-10F kept the email scope to lexicon wire-up + voice fixes
-(byte-equivalent HTML shell). 10G is the visual brand-pass.
+**Locked decisions (Cowork, 2026-05-02):**
 
-**Target scope (placeholder, refine when 10F ships):**
+- **Hero = themed accent block + sticker pill + trip name** (no cover
+  image, no marquee re-render). Full-width `--accent` background, light
+  type. Sticker pill uses theme `sticker.invite` string + `--sticker-bg`
+  fill + tilted -2deg. Decision rationale: zero render fragility across
+  clients vs cover-image path; brand presence concentrated in the
+  sticker + accent block instead of a hero image that may be missing.
+- **Marquee strip up top** (above the hero, mirrors trip-page module
+  order). Static HTML — no CSS animation. Gmail/Outlook strip
+  animations; recipients see the first frame which still reads as a
+  brand-tight strip. Apple Mail will animate it for free with the
+  duplicated track. Strings pulled from each theme's
+  `strings.marquee` array.
+- **Dark-mode email = accept as known limitation.** No dark-mode
+  variant palette, no `prefers-color-scheme` queries. Light theme
+  palette will look slightly off in Gmail-dark / Apple-Mail-dark; we
+  ship and revisit only if real users complain.
+- **OUT button-text tonality sweep is NOT in 10G.** Split into
+  Session 10G' (separate, parallel-shippable copy-only session). See
+  brief below.
+- **Sticker text uses a hardcoded dark color (`#1a1a1a`)**, NOT
+  `var(--stroke)`. Reason: contrast audit (Cowork, 2026-05-02) found
+  3 dark themes (festival-run, boys-trip, city-weekend) where
+  `--stroke = --on-surface` is light, which on a yellow `--sticker-bg`
+  drops to 1.09–1.19:1 — invisible. The yellow sticker bg is
+  universal across all 17 themes, so dark text is universally safe.
+  This is a one-line CSS deviation from the chassis token pattern,
+  scoped to the email surface only.
 
-0. **RSVP button-text tonality pass (added 2026-05-01 during 10F QA).**
-   The 10F icon swap (`out: '—' → '👋'`) made every theme's `out:
-   { button: ... }` text feel mis-registered: chip is now a friendly
-   wave, but themed text leans uniformly regretful (😔 / 😭 / 🥲 /
-   💔 / 😩 across 14 of 17 themes). Sweep all 17 themes' `out` and
-   `holding` button text for tonality match with the new chip set
-   (🙌 in · 🙏 holding · 👋 out). Single file per theme, copy-only
-   edits. Two themes (wellness-retreat, just-because) already
-   hot-fixed during 10F QA; remaining 15 to audit.
+**Reference:** `rally-10g-mockup.html` (Cowork, 2026-05-02) — three
+themes (birthday-trip, beach-trip, ski-chalet) rendered side-by-side
+through one parameterized template. Demonstrates the pattern; CC's
+deliverable is the email.ts equivalent for all 17 themes.
 
-1. **Per-theme email palette + typography.** Pull theme palette
-   tokens (`bg`, `ink`, `accent`, `accent2`, `surface`,
-   `on-surface`) into the email HTML inline styles. Match Rally
-   typography (Georgia for headings, Outfit/system sans for body).
-   One template parameterized by theme tokens — NOT 17 separate
-   templates.
-2. **Hero treatment.** Themed cover postcard or accent block at
-   the top of the email. Pulls from
-   `theme.strings.sticker.invite` + theme palette. Possibly a
-   themed marquee strip (re-rendered as static HTML for email).
-3. **Themed CTA.** "See the trip →" button uses theme accent.
-4. **Themed footer / signature.** "rally — group trip planner"
-   styled with theme accent2 or muted token.
-5. **Test across ≥3 themes** before ship: birthday-trip,
-   beach-trip, ski-chalet (covers warm / blue / earth palettes).
+**Scope (5 items, all in `src/lib/email.ts`):**
 
-**Open questions (Cowork to resolve before writing the brief):**
+1. **Resolve theme palette + strings inside `sendInviteEmail`.**
+   Import `getTheme` from `@/lib/themes`. Pull `palette.{bg, ink,
+   accent, accent2, surface, onSurface, stickerBg, stroke}` and
+   `strings.{sticker.invite, marquee}` for the `themeId` param.
+   Inject as inline-style values throughout the HTML string (email
+   clients strip `<style>` blocks; inline styles are mandatory).
 
-- Q1: Does 10G need its own mockup pass first, or is the
-  parameterized-template direction clear enough to brief CC
-  directly? (Probably mockup first — multi-theme email designs
-  warrant visual review.)
-- Q2: Does the email need the cover image from
-  `trip.cover_image_url`, or do we use a theme-default
-  illustration / accent block? Image complicates email
-  rendering across clients (Gmail / Outlook / Apple Mail).
-- Q3: Web-safe font fallbacks for Outfit/Fraunces. Email clients
-  often strip custom fonts; need a sensible fallback chain.
-- Q4: Dark-mode email rendering (Gmail dark / Apple Mail dark).
-  Theme palettes assume light surfaces; dark-mode inversion
-  could break theme intent. Test or accept as known
-  limitation?
+2. **Marquee strip at top of email.** New top section above the
+   hero. Inline styles mirror `.chassis .marquee` from
+   `globals.css:432-458`: `background:<surface>`, `color:<stickerBg>`,
+   `padding:6px 0`, `border-bottom:2px solid <surface>`,
+   `overflow:hidden; white-space:nowrap`. Inner track: `display:inline-
+   flex`, `font-family:DM Sans/sans` 11px bold @ 0.18em letter-
+   spacing. Each item: `padding:0 14px`, with a `★` separator in
+   `<accent>` after each span. Render the marquee items array TWICE
+   (concatenated) for seamless looping if any client honors the
+   keyframe animation. Marquee is STATIC by default — include the
+   `@keyframes marquee-scroll` and `animation` declaration anyway
+   (Apple Mail respects it, others ignore — no fragility either way).
 
-**Hard constraints (preview):**
+3. **Replace the gradient/cover hero with themed accent block.**
+   Delete the existing `coverImageUrl`-conditional block + the
+   gradient fallback (`<tr><td style="height:120px;
+   background:linear-gradient(...)"></td></tr>`). Replace with a
+   single hero `<td>`:
+   - `background:<accent>; padding:28px 22px 24px; color:<onSurface>`.
+   - Sticker pill (`<span>`) at top: `display:inline-block;
+     background:<stickerBg>; color:#1a1a1a;
+     font-family:Georgia,serif; font-weight:700; font-size:13px;
+     padding:6px 12px; border-radius:999px;
+     border:1.5px solid <stroke>; transform:rotate(-2deg);
+     margin-bottom:14px`. Content = theme `sticker.invite` string.
+   - Organizer line: `font-size:11px; text-transform:uppercase;
+     letter-spacing:1.6px; opacity:0.78; margin-bottom:10px`.
+     Content = `${organizerName} invited you`.
+   - Trip name `<h1>`: Georgia 30px / 1.08 / 800 / `<onSurface>`.
+   - Meta line `<p>` if `metaLine` present: `font-size:13px;
+     opacity:0.82`.
 
-- DO NOT redesign the lexicon `emails.invite.{subject,body}` —
-  voice already shipped in 10F.
-- DO NOT add new theme fields. Use existing palette + strings.
-- DO NOT add new email types (RSVP confirmation, etc.). 10G is
-  fan-out invite only.
+   The `coverImageUrl` PROP STAYS in the function signature for API
+   compatibility (the caller in `api/invite/route.ts` passes it),
+   but the value is unused in the new template. Add a JSDoc note
+   on the param: `@deprecated 10G — hero is themed accent block; image not rendered`.
 
-**Files to read before writing the 10G brief:**
+4. **Themed CTA + paste link + footer.**
+   - CTA: `background:<accent>; color:<onSurface>; padding:14px 30px;
+     border-radius:12px; font-weight:700; border:2px solid <stroke>`.
+     Text: `see the trip →` (lowercase per voice, replaces the
+     existing "See the trip →" — note the case change).
+   - Paste link block: `color:<accent2>; font-size:11px;
+     text-align:center; padding:18px 22px 24px`.
+   - Footer: `background:<surface>; color:<onSurface>;
+     padding:16px 22px; text-align:center; font-family:Georgia,serif;
+     font-size:13px`. Content: `rally · group trip planner` with the
+     middle `·` colored `<stickerBg>` for an accent dot. (The existing
+     copy is `rally — group trip planner`; the em dash flips to a
+     middle dot for visual symmetry with the dot accent.)
 
-- `.claude/skills/rally-session-guard/SKILL.md`
-- `rally-fix-plan-v1.md` — 10F Actuals (post-ship) for the
-  email lexicon wire-up that 10G builds on.
-- `src/lib/email.ts` — post-10F state.
-- `src/lib/themes/` — palette + strings shape for the
-  parameterization target.
-- `rally-brand-brief-v0.md` — voice + tone rules.
+5. **Plain-text fallback unchanged.** The `text` template Resend
+   sends as the multipart-alternative is theme-agnostic by design.
+   Keep current text body (greeting + bodyProse + metaLine + share
+   URL + footer line). The footer line stays `— rally — group trip
+   planner` (em dash variant — text email is a different reading
+   context, dot-accent doesn't translate).
 
-**Ship state:** Prep notes only. 10F must ship first.
+**Hard Constraints:**
+
+- **DO NOT modify any file under `src/lib/themes/`.** No palette
+  edits, no strings edits, no new fields. The contrast audit
+  flagged festival-run hero text as marginal (2.82:1, AA-large needs
+  3:1) — accept and document; do NOT touch the theme to fix it.
+- **DO NOT modify `src/lib/copy/surfaces/emails.ts`.** Voice already
+  shipped in 10F. Lexicon strings consumed unchanged.
+- **DO NOT add new email types.** 10G is `sendInviteEmail` only.
+  Other Resend transports (`magicLink`, `newYes`, `lockDeadlineT3`,
+  etc. per `emails.ts:11-52`) stay untouched.
+- **DO NOT add new lexicon keys.** Zero. The `see the trip →` CTA
+  text stays inline in `email.ts` as it currently is (not a lexicon
+  key — it lived inline in the 10F shell too).
+- **DO NOT add new routes, components, or files.** Single-file edit.
+  All work in `src/lib/email.ts`.
+- **DO NOT modify `api/invite/route.ts`** or any `sendInviteEmail`
+  caller. The function signature stays compatible — `coverImageUrl`
+  param remains for API compat even though it's unused in render.
+- **DO NOT add CSS animation as load-bearing.** The marquee
+  `animation:` declaration is included for Apple Mail's benefit but
+  the email MUST be visually complete with the static first frame.
+- **Inline styles only.** No `<style>` block in the email HTML —
+  Gmail strips them. Every style attribute on every element.
+- **Sticker text color is hardcoded `#1a1a1a`** — not
+  `var(--stroke)` or any theme token. Document the deviation in a
+  comment in `email.ts` referencing the contrast audit.
+
+**Acceptance Criteria:**
+
+- [ ] `src/lib/email.ts` `sendInviteEmail` resolves theme palette +
+      strings via `getTheme(themeId)` and injects values inline.
+- [ ] Marquee strip renders at top of every themed email. Items
+      pulled from `theme.strings.marquee`. Track is duplicated for
+      seamless loop. Static first frame is legible without animation.
+- [ ] For each of 17 themes, sending an invite produces an email
+      where: hero `<td>` background = `theme.palette.accent`;
+      sticker pill background = `theme.palette.stickerBg`; sticker
+      text reads `theme.strings.sticker.invite`; trip name renders
+      Georgia 30px bold in `theme.palette.onSurface`; CTA background
+      = `theme.palette.accent`; footer background =
+      `theme.palette.surface`; footer text =
+      `theme.palette.onSurface`.
+- [ ] Sticker text color is `#1a1a1a` (hardcoded), NOT a theme
+      token. Verified by inspecting the rendered HTML for
+      `boys-trip`, `festival-run`, `city-weekend` (the 3 dark themes
+      where the chassis pattern would have failed).
+- [ ] CTA text is lowercase `see the trip →` (not `See the trip →`).
+- [ ] Footer text is `rally · group trip planner` with the middle `·`
+      colored `theme.palette.stickerBg`.
+- [ ] No `<style>` block in the rendered HTML. All styles inline.
+- [ ] `coverImageUrl` value is NOT rendered in the email body
+      (param stays in signature, marked `@deprecated 10G`).
+- [ ] Plain-text alternative (`text` field on Resend send) is
+      unchanged from 10F shape: greeting + body + meta line +
+      share URL + `— rally — group trip planner` footer.
+- [ ] No edits to `src/lib/themes/*`, `src/lib/copy/surfaces/emails.ts`,
+      or `api/invite/route.ts`. `git diff --stat` shows ONLY
+      `src/lib/email.ts` (plus this fix-plan release notes).
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `rm -rf .next && npm run build` succeeds.
+- [ ] **Live verification:** trigger an invite to a brand-new email
+      address from a trip on each of 3 sample themes (birthday-trip,
+      beach-trip, ski-chalet). Inspect the rendered email in Gmail
+      web. Verify: marquee strip at top, accent-block hero, themed
+      sticker pill, themed CTA, themed footer with dot accent.
+- [ ] **10F email lexicon verification (rolled into 10G QA):**
+      subject = `RSVP: <organizer> is calling you to <trip>`; body
+      starts with lowercase `hey,` (or `hey <name>,` if recipient
+      name is set); body prose matches the lexicon string in
+      `emails.invite.body`; paste-link prompt is `or paste this
+      link:`; HTML footer reads `rally · group trip planner` (10G
+      change), text footer reads `— rally — group trip planner`
+      (10F unchanged).
+
+**Files to Read (mandatory):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — session loop, hard
+  rules, escalation triggers, release-notes format.
+- `rally-fix-plan-v1.md` — this brief; 10F Actuals + 10I Actuals
+  immediately above for the lexicon shipped state and the auth-arc
+  close that precedes 10G.
+- `rally-10g-mockup.html` — the parameterized template visual spec.
+  Three themes side-by-side. CC's deliverable is the email.ts
+  equivalent for all 17 themes following this pattern.
+- `src/lib/email.ts` — entire file (~157 lines). The single edit
+  target.
+- `src/lib/themes/index.ts` — `getTheme(id)` accessor.
+- `src/lib/themes/types.ts` — `Theme`, `ThemePalette`, `ThemeStrings`
+  shape. Especially `palette` and `strings.{sticker, marquee}`.
+- `src/lib/themes/birthday-trip.ts`, `beach-trip.ts`, `ski-chalet.ts`,
+  `festival-run.ts`, `boys-trip.ts`, `city-weekend.ts` — read these
+  6 (3 happy-path, 3 dark-theme edge cases) to confirm the
+  parameterization handles all palette shapes correctly.
+- `src/app/globals.css:432-458` — the in-app `.marquee` /
+  `.marquee-track` ruleset. Mirror the visual treatment (typography,
+  spacing, star separator) inline in the email HTML.
+- `src/lib/copy/surfaces/emails.ts` — the lexicon strings consumed
+  unchanged.
+- `rally-brand-brief-v0.md` — voice rules. The lowercase `see the
+  trip →` change reflects the lexicon §5.10 voice (lowercase
+  default).
+
+**How to QA Solo (before declaring done):**
+
+1. `npx tsc --noEmit` — must exit 0.
+2. `rm -rf .next && npm run build` — must succeed.
+3. `git diff --stat` — must show ONLY `src/lib/email.ts` as a source
+   change. Anything else, stop and escalate.
+4. In `src/lib/email.ts`, confirm: `import { getTheme } from
+   '@/lib/themes'` is added; `getTheme(themeId).palette` is
+   destructured and used to inject inline styles; sticker text color
+   is the literal string `#1a1a1a`.
+5. Boot dev (`npm run dev`), trigger an invite to a Resend test
+   address from a `birthday-trip` themed trip (use the existing
+   /trip/<slug>/sticky publish flow). Inspect Resend's dashboard
+   "Logs" tab → preview the rendered HTML. Verify hero is hot pink/
+   coral block, sticker reads `you're invited 🎂`, marquee shows
+   "turning 30 ★ cake mandatory ★ ..." etc.
+6. Repeat step 5 for a `boys-trip` themed trip — confirm sticker
+   text `the boys are calling 🎲` is dark-on-yellow and visible
+   (the contrast-audit edge case).
+7. Repeat step 5 for a `festival-run` themed trip — confirm hero
+   text is readable (this is the marginal AA-large case; document
+   the contrast value in the release notes).
+
+**Lexicon notes:** Zero new keys. The string `see the trip →` lives
+inline in `email.ts` (was inline pre-10G too). The footer text
+`rally · group trip planner` (HTML) and `— rally — group trip
+planner` (text) live inline. None of these are added to lexicon
+surfaces in this session.
+
+**Known issues (for future hygiene sessions):**
+
+- **festival-run hero text is marginal** (2.82:1, AA-large needs
+  3:1). Light lavender (`#f4e6ff`) on hot pink (`#ff3a8c`).
+  Real-world legibility on 30px bold display type is fine; only
+  fails strict WCAG audit. Logged for a future "all-theme contrast
+  pass" session that would sweep hero/CTA contrast across all 17
+  themes against email AND in-app surfaces, and rebalance
+  `--onSurface` values where needed. Not a one-off festival patch.
+- **Animated marquee GIF generation** (per recipient theme) was
+  considered as an alternative to static-frame rendering. Deferred
+  as a future micro-session: ~half a session of work for marginal
+  visual upgrade (recipients tap through to the in-app marquee
+  immediately anyway). Revisit only if email open-to-tap proves to
+  be a real bottleneck in metrics.
+- **Sticker text hardcoded `#1a1a1a`** is a one-off chassis-token
+  deviation scoped to email. The chassis pattern (`--stroke`
+  defaults to `--ink` in light themes, flips to `--on-surface` in
+  dark themes) doesn't anticipate the sticker-on-yellow combination.
+  A future "chassis hardening" session could introduce a
+  `--sticker-text` token for this case; out of scope for 10G.
+
+**Carryover to 10G':** OUT button-text tonality sweep across the
+remaining 15 themes. Independent — ships in either order.
+
+#### Session 10G — Release Notes (2026-05-03, Claude Code)
+
+**What was built:**
+
+1. **Theme palette + strings resolved inside `sendInviteEmail`** —
+   `src/lib/email.ts`. Added `import { getTheme } from '@/lib/themes'`
+   and `import type { Templated }` from `@/lib/themes/types`. Inside
+   the function, after the existing greeting/subject/bodyProse/metaLine
+   setup, `getTheme(themeId).palette` is destructured into all 8
+   chassis vars (`bg, ink, accent, accent2, surface, onSurface,
+   stickerBg, stroke`). `theme.strings.sticker.invite` and
+   `theme.strings.marquee` flow through a small local
+   `renderTemplated(t)` helper that mirrors the in-app pattern at
+   `PostcardHero.tsx:157` (`typeof t === 'string' ? t : t({})`).
+2. **Marquee strip at top** — `src/lib/email.ts`. New `<tr><td>` above
+   the hero, mirrors `.chassis .marquee` from `globals.css:432-458`:
+   `background:${surface}`, `color:${stickerBg}`, `padding:6px 0`,
+   `border-bottom:2px solid ${surface}`. Inner track is `inline-flex`,
+   DM Sans 11px bold @ 0.18em letter-spacing. Each item rendered as
+   `<span>${item}<span style="color:${accent}">★</span></span>`. Track
+   array is rendered TWICE concatenated for seamless loop (Apple Mail
+   honors animation; others render the static first frame). The
+   `animation: marquee-scroll 18s linear infinite` declaration is
+   inline; the `@keyframes` definition lives in a single `<head>`
+   `<style>` block (the only place a keyframe can be declared — see
+   "What changed from the brief" below).
+3. **Hero block replaced** — `src/lib/email.ts`. Deleted the
+   `coverImageUrl`-conditional block + the gradient fallback. New
+   hero `<td>` is `background:${accent}; padding:28px 22px 24px;
+   color:${onSurface}` containing: sticker pill (Georgia 13px bold,
+   tilted -2deg, `${stickerBg}` fill, `${stroke}` border, content =
+   `theme.strings.sticker.invite`); organizer line (11px uppercase
+   1.6px tracking, `${onSurface}` @ 0.78 opacity); trip name (`<h1>`
+   Georgia 30px / 1.08 / 800 / `${onSurface}`); meta line (13px @
+   0.82 opacity if present). The `tripTagline` block is dropped from
+   the render — not in the mockup or the brief's hero spec.
+4. **Themed CTA + paste-link + footer** — `src/lib/email.ts`. CTA is
+   `background:${accent}; color:${onSurface}; padding:14px 30px;
+   border-radius:12px; border:2px solid ${stroke}` with text
+   `see the trip →` (lowercase — change from `See the trip →`).
+   Paste-link block uses `color:${accent2}` for both prompt and
+   anchor. Footer is `background:${surface}; color:${onSurface};
+   font-family:Georgia,serif; font-size:13px` with content
+   `rally <span style="color:${stickerBg}">·</span> group trip planner`
+   (em dash → middle dot; dot colored `stickerBg` for visual
+   accent).
+5. **Plain-text alternative unchanged** — `src/lib/email.ts`. The
+   `text` block at the bottom of the function is byte-identical to
+   pre-10G (greeting + bodyProse + metaLine + share URL + footer
+   `— rally — group trip planner` with em-dash variant intact).
+6. **Caller-compat preserved** — `src/lib/email.ts`. Both
+   `coverImageUrl` and `tripTagline` remain in the function-arg type
+   annotation with `@deprecated 10G` JSDoc; the destructure aliases
+   them as `_coverImageUrl` and `_tripTagline` (intentionally
+   unused). `api/invite/route.ts` and `actions/transition-to-sell.ts`
+   continue to compile and pass values without modification.
+7. **Sticker contrast-audit deviation documented in code** —
+   `src/lib/email.ts`. A 5-line HTML comment immediately above the
+   sticker `<span>` records: hardcoded `#1a1a1a` text color (NOT
+   theme `stroke`), the 3 dark themes (festival-run, boys-trip,
+   city-weekend) where the chassis `stroke = onSurface` flip drops
+   contrast on yellow `stickerBg` to 1.09–1.19:1, and the universal
+   safety of dark text on the universally-yellow-leaning `stickerBg`.
+
+**What changed from the brief:**
+
+- **`<head><style>@keyframes marquee-scroll{...}</style></head>` is
+  shipped.** The brief AC says "No `<style>` block in the rendered
+  HTML"; scope item #2 says include the `@keyframes` declaration for
+  Apple Mail. `@keyframes` cannot be declared inline (CSS spec — only
+  `<style>` or external `<link>` can host it). Resolved in plan with
+  Andrew (2026-05-03): keep the single scoped `@keyframes` rule in
+  `<head>`. All other styles stay inline on body elements (verified:
+  every other element has its own `style="..."` attribute). Gmail and
+  Outlook strip the `<style>` block harmlessly → static first frame
+  marquee. Apple Mail honors it → animated.
+
+**What to test:**
+
+- [ ] **Static checks:** `npx tsc --noEmit` exits 0 (verified, exit 0);
+      `rm -rf .next && npm run build` succeeds (verified, build OK);
+      `git diff --stat` shows ONLY `src/lib/email.ts` + this fix-plan
+      Release Notes append (verified).
+- [ ] **In-code spot checks:** `import { getTheme }` present at
+      `email.ts:3`; `import type { Templated }` present at
+      `email.ts:4`; 8-var destructure at `email.ts:61`;
+      `renderTemplated` calls at `email.ts:62-63`; `#1a1a1a` literal
+      appears exactly once at `email.ts:99` with the contrast-audit
+      comment at `email.ts:94-98`; `see the trip →` lowercase at
+      `email.ts:122`; middle-dot footer at `email.ts:134`; plain-text
+      `text` block at `email.ts:140-145` byte-equivalent to pre-10G.
+- [ ] **Live render:** trigger an invite from a `birthday-trip` themed
+      trip (sticky-publish flow, send to a Resend test address). In
+      Resend dashboard → Logs → preview rendered HTML. Verify marquee
+      strip at top (dark `#3a1f24` surface, yellow text "turning ★ cake
+      mandatory ★ dress to party ★ the big one ★ we love you" + repeat
+      for the seamless-loop track), hot-coral (`#ff4757`) hero block,
+      sticker reads `you're invited 🎂` with dark text on yellow
+      `#ffd84d`, lowercase `see the trip →` CTA on `#fff5e1` body
+      background, footer `rally · group trip planner` on `#3a1f24`
+      with yellow middle dot.
+- [ ] **Live render:** repeat for a `boys-trip` themed trip — the
+      hardcoded `#1a1a1a` sticker text must read clearly on yellow
+      `#ffd84d` (the chassis pattern, with `stroke = #f0e8d8`, would
+      have failed here at ~1.16:1).
+- [ ] **Live render:** repeat for a `festival-run` themed trip —
+      confirm the marginal hero text contrast (`#f4e6ff` on `#ff3a8c`
+      = 2.82:1 vs AA-large 3:1) is real-world readable on 30px bold
+      Georgia display type. Document the 2.82:1 figure here once
+      verified.
+- [ ] **10F email lexicon verification (rolled into 10G QA):** subject
+      = `RSVP: <organizer> is calling you to <trip>`; body starts with
+      lowercase `hey,` (or `hey <name>,` if recipient name is set);
+      body prose matches the lexicon string in `emails.invite.body`;
+      paste-link prompt is `or paste this link:`; HTML footer reads
+      `rally · group trip planner` (10G change), text footer reads
+      `— rally — group trip planner` (10F unchanged).
+
+**Known issues (logged from this session, not fixed):**
+
+- **festival-run hero text contrast 2.82:1** (light lavender `#f4e6ff`
+  on hot pink `#ff3a8c`). Below the AA-large 3:1 threshold by 0.18.
+  Real-world legibility on 30px bold Georgia display type is fine;
+  fails strict WCAG audit. Per brief, accepted and documented — fix
+  belongs in a future "all-theme contrast pass" session that sweeps
+  hero/CTA contrast across all 17 themes against email + in-app
+  surfaces.
+- **Sticker text color hardcoded `#1a1a1a`** is a one-off chassis-
+  token deviation scoped to email. The chassis pattern (`--stroke`
+  defaults to `--ink` in light themes, flips to `--on-surface` in
+  dark themes) doesn't anticipate the sticker-on-yellow combination.
+  A future "chassis hardening" session could introduce a
+  `--sticker-text` token; out of scope for 10G. Documented in code
+  comment at `email.ts:94-98`.
+- **Animated marquee GIF** (per-recipient theme) was considered as an
+  alternative to static-frame rendering. Deferred — half a session
+  for marginal visual upgrade (recipients tap through to the in-app
+  marquee immediately). Revisit only if email open-to-tap proves a
+  real bottleneck in metrics.
+- **`tripTagline` param is now unused** alongside `coverImageUrl`.
+  Both retain JSDoc `@deprecated 10G` notes and stay in the function
+  signature for caller compat. A future cleanup session could remove
+  both params + their `api/invite/route.ts` and
+  `actions/transition-to-sell.ts` call sites in one coordinated edit;
+  not in 10G's single-file scope.
+
+---
+
+### Session 10G': "OUT + holding button-text tonality sweep" (copy-only)
+
+**Status: brief written 2026-05-02 (Cowork). Awaiting Andrew sign-off
+→ CC kickoff. Independent of 10G — can ship in either order.**
+
+**Why:** The 10F icon swap (`out: '—' → '👋'`) made every theme's
+`out: { button: ... }` text feel mis-registered. The chip is now a
+friendly wave, but themed text leans uniformly regretful (😔 / 😭 /
+🥲 / 💔 / 😩 across 14 of 17 themes). Two themes
+(wellness-retreat, just-because) were hot-fixed during 10F QA.
+Remaining 15 to audit.
+
+The `holding` button text is also reviewed for tonality match with
+the new chip set: 🙌 in · 🙏 holding · 👋 out.
+
+**Scope (15 themes, copy-only edits, single file per theme):**
+
+For each theme below, audit the `strings.in.button`,
+`strings.holding.button`, and `strings.out.button` values. Adjust
+copy where tonality conflicts with the new chip set. Voice rules:
+lowercase, sentence fragments, verbs over nouns, max one emoji per
+string, optional emoji should match the chip's energy when present.
+
+| # | Theme file                              | Current `out` button | Audit notes |
+|---|-----------------------------------------|----------------------|-------------|
+| 1 | `src/lib/themes/bachelorette.ts`        | `can't make it 😭` | crying emoji + waving chip — mismatch. Try `next time 👋` or `not this one`. |
+| 2 | `src/lib/themes/birthday-trip.ts`       | `can't make it 💔` | broken heart on a birthday is heavy. Try `next year 🎈` or `wish them well 🎂`. |
+| 3 | `src/lib/themes/boys-trip.ts`           | `can't do it 🫡`   | salute is fine — review for chip-fit. Likely keep. |
+| 4 | `src/lib/themes/couples-trip.ts`        | `can't make it 😔` | sad face + waving chip — mismatch. Try `we'll catch the next` or `next one 👋`. |
+| 5 | `src/lib/themes/reunion-weekend.ts`     | `can't this year 😔` | sad face — mismatch. Try `not this year 👋` or `back next year`. |
+| 6 | `src/lib/themes/festival-run.ts`        | `can't swing it 😩` | exhausted face — mismatch. Try `missed the wristband` or `next run 🎟️`. |
+| 7 | `src/lib/themes/beach-trip.ts`          | `can't make it 🥲`  | smiling-with-tear — borderline. Review. |
+| 8 | `src/lib/themes/ski-chalet.ts`          | `can't swing it ❄️` | snowflake works thematically. Likely keep. |
+| 9 | `src/lib/themes/euro-summer.ts`         | `can't swing it 🥲` | smiling-tear. Review. Try `next summer 🍋` or `ciao for now`. |
+|10 | `src/lib/themes/city-weekend.ts`        | `can't make it 😔` | sad face — mismatch. Try `next weekend` or `catch you next time 🌃`. |
+|11 | `src/lib/themes/wine-country.ts`        | `can't make it 😔` | sad face — mismatch. Try `pour one for me 🍷` or `next pour`. |
+|12 | `src/lib/themes/lake-weekend.ts`        | `can't make it 🥲`  | smiling-tear. Review. Try `next launch 🛶` or `wave at the boat`. |
+|13 | `src/lib/themes/desert-trip.ts`         | `can't make it 😔` | sad face — mismatch. Try `next moon 🌵` or `under the stars next time`. |
+|14 | `src/lib/themes/camping-trip.ts`        | `can't swing it 😔` | sad face — mismatch. Try `next fire 🔥` or `save me a log`. |
+|15 | `src/lib/themes/tropical.ts`            | `can't this year 🥲` | smiling-tear. Review. Try `next escape 🌴` or `island time, later`. |
+
+CC's job is the audit + edit per theme — table above is suggestion
+not prescription. Each `out` and `holding` button reviewed for chip
+tonality fit. CC may keep current copy where it already lands.
+
+Also review `holding` button strings against the 🙏 chip:
+- `bachelorette: 'hold my seat 💭'` — bubble emoji vs prayer chip,
+  mismatch.
+- `couples-trip: 'checking with {partner}'` — fine.
+- `reunion-weekend: 'trying to swing it 🤞'` — fine.
+- `festival-run: 'working on tickets 🎫'` — fine.
+- Etc. Audit all 15.
+
+**Hard Constraints:**
+
+- **Single file per theme.** No cross-theme refactors. No new fields.
+  No palette edits.
+- **DO NOT touch any file outside `src/lib/themes/<theme-id>.ts`.**
+  Not the chip lexicon, not sticky-bar code, not buttons component.
+- **DO NOT modify `wellness-retreat.ts` or `just-because.ts`** —
+  already hot-fixed during 10F QA. Skip them.
+- **One emoji max per button string** (project-wide voice rule).
+- **Lowercase, sentence fragments.** No capitalization, no
+  end-punctuation periods.
+- **`in` button is OFF-LIMITS.** Only `out` and `holding` are in
+  scope. The `in` strings (`'sand szn 🏖️'`, `'send it 🎿'`, etc.)
+  are theme signature lines and stay untouched.
+- **No new lexicon keys.** Zero.
+
+**Acceptance Criteria:**
+
+- [ ] All 15 listed theme files have their `out: { button }` value
+      reviewed. Each is either changed or left intentionally with a
+      one-line comment in the diff explaining why current copy is
+      already good.
+- [ ] All 15 listed theme files have their `holding: { button }`
+      value reviewed. Same standard — change or comment.
+- [ ] `wellness-retreat.ts` and `just-because.ts` are NOT modified.
+      `git diff` shows zero changes to those two files.
+- [ ] No file outside `src/lib/themes/<theme-id>.ts` is modified.
+      `git diff --stat` source files: only theme files (plus this
+      fix-plan release notes).
+- [ ] No new lexicon keys. No palette edits. No string templates
+      added (all `out` and `holding` strings stay simple strings,
+      not Templated functions).
+- [ ] All edited strings are lowercase, sentence fragments, max 1
+      emoji per string.
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `rm -rf .next && npm run build` succeeds.
+- [ ] **Live spot-check:** in dev, view the sticky bar entry state
+      on a trip themed `birthday-trip`. The OUT chip text reads the
+      new `out.button` value, paired with the 👋 emoji from the
+      sticky-bar chip set. Tonality reads as friendly-wave-not-
+      regretful. Repeat for `bachelorette`, `couples-trip`,
+      `desert-trip` as additional spot-checks.
+
+**Files to Read (mandatory):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — session loop, hard
+  rules, especially the lowercase-default voice rule.
+- `rally-fix-plan-v1.md` — this brief; 10F Actuals for context on
+  the chip swap that triggered this sweep.
+- `rally-microcopy-lexicon-v0.md` §5.10 — voice rules
+  (lowercase, sentence fragments, verbs over nouns, one emoji max).
+- `rally-microcopy-lexicon-v0.md` §6 — themed microcopy table for
+  per-theme tonality reference.
+- `rally-theme-content-system.md` §1–§17 — theme vibes for tonality
+  alignment.
+- All 15 theme files in `src/lib/themes/` (except wellness-retreat
+  and just-because, already done).
+- `src/components/trip/StickyRsvpBarChassis.tsx` — chip set
+  rendering. Read to understand the chip pairing the button text
+  has to live next to.
+- `src/lib/copy/surfaces/inviteeState.ts` (or wherever the 10F chip
+  lexicon lives) — chip emoji/labels source of truth for tonality
+  reference (🙌 in · 🙏 holding · 👋 out).
+
+**How to QA Solo (before declaring done):**
+
+1. `npx tsc --noEmit` — must exit 0.
+2. `rm -rf .next && npm run build` — must succeed.
+3. `git diff --stat` — must show ONLY theme files (excluding
+   wellness-retreat and just-because) as source changes.
+4. `git diff src/lib/themes/ | grep -E "^\+.*['\"]"` — visual
+   review every changed string. Each must be lowercase, no
+   end-period, one emoji max.
+5. `npm run dev`, navigate to a trip page on a birthday-trip themed
+   trip, view the sticky bar entry state. The OUT chip reads the
+   new copy. Tap to see the change-flow re-render. Repeat for
+   bachelorette and couples-trip themed test trips.
+
+**Lexicon notes:** Zero new keys. Edits are in-file string-value
+swaps only.
+
+**Carryover:** None. This session closes the 10F chip-icon sweep
+that started during 10F QA.
 
 ---
 
@@ -22640,6 +23115,142 @@ OUT button-text tonality sweep. Independent of 10I.
 Awaiting (1) Andrew applying Migration 024 in Supabase Studio,
 (2) Andrew running the backfill SQL, (3) Andrew's end-to-end
 browser QA on the unblocked test list above.
+
+#### Session 10I — Actuals (Cowork QA, 2026-05-01)
+
+**Status:** ✅ shipped end-to-end. Commit `42ae793` on `main` plus
+two follow-up Cowork hot-fix commits (see below). Migration 024
+applied + backfill executed in Supabase Studio. Auth identity arc
+10F → 10H → 10I closes.
+
+**Migration application took 3 in-Studio hot-fixes** (Cowork-side,
+applied via `CREATE OR REPLACE FUNCTION` directly + mirrored on
+disk in `024_handle_new_user_trigger.sql`):
+
+1. **Order-of-ops bug #1 — UNIQUE(email) conflict.** Original
+   function did `INSERT ... ON CONFLICT (id) DO NOTHING` first,
+   then orphan consolidation. The INSERT tripped the
+   `users_email_key` constraint when an orphan with matching email
+   was still alive. Fix: swap order — consolidate orphan first,
+   THEN insert.
+2. **Order-of-ops bug #2 — FK constraint violation.** The reorder
+   above introduced the opposite problem: `UPDATE trip_members SET
+   user_id = target_id WHERE user_id = v_orphan_id` fired BEFORE
+   `target_id` existed in `public.users`, so the FK reference was
+   invalid. Fix: adopt Migration 023's pattern — pre-create
+   placeholder at `target_id` with `email = NULL` (avoids the
+   email conflict), THEN migrate FKs (target row exists), THEN
+   delete orphan, THEN UPDATE the placeholder to set email.
+3. **Schema-drift bug — `activity_log` table missing.** Migration
+   012 (which creates `public.activity_log`) was never applied to
+   prod. The function's static `UPDATE public.activity_log ...`
+   line errored at runtime. Fix: wrap in a `to_regclass` guard +
+   `EXECUTE` for runtime parsing, so the line is skipped cleanly
+   when the table is absent. Also future-proofs against further
+   schema drift.
+
+The migration file on disk reflects all three fixes; future
+deploys against fresh databases land cleanly.
+
+**Code-side AC verification (Cowork, 2026-05-01):**
+
+- ✅ Migration 024 applied; trigger `on_auth_user_created` wired
+      on `auth.users` AFTER INSERT.
+- ✅ Backfill SQL succeeded; `SELECT COUNT(*) FROM auth.users
+      WHERE NOT EXISTS (SELECT 1 FROM public.users WHERE id =
+      auth.users.id)` returns 0.
+- ✅ `ashipman680@gmail.com` repaired — `public.users` row at
+      `dea6337a-2657-4fc4-ba44-6c570c875757` with
+      `display_name = "Andrea Shiffan"` (transferred from orphan),
+      and `trip_members.user_id` consolidated to the auth user
+      pointing at trip "Coachella 2026!!!".
+- ✅ `/auth/callback/route.ts` is pure routing — zero DB writes,
+      zero `auth.uid()` race surface.
+- ✅ Strategy doc (`rally-attendee-strategy-v0.md`) updated to
+      reflect the trigger model.
+
+**Live ACs verified (Andrew QA, 2026-05-01 evening):**
+
+- ✅ `/auth/setup` returns 404 (incognito).
+- ✅ `ashipman680@gmail.com` end-to-end magic-link flow → unblur
+      reveal → `/trip/<slug>`. Dashboard shows the Coachella trip.
+      `/passport` renders with the orphan-transferred display_name
+      "Andrea Shiffan".
+- ✅ Brand-new email signup (organizer path) — `/auth` flow →
+      trigger fires → `public.users` row exists at auth.users.id
+      with email-local-part as default `display_name`.
+- ✅ Sticky bar entry state — segmented control with 🙌 in / 🙏
+      holding / 👋 out chips, single rounded container.
+- ✅ Sticky bar committed pill morph (after the change-button
+      lexicon fix below). Pill shows chip icon + themed button
+      text + change affordance. Change-flow round-trip works (tap
+      change → entry state with previously-active chip preselected
+      → tap different state → re-morph).
+- ✅ Sticker burst + Confetti coexist on commit.
+- ✅ Crew-row passport nudge (`+ add a vibe →`) shows on the
+      signed-in viewer's own row when profile is sparse;
+      deep-links to `/passport`; disappears after filling a field.
+
+**Live ACs deferred to next session (~5 min in tomorrow's QA):**
+
+- [ ] Fan-out invite email brand-pass — subject + body + voice
+      verification. Trigger by adding a brand-new email invitee
+      to a trip; verify subject `RSVP: <organizer> is calling you
+      to <trip>`, body text matches lexicon, lowercase `hey,`,
+      footer `rally — group trip planner`, link prompt `or paste
+      this link:`.
+- [ ] Crew/cost summary refresh on RSVP commit (incidental
+      regression check).
+- [ ] No popups/modals/sheets in the post-RSVP flow (incidental).
+- [ ] Trailing-emoji strip on holding state for birthday-trip
+      theme (verify `"trying"` not `"trying 🙏"`). Coachella may
+      not be birthday-trip themed; if so, test against a
+      birthday-trip themed test trip.
+- [ ] Haptic on commit (Android Chrome / iOS Safari no-error).
+
+**Cowork hot-fixes during QA (post-`42ae793` follow-up commits):**
+
+1. **Migration 024 needed three in-Studio function patches** before
+   the cleanup loop ran successfully. All mirrored on disk in
+   `024_handle_new_user_trigger.sql`:
+   - **Order-of-ops bug #1** — UNIQUE(email) conflict when INSERT
+     fired before orphan-delete. Fix: reorder consolidate-then-insert.
+   - **Order-of-ops bug #2** — FK constraint when UPDATE on
+     trip_members ran before target_id existed in users. Fix: adopt
+     Migration 023's pattern (placeholder INSERT with `email = NULL`
+     first, FK migration, orphan delete, then UPDATE email on target).
+   - **Schema-drift bug** — `public.activity_log` table missing on
+     prod (Migration 012 never applied). Fix: `to_regclass` guard
+     + `EXECUTE` for runtime parsing.
+2. **`src/app/api/rsvp/route.ts` Supabase-auth branch** (Cowork
+   hot-fix): RSVP endpoint was designed for legacy guest-auth only
+   (cookie / phone / email). Authed Supabase users post-10I fell
+   through to the email path which trips UNIQUE(email) when the
+   trigger has already created the canonical row. Added a top-
+   priority Supabase-auth branch that looks up `public.users` by
+   `auth.uid()` directly. Legacy paths preserved unchanged.
+3. **`StickyRsvpBarChassis.tsx:155` change-button lexicon path fix**:
+   `getCopy(themeId, 'inviteeStickyBar.change')` was missing the
+   `inviteeState.` surface prefix. The button rendered the raw
+   lexicon key `inviteestickybar.change` instead of resolving to
+   the value `change`. One-string fix — added the surface prefix.
+
+**Ship state:** ✅ shipped. Auth identity arc closes here. The
+~5-min residual QA on the email brand-pass + regressions rolls
+into tomorrow's session naturally — same browser context Andrew
+is already in.
+
+**Carryover to 10G (next session, 2026-05-02):**
+
+- **Themed fan-out invite email design + implementation** (per
+  10G prep notes above). Andrew's call to kick this off tomorrow
+  morning.
+- **OUT button-text tonality sweep** across remaining 15 themes
+  (per 10G scope item #0).
+- **Email brand-pass live verification** from 10F (deferred above)
+  — natural fit since 10G is touching the email surface anyway.
+  Verify the lexicon wire-up first (10F's contribution) before
+  redesigning the visual treatment (10G's contribution).
 
 ---
 

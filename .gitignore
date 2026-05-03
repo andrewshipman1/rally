@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude code local settings (contains Supabase service_role + anon JWTs + access token)
+.claude/settings.local.json
