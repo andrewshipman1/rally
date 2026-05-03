@@ -50,8 +50,9 @@ export const cityWeekend: Theme = {
     },
 
     in:      { button: "i'm in 🌃" },
+    // keep: neutral + future-leaning; doesn't fight the 🙏 chip.
     holding: { button: 'checking the calendar 📅' },
-    out:     { button: "can't make it 😔" },
+    out:     { button: 'catch you next time 🌃' },
 
     nudge: {
       t14:    '2 weeks, reservations are dropping',

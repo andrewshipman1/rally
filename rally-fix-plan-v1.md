@@ -22481,6 +22481,111 @@ that started during 10F QA.
 
 ---
 
+#### Session 10G' — Release Notes
+
+**What was built:**
+
+Copy-only tonality sweep across 15 theme files. 13 OUT button swaps,
+1 HOLDING swap (bachelorette), 16 `// keep:` comments above kept
+strings (per AC: "left intentionally with a one-line comment in the
+diff explaining why current copy is already good"). No code, type, or
+component changes — string-value edits only.
+
+Per-theme before → after:
+
+| # | Theme | OUT before | OUT after | HOLDING before | HOLDING after |
+|---|-------|------------|-----------|----------------|---------------|
+| 1 | bachelorette       | `can't make it 😭`    | `next one 👋`              | `hold my seat 💭`            | `hold my seat 🙏` |
+| 2 | birthday-trip      | `can't make it 💔`    | `wish them well 🎂`        | `trying 🙏`                  | KEEP (already canonical 🙏) |
+| 3 | boys-trip          | `can't do it 🫡`      | KEEP (salute = respectful decline)   | `tentative 🤔`               | KEEP (deliberation, not regret) |
+| 4 | couples-trip       | `can't make it 😔`    | `next one 👋`              | `checking with {partner}`    | KEEP (themed) |
+| 5 | reunion-weekend    | `can't this year 😔`  | `back next year`           | `trying to swing it 🤞`      | KEEP (fingers-crossed = hope) |
+| 6 | festival-run       | `can't swing it 😩`   | `next run 🎟️`              | `working on tickets 🎫`      | KEEP (thematic) |
+| 7 | beach-trip         | `can't make it 🥲`    | `catch the next wave 🌊`   | `checking the calendar 📅`   | KEEP (neutral, future-leaning) |
+| 8 | ski-chalet         | `can't swing it ❄️`   | KEEP (snowflake is thematic)         | `checking the pass 🎫`       | KEEP (themed lift-pass) |
+| 9 | euro-summer        | `can't swing it 🥲`   | `next summer 🍋`           | `checking flights ✈️`        | KEEP (themed Euro-flights) |
+|10 | city-weekend       | `can't make it 😔`    | `catch you next time 🌃`   | `checking the calendar 📅`   | KEEP (neutral, future-leaning) |
+|11 | wine-country       | `can't make it 😔`    | `pour one for me 🍷`       | `swirling on it 🍇`          | KEEP (mulling-it-over, themed) |
+|12 | lake-weekend       | `can't make it 🥲`    | `next launch 🛶`           | `pontoon pending 🚤`         | KEEP (themed alliteration) |
+|13 | desert-trip        | `can't make it 😔`    | `next moon 🌵`             | `maybe 🌄`                   | KEEP (sunrise = uncertainty + hope) |
+|14 | camping-trip       | `can't swing it 😔`   | `next fire 🔥`             | `checking my gear 🎒`        | KEEP (themed) |
+|15 | tropical           | `can't this year 🥲`  | `next escape 🌴`           | `checking flights ✈️`        | KEEP (themed passport-trip) |
+
+**Files touched:** 15 theme files in `src/lib/themes/` (bachelorette,
+beach-trip, birthday-trip, boys-trip, camping-trip, city-weekend,
+couples-trip, desert-trip, euro-summer, festival-run, lake-weekend,
+reunion-weekend, ski-chalet, tropical, wine-country) + this fix-plan.
+Lines changed: 14 string-value swaps + 16 `// keep:` comment additions.
+`wellness-retreat.ts` and `just-because.ts` not modified (already
+hot-fixed during 10F QA).
+
+**Static verification (passed):**
+
+- `npx tsc --noEmit` → exit 0, no output.
+- `rm -rf .next && npm run build` → ✓ Compiled successfully in 1893ms,
+  TypeScript ✓, all 16 static pages generated. Production bundle
+  contains all new strings; grep for the old regretful copies
+  (`can't make it 😭`, `can't make it 💔`, `can't make it 😔`,
+  `can't this year 🥲`, `can't swing it 😩`) returns empty in
+  `.next/server`.
+- `git diff --stat` source files: only the 15 in-scope theme files
+  (excluding wellness-retreat and just-because). Plus this fix-plan.
+  Zero changes to chassis, lexicon, palettes, chip-icon source, or
+  any non-theme file.
+
+**What changed from the brief:**
+
+CC took 11 of the 13 brief-suggested OUT swaps verbatim or near-verbatim.
+The two deviations:
+
+1. **euro-summer.** Brief offered `next summer 🍋` OR `ciao for now`.
+   Took `next summer 🍋`. `ciao for now` would have doubled-up with the
+   in-button (`ciao 🍋`) — same word for both states reads as a typo.
+2. **city-weekend.** Brief offered `next weekend` OR `catch you next
+   time 🌃`. Took `catch you next time 🌃`. The second-person address
+   ("catch *you*") warms the tone more than the bare phrase, and the
+   nightscape emoji keeps the dark-theme signature visible.
+
+`boys-trip` OUT (`can't do it 🫡`) and `ski-chalet` OUT
+(`can't swing it ❄️`) were KEPT per brief's "likely keep" guidance.
+`birthday-trip` HOLDING (`trying 🙏`) was KEPT — it already mirrors
+the new 🙏 chip canonically. Bachelorette's HOLDING was the only
+non-suggested HOLDING swap (`💭` → `🙏`) — the bubble emoji clashed
+with the prayer chip.
+
+**What to test (Andrew QA spot-check, blocked on auth + seeded trips):**
+
+- [ ] On a `birthday-trip` themed test trip, view the sticky bar entry
+      state as an invitee who hasn't RSVP'd. The OUT chip reads
+      `wish them well 🎂` paired with the 👋 chip emoji. Tonality
+      reads warm-not-regretful.
+- [ ] Same flow on a `bachelorette` test trip. OUT reads `next one 👋`,
+      HOLDING reads `hold my seat 🙏`.
+- [ ] Same flow on a `couples-trip` test trip. OUT reads `next one 👋`.
+- [ ] Same flow on a `desert-trip` test trip. OUT reads `next moon 🌵`.
+- [ ] Sticky bar layout intact at 375px on each — no line-wrap or
+      emoji-double-up regressions.
+
+CC self-verified the strings are present in the production bundle
+(grep on `.next/server/chunks/*.js` returns all 8 spot-checked new
+strings; old regretful copies absent). The rendered visual check
+requires auth + seeded test trips, which is Andrew QA territory.
+
+**Known issues:**
+
+- **Lexicon doc-sync drift (out of scope, flagged for follow-up).**
+  `rally-microcopy-lexicon-v0.md` §5.10 (line ~345) still documents
+  the OLD chip set `🙌 / 🧗 / —` and the OLD default out-button text
+  `can't make it —`. The chassis comment at
+  `StickyRsvpBarChassis.tsx:12` and the `RSVP_CHIP_ICONS` const are
+  now the source of truth for the new `🙌 / 🙏 / 👋` set (shipped in
+  10F). The lexicon doc didn't get the sync update during 10F QA;
+  this session was scoped to theme-file string values only and
+  doesn't touch docs. Worth a quick lexicon-sync pass before the
+  next major design doc reference.
+
+---
+
 ### Session 10H: "Kill /auth/setup, server-side orphan-merge, post-RSVP passport nudge"
 
 **Status: brief written 2026-05-01. Awaiting CC kickoff after 10F closes.**
@@ -24108,20 +24213,206 @@ Sequencing notes that affect multiple items:
   **Ship state:** ✅ closed.
 
 - **Member-removal cascade cleanup (P2 for v0; P1 post-scale).**
-  Discovered during 10G QA (2026-05-03, Andrew): when an organizer
-  removes a user from a trip, the user's `lodging_votes` row
-  persists and continues to count toward the property's vote tally.
-  Specifically observed on the Cap Jalouka property in the
+  Brief written 2026-05-03 (Cowork). Awaiting CC kickoff. Per-
+  table cascade decisions locked by Andrew (2026-05-03):
+
+  | Table | Behavior | Reason |
+  |---|---|---|
+  | `lodging_votes` | CASCADE DELETE | Closes the original bug: vote tally should reflect active members only |
+  | `poll_votes` | CASCADE DELETE | Same logic as lodging_votes |
+  | `lodging.booked_by` | SET NULL | Preserve the booking record (the lodging is still reserved); just drop the attribution |
+  | `transport.booked_by` | SET NULL | Same |
+  | `restaurants.reserved_by` | SET NULL | Same |
+  | `activities.booked_by` | SET NULL | Same |
+  | `groceries.booked_by` | SET NULL | Same |
+  | `comments` (buzz) | PRESERVE | History is sacrosanct; UI marks display as "former member" (separate follow-up) |
+  | `activity_log` | PRESERVE | Audit trail integrity |
+  | `expenses.paid_by` | DEFERRED | Column is NOT NULL per `001_initial_schema.sql:219`. Go-phase data not active in v0; cleanup question naturally lives with Go-phase scoping. Migration 027 explicitly skips. |
+
+  **Why:** Discovered during 10G QA. When an organizer removes a
+  user from a trip, the user's `lodging_votes` row persists and
+  continues to count toward the property's vote tally.
+  Specifically observed on the Cap Juluca property in the
   Coachella 2026!!! test trip. The user is gone from the crew
-  section but their vote is not. Likely the same gap exists across
-  other user-attributable rows (`poll_votes`, `expenses.paid_by`,
-  `lodging.booked_by`, `transport.booked_by`, etc.), each with
-  different semantics — some should cascade-delete (vote), some
-  should null-out (booked-by attribution shouldn't lose the booking
-  record), some should preserve (buzz comments are history, removed
-  users' comments probably stay). NOT a one-liner: the right fix
-  is a per-table scoping pass that decides cascade behavior, then
-  one migration + one cleanup function.
+  section but their vote is not.
+
+  **Severity rationale:** silent data corruption is high-severity
+  per occurrence (wrong vote tally → wrong property wins → product
+  decision on bad data, undetected) but the compound condition
+  (invitee added → RSVP'd yes → voted → removed) hits <5% of
+  trips in MVP. Engineering cost is low (single trigger migration);
+  shipping while the bug is fresh is cheaper than waiting for it
+  to bite a real user.
+
+  **Scope (single file: `supabase/migrations/027_handle_trip_member_removed.sql`):**
+
+  1. **`public.handle_trip_member_removed()` trigger function.**
+     SECURITY DEFINER, `search_path = public, pg_temp`. Operates
+     on `OLD` (the deleted `trip_members` row). Operations in
+     order:
+
+     a. **DELETE lodging votes for the removed member's votes on
+        this trip's lodging.** `lodging_votes` has no `trip_id`
+        column; join through `lodging.trip_id`:
+        ```sql
+        DELETE FROM public.lodging_votes
+         WHERE user_id = OLD.user_id
+           AND lodging_id IN (
+             SELECT id FROM public.lodging WHERE trip_id = OLD.trip_id
+           );
+        ```
+
+     b. **DELETE poll votes** for removed member's votes on this
+        trip's polls. Same join shape via `polls.trip_id`:
+        ```sql
+        DELETE FROM public.poll_votes
+         WHERE user_id = OLD.user_id
+           AND poll_id IN (
+             SELECT id FROM public.polls WHERE trip_id = OLD.trip_id
+           );
+        ```
+
+     c. **NULL booking attributions** on this trip's
+        lodging/transport/restaurants/activities/groceries:
+        ```sql
+        UPDATE public.lodging     SET booked_by   = NULL WHERE trip_id = OLD.trip_id AND booked_by   = OLD.user_id;
+        UPDATE public.transport   SET booked_by   = NULL WHERE trip_id = OLD.trip_id AND booked_by   = OLD.user_id;
+        UPDATE public.restaurants SET reserved_by = NULL WHERE trip_id = OLD.trip_id AND reserved_by = OLD.user_id;
+        UPDATE public.activities  SET booked_by   = NULL WHERE trip_id = OLD.trip_id AND booked_by   = OLD.user_id;
+        UPDATE public.groceries   SET booked_by   = NULL WHERE trip_id = OLD.trip_id AND booked_by   = OLD.user_id;
+        ```
+
+     d. **EXPLICITLY SKIP `expenses.paid_by`.** Inline comment
+        explaining: NOT NULL constraint + go-phase data not active
+        in v0 → deferred to Go-phase scoping. Future migration in
+        the Go arc handles this.
+
+     e. **PRESERVE `comments` + `activity_log` rows.** No action.
+        UI may render "former member" later (separate follow-up);
+        data stays intact.
+
+     f. **Use `to_regclass` guards** for `polls`, `activity_log`,
+        and any other table that may not exist on all environments
+        (mirrors the schema-drift fix from Migration 024 final).
+
+     g. `RETURN OLD;` — BEFORE DELETE trigger requirement.
+
+  2. **`on_trip_member_deleted`** — `BEFORE DELETE FOR EACH ROW`
+     trigger on `public.trip_members`. Wired with `DROP TRIGGER
+     IF EXISTS ... CREATE TRIGGER ...` for idempotent re-apply.
+
+  3. **Down migration as documented comment block** at the bottom
+     of the file (matches Migration 024 pattern). Three `DROP`
+     statements: trigger, function, then the rollback note. Andrew
+     pastes manually in Studio if rollback needed.
+
+  **Hard Constraints:**
+
+  - **DO NOT modify `DELETE /api/invite/route.ts`.** The trigger
+    fires automatically when the API deletes a `trip_members` row;
+    no app-side cleanup needed.
+  - **DO NOT modify `expenses.paid_by` schema.** NOT NULL stays.
+    Expenses cleanup deferred to Go phase.
+  - **DO NOT modify `comments` or `activity_log`.** Preserved.
+  - **DO NOT add UI "former member" rendering.** Separate follow-up
+    session if/when needed. This brief is data-cleanup only.
+  - **DO NOT modify `users` schema.** No FK changes; no constraint
+    changes outside the trigger.
+  - **DO NOT modify Migration 023 or 024.** Existing identity-
+    arc code stays intact.
+  - **DO NOT add new lexicon keys.** Zero.
+  - **No new routes.** Three screens.
+  - **The trigger MUST be idempotent.** Re-running the migration
+    is a no-op (`CREATE OR REPLACE FUNCTION` + `DROP TRIGGER IF
+    EXISTS ... CREATE TRIGGER`).
+
+  **Acceptance Criteria:**
+
+  - [ ] `supabase/migrations/027_handle_trip_member_removed.sql`
+        exists with documented down migration.
+  - [ ] `public.handle_trip_member_removed()` function exists in
+        DB; SECURITY DEFINER; pinned search_path.
+  - [ ] `on_trip_member_deleted` BEFORE DELETE trigger wired to
+        `public.trip_members`.
+  - [ ] Member-removal-then-vote-check on Cap Juluca: remove a
+        member who voted, check `lodging_votes` for that user
+        on Coachella's lodging — zero rows. Property card vote
+        tally drops by 1 + voter list updates.
+  - [ ] Member-removal-then-attribution-check: remove a member
+        who booked something, check the booking row's
+        `booked_by` — NULL. Booking record itself still exists.
+  - [ ] Member-removal preserves comments: removed member's
+        buzz comments still exist with `user_id` intact (UI
+        may render them as "former member" later, but data is
+        preserved).
+  - [ ] Member-removal preserves `activity_log` entries.
+  - [ ] Member-removal does NOT touch `expenses.paid_by` (table
+        unchanged).
+  - [ ] Multi-trip safety: a user in TWO trips, removed from
+        ONE → only that trip's votes/attributions affected.
+        The user's data in the OTHER trip is untouched.
+  - [ ] Re-running the migration succeeds (idempotency).
+  - [ ] `npx tsc --noEmit` exits 0.
+  - [ ] `rm -rf .next && npm run build` succeeds.
+  - [ ] `git diff --stat`: ONLY the new migration file (plus
+        this fix-plan release-notes append).
+
+  **Files to Read (mandatory):**
+
+  - `.claude/skills/rally-session-guard/SKILL.md` — session loop,
+    hard rules, escalation triggers, release-notes format.
+  - `rally-fix-plan-v1.md` — this brief; the "Lodging cost math"
+    Actuals immediately above for context on when this bug was
+    surfaced.
+  - `supabase/migrations/001_initial_schema.sql` — `users`,
+    `trip_members`, `expenses` schema (NOT NULL on `paid_by` is
+    line 219).
+  - `supabase/migrations/002_typed_components.sql` — `lodging`,
+    `transport`, `restaurants`, `activities`, `lodging_votes`,
+    `poll_votes` shape and FK constraints.
+  - `supabase/migrations/004_groceries.sql` — `groceries.booked_by`.
+  - `supabase/migrations/023_merge_orphan_user.sql` — pattern
+    reference for SECURITY DEFINER + cross-table cleanup function.
+  - `supabase/migrations/024_handle_new_user_trigger.sql` (the
+    final shipped version with the 3 hot-fixes incorporated) —
+    pattern reference for idempotent trigger setup,
+    `to_regclass` guards, down-migration-as-comment-block.
+  - `src/app/api/invite/route.ts:185-218` — DELETE handler. Read
+    to confirm: it just deletes the `trip_members` row; no other
+    cleanup. The trigger handles everything else.
+
+  **How to QA Solo (before declaring done):**
+
+  1. `npx tsc --noEmit` — must exit 0.
+  2. `rm -rf .next && npm run build` — must succeed.
+  3. `git diff --stat` — must show ONLY the new migration file.
+  4. Local Supabase (or paste into Studio): `supabase migration up`
+     applies cleanly. Re-apply succeeds (idempotency).
+  5. Local dev: organizer adds invitee → invitee RSVPs yes → votes
+     for a property → organizer removes invitee → query
+     `lodging_votes` for that user_id+lodging_id → zero rows.
+  6. Same flow but invitee booked something (set
+     `lodging.booked_by = invitee_id`) → after removal, query
+     `lodging` for that row → `booked_by IS NULL`. Booking row
+     itself still exists.
+  7. Multi-trip safety: create two trips, add the same invitee
+     to both, vote on both, remove from ONE. Verify other trip's
+     vote is intact.
+
+  **Lexicon notes:** Zero new keys. UI "former member" rendering
+  is OUT of scope.
+
+  **Carryover:**
+  - **Future micro-session: "former member" UI rendering.** When
+    a comment's author is no longer in the trip's `trip_members`,
+    `BuzzSection` should render the name as "former member" (or
+    similar) instead of their `display_name`. Single component
+    change; small new lexicon key. Defer until visible in real
+    use.
+  - **Future Go-phase work absorbs `expenses.paid_by` cleanup.**
+    When Go phase activates expense settlement, that arc will
+    decide the right behavior + drop the NOT NULL constraint
+    if needed.
 
   **Severity rationale:** silent data corruption is high-severity
   per occurrence (wrong vote tally → wrong property wins → product
@@ -24138,6 +24429,128 @@ Sequencing notes that affect multiple items:
   vote counts only include active `trip_members`. Hides the bug
   without solving the underlying data gap. Ugly but cheap if
   Andrew wants to ship a fig-leaf before the proper fix lands.
+
+  ##### Member-removal cascade — Release Notes (CC, 2026-05-03)
+
+  **What was built:**
+  1. New file `supabase/migrations/027_handle_trip_member_removed.sql`.
+     Single migration installing one trigger function +
+     one trigger + a documented down-migration comment block.
+     No app code touched. No schema changes outside the trigger.
+
+  **File structure (in order, mirrors Migration 024 shape):**
+  - Header comment block — why this exists (Cap Juluca symptom),
+    per-table behavior table, coexistence note with Migrations
+    023 / 024, safety patterns (SECURITY DEFINER, pinned
+    `search_path`), idempotency, multi-trip safety, schema-drift
+    guards.
+  - `CREATE OR REPLACE FUNCTION public.handle_trip_member_removed()
+    RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET
+    search_path = public, pg_temp`.
+  - `REVOKE ALL ... FROM PUBLIC` on the function.
+  - `COMMENT ON FUNCTION` describing behavior + scope.
+  - `DROP TRIGGER IF EXISTS on_trip_member_deleted ON
+    public.trip_members; CREATE TRIGGER ... BEFORE DELETE FOR
+    EACH ROW EXECUTE FUNCTION ...`.
+  - Down-migration as a bottom comment block — two `DROP`
+    statements (trigger, then function) Andrew can paste in
+    Studio.
+
+  **Per-operation summary (maps to brief items a–g):**
+  - **a. lodging_votes — CASCADE DELETE.** `DELETE FROM
+    public.lodging_votes WHERE user_id = OLD.user_id AND
+    lodging_id IN (SELECT id FROM public.lodging WHERE
+    trip_id = OLD.trip_id)`. Scoped through `lodging.trip_id`
+    so only the removed member's votes on THIS trip's
+    properties are deleted.
+  - **b. poll_votes — CASCADE DELETE (guarded).** Wrapped in
+    `IF to_regclass('public.polls') IS NOT NULL THEN ... END IF`
+    using the same `EXECUTE` + `USING $1, $2` pattern as
+    Migration 024:172-175. Defers SQL parsing to runtime so the
+    function compiles even on envs where `polls` isn't present.
+    Same `trip_id`-scoped join through `polls.trip_id`. (Since
+    `poll_votes` FKs to `polls(id)` with ON DELETE CASCADE,
+    guarding `polls` covers both tables.)
+  - **c. SET NULL booking attributions on five tables.** Five
+    UPDATE statements, each scoped to `trip_id = OLD.trip_id`
+    AND the matching attribution column = `OLD.user_id`:
+    `lodging.booked_by`, `transport.booked_by`,
+    `restaurants.reserved_by`, `activities.booked_by`,
+    `groceries.booked_by`. Multi-trip safety guaranteed by the
+    trip-id scoping in every WHERE.
+  - **d. expenses.paid_by — INTENTIONALLY SKIPPED.** No SQL
+    statement; instead a multi-line inline comment explains the
+    NOT NULL constraint (`001_initial_schema.sql:219`) and the
+    go-phase deferral. Future readers see the why without having
+    to chase the brief.
+  - **e. comments + activity_log — PRESERVED.** No statements.
+    Inline comment confirms history-is-sacrosanct + audit-trail
+    integrity rationale.
+  - **f. `to_regclass` guard.** Applied to `polls` only. The five
+    booking-attribution tables and `lodging` are core schema (
+    002 / 004) and not guarded; if absent, applying earlier
+    migrations is the prerequisite. `activity_log` is preserved
+    (no statement), so no guard needed.
+  - **g. RETURN OLD.** Required for BEFORE DELETE — returning
+    NULL would cancel the delete.
+
+  **What changed from the brief:** none. All locked decisions
+  implemented as specified. Trigger name `on_trip_member_deleted`
+  + function name `handle_trip_member_removed` per brief.
+
+  **Static verification (CC-side):**
+  - ✅ `npx tsc --noEmit` — exit 0.
+  - ✅ `rm -rf .next && npm run build` — green; same 19 routes,
+    no new warnings.
+  - ✅ `git diff --stat` (this session's changes only): one new
+    file `supabase/migrations/027_handle_trip_member_removed.sql`
+    plus this release-notes append to `rally-fix-plan-v1.md`.
+    No app code, no other migrations, no schema files outside
+    the trigger.
+
+  **Architecture sanity confirmed:**
+  - DELETE handler in `src/app/api/invite/route.ts:185-218` is
+    untouched — the trigger fires automatically on any
+    `trip_members` row delete (API, direct SQL, RLS-permitted
+    client, future code paths).
+  - `expenses.paid_by` schema unchanged; NOT NULL stays.
+  - `comments` and `activity_log` unchanged.
+  - Migrations 023 + 024 unchanged; identity-arc signup-time
+    cleanup is preserved.
+  - No new routes; lexicon untouched.
+
+  **What Andrew tests in Supabase Studio + browser:**
+  - [ ] Apply 027 in Studio cleanly. Re-apply succeeds
+        (idempotency).
+  - [ ] Coachella 2026!!! flow: organizer adds invitee →
+        invitee RSVPs yes → invitee votes for Cap Juluca →
+        organizer removes invitee. Query `lodging_votes` for
+        that `user_id` × the Cap Juluca `lodging_id` — zero
+        rows. Property card vote tally drops by 1; voter list
+        updates.
+  - [ ] Booking attribution: set `lodging.booked_by =
+        invitee_id` on a property, then remove invitee. Query
+        the lodging row → `booked_by IS NULL`. Booking record
+        otherwise intact.
+  - [ ] Spot-check the other four attribution tables
+        (`transport`, `restaurants`, `activities`, `groceries`)
+        with the same shape — each nulls only its own
+        attribution on `OLD.trip_id`.
+  - [ ] `comments` preservation: removed member's buzz comments
+        still exist with `user_id` intact (UI may render as
+        "former member" later — separate carryover).
+  - [ ] `activity_log` preservation: entries unchanged.
+  - [ ] `expenses.paid_by` untouched: any expenses on the trip
+        keep their `paid_by` reference (NOT NULL stays valid;
+        no expenses-related errors fire on delete).
+  - [ ] Multi-trip safety: same invitee in two trips, removed
+        from ONE → other trip's vote/attribution data intact.
+
+  **Known issues / flagged-not-fixed:** none.
+
+  **Carryover unchanged from the brief:** "former member" UI
+  rendering in `BuzzSection`; expenses cleanup absorbed into
+  the future Go-phase arc.
 
 - **Resend invite (manual retry path).** When `transitionToSell`
   fires the publish-time fan-out and a per-invitee send fails,
@@ -24195,6 +24608,23 @@ Sequencing notes that affect multiple items:
   media uploads — those stay punted. Sequencing: depends on Lock +
   Go strategy landing so buzz can respect what events fire in each
   phase. Sub-session shape TBD.
+
+- **Comms drip campaign across trip lifecycle arc** — surfaced
+  during Lock phase strategy work (2026-05-03, Andrew):
+  drip-campaign mechanics are cross-cutting comms infrastructure
+  spanning sell → lock → go phases. Sell-phase already has nudges
+  (`lockDeadlineT3`, `lockDeadlineT0`, `hypeT7`, `hypeT1` per
+  `src/lib/copy/surfaces/emails.ts`). Lock + Go phases will need
+  their own nudges. The mechanics — cadence config, multi-track
+  logic, channel routing (email today, SMS in a future phone-as-
+  primary world), per-recipient deduplication, opt-out signals
+  — are all SHARED infrastructure, NOT phase-specific. This arc
+  designs and ships the unified drip-campaign system. Each phase's
+  strategy doc (Lock, Go) defines the EVENTS that trigger nudges
+  and the COPY of those nudges; this arc owns the DELIVERY layer.
+  Strategic-CW shape: dimension on cadence model, dimension on
+  channel routing, dimension on opt-out / dedup. Implementation
+  cascades downstream.
 
 - **Teaser layer / `InviteeShell` arc** (carryover from Sessions
   11+ original list) — blur veil, lock overlay, called-up sticker,

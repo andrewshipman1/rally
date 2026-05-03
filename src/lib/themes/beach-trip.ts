@@ -50,8 +50,9 @@ export const beachTrip: Theme = {
     },
 
     in:      { button: 'sand szn 🏖️' },
+    // keep: neutral + future-leaning; doesn't fight the 🙏 chip.
     holding: { button: 'checking the calendar 📅' },
-    out:     { button: "can't make it 🥲" },
+    out:     { button: 'catch the next wave 🌊' },
 
     nudge: {
       t14:    '2 weeks til toes in',

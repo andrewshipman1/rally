@@ -50,8 +50,9 @@ export const reunionWeekend: Theme = {
     },
 
     in:      { button: "i'm there 🙌" },
+    // keep: fingers-crossed = hope; fits 🙏 chip energy.
     holding: { button: 'trying to swing it 🤞' },
-    out:     { button: "can't this year 😔" },
+    out:     { button: 'back next year' },
 
     nudge: {
       t14:    "2 weeks til the annual — don't break the streak",

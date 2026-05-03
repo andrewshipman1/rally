@@ -50,7 +50,9 @@ export const skiChalet: Theme = {
     },
 
     in:      { button: 'send it 🎿' },
+    // keep: themed (lift pass), future-leaning — fits 🙏 chip.
     holding: { button: 'checking the pass 🎫' },
+    // keep: snowflake is thematic + not regretful — already fits the 👋 chip.
     out:     { button: "can't swing it ❄️" },
 
     nudge: {

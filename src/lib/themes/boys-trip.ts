@@ -51,7 +51,9 @@ export const boysTrip: Theme = {
     },
 
     in:      { button: "i'm in 🤝" },
+    // keep: thinking-face reads as deliberation, not regret — tonality fits new 🙏 chip.
     holding: { button: 'tentative 🤔' },
+    // keep: salute = respectful decline; warm-not-sad against new 👋 chip.
     out:     { button: "can't do it 🫡" },
 
     nudge: {

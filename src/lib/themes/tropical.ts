@@ -51,8 +51,9 @@ export const tropical: Theme = {
     },
 
     in:      { button: 'island time 🌴' },
+    // keep: themed (passport-required trip), future-leaning — fits the 🙏 chip.
     holding: { button: 'checking flights ✈️' },
-    out:     { button: "can't this year 🥲" },
+    out:     { button: 'next escape 🌴' },
 
     nudge: {
       t14:    '2 weeks, is your passport ready?',

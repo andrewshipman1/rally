@@ -50,8 +50,9 @@ export const festivalRun: Theme = {
     },
 
     in:      { button: 'i got my ticket 🎟️' },
+    // keep: thematic + future-leaning; works with the 🙏 chip.
     holding: { button: 'working on tickets 🎫' },
-    out:     { button: "can't swing it 😩" },
+    out:     { button: 'next run 🎟️' },
 
     nudge: {
       t14:    '2 weeks, do you have your wristband?',

@@ -49,8 +49,8 @@ export const bachelorette: Theme = {
     },
 
     in:      { button: "i'm in 💅" },
-    holding: { button: 'hold my seat 💭' },
-    out:     { button: "can't make it 😭" },
+    holding: { button: 'hold my seat 🙏' },
+    out:     { button: 'next one 👋' },
 
     nudge: {
       t14:    "the bride wants to know who's in",

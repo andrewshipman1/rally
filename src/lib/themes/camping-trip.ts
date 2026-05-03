@@ -50,8 +50,9 @@ export const campingTrip: Theme = {
     },
 
     in:      { button: 'see you at camp 🏕️' },
+    // keep: themed, future-leaning — fits the 🙏 chip.
     holding: { button: 'checking my gear 🎒' },
-    out:     { button: "can't swing it 😔" },
+    out:     { button: 'next fire 🔥' },
 
     nudge: {
       t14:    '2 weeks, book your site + your flights',

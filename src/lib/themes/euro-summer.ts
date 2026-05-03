@@ -50,8 +50,9 @@ export const euroSummer: Theme = {
     },
 
     in:      { button: 'ciao 🍋' },
+    // keep: themed (Euro = flights), future-leaning — fits 🙏 chip.
     holding: { button: 'checking flights ✈️' },
-    out:     { button: "can't swing it 🥲" },
+    out:     { button: 'next summer 🍋' },
 
     nudge: {
       t14:    '2 weeks, book your flights',

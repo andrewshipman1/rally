@@ -50,8 +50,9 @@ export const wineCountry: Theme = {
     },
 
     in:      { button: 'pour me in 🍷' },
+    // keep: 'swirling on it' = mulling-it-over; beautifully themed for 🙏 chip.
     holding: { button: 'swirling on it 🍇' },
-    out:     { button: "can't make it 😔" },
+    out:     { button: 'pour one for me 🍷' },
 
     nudge: {
       t14:    '2 weeks til the tasting',

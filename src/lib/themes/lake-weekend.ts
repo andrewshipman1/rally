@@ -50,8 +50,9 @@ export const lakeWeekend: Theme = {
     },
 
     in:      { button: 'lake szn 🛶' },
+    // keep: themed alliteration; uncertainty + boat fits the 🙏 chip.
     holding: { button: 'pontoon pending 🚤' },
-    out:     { button: "can't make it 🥲" },
+    out:     { button: 'next launch 🛶' },
 
     nudge: {
       t14:    '2 weeks til launch',

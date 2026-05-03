@@ -50,8 +50,9 @@ export const desertTrip: Theme = {
     },
 
     in:      { button: 'see you there 🌵' },
+    // keep: sunrise emoji = uncertainty + hope; fits the 🙏 chip.
     holding: { button: 'maybe 🌄' },
-    out:     { button: "can't make it 😔" },
+    out:     { button: 'next moon 🌵' },
 
     nudge: {
       t14:    '2 weeks til the desert',

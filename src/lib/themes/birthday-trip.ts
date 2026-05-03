@@ -50,8 +50,9 @@ export const birthdayTrip: Theme = {
     },
 
     in:      { button: "i'll be there 🎉" },
+    // keep: 'trying 🙏' already mirrors the new 🙏 holding chip — perfect fit.
     holding: { button: 'trying 🙏' },
-    out:     { button: "can't make it 💔" },
+    out:     { button: 'wish them well 🎂' },
 
     nudge: {
       t14:    "2 weeks til the birthday — who's in?",

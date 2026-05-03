@@ -51,8 +51,9 @@ export const couplesTrip: Theme = {
     },
 
     in:      { button: "we're in 💕" },
+    // keep: themed group-of-couples reframing; "checking with my person" is on-brand for the 🙏 holding state.
     holding: { button: ({ partner }) => `checking with ${partner ?? 'my person'}` },
-    out:     { button: "can't make it 😔" },
+    out:     { button: 'next one 👋' },
 
     nudge: {
       t14:    '2 weeks — lock it in with your partner',
