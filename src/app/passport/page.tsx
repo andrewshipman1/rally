@@ -5,7 +5,6 @@
 // Auth: Supabase user required (no guest cookie). Redirect to /auth.
 
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import type { Metadata } from 'next';
 
 import { createClient } from '@/lib/supabase/server';
@@ -18,6 +17,7 @@ import {
 } from '@/lib/passport';
 import type { ThemeId } from '@/lib/themes/types';
 import { ProfileEditor } from '@/components/passport/ProfileEditor';
+import { AppHeader } from '@/components/AppHeader';
 
 export const metadata: Metadata = {
   title: 'rally — your passport',
@@ -50,13 +50,10 @@ export default async function PassportPage() {
 
   return (
     <div className="chassis passport-surface">
-      <div className="passport-wordmark">
-        {'rally'}<span className="bang">{'!'}</span>
-      </div>
-
-      <Link href="/" className="passport-back-link">
-        {getCopy(defaultTheme, 'profile.backLink')}
-      </Link>
+      <AppHeader user={{
+        displayName: profile.displayName,
+        profilePhotoUrl: profile.photoUrl,
+      }} />
 
       {/* Profile head + your info card (client, inline-editable) */}
       <ProfileEditor profile={profile} />

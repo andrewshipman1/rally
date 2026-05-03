@@ -30,5 +30,6 @@ export const profile: Record<string, Templated> = {
   'photoFailed':        'upload failed — tap to retry',
 
   // ─── Navigation ────────────────────────────────────────────────
+  /** @deprecated 11 — replaced by <AppHeader> wordmark home-link */
   'backLink':           '← my trips',
 };

@@ -15,6 +15,7 @@ import type { ThemeId } from '@/lib/themes/types';
 import { SignOutButton } from '@/components/dashboard/SignOutButton';
 import { CreateTripButton } from '@/components/dashboard/CreateTripButton';
 import { TripCardMenu } from '@/components/dashboard/TripCardMenu';
+import { AppHeader } from '@/components/AppHeader';
 
 export const metadata = {
   title: 'rally — where to next?',
@@ -77,26 +78,10 @@ export default async function HomePage() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="dash-header">
-        <div className="dash-wordmark">
-          {'rally'}<span className="bang">{'!'}</span>
-        </div>
-        <div className="dash-header-right">
-          <Link href="/passport" className="dash-passport-link" title="your passport">
-            <span
-              className="dash-passport-av"
-              style={userPhotoUrl ? {
-                backgroundImage: `url(${userPhotoUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              } : undefined}
-            >
-              {!userPhotoUrl && userName.charAt(0).toUpperCase()}
-            </span>
-          </Link>
-          <SignOutButton />
-        </div>
+      {/* Header — shared <AppHeader> + dashboard-only sign-out as siblings */}
+      <div className="dash-header-wrap">
+        <AppHeader user={{ displayName: userName, profilePhotoUrl: userPhotoUrl }} />
+        <SignOutButton />
       </div>
 
       {/* Live-row */}

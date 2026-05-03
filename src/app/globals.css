@@ -518,26 +518,6 @@ button:active {
   opacity: 0.85;
 }
 
-/* Wordmark — `rally!` in Shrikhand, accent color, constantly wiggling.
-   9F: 28px → 18px to balance the bigger title tiers. */
-.chassis .wordmark {
-  font-family: var(--font-display), 'Shrikhand', serif;
-  font-size: 18px;
-  color: var(--accent);
-  transform: rotate(-3deg);
-  display: inline-block;
-  margin: 0 0 14px;
-  animation: wiggle-left 5s ease-in-out infinite;
-  transform-origin: center;
-}
-
-/* Wordmark row — flex layout when postcard image is present */
-.chassis .wordmark.wordmark-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 /* Postcard image in wordmark row */
 .chassis .postcard-img {
   width: 64px;
@@ -1728,10 +1708,6 @@ button:active {
   0%, 100% { transform: rotate(8deg); }
   50%      { transform: rotate(11deg); }
 }
-@keyframes wiggle-left {
-  0%, 100% { transform: rotate(-3deg); }
-  50%      { transform: rotate(-1deg); }
-}
 @keyframes bounce {
   0%, 100% { transform: translateY(0)    rotate(6deg); }
   50%      { transform: translateY(-3px) rotate(7deg); }
@@ -1801,7 +1777,6 @@ button:active {
    stay short enough to be tolerable; the constant wiggle/blink/pulse
    loops are what bother vestibular users. */
 @media (prefers-reduced-motion: reduce) {
-  .chassis .wordmark,
   .chassis .header .sticker,
   .chassis .countdown,
   .chassis .cd-flag,
@@ -3370,17 +3345,51 @@ button:active {
   overflow-x: hidden;
 }
 
-.dash-header {
+/* Session 11 — shared persistent app chrome. Static (not sticky), neutral
+   (hardcoded #1a1a1a on #fff — does not pick up [data-theme] vars when
+   nested inside .chassis), reusable across /, /passport, /trip/[slug]. */
+.app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: #fff;
   margin-bottom: 6px;
 }
-.dash-wordmark {
+.app-header-wordmark {
   font-family: var(--font-display), 'Shrikhand', serif;
   font-size: 28px;
   color: #1a1a1a;
   line-height: 1;
+  text-decoration: none;
+}
+.app-header-passport-link {
+  text-decoration: none;
+}
+.app-header-passport-av {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body), 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  color: #1a1a1a;
+  background: #ffd84d;
+}
+/* Dashboard wraps AppHeader + SignOutButton inline-flex so sign-out sits
+   on the right edge. Other surfaces use AppHeader bare. */
+.dash-header-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.dash-header-wrap .app-header {
+  flex: 1;
+  margin-bottom: 0;
 }
 .bang {
   color: var(--bang-light, #ff2e7e);
@@ -3841,30 +3850,6 @@ button:active {
   animation: blink-dot 1.4s ease-in-out infinite;
 }
 
-/* Dashboard header — right side group */
-.dash-header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.dash-passport-link {
-  text-decoration: none;
-}
-.dash-passport-av {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid #1a1a1a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-  color: #1a1a1a;
-  background: var(--sticker-bg, #ffd84d);
-}
-
 /* ───── passport (§5.15) ───── */
 
 .passport-surface {
@@ -3873,15 +3858,6 @@ button:active {
   padding: 18px 18px 40px;
   max-width: 600px;
   margin: 0 auto;
-}
-
-.passport-wordmark {
-  font-family: var(--font-display), 'Shrikhand', serif;
-  font-size: 22px;
-  color: #1a1a1a;
-  margin-bottom: 8px;
-  animation: wiggle 5s ease-in-out infinite;
-  display: inline-block;
 }
 
 /* Profile head */
@@ -4134,15 +4110,6 @@ button:active {
 
 /* ─── Session 8D: Profile inline editing ─────────────────────────── */
 
-/* Back link */
-.passport-back-link {
-  display: block;
-  font-family: var(--font-body), 'DM Sans', sans-serif;
-  font-size: 13px;
-  color: #999;
-  text-decoration: none;
-  padding: 0 0 12px;
-}
 /* Photo upload error */
 .passport-photo-error {
   font-family: var(--font-body), 'DM Sans', sans-serif;

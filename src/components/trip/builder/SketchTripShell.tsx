@@ -42,11 +42,15 @@ import { BuilderStickyBar } from './BuilderStickyBar';
 import { useDebouncedAutosave } from '@/lib/builder/useDebouncedAutosave';
 import { hasReadyName, hasReadyDate } from '@/lib/builder/ungate';
 import { transitionToSell } from '@/app/actions/transition-to-sell';
+import { AppHeader } from '@/components/AppHeader';
 
 type Props = {
   themeId: ThemeId;
   tripId: string;
   slug: string;
+  /** Session 11 — current viewer's profile, threaded for the AppHeader
+   * avatar. Null when unauth (avatar is hidden). */
+  viewerProfile: { displayName: string; profilePhotoUrl: string | null } | null;
   organizerName: string;
   organizerId: string;
   coverImageUrl: string | null;
@@ -92,6 +96,7 @@ export function SketchTripShell({
   themeId,
   tripId,
   slug,
+  viewerProfile,
   organizerName,
   organizerId,
   coverImageUrl,
@@ -159,6 +164,7 @@ export function SketchTripShell({
 
   return (
     <div className="chassis" data-theme={activeThemeId}>
+      <AppHeader user={viewerProfile} />
       <PostcardHero
         themeId={activeThemeId}
         tripName={name}

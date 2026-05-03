@@ -6,6 +6,56 @@
 
 ---
 
+## Status Overview (snapshot 2026-05-03)
+
+At-a-glance state of all in-flight + recently-shipped + backlog work
+across Rally. Each row points to its canonical home. Updated after
+every session ship and whenever new arcs emerge (per the Status
+Overview rule in `.claude/skills/rally-session-guard/SKILL.md`).
+
+**Status legend:** ✅ shipped · 🟡 in flight / partial · 🔵 paused ·
+⏸ backlog · 🔮 parked
+
+| Arc / Initiative | Status | Canonical home |
+|---|---|---|
+| Session 10F — Post-RSVP polish + magic-link repair | ✅ shipped (2026-05-01) | §Session 10F |
+| Session 10G — Themed fan-out invite email | ✅ shipped (2026-05-03) | §Session 10G |
+| Session 10G bug-1 — Email layout containment | ✅ shipped (2026-05-03) | §Session 10G — Bug Fix Brief |
+| Session 10G' — OUT + holding tonality sweep | ✅ shipped (2026-05-03) | §Session 10G' |
+| Session 10H — `/auth/setup` deletion + post-RSVP nudge | ✅ shipped (2026-05-01) | §Session 10H |
+| Session 10I — Auth identity hardening (DB trigger) | ✅ shipped (2026-05-01) | §Session 10I |
+| Cost-math — hotels missing rooms multiplier | ✅ shipped (2026-05-03) | §Backlog → 🐛 Bugs |
+| Member-removal cascade — migration 027 | ✅ shipped + verified (2026-05-03) | §Backlog → 🐛 Bugs + `supabase/migrations/027` |
+| Attendee Experience Strategy (Session 10 arc) | ✅ closed (2026-05-03) | `rally-attendee-strategy-v0.md` |
+| Lock phase strategy v0 | 🟡 doc drafted; implementation arc TBD | `rally-lock-phase-strategy-v0.md` |
+| Session 11 — Persistent app header (`<AppHeader>` shared chrome) | 🟡 briefed 2026-05-03; awaiting CC | §Session 11 |
+| Lock phase implementation arc (Session 12; Lock-A through Lock-H) | ⏸ backlog | §Backlog → 🏗️ Strategic |
+| Go phase definition | ⏸ backlog | §Backlog → 🏗️ Strategic |
+| Activity feed (buzz) buildout | ⏸ backlog (depends on Lock + Go) | §Backlog → 🏗️ Strategic |
+| Comms drip campaign across trip lifecycle | ⏸ backlog | §Backlog → 🏗️ Strategic |
+| Teaser layer / `InviteeShell` | ⏸ backlog (re-classify post-Session 10 close) | §Backlog → 🏗️ Strategic |
+| RSVP sticky bar depth | ⏸ backlog (re-classify post-Session 10 close) | §Backlog → 🏗️ Strategic |
+| Restaurants module rethink (keep / simplify / replace) | ⏸ backlog (surfaced 2026-05-03) | §Backlog → 🏗️ Strategic |
+| Shared maps module (sketch page → persists into sell+) | ⏸ backlog (surfaced 2026-05-03, Andrew) | §Backlog → 🏗️ Strategic |
+| Hero region polish (banner + countdown) | ⏸ backlog | §Backlog → 🎨 Design |
+| Resend invite manual retry | ⏸ backlog | §Backlog → 🐛 Bugs |
+| Migration 027 follow-up — restaurants + activities SET NULL paths | ⏸ backlog (untested in 2026-05-03 QA) | §Backlog → 🐛 Bugs |
+| All-theme contrast sweep | ⏸ backlog (festival-run marginal flagged in 10G) | §Backlog → ✨ Polish |
+| Body prose punctuation nit (`!!! .` in invite body) | ⏸ backlog | §Backlog → ✨ Polish |
+| Deprecated param cleanup (`tripTagline`, `coverImageUrl`) | ⏸ backlog | §Backlog → ✨ Polish |
+| Lexicon doc-sync — `rally-microcopy-lexicon-v0.md` §5.10 | ⏸ backlog (CC-flagged during 10G') | §Backlog → ✨ Polish |
+| Phone-as-primary identifier reframe | 🔮 parked (not near-term) | §Backlog → 🔮 Future |
+
+**Strategy docs (separate references):**
+
+| Doc | State | What it covers |
+|---|---|---|
+| `rally-attendee-strategy-v0.md` | ✅ closed | Sketch → sell arc + attendee state model + journey + consumers |
+| `rally-lock-phase-strategy-v0.md` | 🟡 v0 drafted | Sell → lock transition, allocation flow, two-module page, commitment ceremony |
+| Go phase strategy (TBD) | ⏸ not started | Day-of mechanics, expense capture, lock → go boundary |
+
+---
+
 ## What changed from v0
 
 v0 tried to fix everything in 5 sessions organized by feature area. That's the same
@@ -24552,6 +24602,49 @@ Sequencing notes that affect multiple items:
   rendering in `BuzzSection`; expenses cleanup absorbed into
   the future Go-phase arc.
 
+  ##### Member-removal cascade — QA Actuals (Cowork, 2026-05-03)
+
+  **Functional QA on prod DB.** Test member: `+5`
+  (`b4da9595-1b5a-4e26-b855-bec022e32f73`, display_name "test")
+  on Coachella 2026!!! (`86765219-b6ee-41dc-b22e-4246de13ecb3`).
+  Pre-removal: bolt-on attributions added on Cap Juluca lodging
+  (`212a6de2…`), transport row `703e95b0…`, groceries "Other"
+  (`7eb852e4…`) so the SET NULL paths could be exercised. Member
+  removed via the crew × affordance (sketch-edit-on-sell mode);
+  pre/post snapshots verified in Supabase Studio.
+
+  **Paths verified pass:**
+  - `trip_members` BEFORE DELETE → row removed
+  - `lodging_votes` CASCADE DELETE → Cap Juluca tally 4 → 3 (UI
+    confirmed via hard reload)
+  - `lodging.booked_by` SET NULL → row preserved, NULL
+  - `transport.booked_by` SET NULL → row preserved, NULL
+  - `groceries.booked_by` SET NULL → row preserved, NULL
+  - `comments` PRESERVE → +5's RSVP buzz comment intact with
+    original `user_id`
+
+  **Untested this round (no rows / no scenario):**
+  `restaurants.reserved_by` SET NULL, `activities.booked_by`
+  SET NULL, `poll_votes` CASCADE (didn't probe `polls`
+  presence; trigger's `to_regclass` guard makes absence safe
+  regardless), multi-trip safety (`+5` is on only one trip).
+  Tracked as the follow-up bullet below.
+
+  **Ship state:** ✅ verified for the Cap Juluca symptom + 3 of
+  5 SET NULL paths + comments-preserve invariant.
+
+- **Migration 027 follow-up — restaurants + activities SET NULL
+  paths untested.** Coachella 2026!!! had zero `restaurants` and
+  zero `activities` rows during 2026-05-03 functional QA, so
+  those two SET NULL paths weren't exercised end-to-end.
+  Restaurants is the only column-name divergence in the trigger
+  (`reserved_by` vs `booked_by`), so it's the higher-risk gap.
+  Exercise on any trip with such rows, or bolt-on attributions
+  before removal. Also worth probing `polls` presence on prod
+  and exercising `poll_votes` CASCADE if present. Low priority —
+  trigger verified on 3 SET NULL paths + the original
+  `lodging_votes` CASCADE bug + `comments` PRESERVE.
+
 - **Resend invite (manual retry path).** When `transitionToSell`
   fires the publish-time fan-out and a per-invitee send fails,
   `invite_sent_at` stays null but there's no UI to manually
@@ -24565,16 +24658,13 @@ Sequencing notes that affect multiple items:
 
 #### 🧭 In-flight (paused, pick up to finish)
 
-- **Dead-end navigation audit.** Started 2026-05-03 (Andrew + Cowork);
-  paused mid-investigation when the cost-math bug surfaced. Scope:
-  sweep `/`, `/trip/[slug]`, `/passport`, `/auth`, `/auth/expired`,
-  `/auth/invalid` for nav dead ends; ensure both organizers AND
-  attendees can always reach `/` from anywhere. Concrete trigger:
-  no clear back affordance from sell-state trip pages to
-  `https://rallyapp.travel/`. Cowork audit produces findings doc
-  → CC implementation session for the fixes (likely a wordmark
-  link in headers across surfaces). Naturally folds into the Bug
-  bash arc as a sub-session if not picked up standalone.
+- **Dead-end navigation audit — RETIRED / promoted 2026-05-03.**
+  The acute case Andrew was actually feeling — no way back to `/`
+  from `/trip/[slug]` — has been reframed as
+  Session 11 (Persistent app header). The original full-sweep QA
+  audit framing (hit every surface, find every dead-end tap) is
+  parked until pre-ship; if it gets picked up, it lives as a
+  fresh backlog entry under 🐛 Bugs at that point. See §Session 11.
 
 #### 🏗️ Strategic arcs (each its own session, mirrors the Session 10 attendee shape)
 
@@ -24639,6 +24729,57 @@ Sequencing notes that affect multiple items:
   Session 10 strategy doc defines. Soft-blocked on strategy doc
   resumption.
 
+- **Restaurants module rethink arc.** Surfaced 2026-05-03 during
+  Migration 027 close-out. The current `restaurants` module
+  (typed table, OG-scraped rows, `cost_per_person` field,
+  `reserved_by` attribution, sortable list) is high-effort for
+  what it returns — most groups don't book restaurants ahead, so
+  pre-trip "where are we eating" is exploration not commitment.
+  Worth reconsidering the module's shape per the project Design
+  ROI principle. Candidate directions:
+  - **Keep as-is** — status quo.
+  - **Simplify to provisions-shape** — collapse to a single
+    ballpark "dining estimate" line that feeds the cost summary.
+    Mirrors how `rally-lock-phase-strategy-v0.md` treats
+    provisions: ballpark cost-summary input, no commitment, no
+    checklist.
+  - **Replace with the shared maps module** — see standalone arc
+    below; if the maps module ships and the crew uses it for
+    dining discovery, restaurants-as-typed-table may become
+    redundant.
+  Open questions: how does dining feed the cost summary if the
+  module is removed or simplified? Does this stay its own module
+  or fold into "extras"? Defer to a Cowork session post Lock-A
+  briefing — Lock won't touch restaurants either way, so this is
+  parallel-safe.
+
+- **Shared maps module arc** (Andrew, 2026-05-03). New module
+  for the sketch page (and persisting into sell+). A shared
+  Google Maps (or Apple Maps) place list embedded in the trip
+  page — crew adds restaurants, neighborhoods, viewpoints,
+  whatever; map handles directions, photos, hours, reviews
+  natively. Rally hosts the embed + a thin comment / reaction
+  layer. No Rally-side cost machinery; people split bills on the
+  spot.
+  Strategic shape (mirrors Session 10 attendee arc + Lock arc):
+  - **A**: Cowork strategy doc — defines collaborative model
+    (organizer-only adds vs. crew-can-add, when it switches),
+    sketch-page placement (new module slot vs. inside "extras"
+    vs. inside / replacing activities), provider choice (Google
+    Maps vs. Apple Maps vs. Mapbox embed), data shape (just a
+    URL vs. a Rally-side `places` table), persistence behavior
+    across sketch → sell → lock → go.
+  - **B+**: Implementation sub-sessions cascading from strategy
+    (module render, add-place flow, comment layer, map embed
+    integration, etc.).
+  Open questions for the strategy doc: does this absorb
+  restaurants? Does it absorb activities? Does it interact with
+  the headliner module? What's the v0 cut — read-only embed of a
+  shared link, or a Rally-side `places` table from day one?
+  Sequencing: parallel-safe with Lock arc; can run in parallel
+  if Cowork bandwidth allows. Strong candidate to brief after
+  Lock-A.
+
 #### 🎨 Design redesign arc
 
 - **Hero region polish** — covers the trip-page hero region
@@ -24680,15 +24821,25 @@ Sequencing notes that affect multiple items:
   cleanup removes both params + their `api/invite/route.ts` and
   `actions/transition-to-sell.ts` call sites in one coordinated
   edit. Single CC session.
+- **Lexicon doc-sync — `rally-microcopy-lexicon-v0.md` §5.10.**
+  Flagged by CC during 10G' release notes (2026-05-03): the
+  lexicon doc still documents the OLD chip set (`🙌 / 🧗 / —`)
+  and the OLD default out-button text (`can't make it —`).
+  The chassis comment at `StickyRsvpBarChassis.tsx:12` and the
+  `RSVP_CHIP_ICONS` const are now the source of truth for the
+  new `🙌 / 🙏 / 👋` set (shipped in 10F + extended in 10G').
+  Doc-only sync, ~5-min edit. Worth doing before the next major
+  design-doc reference cites the old set.
 
-#### ⏸️ Open / continuing (NOT a new session — finishes existing arc)
+#### ⏸️ Open / continuing (closed 2026-05-03, kept for history)
 
-- **Session 10 attendee strategy doc — resume.** Status "in
-  progress" since 2026-04-27, hasn't moved. Doc redesigns the
-  state model + journey + consumer alignment for the attendee
-  experience. Several items above are soft-blocked on this
-  landing (teaser layer, RSVP sticky bar depth, partial buzz
-  scoping). Cowork-only work, no CC needed.
+- **Session 10 attendee strategy doc.** ✅ Effectively closed
+  2026-05-03. Doc has 3 dimensions all marked drafted/locked,
+  plus 4 cross-cutting Open Questions — all 4 are now resolved
+  by shipped work, deferred to other arcs (phone-as-primary
+  reframe), or naturally fold into the Lock + Go phase strategy
+  docs. Re-classify to "closed" status; the strategy doc itself
+  remains as the canonical reference for the sketch → sell arc.
 
 #### 🔮 Future direction (NOT near-term, parked)
 
@@ -24906,6 +25057,502 @@ in the 9K brief explicitly.
 **Session letter TBD.** Slot between ship-order items based on
 priority. Probably runs after the remaining sell-module cleanup
 sessions and before/alongside Session 12 (RSVP sticky bar depth).
+
+### Session 11: "Persistent app header — shared `<AppHeader>` chrome"
+
+**Status: briefed 2026-05-03 (Cowork). Awaiting CC kickoff.**
+
+**Promoted from:** the "Dead-end navigation audit" backlog
+entry under 🧭 In-flight (now retired). Andrew's actual goal
+was a scalable way back to `/` from `/trip/[slug]`, not a full
+QA-style audit; the audit is parked until pre-ship.
+
+**Goal.** Ship a shared `<AppHeader>` component containing a
+linkable wordmark (→ `/`) and circular passport avatar (→
+`/passport`). Apply across `/`, `/passport`, and `/trip/[slug]`
+(sketch + sell phases). Replace the bespoke header
+implementations on each surface. Establishes scalable
+persistent chrome — every future surface inherits the pattern.
+
+**Why now / Design rationale (locked 2026-05-03 with Andrew):**
+
+- **Convention.** Top-left logo → home + top-right avatar →
+  profile is one of the most established web/mobile patterns.
+  Lowest cognitive load possible.
+- **Categorical fix.** Solves the dead-end class, not just one
+  instance. Future surfaces inherit.
+- **Demotes the wordmark from decoration to function.** Today
+  the trip-page wordmark sits inside `PostcardHero` as visual
+  flourish (with a wiggle animation). Its real job is brand
+  identity + nav. Moving it to chrome aligns role with function.
+- **"Reuse before rebuild" project rule.** One canonical
+  `<AppHeader>` over three near-duplicate header
+  implementations. Three things doing the same job is debt.
+
+**Decisions locked (2026-05-03):**
+
+1. **Static, not sticky.** Two stickies on a 600px iPhone SE
+   viewport would eat ~20% of vertical canvas (existing sticky
+   bottom RSVP bar + a sticky top would compound). "Scroll up to
+   escape" is a learned mobile gesture; users default to it.
+2. **Neutral chrome, not themed.** Mirrors dashboard's
+   `#1a1a1a` text on white background. No `[data-theme]` block,
+   no theme-variable usage. Consistency wins; themed chrome
+   would be expensive to maintain across 17 themes.
+3. **Sign-out stays as a separate `<SignOutButton />` next to
+   `<AppHeader>` on `/`, not absorbed.** AppHeader = wordmark +
+   passport only. Sign-out is dashboard-specific. Keeps the
+   component clean and route-agnostic.
+4. **Auth-aware avatar.** If `user` prop is null/undefined,
+   render only the wordmark — passport avatar hidden entirely.
+   No fallback "log in" affordance; the existing teaser flow
+   handles unauth viewers.
+5. **Skip `/auth/*` surfaces this session.** AuthSurface has
+   its own visual identity; passport icon can't render
+   pre-auth. Revisit only if a future arc surfaces a real
+   reason.
+6. **Passport page's `← back` text link is dropped.** With the
+   wordmark-as-link as the universal home affordance, the text
+   "back" label is redundant.
+7. **No route-conditional "hide-when-current".** On `/`, the
+   wordmark links to `/` (no-op tap). On `/passport`, the
+   passport avatar links to `/passport` (no-op tap). Both
+   acceptable per design; don't engineer special cases.
+
+**Scope (numbered, file-referenced):**
+
+1. **New `<AppHeader>` component**
+   (`src/components/AppHeader.tsx`).
+   - Single rendering of a header row: `display: flex;
+     justify-content: space-between; align-items: center` —
+     mirrors `.dash-header`.
+   - Left: `<Link href="/">` wrapping a wordmark (Shrikhand
+     "rally!" with accent-colored bang). Mirrors
+     `.dash-wordmark` typography exactly.
+   - Right: `<Link href="/passport">` wrapping a circular
+     avatar (28×28, 2px border, `profile_photo_url` if present
+     else display-name initial). Mirrors `.dash-passport-link`
+     + `.dash-passport-av` exactly.
+   - Accepts `user` prop (typed `User | null`). Hides passport
+     avatar if `user == null`.
+   - Server-component-friendly (no client state).
+
+2. **Apply to dashboard** (`src/app/page.tsx` lines ~80–100).
+   Replace the `<div className="dash-header">…</div>` block with
+   `<AppHeader user={profile} />` plus the existing
+   `<SignOutButton />` as a sibling. Sign-out renders to the
+   right of the AppHeader. Wrapper div / flex layout TBD by CC.
+
+3. **Apply to passport** (`src/app/passport/page.tsx` lines
+   ~52–60). Replace `<div className="passport-wordmark">…</div>`
+   AND `<Link className="passport-back-link">` block with
+   `<AppHeader user={profile} />`. The `← back` text link is
+   gone. The `getCopy(defaultTheme, 'profile.backLink')` call
+   is removed.
+
+4. **Apply to sell-phase trip page**
+   (`src/app/trip/[slug]/page.tsx` line ~267). Insert
+   `<AppHeader user={profile} />` as the first child of
+   `<div className="chassis">`, above `<PostcardHero>`.
+   `profile` is already loaded in this file.
+
+5. **Apply to sketch-phase trip page**
+   (`src/components/trip/builder/SketchTripShell.tsx`). Insert
+   `<AppHeader user={profile} />` at the top of its chassis
+   render. May need to thread `profile` as a prop if not
+   already available — verify against current file.
+
+6. **Remove the in-hero wordmark from PostcardHero**
+   (`src/components/trip/PostcardHero.tsx` line ~213). Delete
+   the `<div className={\`wordmark${isSketch &&
+   sketchOverrides.renderPostcard ? ' wordmark-row' : ''}\`}>…
+   </div>` block. Verify hero composition (sticker, live-row,
+   inviter, eyebrow, title, tagline, postcard) renders cleanly
+   without it. Adjust spacing if there's an orphaned gap.
+
+7. **CSS in `src/app/globals.css`.**
+   - Add `.app-header`, `.app-header-wordmark`,
+     `.app-header-passport-link`, `.app-header-passport-av`
+     selectors mirroring the existing `.dash-header` family.
+   - Remove now-unused selectors: `.dash-header`,
+     `.dash-wordmark`, `.dash-header-right`,
+     `.dash-passport-link`, `.dash-passport-av`,
+     `.passport-wordmark`, `.passport-back-link`.
+   - Remove the trip-page wordmark CSS at lines ~521–541
+     (`.chassis .wordmark` and `.chassis .wordmark.wordmark-row`)
+     since the wordmark no longer renders inside `.chassis`.
+     (Confirm via build that no other rules reference these
+     selectors.)
+   - Reuse the existing `.bang` color rule.
+   - The wiggle animation goes away. Decoration, not meaning;
+     this is intentional per the chrome reframe.
+
+8. **Lexicon `@deprecated` mark.** Locate `profile.backLink`
+   in `src/lib/copy/surfaces/passport.ts` (or wherever it
+   lives). Add `@deprecated 11` JSDoc comment above the
+   surface's mention. Don't delete the entry; lexicon cleanup
+   is a separate polish session pattern.
+
+**Hard constraints (DO NOT):**
+
+- DO NOT create new routes.
+- DO NOT apply `<AppHeader>` to `/auth/*` surfaces in this
+  session.
+- DO NOT make the header sticky / fixed / floating. Static
+  only.
+- DO NOT theme the header (no `[data-theme]` block, no
+  theme-variable usage).
+- DO NOT absorb sign-out into `<AppHeader>`.
+- DO NOT introduce per-surface variants of `<AppHeader>` (one
+  component, one shape).
+- DO NOT add a route-conditional "hide-when-current" check on
+  the wordmark or passport avatar.
+- DO NOT modify any module section, hero internals beyond the
+  wordmark removal, marquee strip, countdown, sticky bar, cost
+  summary, or any component not explicitly named in scope.
+- DO NOT touch `AuthSurface.tsx` or auth-related copy.
+- All existing copy strings stay in `lib/copy.ts`. `@deprecated`
+  is the only acceptable mark — no string deletions.
+
+**Acceptance Criteria (testable in browser):**
+
+- [ ] On `/`, the header renders: wordmark on left + circular
+      passport avatar (photo/initial) + sign-out button on right.
+      Layout matches the pre-change dashboard visual.
+- [ ] On `/passport`, the header renders with linkable wordmark
+      + circular passport avatar. The `← back` text link is
+      gone. Wordmark click → `/`. Avatar click → `/passport`
+      (no-op, current page).
+- [ ] On `/trip/[slug]` (sell phase), the header renders at the
+      top with linkable wordmark + circular passport avatar.
+      Avatar shows authenticated user's photo/initial.
+- [ ] On `/trip/[slug]` (sketch phase), the same header
+      renders.
+- [ ] In-hero wordmark on the trip page is gone — only sticker,
+      live-row, inviter (when applicable), eyebrow, title,
+      tagline, postcard render.
+- [ ] Hero layout has no orphaned whitespace where the wordmark
+      used to sit.
+- [ ] On `/trip/[slug]` viewed by an unauthenticated user
+      (teaser/InviteeShell), the passport avatar is hidden.
+      Wordmark renders alone and links to `/`.
+- [ ] On `/auth`, `/auth/expired`, `/auth/invalid`, no
+      `<AppHeader>` appears. AuthSurface unchanged.
+- [ ] Sign-out button still appears on `/` and is functional.
+      Sign-out does NOT appear on `/passport` or `/trip/[slug]`.
+- [ ] Tapping the wordmark from any surface where it appears
+      navigates to `/`.
+- [ ] Tapping the passport avatar from any surface where it
+      appears (when authenticated) navigates to `/passport`.
+- [ ] No regression on the sticky bottom RSVP/publish bar —
+      z-index unchanged, no overlap with the new top header.
+- [ ] 375px viewport: header layout works on each of `/`,
+      `/passport`, `/trip/[slug]` (sell + sketch). No overflow,
+      no clipping.
+- [ ] `git diff --stat` shows: 1 new file (`AppHeader.tsx`), 4
+      page/component files modified (`page.tsx`,
+      `passport/page.tsx`, `trip/[slug]/page.tsx`,
+      `SketchTripShell.tsx`, `PostcardHero.tsx`), 1
+      `globals.css` modified, 1 lexicon file modified. No other
+      surfaces touched.
+
+**Files to Read (before coding):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` (full).
+- `rally-fix-plan-v1.md` (this Session 11 brief + Status
+  Overview).
+- `src/app/page.tsx` lines 80–100 (existing dash-header
+  reference — pattern to mirror).
+- `src/app/passport/page.tsx` lines 52–60 (passport-wordmark
+  + passport-back-link reference — both removed).
+- `src/app/globals.css` lines 521–541 (existing trip-page
+  wordmark CSS — to remove).
+- `src/app/globals.css` lines 3373–3865 (dash-header CSS — to
+  port into `.app-header` selectors then prune).
+- `src/components/trip/PostcardHero.tsx` (in-hero wordmark
+  removal site).
+- `src/components/trip/builder/SketchTripShell.tsx` (sketch
+  chassis wrapper).
+- `src/app/trip/[slug]/page.tsx` (sell chassis wrapper).
+- `src/components/auth/AuthSurface.tsx` (reference only —
+  confirm AppHeader does NOT appear there).
+- `src/lib/copy/surfaces/passport.ts` (or wherever
+  `profile.backLink` lives — `@deprecated 11` mark).
+
+**How to QA Solo (CC-side):**
+
+- `rm -rf .next && npm run dev`.
+- `/` (dashboard) — header renders, sign-out functional, look
+  matches pre-change.
+- `/passport` — header renders with wordmark + avatar; no
+  `← back` text link; wordmark navigates to `/`.
+- `/trip/sjtIcYZB` (Coachella, sell phase) — header renders,
+  both links navigate.
+- A sketch-phase trip — same header.
+- Open `/trip/<slug>` in a private browsing window (unauth) —
+  verify avatar hidden, wordmark links to `/`.
+- `/auth`, `/auth/expired`, `/auth/invalid` — no AppHeader.
+- DevTools mobile emulator at 375px on each surface — no
+  overflow/clipping.
+- `npx tsc --noEmit` — exit 0.
+- `rm -rf .next && npm run build` — green; same route count
+  (no new routes); no new warnings.
+- `git diff --stat` — confirm only the named files are
+  touched.
+
+**Carryover (post-ship):**
+
+- Future arc: apply `<AppHeader>` to `/auth/*` if it earns
+  priority (not on the menu now).
+- Future polish: lexicon cleanup pass to remove
+  `@deprecated 11` entries (`profile.backLink` and any others
+  that accumulate).
+- The original "Dead-end navigation audit" framing — a real
+  QA-style audit of every surface for dead-end taps — gets
+  parked until pre-ship. The persistent header solves the
+  acute case Andrew was actually feeling.
+
+#### Session 11 — Release Notes (CC, 2026-05-03)
+
+**What was built:**
+
+1. **New `<AppHeader>` component** — `src/components/AppHeader.tsx` (new
+   file, 31 lines). Server-component-friendly (no `'use client'`, no
+   hooks). Renders a `<header className="app-header">` with two `<Link>`s:
+   wordmark (`rally!`) → `/`, optional passport avatar → `/passport`.
+   Avatar hidden entirely when `user == null`. Photo-or-initial treatment
+   matches dash pattern. Prop type `AppHeaderUser = { displayName,
+   profilePhotoUrl } | null`.
+
+2. **Wired into dashboard** — `src/app/page.tsx`. Replaced the bespoke
+   `.dash-header` block (lines 81–100) with `<div className="dash-header-wrap">`
+   wrapping `<AppHeader>` + `<SignOutButton />` as siblings. Added import.
+   Sign-out remains visually right-aligned via the new wrap's flex layout.
+
+3. **Wired into passport** — `src/app/passport/page.tsx`. Replaced the
+   `.passport-wordmark` div + `.passport-back-link` `<Link>` block (lines
+   52–59) with a single `<AppHeader>`. Removed the now-orphan `Link`
+   import and the `getCopy(defaultTheme, 'profile.backLink')` call. Used
+   `PassportProfile.displayName` (always non-null per its type, defaults
+   to `'?'`) and `PassportProfile.photoUrl`. Added import.
+
+4. **Wired into sell trip page** — `src/app/trip/[slug]/page.tsx`. Added
+   ~16-line viewer-profile loader directly after the
+   `refreshGuestCookie()` call: when `currentUserId` is non-null, selects
+   `display_name, email, profile_photo_url` from `public.users`, building
+   a `viewerProfile` object with safe fallbacks. Inserted `<AppHeader
+   user={viewerProfile} />` as the first child of `.chassis` (above
+   `<PostcardHero>`) on the sell/lock/go render branch. Threaded
+   `viewerProfile={viewerProfile}` into the `<SketchTripShell>` call
+   for the sketch/edit-on-sell branch. Added import.
+
+5. **Wired into sketch trip page** — `src/components/trip/builder/
+   SketchTripShell.tsx`. Added new required `viewerProfile` prop to
+   `Props` type. Destructured in the function signature. Rendered
+   `<AppHeader user={viewerProfile} />` as the first child of
+   `.chassis` (above `<PostcardHero>`). Added import.
+
+6. **Removed in-hero wordmark from PostcardHero** —
+   `src/components/trip/PostcardHero.tsx`. Deleted the entire 4-line
+   `<div className="wordmark{...wordmark-row...}">` block at line 213
+   (containing the `rally!` `<span>` and the inlined sketch postcard).
+   Relocated `{sketchOverrides.renderPostcard}` into the sketch render
+   branch as a fragment trailing `renderBody`, so the postcard upload
+   tap target (which lived inside `wordmark-row` previously) still
+   renders in sketch mode — now positioned after the inline-edit form
+   block instead of at the top of the hero.
+
+7. **CSS in `globals.css`** —
+   - **Added** (`Session 11` block immediately above the `.bang` rule at
+     ~3373): `.app-header`, `.app-header-wordmark`,
+     `.app-header-passport-link`, `.app-header-passport-av`, plus a
+     `.dash-header-wrap` wrapper used by the dashboard. Hardcoded
+     `background: #ffd84d` on the avatar to keep chrome neutral inside a
+     themed `.chassis` (would have been `var(--sticker-bg, ...)` in the
+     ported dash-header). Other colors: `#1a1a1a` text on `#fff` bg,
+     verbatim from dash-header.
+   - **Deleted**: `.dash-header`, `.dash-wordmark`, `.dash-header-right`,
+     `.dash-passport-link`, `.dash-passport-av`, `.passport-wordmark`,
+     `.passport-back-link`, `.chassis .wordmark`, `.chassis
+     .wordmark.wordmark-row` — every selector with no remaining JSX
+     consumer post-Session 11.
+   - **Updated**: removed the `.chassis .wordmark,` line from the
+     reduced-motion media query at line 1804 (selector deleted; the
+     comma-list now begins with `.chassis .header .sticker`).
+   - **Deleted orphan**: `@keyframes wiggle-left` (its only consumer,
+     `.chassis .wordmark`, was deleted; verified zero remaining callers
+     via grep). `@keyframes wiggle` was preserved — three other callers
+     (header sticker + 2 unrelated rules) still consume it.
+   - **Preserved**: `.bang` rule (still used by AppHeader's wordmark).
+     `.chassis .postcard-img` rules (lines 542+) (still used by the
+     relocated sketch postcard upload button).
+
+8. **Lexicon `@deprecated 11` mark** — `src/lib/copy/surfaces/profile.ts:33`.
+   Added a single-line JSDoc comment above the `'backLink'` entry:
+   `/** @deprecated 11 — replaced by <AppHeader> wordmark home-link */`.
+   The string itself stays in the lexicon Record (per-brief: don't
+   delete; lexicon cleanup is a separate polish session).
+
+**What changed from the brief:**
+
+- **Deviation: the brief asserted `profile` was already loaded in
+  `src/app/trip/[slug]/page.tsx`. It was not** — that file loaded only
+  `currentUser` (Supabase auth shape — no `display_name` or
+  `profile_photo_url`). Resolved by adding a small server query
+  (~16 lines) to fetch `display_name, email, profile_photo_url` from
+  `public.users` for the current `currentUserId`, with safe fallbacks.
+  Threaded the resulting `viewerProfile` into both the sell-branch
+  AppHeader and into SketchTripShell as a new required prop.
+  **Confirmed with Andrew via AskUserQuestion before coding** — he
+  selected the "add small server query" option (recommended). This is
+  the only deviation from the brief's scope.
+- **PostcardHero relocation choice (scope item 6).** The brief flagged
+  that the in-hero wordmark removal would leave the sketch postcard
+  upload target without a parent. CC chose to render the postcard as a
+  fragment trailing `renderBody` (post-form position). Sketch mode flow
+  now: sticker → live-row → inviter → eyebrow → SketchHeader inputs →
+  PostcardImage. This is one of the two reasonable positions; the
+  other (between eyebrow and renderBody, where the wordmark used to
+  sit) was rejected because the form is now the dominant element in
+  sketch and the postcard reads as a follow-up affordance. Andrew may
+  want to redirect this if the visual feels off.
+- **Status Overview row at top of fix plan was NOT updated by CC.** Per
+  skill Part 2 Step 5, that's a Cowork update during the plan-update
+  phase. The row currently reads "🟡 briefed 2026-05-03; awaiting CC."
+  Cowork should bump it after QA.
+- **`'rally!'` and `title="your passport"` strings in `<AppHeader>` are
+  hardcoded.** They mirror the existing dash-header pattern (which
+  also hardcoded these). The brief did not require lexicon migration
+  for them; flagging here as a future polish opportunity if a wider
+  brand-string consolidation pass happens.
+
+**What to test (Andrew, in browser):**
+
+- [ ] **Dashboard `/`** — header renders `rally!` wordmark on the left,
+  passport avatar in the middle (showing photo or display-name initial),
+  sign-out button on the right. Layout reads visually identical to
+  pre-change. Wordmark is a no-op self-link tap. Avatar tap → `/passport`.
+  Sign-out tap signs out as before.
+- [ ] **Passport `/passport`** — header renders wordmark + avatar.
+  **No `← my trips` text link** anywhere. Wordmark tap → `/`. Avatar
+  tap is a no-op self-link. ProfileEditor below renders unchanged.
+- [ ] **Sell trip page** (e.g. `/trip/sjtIcYZB` Coachella) — AppHeader
+  renders as the first thing inside `.chassis`, above the marquee /
+  PostcardHero. Wordmark tap → `/`. Avatar tap → `/passport`. Avatar
+  shows the authenticated viewer's photo or initial.
+- [ ] **Sell trip page hero** — sticker → live-row → inviter (when
+  applicable) → eyebrow → title → trip-meta → tagline → postcard order
+  is unchanged below the AppHeader; **no in-hero `rally!` wordmark**;
+  no orphaned vertical gap.
+- [ ] **Sketch trip page** — AppHeader renders at the top of the
+  chassis. The postcard upload tap target (with 📷 placeholder when
+  empty, or the uploaded image) still renders — now **after** the
+  inline-edit form (name → tagline → destination → dates → commit
+  deadline), not next to a wordmark. Verify the postcard's 64×48
+  dashed-border button still looks correct in its new position.
+- [ ] **Edit-on-sell** (`/trip/<slug>?edit=1` as the organizer) — same
+  AppHeader at top. SketchTripShell renders; sticker / live-row are
+  suppressed per 9W as before; postcard now sits after the form.
+- [ ] **Unauthenticated trip view (sketch only)** — open a sketch-phase
+  trip in a private window. AppHeader renders with **only the wordmark
+  visible** (avatar hidden because `viewerProfile === null`). Wordmark
+  tap → `/`. Note: non-sketch phases continue to redirect unauth users
+  to `/auth?trip=...` (existing behavior, unchanged).
+- [ ] **`/auth`, `/auth/expired`, `/auth/invalid`** — no AppHeader.
+  AuthSurface visually unchanged.
+- [ ] **375px viewport** — each surface above. No horizontal overflow.
+  Wordmark + avatar fit cleanly. Sign-out fits next to AppHeader on
+  the dashboard.
+- [ ] **Sticky bottom RSVP bar** — still functional on the trip page;
+  no z-index conflict with the new top header (header is static, no
+  z-index, no `position: sticky`).
+- [ ] **Sign-out button placement** — appears on `/` only. Does NOT
+  appear on `/passport` or `/trip/<slug>`.
+- [ ] **No wiggle animation on AppHeader's wordmark** anywhere
+  (intentional; chrome is decoration-free per locked decisions).
+- [ ] **Bang accent (the `!`) is still pink** in the AppHeader wordmark
+  on every surface. Inside themed `.chassis`, it may pick up theme-
+  scoped `--bang-light` if defined per-theme — that's brief-approved.
+
+**Static verification (CC-side, complete):**
+
+- ✅ `npx tsc --noEmit` — exit 0, zero errors.
+- ✅ `rm -rf .next && npm run build` — compiled successfully in
+  1858ms, 16/16 static pages generated, zero new warnings, route
+  count unchanged at 19 (1 root, 8 API, 4 auth, `/create`, `/i/[token]`,
+  `/passport`, `/trip/[slug]`, `/trip/[slug]/crew`). No new routes
+  added.
+- ✅ `git diff --stat` — exactly the planned blast radius:
+  - 1 new file: `src/components/AppHeader.tsx`
+  - 7 modified files: `src/app/globals.css`, `src/app/page.tsx`,
+    `src/app/passport/page.tsx`, `src/app/trip/[slug]/page.tsx`,
+    `src/components/trip/PostcardHero.tsx`,
+    `src/components/trip/builder/SketchTripShell.tsx`,
+    `src/lib/copy/surfaces/profile.ts`
+  - Plus this fix-plan edit (release notes).
+- ✅ Grep audits (post-edit, all `0 hits` in `src/`):
+  - `dash-header` (pure form) → 0 (only `.dash-header-wrap` survives,
+    expected — it's the new wrapper).
+  - `dash-wordmark` → 0
+  - `dash-passport` → 0
+  - `passport-wordmark` → 0
+  - `passport-back-link` → 0
+  - `wordmark-row` → 0
+  - `chassis .wordmark` → 0
+  - `profile.backLink` (path-form) → 0 (the lexicon entry remains as
+    `'backLink':` only; the dotted call path is gone).
+
+**Known issues / flags:**
+
+- **Visual QA is for Andrew.** CC has no authenticated session in this
+  environment — could compile and exercise unauth paths but couldn't
+  visually inspect the wired surfaces. No screenshots attached.
+- **Sketch-postcard relocation (item 6) is unverified visually.** The
+  postcard upload button's 64×48 dashed-border styling came from
+  `.chassis .postcard-img` (preserved), and selector descendants of
+  `.chassis` continue to apply. But the previous parent (`.wordmark.
+  wordmark-row` flex) is gone; the button now renders as a default
+  inline-block child of the hero `.header`. If this looks off (wrong
+  alignment, stretched, awkward gap), a small CSS tweak (e.g.,
+  `display: block; margin-top: ...;`) on `.chassis .postcard-img`
+  scoped to the post-renderBody position should resolve it.
+- **`rally-design-system/globals.css` was deliberately NOT touched.**
+  That file is a backup/reference, not used at runtime. Grep audit
+  matches there are expected and unrelated to the runtime CSS in
+  `src/app/globals.css`.
+
+**Architecture sanity (DO-NOT list re-check):**
+
+- ✅ **No new routes.** Only `src/components/AppHeader.tsx` was added;
+  no `src/app/<new-route>/page.tsx` files.
+- ✅ **AppHeader NOT applied to `/auth/*`.** `AuthSurface.tsx` is
+  untouched; manual grep confirms.
+- ✅ **AppHeader is static.** `position: sticky` / `position: fixed` /
+  `z-index` not applied to `.app-header*` selectors.
+- ✅ **No `[data-theme]` block on `.app-header*`.** Selectors live in
+  the global flat namespace; the new CSS block is not nested under any
+  `[data-theme]` rule.
+- ✅ **No `var(--accent)` / `var(--bg)` on `.app-header*`.** Avatar
+  background is hardcoded `#ffd84d`; text and border are hardcoded
+  `#1a1a1a`. The font family vars (`--font-display`, `--font-body`)
+  are global Next.js font-loader vars, not theme-scoped — fine to use.
+- ✅ **`.bang` exception preserved.** `.bang { color:
+  var(--bang-light, #ff2e7e); }` was kept verbatim per brief.
+- ✅ **Sign-out NOT absorbed into `<AppHeader>`.** Renders as a
+  sibling in `<div className="dash-header-wrap">` only on the
+  dashboard.
+- ✅ **No per-surface variants of AppHeader.** One component, one
+  shape, three render sites.
+- ✅ **No route-conditional hide-when-current.** AppHeader renders
+  unconditionally on all four wired surfaces (subject only to
+  `user == null` for the avatar).
+- ✅ **No module / hero-internals / marquee / countdown / sticky bar /
+  cost summary changes** beyond what scope item 6 explicitly required
+  (the wordmark removal + sketch-postcard relocation in
+  `PostcardHero.tsx`).
+- ✅ **AuthSurface.tsx untouched.**
+- ✅ **`profile.backLink` lexicon entry preserved** as
+  `@deprecated 11`, not deleted.
 
 #### Per-crew arrival estimator — sell phase feature (deferred from Session 8 planning)
 

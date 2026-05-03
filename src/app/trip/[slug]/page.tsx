@@ -40,6 +40,7 @@ import { CostBreakdown } from '@/components/trip/CostBreakdown';
 import { DatePoll } from '@/components/trip/DatePoll';
 import { Reveal } from '@/components/ui/Reveal';
 import { PassportProvider } from '@/components/trip/PassportContext';
+import { AppHeader } from '@/components/AppHeader';
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -108,6 +109,24 @@ export default async function TripPage({ params, searchParams }: Props) {
   const guestUserId = await getGuestUserId();
   const currentUserId = currentUser?.id || guestUserId || null;
   if (currentUserId) await refreshGuestCookie();
+
+  // Session 11 — header viewer profile. Loaded for the AppHeader avatar
+  // on both sketch and sell render branches. Null when unauth (avatar
+  // hidden in that case).
+  let viewerProfile: { displayName: string; profilePhotoUrl: string | null } | null = null;
+  if (currentUserId) {
+    const { data: row } = await supabase
+      .from('users')
+      .select('display_name, email, profile_photo_url')
+      .eq('id', currentUserId)
+      .single();
+    if (row) {
+      viewerProfile = {
+        displayName: row.display_name ?? row.email ?? '?',
+        profilePhotoUrl: row.profile_photo_url,
+      };
+    }
+  }
 
   // Map the legacy DB theme row to a chassis ThemeId. The chassis CSS
   // [data-theme="..."] block sets the 8 chassis vars; per-theme strings
@@ -190,6 +209,7 @@ export default async function TripPage({ params, searchParams }: Props) {
         themeId={themeId}
         tripId={trip.id}
         slug={slug}
+        viewerProfile={viewerProfile}
         organizerName={organizer.display_name}
         organizerId={organizer.id}
         coverImageUrl={trip.cover_image_url}
@@ -265,6 +285,7 @@ export default async function TripPage({ params, searchParams }: Props) {
   return (
     <PassportProvider>
     <div className="chassis" data-theme={themeId}>
+      <AppHeader user={viewerProfile} />
       <PostcardHero
         themeId={themeId}
         tripName={trip.name}
