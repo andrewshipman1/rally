@@ -156,9 +156,83 @@ npm run dev             # http://localhost:3000
 
 ### Single Source of Truth
 
-`rally-fix-plan-v1.md` is the only plan document. Don't create HANDOFF.md,
+`rally-fix-plan-v1.md` is the only **plan** document. Don't create HANDOFF.md,
 TODO.md, SESSION-NOTES.md, or any other planning docs. Everything lives in the
 fix plan.
+
+**Strategy docs are the exception** (see Document Taxonomy below). They're
+reference material, not session planning, and live as their own `.md` files
+at the repo root.
+
+### Document Taxonomy
+
+Rally tracks four kinds of artifacts. Knowing which kind you're working with
+prevents drift between strategic context, tactical scoping, and execution.
+
+**1. Strategy doc** — `rally-<arc>-strategy-v0.md` (e.g.,
+`rally-attendee-strategy-v0.md`, `rally-lock-phase-strategy-v0.md`).
+- Long-horizon reference defining the WHY/HOW for a major arc of work.
+- Lives at the repo root as its own `.md` file. NOT inside the fix plan.
+- Multiple sessions cascade FROM it.
+- Standard structure: Purpose, Decisions Locked, Open Questions, Dimensions,
+  Implementation sub-sessions.
+- Stays open across many sessions; closes when the arc is fully shipped or
+  all open questions resolved/folded into other arcs.
+- Exempt from the SSOT rule above — strategy docs are reference material.
+
+**2. Session brief** — lives inside `rally-fix-plan-v1.md` under the session's
+`### Session N:` heading.
+- Defines WHAT a session will build.
+- Standard structure per Part 2 Step 1: Scope, Hard Constraints, ACs, Files
+  to Read, How to QA Solo.
+- Cascades INTO release notes + Actuals as the session progresses.
+
+**3. Backlog brief** — lives in the `### Backlog (TBD sessions, snapshot
+YYYY-MM-DD)` section near the bottom of `rally-fix-plan-v1.md`, organized by
+arc category (🐛 bugs / 🧭 in-flight / 🏗️ strategic / 🎨 design / ✨ polish /
+⏸ open / 🔮 future).
+- Same shape as a session brief, but no session number yet.
+- Promoted INTO a numbered session when execution begins.
+- Standalone bugs / polish items / future strategic arcs all live here until
+  promoted.
+
+**4. Status Overview** — lives at the TOP of `rally-fix-plan-v1.md`, right
+after the metadata header.
+- At-a-glance table of all arcs + initiatives + their status + canonical
+  home (with §-references into the doc or pointers to strategy docs).
+- Designed so "what's the state of Rally?" is answerable in 5 seconds without
+  scrolling 24K lines.
+
+### When does work get a session number?
+
+- **Full session number** (e.g., `Session 11`): a strategic arc that ships as
+  one or many coordinated sub-sessions. Assigned at promotion time.
+- **Sub-letter** (e.g., `10G'`, `10A`, `10B`): work that's a tight follow-up
+  to a parent session. Same brief format, sub-numbered to associate.
+- **`bug-N` suffix** (e.g., `10G bug-1`): a regression or follow-up bug
+  discovered during QA of a specific session. Lives under the parent's
+  heading.
+- **Backlog brief** (no number): scoped but not yet in execution queue. Gets
+  a number when promoted out of backlog.
+- **Strategy doc** (no number): defines an arc that will spawn many numbered
+  sessions over time.
+
+Numbers get assigned at **promotion time**, not at scoping time. A backlog
+brief moves out of the backlog and into a numbered session when execution
+starts.
+
+### Status Overview rule (always update)
+
+After every session ship (Actuals written) AND whenever a new arc emerges,
+update the Status Overview at the top of `rally-fix-plan-v1.md`:
+- Bump shipped items to ✅ with the ship date.
+- Add new arcs / initiatives discovered during the work.
+- Re-classify items whose status materially changed (e.g., paused → resumed,
+  or strategy-doc-blocked → unblocked).
+- Bump the snapshot date.
+
+This is what makes the doc scannable. Skipping it produces a doc that grows
+in length without growing in clarity.
 
 ### What NOT to Build (v0)
 
@@ -179,8 +253,9 @@ scroll, social login (Google/Apple), co-host/admin roles.
 | `rally-brand-brief-v0.md` | Voice rules, tone, banned words |
 | `rally-theme-content-system.md` | Per-theme copy, emoji, countdown labels |
 | `rally-qa-checklist-v0.md` | Full QA walkthrough procedure |
-| `rally-attendee-strategy-v0.md` | Locked decisions for the attendee experience: state model, journey, consumer alignment. Required reading for any Session 10A–10E work. |
-| `rally-attendee-implementation-roadmap-v0.md` | Sub-session breakdown of the attendee arc (10A → 10E): scope, deps, size, asset needs, open scoping questions per sub-session. |
+| `rally-attendee-strategy-v0.md` | Closed (2026-05-03). Locked decisions for the sketch → sell arc + attendee state model + journey + consumers. Reference for any sketch/sell phase work. |
+| `rally-attendee-implementation-roadmap-v0.md` | Sub-session breakdown of the attendee arc (Session 10 series): scope, deps, size, asset needs. |
+| `rally-lock-phase-strategy-v0.md` | Lock phase architecture (sell → lock → go). Drafted v0 2026-05-03. Reference for any Lock-A through Lock-H implementation work. |
 | `rally-phase-*.html`, `rally-9*-mockup.html`, `rally-9w-organizer-sticky-mockup.html`, `rally-9y-dashboard-trip-menu-mockup.html` | Visual + interaction specs for shipped features and active design work |
 
 ---
@@ -305,10 +380,13 @@ Cowork fixes get logged:
 
 ### Step 5: Update the Plan
 
-1. Mark the current session complete with a status line
-2. Review next session scope — does the existing brief still make sense?
+1. Mark the current session complete with a status line.
+2. **Update the Status Overview at the top of `rally-fix-plan-v1.md`** —
+   bump the shipped row to ✅, fold in any new arcs that emerged, refresh
+   the snapshot date. (See "Status Overview rule" in Part 1.)
+3. Review next session scope — does the existing brief still make sense?
    Should escalated bugs be folded in? Is the scope right-sized?
-3. Write or revise the next brief following Step 1 format
+4. Write or revise the next brief following Step 1 format.
 
 ### Starting a New Cowork Session
 
