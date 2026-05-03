@@ -21864,6 +21864,273 @@ remaining 15 themes. Independent — ships in either order.
   `actions/transition-to-sell.ts` call sites in one coordinated edit;
   not in 10G's single-file scope.
 
+#### Session 10G — Bug Fix Brief: Layout containment regression (2026-05-03, Cowork)
+
+**Status: bug found during 10G live QA. Brief written. Awaiting
+Andrew sign-off → CC kickoff. Blocks 10G close.**
+
+**Why:** Andrew's first live render of the new template (Coachella
+2026!!! / birthday-trip themed) in Gmail desktop showed the email
+filling the entire viewport (~2500px wide) instead of the intended
+560px-centered card. Marquee items spread out edge-to-edge, hero
+accent block and footer span the full pane, CTA floats in a sea of
+cream. Per-element styling is correct; the container sizing is
+broken.
+
+**Root cause (Cowork diagnosis, 2026-05-03):**
+
+The marquee uses `display:inline-flex` on the `.marquee-track` with
+`white-space:nowrap` on the wrapping div. In HTML email tables, cell
+width is determined by the WIDEST content unless `table-layout:fixed`
+is applied to the table. The marquee's no-wrap inline-flex content
+(~10 items × ~150px each = ~1500px before duplication, 3000px after
+the seamless-loop duplication) forces the table cell to expand to fit,
+which blows out the 560px `width` + `max-width` constraint on the
+inner `<table>`. Result: the entire inner card stretches to fit the
+marquee, not the other way around.
+
+Pre-10G email had no marquee → no no-wrap content → 560px constraint
+held cleanly. The marquee is the regression vector.
+
+**Secondary issue (cream-on-cream):** the outer `<table>` uses
+`background:${bg}` and the inner card also uses `background:${bg}`.
+Even if the 560px constraint were honored, the visual "card sitting
+on a contrasting page" effect would be lost — the rounded corners
+and box-shadow on the inner card become invisible because the
+outer-bg color matches the card-bg.
+
+**Scope (single file: `src/lib/email.ts`):**
+
+1. **`table-layout:fixed` on the inner 560px table.** Add the
+   declaration to the inner table's inline `style="..."` so the table
+   honors its declared `width="560"` and stops auto-expanding to fit
+   widest content.
+
+2. **Explicit `width="560"` on every inner `<td>`.** Each row's
+   cell needs an explicit width attribute so `table-layout:fixed`
+   has something to anchor on. Apply to the marquee row's `<td>`,
+   the hero row's `<td>`, the body row's `<td>`, the CTA row's
+   `<td>`, the paste-link row's `<td>`, and the footer row's
+   `<td>`. Six cells.
+
+3. **Marquee container clip wrapper.** The marquee's outer `<div>`
+   needs explicit `width:100%; max-width:560px; overflow:hidden;
+   box-sizing:border-box;` so the inline-flex track is clipped at
+   the cell boundary. Currently it has `overflow:hidden` but no
+   width constraint, so it inherits the blown-out cell width.
+
+4. **Outer-bg contrast.** Change the outer `<table>` background
+   from `${bg}` (theme cream) to a neutral that visually separates
+   the card from the page. Recommendation: `#ece7dc` (matches the
+   mockup's outer bg, reads as "page color" without competing with
+   any of the 17 theme palettes). Acceptable alternatives:
+   `#f5f1ea` (the pre-10G value), or `#1a1a1a`-style neutral dark.
+   Pick one and document in the inline-style comment.
+
+5. **Mobile padding sanity check.** The outer table currently has
+   `padding:40px 20px`. At a 375px viewport, that gives the inner
+   card a 335px effective max-width. The inner-table `max-width:560px`
+   already handles this — confirm it works after the fixed-layout
+   changes don't break the responsive collapse.
+
+**Hard Constraints:**
+
+- **Single file only:** `src/lib/email.ts`. No theme edits, no
+  lexicon edits, no caller edits.
+- **DO NOT change the per-element styling** (sticker pill, hero
+  accent block, CTA button, footer typography). Only the container/
+  table/layout primitives change.
+- **DO NOT add `<style>` block content** beyond the existing
+  `@keyframes marquee-scroll`. All new styles go inline on the
+  affected elements.
+- **DO NOT modify the marquee's animation, keyframes, or visual
+  treatment** — only the container clipping.
+- **DO NOT modify the plain-text alternative.** The `text` block
+  stays untouched.
+- **DO NOT touch any other file** — `api/invite/route.ts`,
+  `actions/transition-to-sell.ts`, theme files, lexicon files,
+  callers all stay frozen.
+
+**Acceptance Criteria:**
+
+- [ ] Email renders at max-width 560px centered, regardless of viewport
+      width. Verified at desktop (≥1440px viewport) AND mobile (375px
+      viewport) widths.
+- [ ] Marquee strip clips cleanly at 560px (or viewport width if
+      smaller). No horizontal overflow forcing the email content
+      wider than 560px. Marquee text NOT spread edge-to-edge across
+      a wide viewport.
+- [ ] Outer `<table>` background is visually distinct from the inner
+      card background, so the card reads as a contained surface with
+      visible rounded corners + box shadow.
+- [ ] All 6 test themes from the 10G QA list (birthday-trip,
+      beach-trip, ski-chalet, boys-trip, festival-run, city-weekend)
+      render correctly post-fix. No per-theme regression in hero,
+      sticker, CTA, or footer rendering.
+- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `rm -rf .next && npm run build` succeeds.
+- [ ] `git diff --stat` source files: ONLY `src/lib/email.ts`.
+- [ ] Mobile render (Gmail iOS or Android, OR DevTools mobile
+      emulation in Resend's preview): card fills width with
+      reasonable padding; no horizontal scroll; marquee clips.
+
+**Files to Read (mandatory):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` — session loop, hard
+  rules, especially the bug-triage rules (Part 2, Step 4c) and
+  escalation triggers (Part 3).
+- `rally-fix-plan-v1.md` — this brief; 10G Release Notes immediately
+  above for the original 10G implementation context.
+- `src/lib/email.ts` — current state post-10G. The single edit target.
+- `rally-10g-mockup.html` — for the outer-bg color reference (the
+  mockup uses `#ece7dc` for the page background).
+
+**How to QA Solo (before declaring done):**
+
+1. `npx tsc --noEmit` — must exit 0.
+2. `rm -rf .next && npm run build` — must succeed.
+3. `git diff --stat` — must show ONLY `src/lib/email.ts`.
+4. Manually inspect the rendered HTML at the start, middle, and end
+   of `email.ts` — confirm `table-layout:fixed` is on the inner
+   table, every inner `<td>` has an explicit `width="560"`, and the
+   marquee container has the clip-wrapper styles.
+5. Trigger a test invite from a `birthday-trip` themed prod trip,
+   open in Gmail desktop. Verify the card is 560px wide and centered;
+   no edge-to-edge marquee; outer page color is the new neutral.
+6. Open the same email in Gmail mobile (or DevTools mobile emulation
+   in Resend's preview pane). Verify card fills the viewport width
+   with reasonable padding; marquee clips at viewport width.
+7. Repeat steps 5-6 for at least one dark theme (boys-trip or
+   festival-run) to confirm sticker text contrast still holds.
+
+**Lexicon notes:** Zero new keys. Zero copy changes.
+
+**Carryover:** Once layout is fixed and verified across the 6-theme
+QA sample, 10G Actuals can be written and 10G closes. 10G' tonality
+sweep remains independent and unaffected.
+
+#### Session 10G — Bug Fix Release Notes (2026-05-03, Claude Code)
+
+**What was changed (all in `src/lib/email.ts`):**
+
+1. **`table-layout:fixed` on the inner 560px table** —
+   `src/lib/email.ts:86`. Inner table's inline style now reads
+   `width:560px; max-width:560px; table-layout:fixed; …`. This
+   forces the table to honor its declared `width="560"` instead of
+   auto-expanding to fit the widest content (which the marquee's
+   `inline-flex + white-space:nowrap` track was triggering).
+2. **Explicit `width="560"` on every inner `<td>`** —
+   `src/lib/email.ts:88, 95, 116, 122, 129, 135`. Six cells:
+   marquee row, hero row, body row, CTA row, paste-link row,
+   footer row. Each gets a `width="560"` HTML attribute so
+   `table-layout:fixed` has anchored cell widths to honor.
+3. **Marquee container clip wrapper** —
+   `src/lib/email.ts:89`. Marquee's outer `<div>` style is now
+   prefixed with `width:100%; max-width:560px; box-sizing:border-
+   box;` so the inline-flex track clips at the cell boundary
+   instead of inheriting blown-out width and pushing the cell
+   wider. The existing `overflow:hidden`, `white-space:nowrap`,
+   `padding:6px 0`, and `border-bottom` are preserved verbatim.
+4. **Outer-table background** —
+   `src/lib/email.ts:81-83`. Outer `<table>` background flipped
+   from `${bg}` (theme cream — caused cream-on-cream against
+   inner card and erased the rounded-corner + box-shadow
+   contained-surface read) to a fixed neutral `#ece7dc` matching
+   the mockup's page color. Reads as "page" not "card" against
+   any of the 17 theme bg values. A 2-line HTML comment above
+   the table records the rationale.
+5. **Mobile padding sanity** —
+   `src/lib/email.ts:83`. Outer table's `padding:40px 20px`
+   unchanged. At 375px viewport that gives 335px effective inner-
+   card width; the inner table's `max-width:560px` collapses to
+   the available space. No padding tweak needed; layout already
+   handled this correctly.
+
+**What changed from the brief:**
+
+- **Inner table also got an explicit `width:560px`** alongside the
+  briefed `max-width:560px` and `table-layout:fixed`. Strictly
+  belt-and-braces — without `width`, some Outlook builds fall back
+  to `width:auto` even with `table-layout:fixed`. Adds one CSS
+  declaration; no functional or visual effect on already-correct
+  clients. Flagged here for transparency.
+- **2-line HTML comment** added above the outer `<table>` recording
+  the `#ece7dc` choice (mockup ref + rationale). Not in the brief
+  but matches the documentation discipline applied to the
+  sticker-color hardcoded `#1a1a1a` in 10G — keeps non-tokenized
+  literals self-explanatory at the call site.
+
+**What to test (Andrew QA — desktop + mobile across 6 theme sample):**
+
+- [ ] **Desktop Gmail (≥1440px viewport):** trigger an invite from a
+      `birthday-trip` themed prod trip to a Resend-test address.
+      Card renders 560px wide and centered; outer page color is
+      neutral `#ece7dc`; rounded corners + box shadow on inner card
+      are visible against the page; marquee strip clips cleanly at
+      560px (no edge-to-edge spread); marquee text reads
+      "turning ★ cake mandatory ★ dress to party ★ the big one ★ we
+      love you" + repeat for the seamless-loop track; hero
+      `#ff4757` accent block sits inside the card, not edge-to-
+      edge; CTA `see the trip →` is centered inside the card.
+- [ ] **Mobile (Gmail iOS / Android, OR DevTools mobile-emulator
+      preview at 375px):** card fills viewport width minus the 20px
+      side padding (≈335px effective); no horizontal scroll; marquee
+      clips at viewport width; sticker pill, trip name, CTA, and
+      footer all render contained.
+- [ ] **`beach-trip`:** outer-bg neutral reads against the
+      `#e6f6f4` mint-green inner-card body bg without competing.
+- [ ] **`ski-chalet`:** outer-bg neutral reads against the `#f1ebd9`
+      cream inner-card body bg with visible border separation
+      (this was the worst pre-fix cream-on-cream pair).
+- [ ] **`boys-trip` (dark theme):** outer-bg neutral reads against
+      the `#0f0e10` inner-card body bg as a clear page/card
+      delineation; sticker `#1a1a1a` text on yellow `#ffd84d` still
+      reads (chassis stroke would have failed); marquee clips
+      correctly.
+- [ ] **`festival-run` (dark theme):** outer-bg neutral against
+      `#1a0a2e` purple body bg; marquee strip on `#2a1540` surface
+      with yellow `#ffe14a` text clips cleanly; hero text contrast
+      (`#f4e6ff` on `#ff3a8c`) is real-world readable on 30px
+      Georgia (the documented 2.82:1 known-issue from 10G).
+- [ ] **`city-weekend` (dark theme):** outer-bg neutral against
+      `#141416` body bg; marquee + sticker render as expected.
+
+**Static verification (Claude Code, completed):**
+
+- ✅ `npx tsc --noEmit` — exit 0.
+- ✅ `rm -rf .next && npm run build` — green; Next 16 / Turbopack;
+     16/16 static pages; route manifest unchanged from the 10G
+     deploy.
+- ✅ `git diff --stat` source files — ONLY `src/lib/email.ts`
+     (this fix-plan release-notes append is the only other
+     change, and is documentation, not source).
+
+**Architecture sanity (no-touch list confirmed):**
+
+- ✅ Zero edits under `src/lib/themes/`.
+- ✅ Zero edits to `src/lib/copy/surfaces/emails.ts` or any other
+     lexicon surface.
+- ✅ Zero edits to `api/invite/route.ts`, `actions/transition-to-
+     sell.ts`, or any other caller.
+- ✅ Per-element styling untouched: sticker pill, hero accent block,
+     organizer line, trip name H1, body prose, CTA button,
+     paste-link, footer typography all byte-equivalent to 10G post-
+     deploy. Only container/table/layout primitives changed.
+- ✅ Marquee animation, keyframe rule, marquee item rendering
+     untouched. Only the marquee's outer container clipping changed.
+- ✅ Plain-text alternative byte-identical to 10G.
+- ✅ No new `<style>` block content. The single `@keyframes
+     marquee-scroll` rule from 10G is the only `<style>` content,
+     unchanged.
+- ✅ Function signature, JSDoc-deprecated params, `renderTemplated`
+     helper, `getTheme` resolution, and theme palette destructure
+     all unchanged from the 10G post-deploy state.
+
+**Carryover:** Once Andrew completes the 6-theme QA sample above
+and confirms the 560px constraint holds on desktop + mobile, 10G
+Actuals can be written into the fix plan and 10G closes. 10G'
+tonality sweep remains independent.
+
 ---
 
 ### Session 10G': "OUT + holding button-text tonality sweep" (copy-only)
@@ -23285,6 +23552,37 @@ lands.
   resolve whether to build SMS, defer phone-only as a known gap,
   or reframe phone as an alternate identifier rather than a
   delivery channel.
+- **Member-removal cascade cleanup (P2 for v0; P1 post-scale).**
+  Discovered during 10G QA (2026-05-03, Andrew): when an organizer
+  removes a user from a trip, the user's `lodging_votes` row
+  persists and continues to count toward the property's vote tally.
+  Specifically observed on the Cap Jalouka property in the
+  Coachella 2026!!! test trip. The user is gone from the crew
+  section but their vote is not. Likely the same gap exists across
+  other user-attributable rows (`poll_votes`, `expenses.paid_by`,
+  `lodging.booked_by`, `transport.booked_by`, etc.), each with
+  different semantics — some should cascade-delete (vote), some
+  should null-out (booked-by attribution shouldn't lose the booking
+  record), some should preserve (buzz comments are history, removed
+  users' comments probably stay). NOT a one-liner: the right fix
+  is a per-table scoping pass that decides cascade behavior, then
+  one migration + one cleanup function.
+
+  **Severity rationale:** silent data corruption is high-severity
+  per occurrence (wrong vote tally → wrong property wins → product
+  decision on bad data, undetected) but the compound condition
+  (invitee added → RSVP'd yes → voted → removed) hits <5% of trips
+  in MVP. Engineering cost is significant relative to MVP user
+  impact, so deferred. Re-classify P1 once Rally has real users
+  and a real removal-after-RSVP signal exists, OR fix incidentally
+  if a broader data-integrity / attendee-state-model session
+  touches this naturally.
+
+  **Cheap interim mitigation (Cowork-fixable, optional):** add a
+  frontend guard in `CrewSection`'s lodging-vote tally display so
+  vote counts only include active `trip_members`. Hides the bug
+  without solving the underlying data gap. Ugly but cheap if
+  Andrew wants to ship a fig-leaf before the proper fix lands.
 
 ### Session 10B: "Production domain cutover (rallyapp.travel)"
 
