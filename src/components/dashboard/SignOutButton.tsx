@@ -21,13 +21,19 @@ export function SignOutButton() {
     <button
       onClick={signOut}
       style={{
-        padding: '8px 14px',
-        borderRadius: 10,
-        border: '1px solid rgba(0,0,0,0.08)',
-        background: '#fff',
+        // Session 11 polish (Cowork, 2026-05-03): flattened from a pill-with-
+        // outline to a plain text link. The pill looked popped-out next to
+        // the bare passport avatar in the AppHeader and against the cream page
+        // background after dropping the AppHeader's white box. Sign-out is a
+        // secondary escape hatch, not a primary action — muted color +
+        // transparent background keeps it discoverable but visually
+        // recessive.
+        padding: '4px 8px',
+        border: 'none',
+        background: 'transparent',
         color: '#888',
         fontSize: 12,
-        fontWeight: 600,
+        fontWeight: 500,
         cursor: 'pointer',
         fontFamily: "'Outfit', sans-serif",
       }}

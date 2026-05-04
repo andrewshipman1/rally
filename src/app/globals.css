@@ -3348,11 +3348,14 @@ button:active {
 /* Session 11 — shared persistent app chrome. Static (not sticky), neutral
    (hardcoded #1a1a1a on #fff — does not pick up [data-theme] vars when
    nested inside .chassis), reusable across /, /passport, /trip/[slug]. */
+/* Session 11 polish (Cowork, 2026-05-03): dropped background:#fff so chrome
+   sits inline with the page surface, not in a popped-out white box. Added
+   horizontal padding to align with the page content gutter. */
 .app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #fff;
+  padding: 0 16px;
   margin-bottom: 6px;
 }
 .app-header-wordmark {

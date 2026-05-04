@@ -25554,6 +25554,116 @@ persistent chrome — every future surface inherits the pattern.
 - ✅ **`profile.backLink` lexicon entry preserved** as
   `@deprecated 11`, not deleted.
 
+#### Session 11 — Cowork fixes (CSS / structural polish, 2026-05-03)
+
+**Trigger.** Visual QA of the Session 11 ship surfaced three issues that
+weren't caught by static verification (tsc/build all green) because they
+were aesthetic, not functional. Andrew flagged them in Cowork after the
+Vercel preview deploy. Per the session-guard skill, the JSX/structural
+piece is technically CC-scope; the call to do it in Cowork was an
+explicit relaxation of that rule for a small, low-risk polish bundle.
+Logged here transparently.
+
+**What changed:**
+
+1. **`.app-header` — dropped white box + added horizontal padding**
+   (`src/app/globals.css` ~line 3351). Removed `background: #fff` so the
+   chrome sits inline with the page surface (matches Andrew's "no
+   separate page color" direction). Added `padding: 0 16px` so the
+   wordmark and right-side cluster respect the page content gutter
+   (was butting against the viewport edge on dashboard, sketch, sell
+   trip — passport was clean only because `.chassis.passport-surface`
+   had its own padding).
+
+2. **SignOutButton — flattened from pill to text link**
+   (`src/components/dashboard/SignOutButton.tsx`). Dropped the white
+   pill background + 1px outline; reduced padding (`8px 14px` →
+   `4px 8px`); kept muted color (`#888`) and 12px font. Reasoning: the
+   pill looked popped-out next to the bare passport avatar in the
+   AppHeader, especially after dropping the AppHeader's white box.
+   Sign-out is a secondary escape hatch — discoverable but visually
+   recessive.
+
+3. **PostcardHero — added `topChrome` slot for AppHeader**
+   (`src/components/trip/PostcardHero.tsx`). New optional prop
+   `topChrome?: ReactNode`. Renders between the marquee div and the
+   hero `header` block. Lets trip pages match the dashboard's pattern
+   of marquee → AppHeader → content (previously trip pages had
+   AppHeader → marquee → content per the Session 11 brief, which
+   Andrew reversed during QA — marquee at top is the brand asset
+   that earns the prime real estate).
+
+4. **Sell-phase trip page — passes AppHeader as `topChrome`**
+   (`src/app/trip/[slug]/page.tsx` line ~287). Removed the standalone
+   `<AppHeader user={viewerProfile} />` insertion above
+   `<PostcardHero>`. Passed `topChrome={<AppHeader user={viewerProfile}
+   />}` as a prop instead.
+
+5. **Sketch-phase trip page — same pattern**
+   (`src/components/trip/builder/SketchTripShell.tsx` line ~167).
+   Removed standalone AppHeader, passed as `topChrome` prop.
+
+**What did NOT change:**
+
+- Dashboard chrome layout (`src/app/page.tsx`) — already had marquee
+  on top, AppHeader below; the white-box drop and padding fix on
+  `.app-header` apply automatically.
+- Passport page (`src/app/passport/page.tsx`) — same; AppHeader is at
+  the top (no marquee on this surface), benefits from the CSS changes
+  with no JSX edits.
+- AuthSurface — untouched.
+- Wordmark color stays `#1a1a1a`. On the 3 darker themes
+  (`festival-run`, `boys-trip`, `city-weekend`) this may have marginal
+  contrast against themed `.chassis` backgrounds without the white
+  box behind it. Folded into the existing all-theme contrast sweep
+  backlog item; not fixed in this Cowork bundle.
+- `.dash-header-wrap` rules in globals.css preserved as-is (still
+  groups AppHeader + SignOutButton on the dashboard).
+
+**Static verification:**
+
+- ✅ `npx tsc --noEmit` — exit 0, zero errors.
+- ⚠️ `npm run build` not exercised in Cowork's Linux sandbox (Next.js
+  SWC binary architecture mismatch — sandbox is linux/arm64, project
+  expects macOS arm64). Vercel preview deploy will build on its own
+  infra; tsc covers the type-correctness check that matters most.
+
+**Files touched (5):**
+
+- `src/app/globals.css`
+- `src/components/dashboard/SignOutButton.tsx`
+- `src/components/trip/PostcardHero.tsx`
+- `src/app/trip/[slug]/page.tsx`
+- `src/components/trip/builder/SketchTripShell.tsx`
+
+**What to verify (Andrew, after redeploy to Vercel preview):**
+
+- [ ] Dashboard `/` — wordmark sits with breathing room from the
+  viewport edge (not flush). Sign-out reads as a quiet text link, not
+  a pill.
+- [ ] Trip page sell (`/trip/sjtIcYZB`) — order is marquee (black
+  band, top) → AppHeader (cream background, wordmark + avatar) →
+  hero. No white box around the AppHeader. Wordmark padded from edge.
+- [ ] Trip page sketch — same order: marquee → AppHeader → form +
+  postcard.
+- [ ] Passport `/passport` — wordmark padded from edge, no white box.
+- [ ] All four wordmark links → `/` work; all avatar links →
+  `/passport` work; sign-out signs out.
+- [ ] Dark-theme contrast spot-check on `festival-run` (Coachella) —
+  if the wordmark feels lost against the themed background, log it
+  for the all-theme contrast sweep but don't try to fix in this
+  bundle.
+
+**Carryover:**
+
+- All-theme contrast sweep backlog item now has an additional
+  inheritor: `.app-header-wordmark` color on dark themes after the
+  white-box drop. Fold the sweep accordingly.
+- The "session-guard skill says CSS-only for Cowork" discipline was
+  bent here for the JSX prop change in PostcardHero. One-off, not a
+  precedent — this bundle was unusually small and low-risk. Future
+  multi-file structural changes still go to CC.
+
 #### Per-crew arrival estimator — sell phase feature (deferred from Session 8 planning)
 
 **Context:** The home → meetup leg was originally planned as a sketch module

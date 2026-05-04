@@ -89,6 +89,13 @@ type Props = {
   sketchOverrides?: SketchOverrides;
   /** When set, renders the inviter row + eyebrow (Phase 5 invitee state). */
   inviteeOverrides?: InviteeOverrides;
+  /**
+   * Session 11 polish (Cowork, 2026-05-03): optional chrome (e.g.,
+   * `<AppHeader />`) rendered between the marquee and the hero `header`
+   * block. Lets the trip page match the dashboard pattern of marquee →
+   * AppHeader → content. Pass null/undefined to skip.
+   */
+  topChrome?: ReactNode;
 };
 
 export function PostcardHero({
@@ -106,6 +113,7 @@ export function PostcardHero({
   dateEndIso = null,
   sketchOverrides,
   inviteeOverrides,
+  topChrome,
 }: Props) {
   const theme = getTheme(themeId);
   const isSketch = !!sketchOverrides;
@@ -196,6 +204,11 @@ export function PostcardHero({
           ))}
         </div>
       </div>
+
+      {/* Session 11 polish (Cowork, 2026-05-03): chrome slot — renders
+          AppHeader between marquee and hero so trip pages match the
+          dashboard's marquee → header → content order. */}
+      {topChrome}
 
       <div className="header">
         {sticker && <div className="sticker">{sticker}</div>}

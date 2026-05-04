@@ -285,7 +285,11 @@ export default async function TripPage({ params, searchParams }: Props) {
   return (
     <PassportProvider>
     <div className="chassis" data-theme={themeId}>
-      <AppHeader user={viewerProfile} />
+      {/* Session 11 polish (Cowork, 2026-05-03): AppHeader is now passed
+          INTO PostcardHero as `topChrome` so it renders between the
+          marquee and the hero, mirroring the dashboard's marquee →
+          header → content order. The standalone `<AppHeader>` insertion
+          above PostcardHero is gone. */}
       <PostcardHero
         themeId={themeId}
         tripName={trip.name}
@@ -299,6 +303,7 @@ export default async function TripPage({ params, searchParams }: Props) {
         cutoffIso={cutoffIso}
         dateStartIso={trip.date_start}
         dateEndIso={trip.date_end}
+        topChrome={<AppHeader user={viewerProfile} />}
       />
 
       {/* Session 9D — countdown scoreboard. Sell: full shape (kicker + date +

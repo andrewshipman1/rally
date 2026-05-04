@@ -164,8 +164,12 @@ export function SketchTripShell({
 
   return (
     <div className="chassis" data-theme={activeThemeId}>
-      <AppHeader user={viewerProfile} />
+      {/* Session 11 polish (Cowork, 2026-05-03): AppHeader is now passed
+          INTO PostcardHero as `topChrome` so it renders between the
+          marquee and the hero, matching the dashboard's marquee →
+          header → content order. */}
       <PostcardHero
+        topChrome={<AppHeader user={viewerProfile} />}
         themeId={activeThemeId}
         tripName={name}
         destination={destination}
