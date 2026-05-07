@@ -6,7 +6,7 @@
 
 ---
 
-## Status Overview (snapshot 2026-05-03 EOD)
+## Status Overview (snapshot 2026-05-07)
 
 At-a-glance state of all in-flight + recently-shipped + backlog work
 across Rally. Each row points to its canonical home. Updated after
@@ -29,8 +29,8 @@ Overview rule in `.claude/skills/rally-session-guard/SKILL.md`).
 | Attendee Experience Strategy (Session 10 arc) | ✅ closed (2026-05-03) | `rally-attendee-strategy-v0.md` |
 | Lock phase strategy v0 | ✅ refined to wireframe-ready (2026-05-03 EOD) — 6 gaps closed, master mockup shipped | `rally-lock-phase-strategy-v0.md` + `rally-lock-phase-mockup.html` |
 | Session 11 — Persistent app header (`<AppHeader>` shared chrome) | ✅ shipped + verified (2026-05-03) — initial CC ship + Cowork polish bundle deployed to prod | §Session 11 |
-| Session 12 — Lock implementation arc (Lock-A through Lock-H) | 🟡 in flight — Lock-A briefed 2026-05-03, awaiting CC; Lock-B–H queued behind it | §Session 12A + `rally-lock-phase-strategy-v0.md` "Implementation sub-sessions" |
-| Session 12A — Lock-A: Data foundation (migrations + `fireLock` action) | 🟡 briefed 2026-05-03; awaiting CC | §Session 12A |
+| Session 12 — Lock implementation arc (Lock-A through Lock-H) | 🟡 in flight — Lock-A shipped 2026-05-07; Lock-B–H queued behind it | §Session 12A + `rally-lock-phase-strategy-v0.md` "Implementation sub-sessions" |
+| Session 12A — Lock-A: Data foundation (migrations + `fireLock` action) | ✅ shipped + verified (2026-05-07) — migrations applied to prod, schema verified | §Session 12A |
 | Go phase definition | ⏸ backlog | §Backlog → 🏗️ Strategic |
 | Activity feed (buzz) buildout | ⏸ backlog (depends on Lock + Go) | §Backlog → 🏗️ Strategic |
 | Comms drip campaign across trip lifecycle | ⏸ backlog | §Backlog → 🏗️ Strategic |
@@ -26301,7 +26301,116 @@ script):**
   for the same user are untouched (mirrors 027's per-trip
   discipline).
 
+#### Session 12A — Cowork close-out (CC, 2026-05-07)
 
+**Trigger.** CC's Lock-A build was completed in a worktree
+(`.claude/worktrees/youthful-khorana-320de0/`) and never committed
+into that worktree's git HEAD — the files lived as orphans on disk.
+Andrew opted out of the worktree pattern for Lock-X going forward
+and ran a single end-to-end finishing flow in CC on main: copy →
+verify → commit → push → reconcile Supabase tracking → apply
+028–032 to prod → verify schema. Below is what landed and what
+got reconciled.
+
+**Build-time deviations (re-confirmed accepted):**
+
+1. **Migration 032 bundles the `fire_lock` PL/pgSQL function with
+   the `commitments` table** rather than landing as a 6th migration.
+   The function body references columns from 028–031 + the
+   commitments table created in 032; co-location keeps the lock-
+   phase mechanic reviewable as one file.
+2. **Headliner actual cost uses cents** (`headliner_actual_cost_cents
+   integer`) to match the existing `headliner_cost_cents` convention
+   from migration 017, not the brief's literal `headliner.actual_cost`.
+   The server action accepts dollars at the boundary and converts
+   internally so the API surface is uniform.
+3. **`fireLock` is a thin Next.js server action that calls a
+   PL/pgSQL RPC** (`public.fire_lock`), not JS-orchestrated supabase-
+   js writes. The brief's locked decision #5 (server action) and #6
+   (single PG transaction) had a real tension — supabase-js does
+   NOT wrap multiple `.update()` calls in one transaction. The thin
+   wrapper pattern preserves the server-action surface for Lock-B's
+   wizard while the PL/pgSQL function delivers the atomic body.
+
+**Prod deploy (2026-05-07):**
+
+- **Code commit pushed to main:** `c3c3970 Session 12A (Lock-A):
+  data foundation for lock phase`. Vercel auto-redeployed; route
+  list unchanged from Session 11 ship.
+- **Supabase migration tracking gap reconciled.** Pre-existing
+  state: prod schema had migrations 001–027 applied (mostly
+  hand-applied via Studio per the project's no-Docker pattern),
+  but the CLI's `schema_migrations` table only recorded 001–011.
+  Reconciled via `supabase migration repair --linked --status
+  applied 012 013 ... 027` — single command, marked all 16
+  versions as applied without re-running them.
+- **Prod schema-reality verified before repair.** Spot-checked
+  three migrations using `supabase db query --linked`:
+  `trips.headliner_cost_cents` exists (017), `handle_trip_member_removed`
+  function + `on_trip_member_deleted` trigger exist (027), and
+  `trip_members.invite_token` column exists (026 — see footnote on
+  the brief's verification recipe). All present; repair was safe.
+- **Brief's verification recipe correction.** The brief's check
+  for "`invite_tokens` table exists (created by migration 026)" was
+  based on the migration's filename (`026_invite_tokens.sql`).
+  Migration 026 actually adds two COLUMNS to `trip_members`
+  (`invite_token`, `invite_sent_at`) — there is no `invite_tokens`
+  table. Used `EXISTS (... column_name='invite_token' ...)` instead
+  to confirm the migration's effect was in prod. Logging here so
+  future Lock-X close-outs don't trip on the same naming mismatch.
+- **Migrations 028–032 applied to prod.** First attempt
+  (`supabase db push --include-all`) failed with `duplicate key
+  value violates unique constraint "schema_migrations_pkey"` on
+  version 024 — the pre-existing dupe-024 filename issue
+  (`024_handle_new_user_trigger.sql` + `024_transport_subtype_nullable.sql`,
+  both at version 024) collides with the tracking table's version
+  PK. Verified post-failure that 028–032 had NOT partially applied
+  (`users.zelle_handle`, `trips.lock_deadline`, `commitments`
+  table all absent at that point). Workaround: temporarily moved
+  `024_transport_subtype_nullable.sql` to `/tmp/`, ran `supabase
+  db push --linked` (only saw 028–032 as un-applied), then
+  restored the file. The hotfix's effect is already in prod
+  (`transport.subtype.is_nullable = YES`), so its absence during
+  the push window was invisible. Net: zero schema change beyond
+  028–032; dupe-024 file restored to its original location.
+- **Idempotency confirmed.** Re-running `supabase db push --linked`
+  reports "Remote database is up to date." (no SQL executed).
+- **Schema verified in prod (2026-05-07):** all 17 new columns
+  present with correct types (`users.zelle_handle/cashapp_handle`
+  + 4 lodging + 4 transport + 5 trips lock-phase + 1 trip
+  `lock_deadline`); `commitments` table exists with the 4 expected
+  columns, unique constraint on `(attendee_user_id, trip_id)`,
+  RLS enabled, both policies present (`Commitments viewable`,
+  `Users can commit themselves`); `public.fire_lock` function
+  exists.
+- **End-to-end auth-path smoke test of `fire_lock` deferred to
+  Lock-B** per the brief. Studio SQL editor runs as `postgres`
+  superuser (`auth.uid()` returns NULL there), so direct calls
+  return `not_authenticated`. Lock-B's wizard is the natural
+  exercise of the auth path.
+
+**Cleanup follow-ups (non-blocking):**
+
+- **Dupe-024 cosmetic orphan in `supabase migration list`.** The
+  display still shows two `024` rows (one matched, one local-
+  only) because the `schema_migrations` PK can only track version
+  024 once. `db push` will keep nagging about the orphan unless
+  the second 024 file is renamed to a fresh version (e.g., `028a_…`,
+  same idempotent no-op for prod). Pre-existing problem, predates
+  Lock-A. Logged for a future Lock-X close-out cycle.
+- **Worktree at `.claude/worktrees/youthful-khorana-320de0/` is now
+  orphaned.** Lock-A's source files were copied out before the
+  push; the worktree's local branch (`claude/youthful-khorana-320de0`)
+  is unmerged but functionally redundant since main now has
+  everything. Andrew can `git worktree remove
+  .claude/worktrees/youthful-khorana-320de0 && git branch -D
+  claude/youthful-khorana-320de0` from his Mac when convenient.
+
+**Architecture sanity (close-out):** `migration list` shows
+001–032 applied to prod (with the dupe-024 cosmetic orphan
+unchanged). `git log --oneline` shows the Session 12A commit on
+main. Code on main matches what landed in prod schema. Lock-B
+brief is the next session to scope.
 
 **Context:** The home → meetup leg was originally planned as a sketch module
 ("flights"), but during 8I planning we concluded it doesn't fit the group-
