@@ -39,6 +39,11 @@ export interface User {
   home_city: string | null;
   dietary_restrictions: string | null;
   venmo_handle: string | null;
+  // Session 12A — payment-handle columns surfaced by Module A's
+  // Send-via-X deep link. Captured just-in-time during the Lock-B
+  // wizard if unset on the organizer.
+  zelle_handle: string | null;
+  cashapp_handle: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +77,10 @@ export interface Trip {
   cover_image_url: string | null;
   phase: TripPhase;
   commit_deadline: string | null;
+  // Session 12A — lock-phase booking deadline. Set by fireLock; drives
+  // the lock-phase drip cadence. Distinct from commit_deadline (sell-
+  // phase RSVP-by). Nullable pre-lock.
+  lock_deadline: string | null;
   group_size: number;
   share_slug: string;
   essential_info: EssentialInfoItem[];
@@ -95,6 +104,13 @@ export interface Trip {
   headliner_link_url: string | null;
   headliner_image_url: string | null;
   headliner_source_title: string | null;
+  // Session 12A — headliner lock-phase columns. Allocation tracking
+  // mirrors lodging/transport (NULL,false / uuid,false / NULL,true);
+  // actuals follow the headliner_*_cents convention from 017.
+  headliner_actual_cost_cents: number | null;
+  headliner_cost_finalized_at: string | null;
+  headliner_allocation_owner: string | null;
+  headliner_allocation_individual: boolean;
   // Session 8K — sketch-phase activities collapse to a single per-person
   // estimate (stored as whole dollars × 100 = cents). Nullable = unset.
   activities_estimate_per_person_cents: number | null;
@@ -145,6 +161,13 @@ export interface Lodging {
   booked_by: string | null;
   notes: string | null;
   is_selected: boolean;
+  // Session 12A — lock-phase actuals + allocation tracking. NULL
+  // pre-lock; written by fireLock when this lodging is the chosen
+  // option and (when organizer-books) gets a confirmed actual cost.
+  actual_cost: number | null;
+  cost_finalized_at: string | null;
+  allocation_owner: string | null;
+  allocation_individual: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -204,6 +227,12 @@ export interface Transport {
   status: ComponentStatus;
   booked_by: string | null;
   notes: string | null;
+  // Session 12A — lock-phase actuals + allocation tracking. NULL
+  // pre-lock; written by fireLock per item when allocated.
+  actual_cost: number | null;
+  cost_finalized_at: string | null;
+  allocation_owner: string | null;
+  allocation_individual: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -329,6 +358,16 @@ export interface Comment {
   reactions: Reaction[];
   type: 'comment' | 'rsvp';
   created_at: string;
+}
+
+// Session 12A — lock-phase aggregate commitment. One row per attendee
+// per trip, INSERTed by Lock-D when the attendee taps "i'm in" on
+// Module A. Append-only in v0.
+export interface Commitment {
+  id: string;
+  attendee_user_id: string;
+  trip_id: string;
+  committed_at: string;
 }
 
 export interface Expense {

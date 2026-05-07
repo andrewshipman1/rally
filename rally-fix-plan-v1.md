@@ -6,7 +6,7 @@
 
 ---
 
-## Status Overview (snapshot 2026-05-03)
+## Status Overview (snapshot 2026-05-03 EOD)
 
 At-a-glance state of all in-flight + recently-shipped + backlog work
 across Rally. Each row points to its canonical home. Updated after
@@ -27,9 +27,10 @@ Overview rule in `.claude/skills/rally-session-guard/SKILL.md`).
 | Cost-math — hotels missing rooms multiplier | ✅ shipped (2026-05-03) | §Backlog → 🐛 Bugs |
 | Member-removal cascade — migration 027 | ✅ shipped + verified (2026-05-03) | §Backlog → 🐛 Bugs + `supabase/migrations/027` |
 | Attendee Experience Strategy (Session 10 arc) | ✅ closed (2026-05-03) | `rally-attendee-strategy-v0.md` |
-| Lock phase strategy v0 | 🟡 doc drafted; implementation arc TBD | `rally-lock-phase-strategy-v0.md` |
-| Session 11 — Persistent app header (`<AppHeader>` shared chrome) | 🟡 briefed 2026-05-03; awaiting CC | §Session 11 |
-| Lock phase implementation arc (Session 12; Lock-A through Lock-H) | ⏸ backlog | §Backlog → 🏗️ Strategic |
+| Lock phase strategy v0 | ✅ refined to wireframe-ready (2026-05-03 EOD) — 6 gaps closed, master mockup shipped | `rally-lock-phase-strategy-v0.md` + `rally-lock-phase-mockup.html` |
+| Session 11 — Persistent app header (`<AppHeader>` shared chrome) | ✅ shipped + verified (2026-05-03) — initial CC ship + Cowork polish bundle deployed to prod | §Session 11 |
+| Session 12 — Lock implementation arc (Lock-A through Lock-H) | 🟡 in flight — Lock-A briefed 2026-05-03, awaiting CC; Lock-B–H queued behind it | §Session 12A + `rally-lock-phase-strategy-v0.md` "Implementation sub-sessions" |
+| Session 12A — Lock-A: Data foundation (migrations + `fireLock` action) | 🟡 briefed 2026-05-03; awaiting CC | §Session 12A |
 | Go phase definition | ⏸ backlog | §Backlog → 🏗️ Strategic |
 | Activity feed (buzz) buildout | ⏸ backlog (depends on Lock + Go) | §Backlog → 🏗️ Strategic |
 | Comms drip campaign across trip lifecycle | ⏸ backlog | §Backlog → 🏗️ Strategic |
@@ -25664,7 +25665,643 @@ Logged here transparently.
   precedent — this bundle was unusually small and low-risk. Future
   multi-file structural changes still go to CC.
 
-#### Per-crew arrival estimator — sell phase feature (deferred from Session 8 planning)
+### Session 12A: "Lock-A — Data foundation for lock phase"
+
+**Status: briefed 2026-05-03 (Cowork). Awaiting CC kickoff.**
+
+**Promoted from:** the Lock implementation arc anticipated in
+`rally-lock-phase-strategy-v0.md`. First sub-session in the Lock
+arc (Session 12; Lock-A through Lock-H per the strategy doc's
+"Implementation sub-sessions (refined 2026-05-03 EOD)" section).
+
+**Reference:** master wireframe `rally-lock-phase-mockup.html` (15
+frames spanning the full organizer + attendee journey for the Lock
+phase). Lock-A is the data-only foundation under everything in the
+mockup; no UI shipped this session.
+
+**Goal.** Migrations + the `fireLock` server action. Zero UI. Once
+Lock-A ships, the data layer is ready for Lock-B's wizard UI to
+write into it. After Lock-B fires `fireLock`, the trip transitions
+correctly into lock state at the data layer (phase flip, holding →
+out auto-bump, divisor recalc, allocations + actual_cost recorded).
+
+**Decisions locked (from strategy doc + Cowork session 2,
+2026-05-03):**
+
+1. **Allocation tracking lives on the items themselves**, not in a
+   separate `allocations` join table. Add an `allocation_owner uuid
+   references public.users(id)` column to `lodging`, `transport`,
+   `headliner`. Semantics:
+   - `NULL` = unallocated (pre-lock state)
+   - = organizer's `user_id` = "I'm booking"
+   - A sentinel value for "each attendee books" — proposal: a special
+     boolean column `allocation_individual boolean default false`
+     paired with `allocation_owner` (when `allocation_individual =
+     true`, `allocation_owner` is NULL but the item is intentionally
+     "each attendee books," not unallocated). Decide implementation
+     detail during the migration write — either pattern works as long
+     as the three states are distinguishable.
+
+2. **Payment handles use 3 separate columns**, not a JSONB blob:
+   `users.venmo_handle text`, `users.zelle_handle text`,
+   `users.cashapp_handle text`. Rationale: simple text fields, indexable
+   if we ever need that, mirrors how `users.phone` and `users.email`
+   are stored. JSONB would be over-engineered for 3 string fields.
+
+3. **`commitments` is a new table**, not a column on `trip_members`.
+   Shape:
+   ```
+   create table public.commitments (
+     id uuid primary key default gen_random_uuid(),
+     attendee_user_id uuid not null references public.users(id),
+     trip_id uuid not null references public.trips(id) on delete cascade,
+     committed_at timestamptz not null default now(),
+     unique(attendee_user_id, trip_id)
+   );
+   ```
+   Lock-D will INSERT here when an attendee taps "i'm in." Lock-A
+   creates the table; Lock-D writes to it.
+
+4. **`actual_cost` + `cost_finalized_at` columns** on each shared-
+   cost item type. Schema check needed: lodging may already have
+   `total_cost` (`002_typed_components.sql:105`); transport has
+   `estimated_total`; headliner shape needs verification. Migration
+   should ADD `actual_cost numeric(10,2)` + `cost_finalized_at
+   timestamptz` to each, leaving any existing estimate columns alone
+   (estimates remain pre-lock; actuals get written by `fireLock`).
+
+5. **`fireLock` is a Next.js server action**, not a SQL function.
+   Lives in `src/app/actions/fire-lock.ts` (or similar). Reasons:
+   ergonomic for the Lock-B wizard to call directly; testable from
+   Cowork via direct invocation; consistent with existing patterns
+   (`actions/transition-to-sell.ts`).
+
+6. **`fireLock` is transactional.** All writes happen in a single
+   Postgres transaction or are rolled back. Partial-state lock is
+   not allowed — either the trip is fully in lock state or it's
+   still in sell.
+
+**Scope (numbered, file-referenced):**
+
+1. **Migration 028 — `users.payment_handles` columns.** New file
+   `supabase/migrations/028_payment_handles.sql`. Adds three
+   nullable text columns (`venmo_handle`, `zelle_handle`,
+   `cashapp_handle`) to `public.users`. Idempotent (use `ADD COLUMN
+   IF NOT EXISTS`). Optional comment on each documenting that
+   they're used by the Lock phase + Module A's "Send Andrew via
+   Venmo →" affordance.
+
+2. **Migration 029 — `trips.lock_deadline`.** New file
+   `supabase/migrations/029_trips_lock_deadline.sql`. Adds nullable
+   `lock_deadline timestamptz` to `public.trips`. Distinct from
+   `commit_deadline` (which is sell-phase RSVP-by). Comment
+   documenting the distinction.
+
+3. **Migration 030 — `actual_cost` + `cost_finalized_at` on item
+   types.** New file `supabase/migrations/030_actuals_on_items.sql`.
+   Adds two columns to each of `public.lodging`, `public.transport`,
+   `public.headliner` (or whichever currently lack them — check schema
+   first; some may already have one or the other). Idempotent.
+
+4. **Migration 031 — allocation tracking on items.** New file
+   `supabase/migrations/031_allocation_tracking.sql`. Adds
+   `allocation_owner uuid references public.users(id)` and
+   `allocation_individual boolean default false` to lodging, transport,
+   headliner. Three-state semantics: `(NULL, false)` = unallocated,
+   `(<organizer_id>, false)` = "I'm booking," `(NULL, true)` = "each
+   attendee books." (Or your preferred encoding — confirm with Andrew
+   before committing the schema.)
+
+5. **Migration 032 — `commitments` table.** New file
+   `supabase/migrations/032_commitments.sql`. Creates the table per
+   shape in decision #3 above. RLS policies: attendee can INSERT
+   their own row, all trip_members can SELECT to see committed-state.
+   Mirror existing RLS patterns in `001_initial_schema.sql`.
+
+6. **Server action `fireLock`** in
+   `src/app/actions/fire-lock.ts`. Accepts a single params object:
+   ```typescript
+   type FireLockParams = {
+     tripId: string;
+     lodgingChoice: { lodgingId: string };  // overridden vote winner
+     allocations: Array<{
+       itemType: 'lodging' | 'transport' | 'headliner';
+       itemId: string;
+       mode: 'organizer_books' | 'individual_books';
+       actualCost?: number;  // required when mode === 'organizer_books'
+     }>;
+     paymentHandles?: {
+       venmo?: string;
+       zelle?: string;
+       cashapp?: string;
+     };
+     lockDeadline: string;  // ISO timestamp
+   };
+   ```
+   The action MUST:
+   - Validate that the caller is the trip organizer (use existing auth
+     pattern).
+   - Open a transaction.
+   - Check the trip's current phase — if already `lock` / `go` / `done`,
+     return `{ error: 'already_locked' }` cleanly.
+   - For each allocation item, write `allocation_owner` +
+     `allocation_individual` + (if `organizer_books`) `actual_cost` +
+     `cost_finalized_at = now()`.
+   - UPDATE trip_members: any rows with `rsvp = 'holding'` get bumped
+     to `rsvp = 'out'` (scoped to this trip).
+   - UPDATE the trip: phase = 'lock', lock_deadline = params.
+   - If `paymentHandles` is provided, UPDATE the organizer's user
+     record with the new handle values (preserve existing if not
+     provided in params).
+   - Commit transaction.
+   - Return `{ ok: true, lockedAt: ISO }` on success.
+
+7. **Type exports.** Update `src/types/index.ts` (or wherever item
+   types are defined) to reflect the new columns on lodging/transport/
+   headliner. Update User type to reflect the new payment-handle
+   columns.
+
+**Hard constraints:**
+
+- DO NOT modify any UI in this session. Zero `.tsx` rendering changes.
+  The only TypeScript file touched is `src/app/actions/fire-lock.ts`
+  (new) and `src/types/index.ts` (type updates).
+- DO NOT create new routes.
+- DO NOT modify any existing modules (lodging, transport, headliner
+  card components, etc.). Type updates may add fields, but the
+  rendering code is untouched in Lock-A.
+- All migrations are idempotent (safe to re-apply). Use
+  `IF NOT EXISTS` / `OR REPLACE` patterns where applicable.
+- `fireLock` server action runs in a single Postgres transaction. No
+  partial states.
+- DO NOT call `fireLock` from any UI in this session. Lock-B wires
+  the wizard up.
+- DO NOT modify Migration 027 (member-removal cascade) or any prior
+  migrations.
+- DO NOT add `payment_handles` to any existing form (passport profile
+  page, etc.). Just-in-time capture happens in the Lock-B wizard;
+  passport-page editing is a future polish.
+- `commitments` table is created empty. No backfill, no triggers
+  populating it.
+- Holdings → out auto-bump scope: ONLY `trip_members.rsvp` for THIS
+  trip. Do NOT touch the user's holdings on other trips.
+
+**Acceptance Criteria (verifiable in Supabase Studio + via test
+script):**
+
+- [ ] Migrations 028–032 apply cleanly on a fresh DB (`supabase
+  migration up` from scratch).
+- [ ] Migrations 028–032 are idempotent (re-applying after a
+  successful apply is a no-op).
+- [ ] `users.venmo_handle`, `zelle_handle`, `cashapp_handle` exist
+  and accept text values.
+- [ ] `trips.lock_deadline` exists and accepts timestamptz.
+- [ ] `lodging.actual_cost`, `transport.actual_cost`,
+  `headliner.actual_cost` (and matching `cost_finalized_at`) exist.
+- [ ] Allocation columns exist on lodging, transport, headliner with
+  the three-state encoding correct.
+- [ ] `commitments` table exists with the specified shape, RLS, and
+  unique constraint.
+- [ ] Calling `fireLock` on a sell-phase trip with valid params:
+  - Trip phase transitions sell → lock.
+  - All passed allocations are recorded on the items.
+  - All `actual_cost` values are written for `organizer_books` items.
+  - `cost_finalized_at` is non-null on all `organizer_books` items.
+  - All `trip_members` with `rsvp = 'holding'` for this trip are
+    bumped to `out`.
+  - `lock_deadline` is set on the trip.
+  - If `paymentHandles` were provided, the organizer's user row
+    reflects them.
+- [ ] Calling `fireLock` on an already-locked trip returns
+  `{ error: 'already_locked' }` without making any DB changes.
+- [ ] Calling `fireLock` as a non-organizer returns
+  `{ error: 'not_organizer' }` without making any DB changes.
+- [ ] `fireLock` is transactional — partial failures roll back
+  cleanly. (Test by injecting a failure mid-action; verify trip phase
+  is unchanged.)
+- [ ] Multi-trip safety: organizer's other trips' data is unaffected
+  by a `fireLock` call on one trip. Specifically, `trip_members.rsvp`
+  on OTHER trips is unchanged even if the organizer fired lock here.
+- [ ] `npx tsc --noEmit` clean.
+- [ ] `rm -rf .next && npm run build` clean.
+
+**Files to Read (before coding):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` (full).
+- `rally-fix-plan-v1.md` — Status Overview + this Session 12A brief +
+  Session 11 Release Notes (recent CC pattern).
+- `rally-lock-phase-strategy-v0.md` — full doc, especially "Cowork
+  session 2 — additional locked decisions" + "Implementation sub-
+  sessions (refined 2026-05-03 EOD)" sections at the bottom.
+- `supabase/migrations/001_initial_schema.sql` — schema baseline,
+  RLS patterns, table shapes for lodging/transport/users.
+- `supabase/migrations/002_typed_components.sql` — current shapes of
+  lodging, transport, restaurants, activities, groceries, comments.
+- `supabase/migrations/023_merge_orphan_user_by_email.sql`,
+  `024_handle_new_user.sql`, `027_handle_trip_member_removed.sql` —
+  recent migration patterns for SECURITY DEFINER triggers,
+  idempotency, schema-drift guards. Lock-A doesn't need triggers but
+  the safety patterns are worth mirroring where applicable.
+- `src/app/actions/transition-to-sell.ts` — existing server-action
+  pattern to mirror for `fireLock`.
+- `src/types/index.ts` — User and trip-item types that will need
+  updating for the new columns.
+- `src/lib/supabase/server.ts` — server-client pattern for the action.
+
+**How to QA Solo (CC-side):**
+
+- `cd ~/Desktop/claude/rally && supabase migration up` — verify all
+  five new migrations apply cleanly.
+- Re-run `supabase migration up` — verify idempotency (no errors,
+  no changes).
+- Open Supabase Studio → run schema queries to verify all expected
+  columns and tables exist with correct types and constraints.
+- Write a test script (or run via Studio SQL console) that calls
+  `fireLock` directly:
+  ```sql
+  -- Pre-state
+  SELECT phase, lock_deadline FROM trips WHERE id = '<test-trip-id>';
+  SELECT rsvp FROM trip_members WHERE trip_id = '<test-trip-id>';
+
+  -- Call fireLock via Next.js server action runner OR equivalent SQL
+
+  -- Post-state — verify all the things in the AC list
+  ```
+- `npx tsc --noEmit` — exit 0.
+- `rm -rf .next && npm run build` — clean build, no new routes
+  (action routes don't count as new pages).
+- `git diff --stat` — confirm blast radius:
+  - 5 new files in `supabase/migrations/`
+  - 1 new file in `src/app/actions/`
+  - 1 modified `src/types/index.ts`
+  - This release-notes append to `rally-fix-plan-v1.md`
+  - Nothing else.
+
+**Carryover:**
+
+- Lock-B (wizard UI) starts immediately after Lock-A ships. Cowork
+  generates a higher-fidelity wizard wireframe in parallel with
+  Lock-A's CC implementation, so by the time Lock-A is verified,
+  Lock-B's brief is ready.
+- Schema-drift watch: if any of the existing item tables (lodging,
+  transport, headliner) already has `actual_cost` or similar columns
+  with different semantics, the migration must reconcile cleanly. CC
+  should grep + read the schema before writing migration 030; if a
+  conflict surfaces, escalate to Andrew before committing the
+  migration.
+
+#### Session 12A — Release Notes (CC, 2026-05-07)
+
+**What was built:**
+
+1. **Migration 028 — payment-handle columns on `public.users`.**
+   `supabase/migrations/028_payment_handles.sql`. Adds three nullable
+   text columns (`venmo_handle`, `zelle_handle`, `cashapp_handle`)
+   via `ADD COLUMN IF NOT EXISTS`. `venmo_handle` already existed
+   (added in 001/002); the IF NOT EXISTS keeps the migration safe
+   on every env. Adds `COMMENT ON COLUMN` for each documenting
+   their Lock-D Module A surface and Lock-B just-in-time capture.
+
+2. **Migration 029 — `trips.lock_deadline timestamptz`.**
+   `supabase/migrations/029_trips_lock_deadline.sql`. Single
+   `ADD COLUMN IF NOT EXISTS`. Comment documents the distinction
+   from `commit_deadline` (sell-phase RSVP-by) and notes the
+   Lock-G drip-cadence dependency.
+
+3. **Migration 030 — `actual_cost` + `cost_finalized_at`.**
+   `supabase/migrations/030_actuals_on_items.sql`. Adds:
+   - `lodging.actual_cost numeric(10,2)` + `lodging.cost_finalized_at
+     timestamptz`
+   - `transport.actual_cost numeric(10,2)` +
+     `transport.cost_finalized_at timestamptz`
+   - `trips.headliner_actual_cost_cents integer` +
+     `trips.headliner_cost_finalized_at timestamptz`
+
+   **Headliner naming deviation flagged.** Headliner uses cents
+   (existing `headliner_cost_cents` from migration 017); pairing the
+   new actual with `headliner_actual_cost_cents integer` keeps the
+   precision tier consistent inside the same column-prefix family.
+   The brief AC reads `headliner.actual_cost`, but headliner is not
+   a table — it's columns on `trips`. Mixing
+   `headliner_cost_cents integer` (estimate) with `headliner_actual_cost
+   numeric` (actual) under the same prefix is the kind of unit
+   mismatch that produces lock-time math bugs. The
+   `fireLock` server action accepts `actualCost` in dollars at the
+   boundary and converts to cents internally for headliner only;
+   lodging/transport stay in dollars throughout. **Confirm with
+   Andrew if the literal-name interpretation was preferred.** Schema
+   is reversible (rollback in migration header).
+
+   Estimate columns (`lodging.total_cost`, `transport.estimated_total`,
+   `trips.headliner_cost_cents`) are NOT renamed, NOT dropped, NOT
+   repurposed — they continue to feed pre-lock cost-summary math
+   exactly as before. Actuals overlay them post-lock per the
+   strategy-doc Module A flow.
+
+4. **Migration 031 — allocation tracking.**
+   `supabase/migrations/031_allocation_tracking.sql`. Three-state
+   encoding via paired columns on lodging, transport, and trips
+   (headliner-prefixed):
+
+   ```
+   allocation_owner          allocation_individual    Meaning
+   NULL                      false                    Unallocated
+   <organizer.user_id>       false                    "I'm booking"
+   NULL                      true                     "Each attendee books"
+   ```
+
+   `allocation_individual boolean NOT NULL DEFAULT false` so
+   pre-existing rows roll forward into the (NULL, false) =
+   unallocated state automatically — no backfill. `allocation_owner
+   uuid REFERENCES public.users(id)` with default ON DELETE NO
+   ACTION (loud failure preferred over silent NULL on org account
+   deletion, per the migration's reasoning comment).
+
+5. **Migration 032 — `commitments` table + transactional `fire_lock`
+   RPC.** `supabase/migrations/032_commitments_and_fire_lock.sql`.
+   Two scope items co-located in one file because the RPC body
+   references columns from 028–031 PLUS the commitments table
+   created here. Splitting into 5 + 6 + 7 migrations would force a
+   cross-file dependency comment for what is logically a single
+   lock-phase mechanic. Migration applies in alphanumeric order
+   (after 028–031), so column references resolve cleanly.
+
+   - `commitments` table: `(id, attendee_user_id, trip_id,
+     committed_at)` with `UNIQUE(attendee_user_id, trip_id)` and an
+     index on each FK. RLS enabled with public SELECT + own-row
+     INSERT policy (mirrors `lodging_votes` pattern from
+     `002:421-423`). No UPDATE/DELETE policy: append-only in v0
+     per the strategy doc's "no disagree button" decision.
+   - `public.fire_lock(p_trip_id uuid, p_lodging_id uuid,
+     p_allocations jsonb, p_lock_deadline timestamptz,
+     p_payment_handles jsonb) RETURNS jsonb` PL/pgSQL function.
+     `SECURITY DEFINER`, pinned `search_path = public, pg_temp`
+     (mirrors 023/024/027 pattern). Single transaction —
+     RAISE EXCEPTION rolls back ALL writes.
+   - Auth: `auth.uid()` check inside the function (NULL →
+     `not_authenticated`), then `auth.uid() = trips.organizer_id`
+     (else `not_organizer`). Idempotent on already-locked trips:
+     phase != 'sell' returns `{ ok: false, error: 'already_locked' }`
+     with no writes.
+   - Multi-trip safety: every UPDATE scoped to `WHERE trip_id =
+     p_trip_id` (or `id = p_trip_id` for the trips row, or
+     `id = v_caller` for the organizer's user row). Holding → out
+     auto-bump touches ONLY this trip's `trip_members` (mirrors 027
+     scoping discipline). Payment-handle update touches ONLY the
+     organizer.
+   - CAS guard: phase flip uses `WHERE id = p_trip_id AND phase =
+     'sell'`. If the row count is 0 (concurrent fireLock won),
+     RAISE EXCEPTION rolls back the allocation writes too.
+   - Permissions: `REVOKE ALL ... FROM PUBLIC; GRANT EXECUTE ... TO
+     authenticated;` so anonymous JWTs can't call the RPC.
+
+6. **Server action `fireLock`** in `src/app/actions/fire-lock.ts`.
+   Mirrors `transition-to-sell.ts` shape: `'use server'`, server-side
+   `createClient()`, Zod validation, defense-in-depth pre-checks
+   (auth + organizer + phase) before calling `supabase.rpc('fire_lock',
+   { ... })`. Returns
+   `{ ok: true; lockedAt: string } | { ok: false; error: string }`.
+   Best-effort `logActivity(..., 'phase_lock')` after success
+   (try/catch swallow, mirrors `lock-trip.ts:62-64`). Calls
+   `revalidatePath('/trip/${slug}')`. Has no UI caller in this
+   session — Lock-B will wire the wizard.
+
+   Param schema (Zod-validated):
+   ```typescript
+   FireLockParams = {
+     tripId: string;
+     slug: string;
+     lodgingChoice: { lodgingId: string } | null;
+     allocations: Array<{
+       itemType: 'lodging' | 'transport' | 'headliner';
+       itemId: string;
+       mode: 'organizer_books' | 'individual_books';
+       actualCost?: number;
+     }>;
+     lockDeadline: string; // ISO with offset
+     paymentHandles?: { venmo?, zelle?, cashapp? };
+   };
+   ```
+
+   Error codes returned: `invalid_input`, `not_authenticated`,
+   `trip_not_found`, `not_organizer`, `already_locked`. Plus
+   pass-through of any RPC `RAISE EXCEPTION` text on `rpcError.message`
+   (`invalid_allocation_mode`, `missing_actual_cost_for_organizer_books`,
+   `headliner_item_id_mismatch`, `unknown_item_type`,
+   `concurrent_lock_attempt`).
+
+7. **Type updates in `src/types/index.ts`.**
+   - `User` — added `zelle_handle: string | null`, `cashapp_handle:
+     string | null`.
+   - `Trip` — added `lock_deadline: string | null`,
+     `headliner_actual_cost_cents: number | null`,
+     `headliner_cost_finalized_at: string | null`,
+     `headliner_allocation_owner: string | null`,
+     `headliner_allocation_individual: boolean`.
+   - `Lodging` — added `actual_cost`, `cost_finalized_at`,
+     `allocation_owner`, `allocation_individual`.
+   - `Transport` — added the same four lock-phase fields.
+   - New `Commitment` interface (id, attendee_user_id, trip_id,
+     committed_at) for Lock-D's writes.
+
+**What changed from the brief:**
+
+- **Migration 032 bundles the `fire_lock` RPC alongside the
+  commitments table** rather than living in a separate 6th
+  migration. Reasoning: the RPC body depends on columns from 028–031
+  AND on the commitments table created in 032; co-location keeps the
+  lock-phase mechanic reviewable as one file. The brief's literal
+  count of "5 migrations + 1 server action" still holds in spirit
+  (5 migrations create the schema; the server action calls into the
+  RPC). Flag if Andrew wants a separate 033.
+- **Headliner actual-cost column uses cents** (`headliner_actual_cost_cents
+  integer`) to match the existing `headliner_cost_cents` convention
+  from migration 017, not the brief's literal `headliner.actual_cost`.
+  See migration 030 reasoning above. Server action accepts dollars at
+  the boundary and converts internally so the API surface is uniform.
+- **`fireLock` is implemented as a thin Next.js server action that
+  calls a PL/pgSQL RPC**, not as JavaScript-orchestrated supabase-js
+  calls. The brief locked decision #5 ("Next.js server action, not a
+  SQL function") + decision #6 ("transactional, single Postgres
+  transaction") have a real tension: supabase-js does NOT wrap
+  multiple `.update()` calls in a single transaction. The only path
+  to a true single-transaction lock is a PG function. Solution
+  splits the difference: server action surface for the JS callers
+  (Lock-B's wizard) + PG function for the atomic body. Server
+  action is thin (auth + validation + one `.rpc()` call); function
+  is the source-of-truth transactional implementation. Tagged for
+  Andrew's confirmation.
+- **One `.tsx` file edited (`src/components/trip/GroupChat.tsx`).**
+  The User type updates added two required fields (`zelle_handle`,
+  `cashapp_handle`); `GroupChat.tsx:43-57` builds an optimistic User
+  literal for the temp comment, so it needed two more `null`
+  fields to satisfy the type. This is type-conformance, not a
+  rendering change — the brief's "rendering code is untouched"
+  rule explicitly allows type updates that ripple to literals.
+- **Stub action `lockTrip` (`src/app/actions/lock-trip.ts`) was NOT
+  deleted.** It's currently unused (zero callers). Per the rule
+  against deleting existing code without confirmation, left in
+  place. `fireLock` is the new comprehensive transactional action;
+  Lock-B will call `fireLock`. If Andrew wants `lockTrip` removed
+  in a follow-up, log it as a one-line cleanup (deletes the file +
+  its single export).
+- **`revalidatePath` uses `/trip/${slug}`** — the brief didn't spec
+  it; matches `transition-to-sell.ts:149` and `lock-trip.ts:66`
+  precedent.
+
+**What to test:**
+
+- [ ] `cd ~/Desktop/claude/rally && supabase migration up` applies
+  028, 029, 030, 031, 032 cleanly on fresh DB.
+- [ ] Re-running `supabase migration up` after a successful apply is
+  a no-op (no errors, no schema changes — idempotency).
+- [ ] In Supabase Studio, verify schema:
+  - `users` columns include `venmo_handle`, `zelle_handle`,
+    `cashapp_handle` (all text, nullable).
+  - `trips.lock_deadline` (timestamptz, nullable).
+  - `lodging.actual_cost` (numeric(10,2), nullable),
+    `lodging.cost_finalized_at` (timestamptz, nullable),
+    `lodging.allocation_owner` (uuid FK), `lodging.allocation_individual`
+    (boolean NOT NULL DEFAULT false).
+  - Same four lock-phase columns on `transport`.
+  - `trips.headliner_actual_cost_cents` (integer),
+    `trips.headliner_cost_finalized_at` (timestamptz),
+    `trips.headliner_allocation_owner` (uuid),
+    `trips.headliner_allocation_individual` (boolean).
+  - `commitments` table exists with `id, attendee_user_id, trip_id,
+    committed_at` and unique constraint `(attendee_user_id,
+    trip_id)`. RLS enabled, two policies (`Commitments viewable`,
+    `Users can commit themselves`).
+- [ ] **Smoke-test `fire_lock` directly via Supabase Studio SQL editor**
+  against the Coachella 2026!!! test trip:
+  ```sql
+  -- Pre-state
+  SELECT phase, lock_deadline FROM trips WHERE share_slug = 'sjtIcYZB';
+  SELECT user_id, rsvp FROM trip_members WHERE trip_id = (
+    SELECT id FROM trips WHERE share_slug = 'sjtIcYZB'
+  );
+
+  -- Fire (substitute real lodging_id from this trip's lodging rows)
+  SELECT public.fire_lock(
+    p_trip_id          := (SELECT id FROM trips WHERE share_slug = 'sjtIcYZB'),
+    p_lodging_id       := '<chosen-lodging-uuid>',
+    p_allocations      := '[]'::jsonb,  -- start empty to verify phase flip
+    p_lock_deadline    := (now() + interval '14 days'),
+    p_payment_handles  := NULL
+  );
+
+  -- Post-state — phase should now be 'lock', lock_deadline set,
+  -- holding members bumped to out, others unchanged.
+  ```
+  Note: `auth.uid()` returns the calling JWT identity. Studio SQL
+  editor runs as `postgres` superuser and `auth.uid()` returns
+  NULL there, so a direct call returns `{ ok: false, error:
+  'not_authenticated' }`. To exercise the auth path, call from
+  the Next.js server action via a logged-in organizer session
+  (Lock-B will be the natural test surface; until then, a one-off
+  test page or curl to a temporary route would be needed).
+- [ ] **Idempotent fire test:** call `fire_lock` against an
+  already-locked trip → returns `{ ok: false, error: 'already_locked' }`
+  with no DB changes (verify `phase`, `lock_deadline`, allocation
+  columns unchanged after the call).
+- [ ] **Multi-trip safety test:** create a 2nd test trip with the
+  same organizer, put one user in `holding` on BOTH trips. Fire
+  lock on trip A. Verify the user's `holding` on trip B is
+  untouched.
+- [ ] **Allocation round-trip:** call `fire_lock` with one lodging
+  allocation in `organizer_books` mode + a non-zero `actualCost`,
+  verify `lodging.actual_cost`, `lodging.cost_finalized_at`,
+  `lodging.allocation_owner`, `lodging.allocation_individual` all
+  reflect the call.
+- [ ] **Payment handles round-trip:** pass `paymentHandles: { venmo:
+  'andrewshipman' }`. Verify `users.venmo_handle` updates,
+  `zelle_handle` and `cashapp_handle` preserved.
+- [ ] `npx tsc --noEmit` exit 0. (Verified locally: ✅)
+- [ ] `rm -rf .next && npm run build` clean, no new routes.
+  (Verified locally: ✅; final route list unchanged from
+  Session 11 ship.)
+
+**Static verification (CC-side):**
+
+- `npx tsc --noEmit` → exit 0.
+- `rm -rf .next && npm run build` → clean; route list unchanged
+  vs main (the action lives at `src/app/actions/fire-lock.ts`,
+  not a route file).
+- `git diff --stat` blast radius:
+  - 5 new files in `supabase/migrations/` (028–032)
+  - 1 new file in `src/app/actions/fire-lock.ts`
+  - 1 modified `src/types/index.ts`
+  - 1 modified `src/components/trip/GroupChat.tsx` (type-conformance
+    on the optimistic User stub — see "What changed from the
+    brief" above)
+  - This release-notes append + the synced doc updates
+    (`rally-fix-plan-v1.md`, `rally-lock-phase-strategy-v0.md`,
+    `rally-lock-phase-mockup.html` — copied in from main at session
+    start since the worktree branched off the previous tip)
+- Migration apply + re-apply: NOT verified locally — `supabase` CLI
+  is not installed on this machine in a path the worktree shell can
+  reach. All migrations use `IF NOT EXISTS` / `CREATE OR REPLACE` /
+  `DROP POLICY IF EXISTS` patterns and have been authored with
+  idempotency in mind, but Andrew should run `supabase migration up`
+  twice in sequence and confirm the second run is a no-op before
+  declaring AC1+AC2 complete.
+
+**Known issues / flagged for Andrew:**
+
+- **Headliner `_cents` vs literal `actual_cost` (Migration 030).**
+  See "What changed from the brief" #2. Reversible if Andrew
+  prefers the literal interpretation.
+- **`fire_lock` RPC bundled in 032 (not a 6th migration).**
+  See "What changed from the brief" #1. Trivial to split if
+  Andrew wants a one-file-per-mechanic structure.
+- **No automated test for transactional rollback.** The function is
+  written so any RAISE EXCEPTION rolls back all prior writes in
+  the same transaction (PG semantics). Andrew's "test by injecting
+  a failure mid-action" AC suggestion would mean either temporarily
+  editing the function to RAISE in the middle, or constructing a
+  param payload that triggers a known failure path
+  (`headliner_item_id_mismatch` is the cleanest — pass a non-trip
+  uuid as `itemId` for a headliner allocation). Both are organizer-
+  side smoke tests; not blocking.
+- **Server action has no UI caller yet** — Lock-B wires the wizard.
+  Until then, fireLock is invokable only via direct module import +
+  a temporary test surface or by calling the underlying RPC from
+  Studio (with the auth-context caveat above).
+
+**Architecture sanity (DO-NOT list from brief, each confirmed):**
+
+- ✅ DO NOT modify any UI in this session. — One `.tsx` edit
+  (`GroupChat.tsx`), strictly type-conformance on a stub literal;
+  no rendering, no behavior change. (Permitted by "Type updates
+  may add fields to existing types; rendering code is untouched.")
+- ✅ DO NOT create new routes. — `src/app/actions/fire-lock.ts` is a
+  server action module, not a `page.tsx` or `route.ts`. Build
+  output's route list is unchanged from Session 11 ship.
+- ✅ DO NOT modify any existing modules (LodgingCard, TransportCard,
+  etc.). — None touched.
+- ✅ All migrations idempotent. — `IF NOT EXISTS` / `CREATE OR
+  REPLACE` / `DROP POLICY IF EXISTS` patterns throughout. Each
+  migration's header documents the re-apply expectation.
+- ✅ `fireLock` runs in a single Postgres transaction. — Function
+  body is one PL/pgSQL block; PL/pgSQL functions execute in the
+  caller's transaction (a single statement context per call). Any
+  RAISE EXCEPTION rolls back the entire function call. CAS guard
+  on the phase flip catches concurrent fires.
+- ✅ DO NOT call `fireLock` from any UI. — Action exists; no
+  component imports it.
+- ✅ DO NOT modify Migration 027 or any prior migration. — None
+  touched.
+- ✅ DO NOT add `payment_handles` to any existing form. — No form
+  changes; type updates only.
+- ✅ `commitments` table created empty. — No backfill, no triggers
+  populating it. RLS allows attendee self-INSERT (Lock-D will
+  drive that).
+- ✅ Holding → out scoped to the firing trip only. — `UPDATE ...
+  WHERE trip_id = p_trip_id AND rsvp = 'holding'`. Other trips
+  for the same user are untouched (mirrors 027's per-trip
+  discipline).
+
+
 
 **Context:** The home → meetup leg was originally planned as a sketch module
 ("flights"), but during 8I planning we concluded it doesn't fit the group-

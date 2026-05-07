@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Lock Phase v0: Organizer + Attendee Journey</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     LOCK PHASE V0 — wireframes (Cowork, 2026-05-03)
+     Predecessor: rally-lock-phase-strategy-v0.md (strategy doc)
+     This mockup walks the full lock journey:
+       - organizer fires lock from sell phase
+       - 7-screen wizard (allocation + costs + payment handle + review)
+       - post-lock organizer view (new module composition)
+       - post-lock attendee view (Module A + Module B states)
+       - mid-lock organizer view (everyone committed → go book)
+     Single 350px phone frame width. Doc style mirrors 10D journey.
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --doc-bg: #2a2a2a;
+    --doc-text: #faf8f5;
+    --doc-muted: #888;
+    --doc-accent: #ffd84d;
+    --doc-step: #5bb7d8;
+    --doc-flag: #d8654f;
+    --doc-org: #d8a14f;
+    --doc-att: #5bd89a;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    min-height: 100vh;
+    padding: 24px 16px 96px;
+    line-height: 1.5;
+  }
+
+  /* ─── doc chrome ─── */
+  .doc-header { max-width: 920px; margin: 0 auto 32px; text-align: center; }
+  .doc-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 28px;
+    color: var(--doc-text);
+    margin-bottom: 10px;
+  }
+  .doc-sub {
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.65;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .doc-sub code {
+    background: #1a1a1a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+  }
+  .doc-sub strong { color: var(--doc-text); }
+
+  /* ─── part dividers (large section markers) ─── */
+  .part-label {
+    max-width: 920px;
+    margin: 80px auto 8px;
+    padding: 0 8px;
+    border-top: 1px solid #444;
+    padding-top: 32px;
+  }
+  .part-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: var(--doc-accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .part-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 24px;
+    color: var(--doc-text);
+    margin-bottom: 6px;
+  }
+  .part-sub {
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.6;
+    max-width: 720px;
+  }
+
+  /* ─── step labels (per frame) ─── */
+  .step-label {
+    max-width: 920px;
+    margin: 44px auto 0;
+    padding: 0 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .step-num {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 28px;
+    color: var(--doc-step);
+    line-height: 1;
+  }
+  .step-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--doc-text);
+  }
+  .step-marker {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-left: 4px;
+  }
+  .step-marker.org { background: var(--doc-org); color: #1a1a1a; }
+  .step-marker.att { background: var(--doc-att); color: #0a2a1a; }
+  .step-marker.both { background: var(--doc-step); color: #0a1a2a; }
+
+  .step-note {
+    max-width: 920px;
+    margin: 4px auto 18px;
+    padding: 0 8px;
+    font-size: 13px;
+    color: var(--doc-muted);
+    line-height: 1.6;
+  }
+  .step-note code {
+    background: #1a1a1a;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--doc-accent);
+  }
+  .step-note strong { color: var(--doc-text); }
+
+  /* ─── phone frame layout ─── */
+  .row {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .phone-frame {
+    width: 350px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 22px;
+    padding-bottom: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative;
+    overflow: hidden;
+    --bg: #faf8f5;
+    --ink: #1a1a1a;
+    --accent: #ffd84d;
+    --accent2: #ff7e3e;
+    --muted: #8a8680;
+    --surface: #ffffff;
+    --bang-light: #ff2e7e;
+    --on-surface: #1a1a1a;
+    --stroke: #1a1a1a;
+    --sticker-bg: #ffd84d;
+    font-family: -apple-system, 'DM Sans', sans-serif;
+  }
+  .phone-frame.themed-festival {
+    --bg: #faecdb;
+    --ink: #2a1a0a;
+    --accent: #ff7e3e;
+    --accent2: #1f5c8a;
+    --muted: #8a6a4a;
+    --bang-light: #ff2e7e;
+    --sticker-bg: #ffd84d;
+  }
+  .phone-frame-label {
+    position: absolute;
+    top: -22px; left: 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #aaa;
+    font-weight: 700;
+  }
+
+  /* ─── status bar (top of phone) ─── */
+  .pf-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 18px 4px;
+    font-size: 11px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ─── marquee strip ─── */
+  .pf-marquee {
+    background: #1a1a1a;
+    color: var(--accent);
+    padding: 6px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .pf-marquee-track {
+    display: inline-block;
+    animation: marquee-scroll 18s linear infinite;
+  }
+  .pf-marquee-track span { padding: 0 14px; }
+  .pf-marquee-track .star { color: #d8654f; }
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  /* ─── app header (Session 11 chrome) ─── */
+  .pf-app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+  }
+  .pf-app-wordmark {
+    font-family: 'Shrikhand', Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    color: #1a1a1a;
+  }
+  .pf-app-wordmark .bang { color: var(--bang-light); }
+  .pf-app-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 2px solid #1a1a1a;
+    background: var(--sticker-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+
+  /* ─── hero (compressed in lock; full-shape in sell) ─── */
+  .pf-hero {
+    padding: 12px 18px 14px;
+    text-align: left;
+  }
+  .pf-hero .sticker {
+    display: inline-block;
+    background: var(--sticker-bg);
+    color: #1a1a1a;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transform: rotate(-3deg);
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .pf-hero .eyebrow {
+    font-size: 10px;
+    color: var(--ink);
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .pf-hero .title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 30px;
+    line-height: 1.05;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .pf-hero .title .bang { color: var(--bang-light); }
+  .pf-hero .meta {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink);
+    opacity: 0.85;
+    margin-bottom: 4px;
+  }
+  .pf-hero .tagline {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink);
+    opacity: 0.65;
+    margin-bottom: 14px;
+  }
+  .pf-hero .postcard {
+    height: 110px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ff7e3e 0%, #c8467a 50%, #5bb7d8 100%);
+    margin-bottom: 4px;
+  }
+
+  /* compressed hero (lock variant) */
+  .pf-hero.compressed {
+    padding: 10px 18px 8px;
+  }
+  .pf-hero.compressed .title {
+    font-size: 22px;
+    margin-bottom: 4px;
+  }
+  .pf-hero.compressed .meta {
+    font-size: 11px;
+    margin-bottom: 0;
+  }
+  .pf-hero.compressed .postcard {
+    display: none;
+  }
+  .pf-hero.compressed .sticker { display: none; }
+  .pf-hero.compressed .eyebrow { display: none; }
+  .pf-hero.compressed .tagline { display: none; }
+
+  /* ─── countdown scoreboard ─── */
+  .pf-countdown {
+    background: #1a1a1a;
+    color: var(--accent);
+    padding: 12px 18px;
+    text-align: center;
+  }
+  .pf-countdown-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #fff;
+    opacity: 0.6;
+    margin-bottom: 4px;
+  }
+  .pf-countdown-tiles {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 4px;
+  }
+  .pf-countdown-tile {
+    background: var(--accent);
+    color: #1a1a1a;
+    padding: 6px 10px;
+    border-radius: 6px;
+    min-width: 46px;
+  }
+  .pf-countdown-tile-num {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 20px;
+    line-height: 1;
+  }
+  .pf-countdown-tile-unit {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-top: 2px;
+  }
+  .pf-countdown-label {
+    font-size: 11px;
+    color: #fff;
+    margin-top: 6px;
+    opacity: 0.85;
+  }
+
+  /* ─── condensed summary card (lock-only) ─── */
+  .pf-summary {
+    margin: 12px 16px 0;
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    padding: 14px 14px;
+    background: rgba(255,255,255,0.5);
+  }
+  .pf-summary-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .pf-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+  }
+  .pf-summary-cell {
+    font-size: 11px;
+  }
+  .pf-summary-cell-label {
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .pf-summary-cell-value {
+    color: var(--ink);
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .pf-summary-cell-value strong {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+  }
+  .pf-summary-cell.full {
+    grid-column: span 2;
+  }
+
+  /* ─── module sections ─── */
+  .pf-module {
+    margin: 16px 16px 0;
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .pf-module-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid #f0e8d8;
+  }
+  .pf-module-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .pf-module-count {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .pf-module-body {
+    padding: 12px 14px;
+  }
+
+  /* ─── Module A — shared cost commitment ─── */
+  .pf-mod-a-total {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .pf-mod-a-total-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-bottom: 4px;
+  }
+  .pf-mod-a-total-amount {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 36px;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .pf-mod-a-breakdown {
+    border-top: 1px dashed #d8d3c4;
+    padding-top: 10px;
+    margin-bottom: 14px;
+  }
+  .pf-mod-a-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--ink);
+    padding: 4px 0;
+  }
+  .pf-mod-a-row-label { opacity: 0.85; }
+  .pf-mod-a-row-amount { font-weight: 700; }
+  .pf-mod-a-cta {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 12px 0;
+    border-radius: 100px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  .pf-mod-a-cta.committed {
+    background: #e8f5e8;
+    color: #2a5a2a;
+    border: 1.5px solid #2a5a2a;
+  }
+  .pf-mod-a-pay {
+    background: var(--accent2, #1f5c8a);
+    color: #fff;
+    padding: 11px 0;
+    border-radius: 100px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .pf-mod-a-pay-hidden {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    text-decoration: underline;
+  }
+
+  /* organizer-mode Module A */
+  .pf-mod-a-org-progress {
+    text-align: center;
+    margin-bottom: 14px;
+    padding: 10px 0;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.04);
+  }
+  .pf-mod-a-org-fraction {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 28px;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .pf-mod-a-org-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-top: 4px;
+  }
+  .pf-mod-a-org-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 12px;
+  }
+  .pf-mod-a-org-row-name { color: var(--ink); }
+  .pf-mod-a-org-row-status { font-size: 16px; }
+  .pf-mod-a-org-cta-disabled {
+    background: #ddd;
+    color: #888;
+    padding: 12px 0;
+    border-radius: 100px;
+    text-align: center;
+    font-style: italic;
+    font-size: 13px;
+    margin-top: 14px;
+  }
+  .pf-mod-a-org-cta-active {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 12px 0;
+    border-radius: 100px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 14px;
+    margin-top: 14px;
+  }
+
+  /* ─── Module B — personal checklist ─── */
+  .pf-mod-b-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px dashed #e8e0c8;
+    font-size: 12px;
+  }
+  .pf-mod-b-row:last-child { border-bottom: none; }
+  .pf-mod-b-checkbox {
+    width: 18px; height: 18px;
+    border: 2px solid var(--ink);
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+  }
+  .pf-mod-b-checkbox.done {
+    background: #1a1a1a;
+    color: #fff;
+  }
+  .pf-mod-b-content {
+    flex: 1;
+  }
+  .pf-mod-b-title {
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .pf-mod-b-detail {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .pf-mod-b-cta {
+    font-size: 11px;
+    color: var(--accent2, #1f5c8a);
+    font-weight: 700;
+    text-decoration: underline;
+    align-self: center;
+  }
+
+  /* organizer-mode Module B / per-attendee tracker */
+  .pf-mod-b-org-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed #e8e0c8;
+  }
+  .pf-mod-b-org-row:last-child { border-bottom: none; }
+  .pf-mod-b-org-name {
+    font-size: 12px;
+    color: var(--ink);
+  }
+  .pf-mod-b-org-progress {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .pf-mod-b-org-progress.done { color: #2a8a4a; }
+
+  /* ─── crew section / aggregate progress overlay ─── */
+  .pf-crew-mini {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .pf-crew-mini-av {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink);
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px;
+    font-weight: 800;
+    color: #1a1a1a;
+  }
+  .pf-crew-mini-overflow {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  /* ─── trip-details expander ─── */
+  .pf-expander {
+    margin: 16px 16px 0;
+    padding: 12px 14px;
+    border: 1.5px dashed #c8c0a8;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .pf-expander-caret { display: inline-block; transform: rotate(0); }
+
+  /* ─── sticky bottom bar ─── */
+  .pf-sticky {
+    margin: 16px 0 0;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.95);
+    border-top: 1.5px solid var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(4px);
+  }
+  .pf-sticky-icon {
+    width: 32px; height: 32px;
+    border-radius: 100px;
+    border: 2px solid var(--ink);
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .pf-sticky-cta {
+    flex: 1;
+    background: #1a1a1a;
+    color: #fff;
+    padding: 11px 14px;
+    border-radius: 100px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 14px;
+  }
+  .pf-sticky-cta.primary {
+    background: var(--accent2, #ff7e3e);
+    color: #fff;
+  }
+
+  /* ─── wizard drawer ─── */
+  .pf-drawer {
+    position: relative;
+    background: #1a1a1a;
+    border-radius: 22px 22px 0 0;
+    padding: 14px 16px 22px;
+    color: #faf8f5;
+    margin-top: 8px;
+  }
+  .pf-drawer-handle {
+    width: 38px;
+    height: 4px;
+    background: #555;
+    border-radius: 100px;
+    margin: 2px auto 14px;
+  }
+  .pf-drawer-progress {
+    width: 100%;
+    height: 3px;
+    background: #333;
+    border-radius: 100px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .pf-drawer-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 100px;
+  }
+  .pf-drawer-step-tag {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .pf-drawer-h {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 22px;
+    line-height: 1.15;
+    margin-bottom: 6px;
+  }
+  .pf-drawer-sub {
+    font-size: 12px;
+    color: #b8b3a8;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .pf-drawer-card {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 12px;
+    padding: 12px 12px;
+    margin-bottom: 10px;
+  }
+  .pf-drawer-card-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #d8d3c4;
+    padding: 3px 0;
+  }
+  .pf-drawer-card-row-key { color: #888; }
+  .pf-drawer-binary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .pf-drawer-binary-btn {
+    border: 1.5px solid #555;
+    background: #2a2a2a;
+    border-radius: 12px;
+    padding: 14px 10px;
+    text-align: left;
+  }
+  .pf-drawer-binary-btn.selected {
+    border-color: var(--accent);
+    background: #3a330a;
+  }
+  .pf-drawer-binary-btn-label {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .pf-drawer-binary-btn-sub {
+    font-size: 10px;
+    color: #888;
+    line-height: 1.4;
+  }
+  .pf-drawer-cost-input {
+    background: #0a0a0a;
+    border: 1px solid #444;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  .pf-drawer-cost-input-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .pf-drawer-cost-input-field {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    color: #fff;
+  }
+  .pf-drawer-cost-input-currency {
+    font-size: 18px;
+    color: #888;
+  }
+  .pf-drawer-cost-input-amount {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 26px;
+  }
+  .pf-drawer-cost-input-hint {
+    font-size: 10px;
+    color: #888;
+    margin-top: 6px;
+  }
+  .pf-drawer-radio-list { margin-bottom: 14px; }
+  .pf-drawer-radio-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1.5px solid #444;
+    background: #2a2a2a;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .pf-drawer-radio-row.selected {
+    border-color: var(--accent);
+    background: #3a330a;
+  }
+  .pf-drawer-radio-circle {
+    width: 16px; height: 16px;
+    border: 1.5px solid #888;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .pf-drawer-radio-row.selected .pf-drawer-radio-circle {
+    border-color: var(--accent);
+  }
+  .pf-drawer-radio-row.selected .pf-drawer-radio-circle::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .pf-drawer-radio-content { flex: 1; }
+  .pf-drawer-radio-label { font-weight: 700; color: #fff; }
+  .pf-drawer-radio-sub { font-size: 10px; color: #888; margin-top: 2px; }
+  .pf-drawer-radio-meta {
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .pf-drawer-review-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed #444;
+    padding: 10px 0;
+    font-size: 12px;
+  }
+  .pf-drawer-review-row:last-child { border-bottom: none; }
+  .pf-drawer-review-label {
+    color: #888;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-bottom: 2px;
+  }
+  .pf-drawer-review-value { color: #fff; font-weight: 600; }
+  .pf-drawer-review-edit {
+    font-size: 10px;
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .pf-drawer-cta {
+    background: var(--accent);
+    color: #1a1a1a;
+    padding: 14px 0;
+    border-radius: 100px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 15px;
+    margin-top: 4px;
+  }
+  .pf-drawer-cta-secondary {
+    background: transparent;
+    color: #888;
+    padding: 10px 0;
+    text-align: center;
+    font-size: 12px;
+    text-decoration: underline;
+    margin-top: 4px;
+  }
+  .pf-drawer-back {
+    color: #888;
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+
+  /* form-drawer (Module B item drawer) */
+  .pf-formdrawer {
+    background: #faf8f5;
+    color: #1a1a1a;
+    border-radius: 22px 22px 0 0;
+    padding: 14px 16px 22px;
+    margin-top: 8px;
+  }
+  .pf-formdrawer-handle {
+    width: 38px; height: 4px;
+    background: #c8c0a8;
+    border-radius: 100px;
+    margin: 2px auto 14px;
+  }
+  .pf-formdrawer-h {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+  .pf-formdrawer-sub {
+    font-size: 12px;
+    color: #8a8680;
+    margin-bottom: 16px;
+  }
+  .pf-formdrawer-field {
+    margin-bottom: 12px;
+  }
+  .pf-formdrawer-field-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #8a8680;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .pf-formdrawer-field-input {
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 10px;
+    padding: 11px 12px;
+    font-size: 13px;
+    color: #1a1a1a;
+    font-weight: 600;
+  }
+  .pf-formdrawer-field-input.placeholder {
+    color: #b8b3a8;
+    font-weight: 400;
+    font-style: italic;
+  }
+  .pf-formdrawer-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0e8d8;
+    font-size: 12px;
+  }
+  .pf-formdrawer-toggle {
+    width: 36px; height: 20px;
+    background: #1a1a1a;
+    border-radius: 100px;
+    position: relative;
+  }
+  .pf-formdrawer-toggle::after {
+    content: '';
+    position: absolute;
+    right: 2px; top: 2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #fff;
+  }
+  .pf-formdrawer-toggle.off { background: #c8c0a8; }
+  .pf-formdrawer-toggle.off::after { left: 2px; right: auto; }
+  .pf-formdrawer-cta {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 13px 0;
+    border-radius: 100px;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 14px;
+    margin-top: 8px;
+  }
+
+  /* lock-fire moment overlay */
+  .pf-lockfire {
+    background: linear-gradient(180deg, #1a1a1a 0%, #2a1a1a 100%);
+    color: #fff;
+    text-align: center;
+    padding: 60px 30px 80px;
+    border-radius: 22px;
+    height: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  .pf-lockfire-icon {
+    font-size: 72px;
+    margin-bottom: 20px;
+  }
+  .pf-lockfire-h {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 32px;
+    margin-bottom: 12px;
+    line-height: 1.1;
+  }
+  .pf-lockfire-h .accent { color: var(--accent); }
+  .pf-lockfire-sub {
+    font-size: 13px;
+    color: #b8b3a8;
+    line-height: 1.55;
+    margin-bottom: 30px;
+    max-width: 250px;
+  }
+
+  /* note callout box */
+  .doc-note {
+    max-width: 920px;
+    margin: 24px auto;
+    padding: 16px 20px;
+    border-left: 3px solid var(--doc-accent);
+    background: #1f1f1f;
+    font-size: 13px;
+    color: #c8c3b8;
+    line-height: 1.6;
+  }
+  .doc-note strong { color: var(--doc-text); }
+  .doc-note code {
+    background: #1a1a1a;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--doc-accent);
+    font-size: 11px;
+  }
+
+  /* legend */
+  .doc-legend {
+    max-width: 920px;
+    margin: 32px auto 0;
+    padding: 14px 18px;
+    border-radius: 8px;
+    background: #1f1f1f;
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: #aaa;
+  }
+  .legend-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-pill::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+  .legend-pill.org::before { background: var(--doc-org); }
+  .legend-pill.att::before { background: var(--doc-att); }
+  .legend-pill.both::before { background: var(--doc-step); }
+
+  /* responsive: stack frames on small screens */
+  @media (max-width: 768px) {
+    .row { gap: 56px; padding-top: 22px; }
+    .phone-frame { width: 100%; max-width: 360px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     DOC HEADER
+     ═══════════════════════════════════════════════════════════ -->
+
+<header class="doc-header">
+  <div class="doc-kicker">LOCK PHASE V0 · WIREFRAME · 2026-05-03</div>
+  <h1 class="doc-title">From sell to lock: the economic transition</h1>
+  <p class="doc-sub">
+    <strong>Lock phase</strong> is the moment soft commitments turn into real money. The organizer stops asking "are you in?" and starts saying "I just paid the deposit, Venmo me $X." Attendees stop browsing and start booking their own travel. This wireframe walks the full journey for both parties — organizer fires lock from sell phase, walks a 7-screen wizard, and then the post-lock trip page transforms into <strong>Module A</strong> (shared cost commitment) + <strong>Module B</strong> (personal checklist) for everyone. Strategy doc: <code>rally-lock-phase-strategy-v0.md</code>.
+  </p>
+  <div class="doc-legend">
+    <span class="legend-pill org">organizer view</span>
+    <span class="legend-pill att">attendee view</span>
+    <span class="legend-pill both">both / shared moment</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART 1 — PRE-LOCK
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="part-label">
+  <div class="part-kicker">PART 1 · PRE-LOCK</div>
+  <h2 class="part-title">The organizer feels ready</h2>
+  <p class="part-sub">
+    Sell phase is winding down. RSVPs have come in, lodging has a clear vote leader, the cost summary roughly checks out. The organizer has been negotiating dates and stragglers in WhatsApp for two weeks and is ready to make it real. Rally surfaces a single CTA on the sticky bar — <code>lock it in →</code> — visible from the moment sell phase begins. No threshold gating; the organizer decides when.
+  </p>
+</div>
+
+<div class="step-label">
+  <span class="step-num">1.</span>
+  <span class="step-title">Sell-phase trip page, organizer view</span>
+  <span class="step-marker org">organizer</span>
+</div>
+<p class="step-note">
+  The organizer scrolls down to the cost summary, scans the crew section to confirm the roster, then taps <code>lock it in →</code> on the sticky bar. The button has been visible the whole time — it's not a reveal, it's a deliberate choice the organizer makes when ready.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · sell</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-marquee">
+      <div class="pf-marquee-track">
+        <span>5 days to lock it in</span><span class="star">★</span>
+        <span>4 already in</span><span class="star">★</span>
+        <span>cap juluca leads</span><span class="star">★</span>
+        <span>5 days to lock it in</span><span class="star">★</span>
+        <span>4 already in</span><span class="star">★</span>
+        <span>cap juluca leads</span><span class="star">★</span>
+      </div>
+    </div>
+    <div class="pf-app-header">
+      <div class="pf-app-wordmark">rally<span class="bang">!</span></div>
+      <div class="pf-app-avatar">A</div>
+    </div>
+    <div class="pf-hero">
+      <div class="sticker">★ you're the organizer</div>
+      <div class="eyebrow">★ ANDREW IS CALLING</div>
+      <div class="title">coachella 2026<span class="bang">!!!</span></div>
+      <div class="meta">may 26 → 29 · palm springs, ca</div>
+      <div class="tagline">Let's get some R&R</div>
+      <div class="postcard"></div>
+    </div>
+    <div class="pf-countdown">
+      <div class="pf-countdown-kicker">LOCK IT IN BY</div>
+      <div style="font-family:Georgia,serif;font-style:italic;font-weight:800;font-size:14px;color:#fff;">may 8 · 8pm edt</div>
+      <div class="pf-countdown-tiles">
+        <div class="pf-countdown-tile"><div class="pf-countdown-tile-num">05</div><div class="pf-countdown-tile-unit">days</div></div>
+        <div class="pf-countdown-tile"><div class="pf-countdown-tile-num">08</div><div class="pf-countdown-tile-unit">hrs</div></div>
+        <div class="pf-countdown-tile"><div class="pf-countdown-tile-num">42</div><div class="pf-countdown-tile-unit">min</div></div>
+      </div>
+    </div>
+    <div style="padding: 14px 18px 8px; font-size:11px; color: var(--muted); font-style: italic;">— modules below: lodging, transport, etc. —</div>
+    <div class="pf-sticky">
+      <div class="pf-sticky-icon">←</div>
+      <div class="pf-sticky-icon">🎨</div>
+      <div class="pf-sticky-cta primary">lock it in →</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART 2 — THE WIZARD
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="part-label">
+  <div class="part-kicker">PART 2 · THE WIZARD</div>
+  <h2 class="part-title">7 screens to lock the trip</h2>
+  <p class="part-sub">
+    Tapping <code>lock it in →</code> opens a tall bottom drawer (~85% of viewport). The wizard runs one decision per screen with a thin progress bar at top. <strong>Verification first</strong> (catches stale sell-state before it gets locked in), then <strong>per-item allocation</strong> (the binary "I'm booking" / "each attendee books" with inline cost confirmation), then <strong>payment handle prompt</strong> (only if missing), then <strong>final review</strong> with editable rows. Allocation choices simultaneously feed Module A (shared costs) and Module B (personal checklists).
+  </p>
+</div>
+
+<div class="step-label">
+  <span class="step-num">2.</span>
+  <span class="step-title">Wizard screen 1 — verification</span>
+  <span class="step-marker org">organizer · wizard 1/7</span>
+</div>
+<p class="step-note">
+  Pre-flight check. Organizer scans the trip's current state, sets expectations on what's coming. <strong>"edit first"</strong> exits the wizard and drops them into 9W edit-on-sell mode with a <code>resume lock →</code> affordance. The "have your booking confirmations handy" line preps them for the cost-confirmation steps.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · wizard 1/7</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 14%"></div></div>
+      <div class="pf-drawer-step-tag">step 1 of 7 · verify</div>
+      <div class="pf-drawer-h">does this look right?</div>
+      <div class="pf-drawer-sub">you'll confirm trip details, lock in actual costs for items you're booking, and decide who fronts what. ~5 minutes — have your booking confirmations handy.</div>
+
+      <div class="pf-drawer-card">
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">trip</span><span>coachella 2026!!!</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">when</span><span>may 26 → 29</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">where</span><span>palm springs, ca</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">crew</span><span>4 in · 2 holding · 0 out</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">lodging vote</span><span style="color: var(--accent);">cap juluca · 4 of 6</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">items to allocate</span><span>3</span></div>
+      </div>
+      <div style="font-size: 10px; color: #888; margin: 8px 0 16px; line-height: 1.5;">
+        ⓘ holding members will be bumped to <strong style="color:#d8a14f;">out</strong> when lock fires. cost divisor flips from 6 → 4.
+      </div>
+
+      <div class="pf-drawer-cta">looks good — continue →</div>
+      <div class="pf-drawer-cta-secondary">edit first</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">3.</span>
+  <span class="step-title">Wizard screen 2 — confirm or override the lodging</span>
+  <span class="step-marker org">organizer · wizard 2/7</span>
+</div>
+<p class="step-note">
+  The vote winner is presented as the default, but the organizer can override and pick a different option from the voted list. <strong>One screen per allocatable item</strong> for items with multiple options (lodging is the only such item in v0); singular items (headliner, intra-transport line) skip this screen and go straight to allocation.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · wizard 2/7</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 28%"></div></div>
+      <div class="pf-drawer-back">← step 2 of 7 · lodging</div>
+      <div class="pf-drawer-h">which spot?</div>
+      <div class="pf-drawer-sub">vote winner is selected by default. tap to override.</div>
+
+      <div class="pf-drawer-radio-list">
+        <div class="pf-drawer-radio-row selected">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">cap juluca, anguilla</div>
+            <div class="pf-drawer-radio-sub">$1,200/night · 3 nights · 5 rooms</div>
+          </div>
+          <div class="pf-drawer-radio-meta">4 of 6</div>
+        </div>
+        <div class="pf-drawer-radio-row">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">parker palm springs</div>
+            <div class="pf-drawer-radio-sub">$680/night · 3 nights · 6 rooms</div>
+          </div>
+          <div class="pf-drawer-radio-meta" style="color:#888;">0</div>
+        </div>
+        <div class="pf-drawer-radio-row">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">ace hotel palm springs</div>
+            <div class="pf-drawer-radio-sub">$420/night · 3 nights · 6 rooms</div>
+          </div>
+          <div class="pf-drawer-radio-meta" style="color:#888;">0</div>
+        </div>
+      </div>
+
+      <div class="pf-drawer-cta">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">4.</span>
+  <span class="step-title">Wizard screen 3 — lodging allocation + inline cost</span>
+  <span class="step-marker org">organizer · wizard 3/7</span>
+</div>
+<p class="step-note">
+  The binary that drives everything downstream: <strong>"I'm booking"</strong> means it becomes a shared-cost line in Module A; <strong>"each attendee books"</strong> means each attendee gets a "book your hotel" task in Module B. The cost-confirmation field appears <em>inline</em> below the binary toggle when "I'm booking" is selected — pre-filled with the estimate, organizer overwrites with actual.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · wizard 3/7</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 42%"></div></div>
+      <div class="pf-drawer-back">← step 3 of 7 · lodging</div>
+      <div class="pf-drawer-h">who's booking cap juluca?</div>
+      <div class="pf-drawer-sub">this decides whether it's a shared cost or an individual task.</div>
+
+      <div class="pf-drawer-binary">
+        <div class="pf-drawer-binary-btn selected">
+          <div class="pf-drawer-binary-btn-label">i'm booking</div>
+          <div class="pf-drawer-binary-btn-sub">i front the cash, attendees commit to their share + venmo me back</div>
+        </div>
+        <div class="pf-drawer-binary-btn">
+          <div class="pf-drawer-binary-btn-label">each attendee books</div>
+          <div class="pf-drawer-binary-btn-sub">everyone books their own hotel — goes on their personal checklist</div>
+        </div>
+      </div>
+
+      <div class="pf-drawer-cost-input">
+        <div class="pf-drawer-cost-input-label">actual final cost</div>
+        <div class="pf-drawer-cost-input-field">
+          <span class="pf-drawer-cost-input-currency">$</span>
+          <span class="pf-drawer-cost-input-amount">18,000</span>
+        </div>
+        <div class="pf-drawer-cost-input-hint">estimate was $18,000 · this is what you'll charge your card. confirm or overwrite.</div>
+      </div>
+
+      <div class="pf-drawer-cta">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">5.</span>
+  <span class="step-title">Wizard screen 4 — headliner allocation + inline cost</span>
+  <span class="step-marker org">organizer · wizard 4/7</span>
+</div>
+<p class="step-note">
+  The headliner is singular per trip — no override step needed (no voting). Same binary. For Coachella the headliner is the festival GA pass; the organizer might bulk-buy or push to individuals. <strong>v0 scope expansion:</strong> headliner was originally out of v0 per the strategy doc; brought in 2026-05-03 because excluding it while including transport-to-destination was artificial.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · wizard 4/7</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 57%"></div></div>
+      <div class="pf-drawer-back">← step 4 of 7 · headliner</div>
+      <div class="pf-drawer-h">who's buying coachella tix?</div>
+      <div class="pf-drawer-sub">festival GA pass · $499/person.</div>
+
+      <div class="pf-drawer-binary">
+        <div class="pf-drawer-binary-btn">
+          <div class="pf-drawer-binary-btn-label">i'm booking</div>
+          <div class="pf-drawer-binary-btn-sub">i bulk-buy passes, attendees venmo me back</div>
+        </div>
+        <div class="pf-drawer-binary-btn selected">
+          <div class="pf-drawer-binary-btn-label">each attendee books</div>
+          <div class="pf-drawer-binary-btn-sub">everyone gets their own pass — on their checklist</div>
+        </div>
+      </div>
+
+      <div class="pf-drawer-cta">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">6.</span>
+  <span class="step-title">Wizard screen 5 — intra-transport allocation + inline cost</span>
+  <span class="step-marker org">organizer · wizard 5/7</span>
+</div>
+<p class="step-note">
+  Same binary, item-by-item. Charter vans and rental cars typically go "I'm booking"; train tickets and intra-flights typically go "each attendee books." When pushed to individuals, Rally surfaces the organizer's <code>transport.link</code> as a "go book this" deep link in the attendee's checklist item.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · wizard 5/7</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 71%"></div></div>
+      <div class="pf-drawer-back">← step 5 of 7 · transport</div>
+      <div class="pf-drawer-h">who's booking the airport van?</div>
+      <div class="pf-drawer-sub">LAX → palm springs · group transport.</div>
+
+      <div class="pf-drawer-binary">
+        <div class="pf-drawer-binary-btn selected">
+          <div class="pf-drawer-binary-btn-label">i'm booking</div>
+          <div class="pf-drawer-binary-btn-sub">i reserve the van, attendees split the cost</div>
+        </div>
+        <div class="pf-drawer-binary-btn">
+          <div class="pf-drawer-binary-btn-label">each attendee books</div>
+          <div class="pf-drawer-binary-btn-sub">everyone arranges their own ride from LAX</div>
+        </div>
+      </div>
+
+      <div class="pf-drawer-cost-input">
+        <div class="pf-drawer-cost-input-label">actual final cost</div>
+        <div class="pf-drawer-cost-input-field">
+          <span class="pf-drawer-cost-input-currency">$</span>
+          <span class="pf-drawer-cost-input-amount">600</span>
+        </div>
+        <div class="pf-drawer-cost-input-hint">estimate was $600 · confirm or overwrite.</div>
+      </div>
+
+      <div class="pf-drawer-cta">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">7.</span>
+  <span class="step-title">Wizard screen 6 — payment handle prompt</span>
+  <span class="step-marker org">organizer · wizard 6/7</span>
+</div>
+<p class="step-note">
+  Conditional screen. Only fires if <code>users.payment_handles</code> is empty. Just-in-time capture — the organizer can skip and use a "no payment link set" fallback in Module A, but the nudge fires every time they organize until set. Stored at the user level, persists across trips.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · wizard 6/7</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 85%"></div></div>
+      <div class="pf-drawer-back">← step 6 of 7 · payment</div>
+      <div class="pf-drawer-h">where do they venmo you?</div>
+      <div class="pf-drawer-sub">attendees will use this to pay you back. set once, applies to every trip you organize. you can skip and add later.</div>
+
+      <div class="pf-formdrawer-field" style="margin-bottom: 10px;">
+        <div class="pf-formdrawer-field-label" style="color:var(--accent);">venmo</div>
+        <div class="pf-formdrawer-field-input placeholder" style="background:#0a0a0a; border-color:#444; color:#888;">@andrewshipman</div>
+      </div>
+      <div class="pf-formdrawer-field" style="margin-bottom: 10px;">
+        <div class="pf-formdrawer-field-label" style="color:var(--accent);">zelle (optional)</div>
+        <div class="pf-formdrawer-field-input placeholder" style="background:#0a0a0a; border-color:#444; color:#888;">phone or email</div>
+      </div>
+      <div class="pf-formdrawer-field" style="margin-bottom: 16px;">
+        <div class="pf-formdrawer-field-label" style="color:var(--accent);">cashapp (optional)</div>
+        <div class="pf-formdrawer-field-input placeholder" style="background:#0a0a0a; border-color:#444; color:#888;">$cashtag</div>
+      </div>
+
+      <div class="pf-drawer-cta">save & continue →</div>
+      <div class="pf-drawer-cta-secondary">skip — i'll add later</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">8.</span>
+  <span class="step-title">Wizard screen 7 — final review</span>
+  <span class="step-marker org">organizer · wizard 7/7</span>
+</div>
+<p class="step-note">
+  All decisions in one place, <strong>each row editable</strong> via the inline <code>change</code> link (jumps back to the relevant wizard screen, returns here on save). The big yellow CTA is the actual lock-fire — past this point, attendees see the lock state on their next trip page open. <code>lock_deadline</code> is set here too with a sensible default (date_start - 14 days), organizer can override.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · wizard 7/7</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 100%"></div></div>
+      <div class="pf-drawer-back">← step 7 of 7 · review</div>
+      <div class="pf-drawer-h">ready to lock?</div>
+      <div class="pf-drawer-sub">last chance to fix anything. tap a row to edit.</div>
+
+      <div class="pf-drawer-review-row">
+        <div>
+          <div class="pf-drawer-review-label">spot</div>
+          <div class="pf-drawer-review-value">cap juluca · $18,000 · i'm booking</div>
+        </div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div>
+          <div class="pf-drawer-review-label">headliner</div>
+          <div class="pf-drawer-review-value">coachella ga · each books</div>
+        </div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div>
+          <div class="pf-drawer-review-label">airport van</div>
+          <div class="pf-drawer-review-value">$600 · i'm booking</div>
+        </div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div>
+          <div class="pf-drawer-review-label">your share total</div>
+          <div class="pf-drawer-review-value" style="color:var(--accent);">$4,650 each (4 attendees)</div>
+        </div>
+        <span></span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div>
+          <div class="pf-drawer-review-label">booking deadline</div>
+          <div class="pf-drawer-review-value">may 12 · 14 days before trip</div>
+        </div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+
+      <div class="pf-drawer-cta" style="margin-top: 18px;">lock it in 🔒</div>
+      <div class="pf-drawer-cta-secondary">go back</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART 3 — LOCK FIRES
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="part-label">
+  <div class="part-kicker">PART 3 · LOCK FIRES</div>
+  <h2 class="part-title">A brief commitment beat</h2>
+  <p class="part-sub">
+    Tapping <code>lock it in 🔒</code> fires the lock action. Holding members get bumped to <code>out</code>. Cost divisor flips from 6 → 4. <code>actual_cost</code> is finalized on shared items. Lock notifications go out to attendees (email + drip campaign begins). The organizer sees a brief confirmation moment before the trip page transforms into its post-lock composition.
+  </p>
+</div>
+
+<div class="step-label">
+  <span class="step-num">9.</span>
+  <span class="step-title">Lock-fire moment</span>
+  <span class="step-marker org">organizer</span>
+</div>
+<p class="step-note">
+  Brief celebratory beat — not a heavy interstitial, just a clear "this is real now." Auto-dismisses after ~2s into the new post-lock trip page.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · lock fired</span>
+    <div class="pf-lockfire">
+      <div class="pf-lockfire-icon">🔒</div>
+      <div class="pf-lockfire-h">it's <span class="accent">real</span> now</div>
+      <div class="pf-lockfire-sub">
+        4 attendees confirmed · $18,600 in shared bookings · attendees notified
+      </div>
+      <div style="font-size: 11px; color: #555; font-family: Georgia, serif; font-style: italic;">→ taking you to the trip page</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART 4 — POST-LOCK ORGANIZER VIEW
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="part-label">
+  <div class="part-kicker">PART 4 · POST-LOCK ORGANIZER VIEW</div>
+  <h2 class="part-title">The trip page transforms</h2>
+  <p class="part-sub">
+    Post-lock, the page composition shifts. <strong>PostcardHero compresses</strong> (smaller title, no postcard image), a <strong>condensed summary card</strong> appears with the consequential metadata, the countdown retargets to <code>lock_deadline</code>, and the new <strong>two-module surface</strong> (A + B) becomes the page's primary content. Existing modules collapse into a <code>trip details ▾</code> expander. <strong>No sticky bottom bar</strong> — there's no further action to take on the chrome.
+  </p>
+</div>
+
+<div class="step-label">
+  <span class="step-num">10.</span>
+  <span class="step-title">Post-lock trip page — organizer view</span>
+  <span class="step-marker org">organizer · post-lock</span>
+</div>
+<p class="step-note">
+  Module A in <strong>organizer mode</strong> shows aggregate progress ("4 of 4 in" once everyone commits, with per-attendee status indicators). Module B in organizer mode is the per-attendee booking tracker — <em>"who's booked their shit and who hasn't"</em>. The crew section evolves to show fractional progress per attendee.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · post-lock</span>
+    <div class="pf-status"><span>9:42</span><span>•••</span></div>
+    <div class="pf-marquee">
+      <div class="pf-marquee-track">
+        <span>locked in 🔒</span><span class="star">★</span>
+        <span>book by may 12</span><span class="star">★</span>
+        <span>1 of 4 committed</span><span class="star">★</span>
+        <span>locked in 🔒</span><span class="star">★</span>
+        <span>book by may 12</span><span class="star">★</span>
+        <span>1 of 4 committed</span><span class="star">★</span>
+      </div>
+    </div>
+    <div class="pf-app-header">
+      <div class="pf-app-wordmark">rally<span class="bang">!</span></div>
+      <div class="pf-app-avatar">A</div>
+    </div>
+    <div class="pf-hero compressed">
+      <div class="title">coachella 2026<span class="bang">!!!</span></div>
+      <div class="meta">may 26 → 29 · palm springs, ca</div>
+    </div>
+    <div class="pf-summary">
+      <div class="pf-summary-title">trip summary</div>
+      <div class="pf-summary-grid">
+        <div class="pf-summary-cell">
+          <div class="pf-summary-cell-label">spot</div>
+          <div class="pf-summary-cell-value">cap juluca, anguilla</div>
+        </div>
+        <div class="pf-summary-cell">
+          <div class="pf-summary-cell-label">crew</div>
+          <div class="pf-summary-cell-value"><strong>4</strong> in</div>
+        </div>
+        <div class="pf-summary-cell">
+          <div class="pf-summary-cell-label">when</div>
+          <div class="pf-summary-cell-value">may 26 → 29 · 23 days</div>
+        </div>
+        <div class="pf-summary-cell">
+          <div class="pf-summary-cell-label">book by</div>
+          <div class="pf-summary-cell-value"><strong>may 12</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="pf-countdown">
+      <div class="pf-countdown-kicker">BOOK BY</div>
+      <div style="font-family:Georgia,serif;font-style:italic;font-weight:800;font-size:13px;color:#fff;">may 12 · 8pm edt</div>
+      <div class="pf-countdown-tiles">
+        <div class="pf-countdown-tile"><div class="pf-countdown-tile-num">09</div><div class="pf-countdown-tile-unit">days</div></div>
+        <div class="pf-countdown-tile"><div class="pf-countdown-tile-num">06</div><div class="pf-countdown-tile-unit">hrs</div></div>
+        <div class="pf-countdown-tile"><div class="pf-countdown-tile-num">17</div><div class="pf-countdown-tile-unit">min</div></div>
+      </div>
+    </div>
+
+    <!-- Module A — organizer view -->
+    <div class="pf-module">
+      <div class="pf-module-header">
+        <span class="pf-module-title">shared costs</span>
+        <span class="pf-module-count">module a</span>
+      </div>
+      <div class="pf-module-body">
+        <div class="pf-mod-a-org-progress">
+          <div class="pf-mod-a-org-fraction">1 of 4</div>
+          <div class="pf-mod-a-org-label">attendees committed</div>
+        </div>
+        <div class="pf-mod-a-org-row"><span class="pf-mod-a-org-row-name">andrea s.</span><span class="pf-mod-a-org-row-status">✅</span></div>
+        <div class="pf-mod-a-org-row"><span class="pf-mod-a-org-row-name">mike r.</span><span class="pf-mod-a-org-row-status">⏳</span></div>
+        <div class="pf-mod-a-org-row"><span class="pf-mod-a-org-row-name">sarah j.</span><span class="pf-mod-a-org-row-status">⏳</span></div>
+        <div class="pf-mod-a-org-row"><span class="pf-mod-a-org-row-name">chris l.</span><span class="pf-mod-a-org-row-status">⏳</span></div>
+        <div class="pf-mod-a-org-cta-disabled">go book the spot — waiting on 3</div>
+      </div>
+    </div>
+
+    <!-- Module B — organizer view (per-attendee tracker) -->
+    <div class="pf-module">
+      <div class="pf-module-header">
+        <span class="pf-module-title">crew progress</span>
+        <span class="pf-module-count">module b</span>
+      </div>
+      <div class="pf-module-body">
+        <div class="pf-mod-b-org-row"><span class="pf-mod-b-org-name">andrea s.</span><span class="pf-mod-b-org-progress">1 of 2 booked</span></div>
+        <div class="pf-mod-b-org-row"><span class="pf-mod-b-org-name">mike r.</span><span class="pf-mod-b-org-progress">0 of 2 booked</span></div>
+        <div class="pf-mod-b-org-row"><span class="pf-mod-b-org-name">sarah j.</span><span class="pf-mod-b-org-progress">0 of 2 booked</span></div>
+        <div class="pf-mod-b-org-row"><span class="pf-mod-b-org-name">chris l.</span><span class="pf-mod-b-org-progress">0 of 2 booked</span></div>
+      </div>
+    </div>
+
+    <div class="pf-expander">trip details <span class="pf-expander-caret">▾</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART 5 — POST-LOCK ATTENDEE VIEW
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="part-label">
+  <div class="part-kicker">PART 5 · POST-LOCK ATTENDEE VIEW</div>
+  <h2 class="part-title">"i'm in" → checklist → done</h2>
+  <p class="part-sub">
+    Attendees get a notification ("Andrew locked Coachella in — you owe him $4,650"). They open the trip and see two new modules. <strong>Module A first</strong>: aggregate commitment surface, payment handle, single tap. <strong>Module B second</strong>: their personal checklist with gated forms (book your flight, book your roommate, etc.). The story is "agree to costs → do your bookings."
+  </p>
+</div>
+
+<div class="step-label">
+  <span class="step-num">11.</span>
+  <span class="step-title">Attendee opens trip — Module A pre-tap</span>
+  <span class="step-marker att">attendee · before commitment</span>
+</div>
+<p class="step-note">
+  Layout option (c) from gap #3: <strong>total prominent + compressed breakdown visible + payment handle below + CTA at bottom</strong>. Hierarchy: "you owe $X → here's why → tap to commit → here's how to pay." Payment handle is visible (transparency wins over surprise) but the primary action is committing — Send-Andrew-CTA activates only after the i'm-in tap.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">andrea · pre-tap</span>
+    <div class="pf-status"><span>9:43</span><span>•••</span></div>
+    <div class="pf-marquee">
+      <div class="pf-marquee-track">
+        <span>andrew locked it in 🔒</span><span class="star">★</span>
+        <span>book by may 12</span><span class="star">★</span>
+        <span>$4,650 owed</span><span class="star">★</span>
+        <span>andrew locked it in 🔒</span><span class="star">★</span>
+        <span>book by may 12</span><span class="star">★</span>
+        <span>$4,650 owed</span><span class="star">★</span>
+      </div>
+    </div>
+    <div class="pf-app-header">
+      <div class="pf-app-wordmark">rally<span class="bang">!</span></div>
+      <div class="pf-app-avatar" style="background:#5bd89a;">S</div>
+    </div>
+    <div class="pf-hero compressed">
+      <div class="title">coachella 2026<span class="bang">!!!</span></div>
+      <div class="meta">may 26 → 29 · palm springs, ca</div>
+    </div>
+
+    <!-- Module A — attendee pre-tap -->
+    <div class="pf-module">
+      <div class="pf-module-header">
+        <span class="pf-module-title">your share</span>
+        <span class="pf-module-count">module a</span>
+      </div>
+      <div class="pf-module-body">
+        <div class="pf-mod-a-total">
+          <div class="pf-mod-a-total-label">you owe andrew</div>
+          <div class="pf-mod-a-total-amount">$4,650</div>
+        </div>
+        <div class="pf-mod-a-breakdown">
+          <div class="pf-mod-a-row"><span class="pf-mod-a-row-label">cap juluca · 1/4 of $18,000</span><span class="pf-mod-a-row-amount">$4,500</span></div>
+          <div class="pf-mod-a-row"><span class="pf-mod-a-row-label">airport van · 1/4 of $600</span><span class="pf-mod-a-row-amount">$150</span></div>
+        </div>
+        <div class="pf-mod-a-cta">i'm in →</div>
+        <div class="pf-mod-a-pay-hidden">venmo → @andrewshipman (tap once committed)</div>
+      </div>
+    </div>
+
+    <!-- Module B — attendee unfinished -->
+    <div class="pf-module">
+      <div class="pf-module-header">
+        <span class="pf-module-title">your trip checklist</span>
+        <span class="pf-module-count">0 of 3 done</span>
+      </div>
+      <div class="pf-module-body">
+        <div class="pf-mod-b-row">
+          <div class="pf-mod-b-checkbox"></div>
+          <div class="pf-mod-b-content">
+            <div class="pf-mod-b-title">book your flight</div>
+            <div class="pf-mod-b-detail">tap to enter flight # + arrival</div>
+          </div>
+          <span class="pf-mod-b-cta">start →</span>
+        </div>
+        <div class="pf-mod-b-row">
+          <div class="pf-mod-b-checkbox"></div>
+          <div class="pf-mod-b-content">
+            <div class="pf-mod-b-title">grab your coachella pass</div>
+            <div class="pf-mod-b-detail">$499 · book.coachella.com →</div>
+          </div>
+          <span class="pf-mod-b-cta">start →</span>
+        </div>
+        <div class="pf-mod-b-row">
+          <div class="pf-mod-b-checkbox"></div>
+          <div class="pf-mod-b-content">
+            <div class="pf-mod-b-title">confirm your rooming</div>
+            <div class="pf-mod-b-detail">who are you bunking with?</div>
+          </div>
+          <span class="pf-mod-b-cta">start →</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pf-expander">trip details <span class="pf-expander-caret">▾</span></div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">12.</span>
+  <span class="step-title">Module A post-tap — payment handle prominent</span>
+  <span class="step-marker att">attendee · just committed</span>
+</div>
+<p class="step-note">
+  Surface transforms after the tap. The "i'm in →" CTA flips to <code>i'm in ✓</code> (committed state, dimmer treatment), and the <strong>send-via-venmo CTA</strong> becomes the new primary action — tap-to-open Venmo deep link. Commitment record is timestamped server-side.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">andrea · committed</span>
+    <div class="pf-status"><span>9:43</span><span>•••</span></div>
+    <div class="pf-marquee">
+      <div class="pf-marquee-track">
+        <span>andrew locked it in 🔒</span><span class="star">★</span>
+        <span>2 of 4 committed</span><span class="star">★</span>
+        <span>book by may 12</span><span class="star">★</span>
+        <span>andrew locked it in 🔒</span><span class="star">★</span>
+        <span>2 of 4 committed</span><span class="star">★</span>
+        <span>book by may 12</span><span class="star">★</span>
+      </div>
+    </div>
+    <div class="pf-app-header">
+      <div class="pf-app-wordmark">rally<span class="bang">!</span></div>
+      <div class="pf-app-avatar" style="background:#5bd89a;">S</div>
+    </div>
+    <div class="pf-hero compressed">
+      <div class="title">coachella 2026<span class="bang">!!!</span></div>
+      <div class="meta">may 26 → 29 · palm springs, ca</div>
+    </div>
+
+    <div class="pf-module">
+      <div class="pf-module-header">
+        <span class="pf-module-title">your share</span>
+        <span class="pf-module-count">committed ✓</span>
+      </div>
+      <div class="pf-module-body">
+        <div class="pf-mod-a-total">
+          <div class="pf-mod-a-total-label">send andrew</div>
+          <div class="pf-mod-a-total-amount">$4,650</div>
+        </div>
+        <div class="pf-mod-a-breakdown">
+          <div class="pf-mod-a-row"><span class="pf-mod-a-row-label">cap juluca · 1/4 of $18,000</span><span class="pf-mod-a-row-amount">$4,500</span></div>
+          <div class="pf-mod-a-row"><span class="pf-mod-a-row-label">airport van · 1/4 of $600</span><span class="pf-mod-a-row-amount">$150</span></div>
+        </div>
+        <div class="pf-mod-a-cta committed">i'm in ✓ · just now</div>
+        <div class="pf-mod-a-pay">send via venmo @andrewshipman →</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">13.</span>
+  <span class="step-title">Module B item — bottom drawer form open</span>
+  <span class="step-marker att">attendee · booking flight</span>
+</div>
+<p class="step-note">
+  Tapping <code>start →</code> on a Module B item opens a bottom drawer with the gated form. Fields vary per item type — flight needs flight number + arrival time; hotel needs name + roommate confirmation + "who are you rooming with?"; intra-transport needs a confirmation toggle. Self-attestation (the toggle) plus required details (the form) = the price of admission for marking the task done. The Go-phase logistics packet falls out of these fields naturally, no double-entry.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">andrea · book flight drawer</span>
+    <div class="pf-status"><span>9:44</span><span>•••</span></div>
+    <div style="padding: 8px 16px 14px; opacity: 0.4;">
+      <div style="font-family:Georgia,serif; font-style:italic; font-size:18px; color: var(--ink);">your trip checklist</div>
+      <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">— underlying list dimmed, drawer overlay below —</div>
+    </div>
+    <div class="pf-formdrawer">
+      <div class="pf-formdrawer-handle"></div>
+      <div class="pf-formdrawer-h">book your flight</div>
+      <div class="pf-formdrawer-sub">enter flight number, or origin + destination + arrival time. helps the group know when you're landing.</div>
+
+      <div class="pf-formdrawer-field">
+        <div class="pf-formdrawer-field-label">flight number</div>
+        <div class="pf-formdrawer-field-input">DL 1234</div>
+      </div>
+      <div class="pf-formdrawer-field">
+        <div class="pf-formdrawer-field-label">arrival time at LAX</div>
+        <div class="pf-formdrawer-field-input">may 26 · 8:32 pm</div>
+      </div>
+      <div class="pf-formdrawer-field">
+        <div class="pf-formdrawer-field-label">notes (optional)</div>
+        <div class="pf-formdrawer-field-input placeholder">any layovers? bringing extra bags?</div>
+      </div>
+
+      <div class="pf-formdrawer-cta">save · mark booked ✓</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">14.</span>
+  <span class="step-title">Module B — one item completed, list collapses to summary</span>
+  <span class="step-marker att">attendee · 1/3 done</span>
+</div>
+<p class="step-note">
+  Saved items collapse to a one-line summary showing the captured data. Completed rows <strong>stay in place</strong> (don't float to a separate "done" subsection) and are <strong>re-editable</strong> — flight got cancelled? Tap the row, drawer reopens with prefilled data, save updates.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">andrea · 1/3 done</span>
+    <div class="pf-status"><span>9:45</span><span>•••</span></div>
+    <div class="pf-marquee">
+      <div class="pf-marquee-track">
+        <span>3 of 4 committed</span><span class="star">★</span>
+        <span>book by may 12</span><span class="star">★</span>
+        <span>2 of 12 booked</span><span class="star">★</span>
+        <span>3 of 4 committed</span><span class="star">★</span>
+        <span>book by may 12</span><span class="star">★</span>
+        <span>2 of 12 booked</span><span class="star">★</span>
+      </div>
+    </div>
+    <div class="pf-app-header">
+      <div class="pf-app-wordmark">rally<span class="bang">!</span></div>
+      <div class="pf-app-avatar" style="background:#5bd89a;">S</div>
+    </div>
+    <div class="pf-hero compressed">
+      <div class="title">coachella 2026<span class="bang">!!!</span></div>
+      <div class="meta">may 26 → 29 · palm springs, ca</div>
+    </div>
+
+    <div class="pf-module">
+      <div class="pf-module-header">
+        <span class="pf-module-title">your trip checklist</span>
+        <span class="pf-module-count">1 of 3 done</span>
+      </div>
+      <div class="pf-module-body">
+        <div class="pf-mod-b-row">
+          <div class="pf-mod-b-checkbox done">✓</div>
+          <div class="pf-mod-b-content">
+            <div class="pf-mod-b-title" style="text-decoration: line-through; opacity: 0.6;">book your flight</div>
+            <div class="pf-mod-b-detail" style="color: var(--ink); font-weight: 600; opacity: 0.85;">DL 1234 · arrives may 26 · 8:32pm</div>
+          </div>
+          <span class="pf-mod-b-cta" style="font-size: 10px;">edit</span>
+        </div>
+        <div class="pf-mod-b-row">
+          <div class="pf-mod-b-checkbox"></div>
+          <div class="pf-mod-b-content">
+            <div class="pf-mod-b-title">grab your coachella pass</div>
+            <div class="pf-mod-b-detail">$499 · book.coachella.com →</div>
+          </div>
+          <span class="pf-mod-b-cta">start →</span>
+        </div>
+        <div class="pf-mod-b-row">
+          <div class="pf-mod-b-checkbox"></div>
+          <div class="pf-mod-b-content">
+            <div class="pf-mod-b-title">confirm your rooming</div>
+            <div class="pf-mod-b-detail">who are you bunking with?</div>
+          </div>
+          <span class="pf-mod-b-cta">start →</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART 6 — EVERYONE IS IN
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="part-label">
+  <div class="part-kicker">PART 6 · EVERYONE IS IN</div>
+  <h2 class="part-title">The organizer goes to book</h2>
+  <p class="part-sub">
+    All 4 attendees have tapped <code>i'm in</code>. The Module A organizer-mode CTA unlocks: <code>go book the spot →</code>. The organizer now has explicit social cover to charge their card for the shared bookings. Out-of-band, attendees venmo $4,650 each (or wait until the trip — Rally surfaces the path, doesn't enforce it). Module B keeps cooking — attendees gradually fill in their flights, rooming, festival passes. The drip campaign does its job until <code>book by may 12</code>. Then the trip slides into Go phase.
+  </p>
+</div>
+
+<div class="step-label">
+  <span class="step-num">15.</span>
+  <span class="step-title">Organizer — fully committed, ready to book</span>
+  <span class="step-marker org">organizer · 4 of 4 in</span>
+</div>
+<p class="step-note">
+  Module A flips to "go book the spot →" — the gating event. The organizer has the moat: explicit, documented commitment from every attendee. Module B's per-attendee tracker shows progress in real time. The crew section (in the expander) gets fractional progress per row.
+</p>
+<div class="row">
+  <div class="phone-frame themed-festival">
+    <span class="phone-frame-label">organizer · everyone in</span>
+    <div class="pf-status"><span>10:21</span><span>•••</span></div>
+    <div class="pf-marquee">
+      <div class="pf-marquee-track">
+        <span>4 of 4 committed 🎉</span><span class="star">★</span>
+        <span>time to book</span><span class="star">★</span>
+        <span>book by may 12</span><span class="star">★</span>
+        <span>4 of 4 committed 🎉</span><span class="star">★</span>
+        <span>time to book</span><span class="star">★</span>
+        <span>book by may 12</span><span class="star">★</span>
+      </div>
+    </div>
+    <div class="pf-app-header">
+      <div class="pf-app-wordmark">rally<span class="bang">!</span></div>
+      <div class="pf-app-avatar">A</div>
+    </div>
+    <div class="pf-hero compressed">
+      <div class="title">coachella 2026<span class="bang">!!!</span></div>
+      <div class="meta">may 26 → 29 · palm springs, ca</div>
+    </div>
+
+    <div class="pf-module">
+      <div class="pf-module-header">
+        <span class="pf-module-title">shared costs</span>
+        <span class="pf-module-count">module a</span>
+      </div>
+      <div class="pf-module-body">
+        <div class="pf-mod-a-org-progress" style="background: rgba(91, 215, 154, 0.15); border: 1.5px solid #2a8a4a;">
+          <div class="pf-mod-a-org-fraction" style="color:#2a8a4a;">4 of 4</div>
+          <div class="pf-mod-a-org-label" style="color:#2a8a4a;">attendees committed 🎉</div>
+        </div>
+        <div class="pf-mod-a-org-row"><span class="pf-mod-a-org-row-name">andrea s.</span><span class="pf-mod-a-org-row-status">✅</span></div>
+        <div class="pf-mod-a-org-row"><span class="pf-mod-a-org-row-name">mike r.</span><span class="pf-mod-a-org-row-status">✅</span></div>
+        <div class="pf-mod-a-org-row"><span class="pf-mod-a-org-row-name">sarah j.</span><span class="pf-mod-a-org-row-status">✅</span></div>
+        <div class="pf-mod-a-org-row"><span class="pf-mod-a-org-row-name">chris l.</span><span class="pf-mod-a-org-row-status">✅</span></div>
+        <div class="pf-mod-a-org-cta-active">go book the spot →</div>
+      </div>
+    </div>
+
+    <div class="pf-module">
+      <div class="pf-module-header">
+        <span class="pf-module-title">crew progress</span>
+        <span class="pf-module-count">module b</span>
+      </div>
+      <div class="pf-module-body">
+        <div class="pf-mod-b-org-row"><span class="pf-mod-b-org-name">andrea s.</span><span class="pf-mod-b-org-progress done">2 of 2 booked ✓</span></div>
+        <div class="pf-mod-b-org-row"><span class="pf-mod-b-org-name">mike r.</span><span class="pf-mod-b-org-progress">1 of 2 booked</span></div>
+        <div class="pf-mod-b-org-row"><span class="pf-mod-b-org-name">sarah j.</span><span class="pf-mod-b-org-progress">1 of 2 booked</span></div>
+        <div class="pf-mod-b-org-row"><span class="pf-mod-b-org-name">chris l.</span><span class="pf-mod-b-org-progress">0 of 2 booked</span></div>
+      </div>
+    </div>
+
+    <div class="pf-expander">trip details <span class="pf-expander-caret">▾</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CLOSING NOTES
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="doc-note" style="margin-top: 60px;">
+  <strong>What this maps to in the strategy doc:</strong> wireframes here resolve all 6 wireframe-blocking gaps identified in the 2026-05-03 Cowork session — Lock CTA placement (sticky bar), wizard surface (tall bottom drawer, 7 screens, hybrid binary buttons, inline cost confirmation), Module A layout (option c — total prominent + compressed breakdown + payment handle + CTA), Module B layout (list rows + bottom drawer forms + 3 states with completed-stays-in-place), post-lock trip page top (compressed hero + 4-field condensed summary card), and existing modules' fate (collapsed into <code>trip details ▾</code> expander, sticky bar removed post-lock).
+</div>
+
+<div class="doc-note">
+  <strong>What's still TBD:</strong> the <code>edit-on-lock</code> mode (parallel to 9W edit-on-sell — for safe in-place edits post-lock, e.g., adding a new invitee, adjusting metadata) — logged as Lock-G implementation arc. The drip-campaign mechanics that drive the lock-phase urgency layer (email cadence, marquee content over time) — logged separately as the cross-trip Comms drip campaign arc. The Lock → Go boundary trigger remains Open (Q3 in the strategy doc).
+</div>
+
+<div class="doc-note">
+  <strong>How to read these frames:</strong> single 350px phone frame width, festival-run themed for Coachella context. Frames are mockups, not pixel-perfect — typography, spacing, and color treatments will tighten during Lock-A through Lock-F implementation. Marquee content shown is illustrative; actual segments will be driven by the Comms drip-campaign arc when it ships.
+</div>
+
+</body>
+</html>

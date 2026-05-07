@@ -471,14 +471,267 @@ Locked: lock and go bleed into each other. Open:
 
 ---
 
-## Implementation sub-sessions (anticipated, not yet scoped)
+## Cowork session 2 — additional locked decisions (2026-05-03 EOD)
 
-- **Lock-A:** Lock CTA + organizer-side Lock confirmation flow
-  (the moment the trigger fires)
-- **Lock-B:** Cost divisor switch + footer reconciliation post-lock
-- **Lock-C:** Booking-responsibility flagging system + per-flag
-  detail-capture surfaces
-- **Lock-D:** Lock-phase countdown + drip campaign emails
-- **Lock-E:** Cost reconciliation / Venmo affordance on cost summary
-- **Lock-F:** Holding → out auto-bump on lock; UI feedback
-- (others surface as the dimensions get drafted)
+This section captures decisions made in the second Cowork session of
+2026-05-03, walking the 6 wireframe-blocking gaps in this strategy doc
+to lock specifics and produce a master mockup.
+
+**Reference: `rally-lock-phase-mockup.html`** — 15-frame wireframe
+spanning the full organizer + attendee journey. Treat as the canonical
+visual contract until per-session wireframes refine it further.
+
+**Locked specifics (additive to the original "Decisions Locked" list):**
+
+1. **Lock CTA placement.** Sticky bottom bar (organizer view), copy
+   `lock it in →` (lowercase per voice), always visible from the
+   moment sell phase begins (no readiness threshold gate). The
+   verification screen that opens the wizard subsumes any "soft warn at
+   low readiness" — readiness signals appear in the summary, organizer
+   self-assesses.
+
+2. **Wizard surface.** Tall bottom drawer (~85% viewport height; not
+   full-screen overlay). One decision per screen, thin progress bar at
+   top, back nav. Hybrid binary buttons ("I'm booking" / "Each attendee
+   books") with a one-line consequence label below each — explicit on
+   what each choice means downstream (Module A line vs. Module B task).
+
+3. **Wizard sequence (typical 1 lodging + headliner + 2 intra-transport
+   trip):**
+   ```
+   Screen 1:  Verification (trip-state summary + edit-first exit)
+   Screen 2:  Lodging — confirm-or-override vote winner
+   Screen 3:  Lodging — allocation + inline cost confirmation
+   Screen 4:  Headliner — allocation + inline cost (NEW v0)
+   Screen 5:  Intra-transport item N — allocation + inline cost
+   ... (one screen per intra-transport item)
+   Screen N-1: Payment-handle prompt (only if user.payment_handles is empty)
+   Screen N:   Final review (editable rows) + fire lock CTA
+   ```
+
+4. **v0 scope expansion.** Headliner moved INTO v0 wizard. Activities
+   and provisions stay OUT (they're estimations / approximations, no
+   action required at lock time). The strategy doc's original v0
+   inventory table updates accordingly:
+
+   | Item type | v0? | Allocatable? |
+   |---|---|---|
+   | Lodging | ✅ | binary (with override of vote winner) |
+   | Headliner | ✅ (new) | binary, singular |
+   | Intra-trip transport | ✅ | binary, per item |
+   | Transport TO destination | ✅ | individual-only (no allocation choice) |
+   | Group activities | ❌ | n/a — ballpark cost-summary only |
+   | Provisions | ❌ | n/a — ballpark cost-summary only |
+
+5. **Module A layout.** Hybrid (option c): total prominent + compressed
+   itemized breakdown visible + payment handle below + primary CTA at
+   bottom. Pre-tap state shows "you owe Andrew $X" + breakdown +
+   "i'm in →" CTA + payment handle suppressed. Post-tap state
+   transforms — `i'm in ✓` (committed badge) + payment handle promoted
+   + "Send Andrew $X via Venmo →" deep-link CTA. **Organizer's view
+   of Module A is different**: aggregate-progress dashboard
+   ("4 of 4 in" with per-attendee status indicators) + "go book the
+   spot →" CTA gated until all attendees commit.
+
+6. **Module B layout.** List rows (not cards), bottom drawer for the
+   gated form. Three states:
+   - **Unfinished:** empty checkbox + label + "tap to start" affordance.
+   - **In-progress:** form opened but not all required fields filled —
+     visual cue (partial-fill icon, "resume" affordance).
+   - **Completed:** check + collapsed-row summary showing captured data
+     (`☑ flight booked · DL1234 · arrives 8:32pm`).
+   Completed items **stay in place** (not floated to a separate "done"
+   subsection). All items **re-editable** — tap a completed row, drawer
+   reopens with prefilled fields, save updates.
+
+7. **Item-type forms in Module B (refined from original spec):**
+   - **Book your flight:** flight number OR (departure airport +
+     arrival airport + arrival time). Notes optional.
+   - **Book your hotel** (when lodging individual): hotel name +
+     roommate confirmation toggle + "who are you rooming with?"
+     free-text (when toggle = yes). Confirmation code optional.
+   - **Book your intra-trip transport** (when individual): free-text
+     confirmation toggle. Booking link surfaced from `transport.link`
+     if organizer set one in sketch.
+
+8. **Post-lock trip page composition.**
+   ```
+   1.  Marquee strip                          (stays — content shifts to lock-phase segments)
+   2.  AppHeader                              (stays — universal chrome from Session 11)
+   3.  PostcardHero (compressed)              (smaller title, no postcard image)
+   4.  Condensed trip summary card            (NEW — 4 fields, see below)
+   5.  Countdown scoreboard                   (retargeted to lock_deadline)
+   6.  Module A — shared cost commitment      (NEW)
+   7.  Module B — personal checklist          (NEW)
+   8.  Crew section                            (stays + enhanced — per-attendee progress for organizer)
+   9.  Buzz section                            (stays)
+   10. "trip details ▾" expander              (NEW collapsed-by-default container)
+   11. Footer (gutted)                         (most content moved up)
+   12. NO sticky bottom bar                    (no further chrome action post-lock)
+   ```
+
+9. **Condensed trip summary card — 4 fields** (per-person cost dropped
+   because it's not a single number once allocations split):
+   - Lodging address (the chosen spot)
+   - Dates + countdown to start
+   - Final roster size (`N in` after holding-bump)
+   - Booking deadline (`lock_deadline`)
+   Single bordered card, 2-column grid, sits below compressed hero.
+
+10. **Trip details expander contents** (collapsed default, organizer
+    can still tap inner cards to edit via 9W edit-on-lock):
+    - Headliner module
+    - Lodging module (detail of chosen spot only — vote losers
+      de-emphasized)
+    - Transportation module
+    - Everything-else module (activities + provisions)
+    - Aux/extras (playlist, packing list)
+    - **Cost summary REMOVED entirely** from lock phase — its job is
+      now distributed across Module A (shared) + Module B (individual
+      bookings). Mixing finalized + estimate state in a unified summary
+      was the confusion vector.
+
+11. **Reversibility model.** Lock is **forward-only at the state
+    level** — no formal "revert to sell" path in v0. In-place edits
+    handled via **edit-on-lock mode** (parallel pattern to 9W
+    edit-on-sell). Edit-on-lock allows safe changes (metadata, roster
+    additions); risky changes (e.g., changing lodging post-lock) gated
+    with confirmation that re-runs the commitment ceremony. "Formal
+    revert to sell" parked for v1+.
+
+---
+
+## Implementation sub-sessions (refined 2026-05-03 EOD)
+
+Sub-sessions are scoped, dependency-mapped, and effort-estimated.
+Each is a discrete shippable CC session. Lock-A is data-only (no
+wireframes needed); Lock-B onwards each get their own per-session
+high-fidelity wireframe in Cowork BEFORE the brief lands —
+methodology established to prevent drift / rework.
+
+### Lock-A — Data foundation
+**Scope:** Migrations + the `fireLock` server action. Zero UI.
+- Migration: `users.payment_handles` (3 columns: `venmo_handle`,
+  `zelle_handle`, `cashapp_handle`, OR a single jsonb column —
+  decide during brief-writing).
+- Migration: `trips.lock_deadline` timestamptz column.
+- Migration: `actual_cost` + `cost_finalized_at` columns on
+  `lodging`, `transport`, `headliner` (or whichever already lack
+  these).
+- Migration: new `commitments` table — `(attendee_user_id, trip_id,
+  committed_at)`. One row per attendee per trip recording the
+  "i'm in" tap.
+- Migration: allocation tracking — likely `allocation_owner uuid
+  references public.users(id)` on each item table (NULL = unallocated;
+  organizer's `user_id` = "I'm booking"; sentinel value for "each
+  attendee books") — decide during brief.
+- Server action: `fireLock(tripId, params)` that:
+  - Validates organizer role
+  - Updates trip.phase from sell → lock atomically
+  - Records lodging selection (if overridden in wizard)
+  - Records `actual_cost` per shared item
+  - Records `allocation_owner` per item
+  - Bumps `trip_members.rsvp` from `holding` → `out`
+  - Sets `trips.lock_deadline`
+  - Saves `payment_handles` to organizer's user record
+  - Returns success or specific failure code (already-locked,
+    invalid-organizer, etc.)
+- Idempotency: `fireLock` safe to retry on transient failures, errors
+  cleanly on already-locked trips.
+
+**Depends on:** none.
+**Blocks:** Lock-B, Lock-D, Lock-E.
+**Effort:** 1 medium CC session.
+
+### Lock-B — Wizard UI (organizer)
+**Scope:** Lock CTA on sticky bar (organizer view) + 7-screen wizard
+in tall BottomDrawer. Wires up to Lock-A's `fireLock`. Edit-first
+exit + `resume lock →` round-trip. Wizard state management.
+
+**Depends on:** Lock-A (server action must exist).
+**Blocks:** Lock-C (organizer can't see post-lock view until they
+can lock-fire).
+**Pre-brief Cowork prep:** higher-fidelity wireframe of wizard
+screens (per-state, error states, loading states).
+**Effort:** 1–2 medium CC sessions.
+
+### Lock-C — Post-lock organizer view
+**Scope:** Compressed PostcardHero, condensed summary card, retargeted
+countdown, Module A organizer mode, Module B organizer mode (per-
+attendee tracker), trip-details expander, sticky bar removal in
+lock phase.
+
+**Depends on:** Lock-A, Lock-B.
+**Pre-brief Cowork prep:** higher-fidelity wireframe of Module A +
+Module B organizer-mode states (waiting / partial / fully committed).
+**Effort:** 1 medium CC session.
+
+### Lock-D — Module A (attendee surface)
+**Scope:** Module A pre-tap layout, post-tap state transformation,
+"i'm in" tap action that records to `commitments` table, Venmo deep-
+link generation, payment-handle promotion post-tap.
+
+**Depends on:** Lock-A.
+**Blocks:** none (Module A and Module B can ship independently).
+**Pre-brief Cowork prep:** higher-fidelity wireframe of Module A
+state transitions.
+**Effort:** 1 medium CC session.
+
+### Lock-E — Module B (attendee surface)
+**Scope:** Module B list (3 item types), bottom drawer with gated
+forms per type, three states (unfinished / in-progress / completed),
+completed-stays-in-place, re-editable.
+
+**Depends on:** Lock-A.
+**Blocks:** none.
+**Pre-brief Cowork prep:** higher-fidelity wireframe of each item-
+type form (flight, hotel-with-roommate, intra-transport).
+**Effort:** 1–2 medium CC sessions.
+
+### Lock-F — Edit-on-lock mode
+**Scope:** `?edit=1` query-param activation in lock state, parallel
+to 9W edit-on-sell pattern. Safe in-place edits (metadata, roster
+additions). Lodging-change post-lock = re-trigger commitment
+ceremony (or defer this edge to v1+).
+
+**Depends on:** Lock-C.
+**Blocks:** none.
+**Pre-brief Cowork prep:** wireframe edge cases (what edits trigger
+re-commitment, what edits are silent).
+**Effort:** 1 small CC session.
+
+### Lock-G — Drip campaign + lock-phase urgency
+**Scope:** Marquee content shifts to lock-phase segments. Email
+cadence (T-N days before `lock_deadline`). Hooks into the broader
+"Comms drip campaign across trip lifecycle" arc (which is itself a
+strategic arc, parked in the fix-plan backlog).
+
+**Depends on:** Lock-A, Comms drip campaign arc.
+**Pre-brief Cowork prep:** wireframe email touchpoints (T-7, T-3,
+T-1, T-0) + marquee content calendar.
+**Effort:** 1 medium CC session, partially blocked on Comms arc.
+
+### Critical path
+
+```
+Lock-A (data)
+   ↓
+Lock-B (wizard) ─────────────────┐
+   ↓                              ↓
+Lock-C (org view) ─────┐       Lock-D (Module A) ──┐
+   ↓                    ↓        ↓                   ↓
+Lock-F (edit-on-lock) Lock-G (drip)        Lock-E (Module B)
+```
+
+**v0 functional ship = Lock-A through Lock-E.** ~5–7 medium CC
+sessions in sequence. Lock-F and Lock-G are polish / expansion;
+Lock-G is partially blocked on the Comms drip campaign arc landing.
+
+### Lock → Go boundary (Lock-H, deferred)
+
+Q3 in this doc remains Open. The Lock → Go transition trigger
+(manual / automatic on N-days-before-start / automatic on last-
+booking-recorded / combination) needs the Go phase strategy doc
+to exist before this can be properly scoped. Logged as a deferred
+sub-session; will live as Lock-H or absorbed into the Go phase
+strategy work, depending on how Go scopes out.

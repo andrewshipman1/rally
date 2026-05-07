@@ -52,6 +52,8 @@ export function GroupChat({
         home_city: null,
         dietary_restrictions: null,
         venmo_handle: null,
+        zelle_handle: null,
+        cashapp_handle: null,
         created_at: '',
         updated_at: '',
       },
