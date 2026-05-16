@@ -735,3 +735,123 @@ booking-recorded / combination) needs the Go phase strategy doc
 to exist before this can be properly scoped. Logged as a deferred
 sub-session; will live as Lock-H or absorbed into the Go phase
 strategy work, depending on how Go scopes out.
+
+---
+
+## Lock-B prep — wizard edge cases (2026-05-07 EOD)
+
+Captured during a Cowork session walking the 3 wireframe-blocking
+gaps for Lock-B (wizard UI). Decisions are locked; tomorrow's
+wireframe HTML + brief work pulls from here. Deferred gaps (2, 5, 6)
+will be resolved during brief-writing tomorrow when implementation
+context surfaces them naturally.
+
+### Gap 1 — wizard navigation + persistence
+
+- **Back button rewinds one screen at a time** on screens 2–7. Screen
+  1's back affordance acts as drawer-dismiss (labeled "cancel," not
+  "back") since there's no previous screen.
+- **Drawer-dismiss resets wizard state.** Matches Rally's existing
+  drawer pattern (`LodgingAddForm`, `TransportAddForm`,
+  `HeadlinerDrawerForm`, `InviteModal` — all client-state, no
+  persistence).
+- **Confirmation dialog on dismiss when wizard is past screen 1:**
+  *"Discard your lock progress? You'll start over."* Prevents
+  accidental loss of significant input. Doesn't change the underlying
+  state-reset model — just gates the action.
+- **No URL changes** — purely client-side state, matches all existing
+  Rally drawer patterns. No `?wizard=lock-N` query params.
+
+### Gap 3 — edge cases that change wizard length
+
+- **Zero allocatable items (no lodging + no transport + no headliner):
+  block at verification screen.** Copy: *"Add at least one lodging,
+  transport, or headliner item before locking — there's nothing to
+  allocate yet."* User taps "edit first" to add items. Cannot proceed
+  through wizard with empty trip.
+- **Skip-on-the-fly for missing item types.** No headliner row → skip
+  headliner screen. No intra-transport items → skip transport screens.
+  Wizard length is computed dynamically from current trip state on
+  each open.
+- **Pre-flight blocks at verification:** ONLY block on zero allocatable
+  items. Don't gate on RSVPs, dates, or other conditions — surface as
+  informational on the verification screen, not as gates. Organizer
+  decides when to lock.
+- **Payment handle screen skips when** (a) the organizer already has
+  any payment handle set (`venmo_handle` OR `zelle_handle` OR
+  `cashapp_handle` is non-null), OR (b) zero allocations are "I'm
+  booking" mode (no money owed back to organizer, so no handle needed).
+  Either condition triggers skip.
+- **Lodging override screen behavior by state:**
+  - **1 lodging option total:** skip the override screen entirely. No
+    choice to make.
+  - **Multiple lodgings, zero votes:** show override with all options
+    presented equally, no preselection. Helper text: *"no one's voted
+    yet — pick the spot."*
+  - **Multiple lodgings, tied votes:** show override with tied options
+    highlighted, organizer picks one. No automatic tiebreaker.
+  - **Multiple lodgings, clear winner:** standard case — preselected
+    to vote winner, organizer can override.
+
+**Resulting wizard length range:**
+
+| Case | Length |
+|---|---|
+| Empty trip | 2 screens (verification → blocked) |
+| Realistic short (1 lodging, all individual) | 3–4 screens |
+| Typical (1 lodging + headliner + 1–2 transport) | 5–7 screens |
+| Maximum (many transport items + all "I'm booking") | 10+ screens |
+
+### Gap 4 — edit-first exit flow round-trip
+
+- **`resume lock →` lives in the sticky bar primary slot** — replaces
+  `done editing` when edit-on-sell is entered via the lock wizard.
+  Sticky bar contents: `← back · 🎨 · resume lock →` (4 slots,
+  manageable on 375px mobile). Edit-on-sell mode tracks an
+  `entry_point` flag; if `lock_wizard`, show resume CTA; else show
+  standard `done editing`.
+- **Wizard restarts at screen 1 (verification) on resume.** State
+  resets, not preserved. Matches gap 1's drawer-dismiss-reset pattern.
+  Mid-wizard state preservation is not built for v0.
+- **"edit first" prompts a confirmation** before exiting the wizard:
+  *"editing will reset your lock progress. continue?"* Makes the
+  state-reset deliberate, not accidental.
+- **Wizard recomputes its screen sequence on each open** from current
+  trip state (skip-on-the-fly per gap 3). Adding/removing items
+  during edit-on-sell automatically reflects in the next wizard
+  open — no stale state to invalidate.
+- **Cancel the lock attempt entirely:** tap `← back` in the sticky
+  bar during edit-on-sell-from-wizard. Exits both edit mode AND lock
+  attempt, returns user to normal sell view with the standard
+  `lock it in →` primary CTA restored. No explicit "cancel lock"
+  affordance needed — back semantics are consistent ("exit this
+  state, go up one level").
+
+### Deferred to brief-writing tomorrow (NOT wireframe-blocking)
+
+These three gaps are easier to resolve in implementation context once
+ACs are being enumerated, error categories are being listed, and
+copy is being lexicon-fed:
+
+- **Gap 2 — validation rules per field.** Cost input minimum/maximum,
+  numeric-only, required vs. optional, error UX (inline below field
+  vs. sticky top bar). Brief specifies; wireframe shows one error
+  example.
+- **Gap 5 — error handling on `fireLock` server-side failure.** Error
+  categories from the action: `not_authenticated`, `not_organizer`,
+  `already_locked`, `trip_not_found`, `concurrent_lock_attempt`,
+  RPC validation errors (`invalid_allocation_mode`, etc.). Each
+  needs a user-visible treatment in the wizard's final review screen.
+  Brief specifies; wireframe shows generic error state.
+- **Gap 6 — refined per-screen copy.** Lexicon-driven. Brief includes
+  the new lexicon entries (`wizard.screen1.heading`, etc.). Copy
+  iterates after first ship.
+
+### Concurrent wizard fires (brief-only edge case)
+
+The `fire_lock` RPC's CAS guard (`WHERE phase = 'sell'`) catches the
+case where two organizer sessions fire lock simultaneously — the
+loser gets `concurrent_lock_attempt`. The wizard UI's final review
+screen needs to surface this as a graceful error (e.g., *"trip was
+already locked while you were filling this out. refresh to see the
+current state →"*). Brief-level concern, not wireframe-blocking.

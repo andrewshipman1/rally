@@ -35,6 +35,7 @@ import { crew } from './surfaces/crew';
 import { buzz } from './surfaces/buzz';
 import { profile } from './surfaces/profile';
 import { gettingHere } from './surfaces/getting-here';
+import { lockWizard } from './surfaces/lock-wizard';
 
 export const lexicon: Lexicon = {
   common,
@@ -65,6 +66,7 @@ export const lexicon: Lexicon = {
   buzz,
   profile,
   gettingHere,
+  lockWizard,
 };
 
 export type { Lexicon, SurfaceKey } from './types';

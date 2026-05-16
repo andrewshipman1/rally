@@ -19,13 +19,16 @@
 // (migration 008 created the four-state enum; migration 025 renamed
 // 'pending' to 'awaiting'). No boundary mapping needed.
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { getCopy } from '@/lib/copy/get-copy';
 import { RSVP_CHIP_ICONS } from '@/lib/copy/surfaces/rsvp';
 import { Confetti } from '@/components/ui/Confetti';
 import type { ThemeId } from '@/lib/themes/types';
 import type { RallyRsvp } from '@/lib/rally-types';
+import type { TripPhase } from '@/types';
+import { LockWizardDrawer } from '@/components/trip/lock-wizard/LockWizardDrawer';
+import type { LockWizardContext } from '@/components/trip/lock-wizard/types';
 
 type Props = {
   themeId: ThemeId;
@@ -37,6 +40,13 @@ type Props = {
   viewerEmail: string | null;
   /** When true, show "you started this" instead of RSVP buttons. */
   isOrganizer?: boolean;
+  // ─── Session 12B (Lock-B) ───────────────────────────────────────
+  /** Current trip phase. Lock CTA renders only on sell. */
+  phase?: TripPhase;
+  /** Wizard data context. When non-null AND organizer + sell, mounts the lock wizard. */
+  wizardContext?: LockWizardContext | null;
+  /** From `?wizard=1` on the URL — auto-opens wizard on first mount, then strips the param. */
+  autoOpenWizard?: boolean;
 };
 
 type EntryState = Exclude<RallyRsvp, 'awaiting'>;
@@ -56,6 +66,9 @@ export function StickyRsvpBarChassis({
   viewerName,
   viewerEmail,
   isOrganizer,
+  phase,
+  wizardContext,
+  autoOpenWizard,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -66,20 +79,63 @@ export function StickyRsvpBarChassis({
   const [showConfetti, setShowConfetti] = useState(false);
   const [showBurst, setShowBurst] = useState(false);
 
+  // Session 12B (Lock-B) — wizard open state. Lives here so a single
+  // file hosts both the lock CTA and the wizard drawer (additive
+  // surgery per the brief).
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const wizardEligible = !!(isOrganizer && phase === 'sell' && wizardContext);
+  // One-shot auto-open on ?wizard=1, then strip the param. Mirrors
+  // SketchTripShell's ?first=1 auto-open pattern.
+  const didAutoOpenRef = useRef(false);
+  useEffect(() => {
+    if (didAutoOpenRef.current) return;
+    if (autoOpenWizard && wizardEligible) {
+      didAutoOpenRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional one-time auto-open on ?wizard=1
+      setWizardOpen(true);
+      router.replace(pathname);
+    }
+  }, [autoOpenWizard, wizardEligible, pathname, router]);
+
   if (isOrganizer) {
     return (
-      <div className="sticky sticky--organizer">
-        <span className="sticky-organizer-text">
-          {'★ '}{getCopy(themeId, 'builderState.eyebrow')}
-        </span>
-        <button
-          type="button"
-          className="sticky-organizer-edit"
-          onClick={() => router.push(`${pathname}?edit=1`)}
-        >
-          {getCopy(themeId, 'builderState.editCta')}
-        </button>
-      </div>
+      <>
+        <div className="sticky sticky--organizer">
+          <span className="sticky-organizer-text">
+            {'★ '}{getCopy(themeId, 'builderState.eyebrow')}
+          </span>
+          <button
+            type="button"
+            className="sticky-organizer-edit"
+            onClick={() => router.push(`${pathname}?edit=1`)}
+          >
+            {getCopy(themeId, 'builderState.editCta')}
+          </button>
+          {wizardEligible && (
+            <button
+              type="button"
+              className="sticky-organizer-lock"
+              onClick={() => setWizardOpen(true)}
+            >
+              {getCopy(themeId, 'lockWizard.stickyBar.lockCta')}
+            </button>
+          )}
+        </div>
+        {wizardEligible && wizardContext && (
+          <LockWizardDrawer
+            open={wizardOpen}
+            ctx={wizardContext}
+            onClose={() => setWizardOpen(false)}
+            onEditFirstConfirm={() => {
+              setWizardOpen(false);
+              // Navigate to edit-on-sell with the entry_point flag.
+              // SketchTripShell + BuilderStickyBar honor `entry=lock_wizard`
+              // to swap "done editing" → "resume lock →".
+              router.push(`${pathname}?edit=1&entry=lock_wizard`);
+            }}
+          />
+        )}
+      </>
     );
   }
 

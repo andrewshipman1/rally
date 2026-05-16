@@ -12,6 +12,7 @@ import { chassisThemeIdFromTemplate } from '@/lib/themes/from-db';
 import { getTheme } from '@/lib/themes';
 import type { ThemeId } from '@/lib/themes/types';
 import { getCopy } from '@/lib/copy/get-copy';
+import type { LockWizardContext } from '@/components/trip/lock-wizard/types';
 
 // New chassis components
 import { PostcardHero } from '@/components/trip/PostcardHero';
@@ -95,6 +96,14 @@ export default async function TripPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const sp = await searchParams;
   const editParam = sp.edit === '1';
+  // Session 12B (Lock-B) — wizard entry-point + auto-open flags.
+  // ?entry=lock_wizard: edit-on-sell was entered from the lock wizard's
+  //   "edit first" CTA. Swaps the sticky bar's done-editing pill to "resume lock →".
+  // ?wizard=1: auto-open the lock wizard on next mount of the standard
+  //   sell-organizer view. Stripped on consumption.
+  const entryPoint: 'lock_wizard' | undefined =
+    sp.entry === 'lock_wizard' ? 'lock_wizard' : undefined;
+  const autoOpenWizard = sp.wizard === '1';
   const trip = await getTrip(slug);
   if (!trip) notFound();
 
@@ -249,6 +258,7 @@ export default async function TripPage({ params, searchParams }: Props) {
           commit_deadline: trip.commit_deadline,
         }}
         mode={trip.phase === 'sketch' ? 'sketch' : 'edit-on-sell'}
+        entryPoint={entryPoint}
       />
     );
   }
@@ -281,6 +291,113 @@ export default async function TripPage({ params, searchParams }: Props) {
     minutes: getCopy(themeId, 'tripPageShared.scoreboard.units.minutes'),
     seconds: getCopy(themeId, 'tripPageShared.scoreboard.units.seconds'),
   };
+
+  // ─── Session 12B (Lock-B) — wizard context ────────────────────────
+  // Built only for sell-phase organizers; nullified otherwise so the
+  // sticky bar's wizard-eligibility gate fails and the lock CTA hides.
+  const wizardContext: LockWizardContext | null = (() => {
+    if (!isOrganizer || trip.phase !== 'sell') return null;
+
+    // Compute total nights once for lodging cost-fallback math.
+    const computeNights = (): number | null => {
+      if (!trip.date_start || !trip.date_end) return null;
+      const start = new Date(trip.date_start);
+      const end = new Date(trip.date_end);
+      const diff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      return diff > 0 ? diff : null;
+    };
+    const nights = computeNights();
+
+    // Crew counts (sell-state). Holding → out on lock fire.
+    const inN = members.filter((m) => m.rsvp === 'in').length;
+    const holdingN = members.filter((m) => m.rsvp === 'holding').length;
+    const outN = members.filter((m) => m.rsvp === 'out').length;
+
+    // Vote winner: max vote count (ties resolved as "no clear winner"; the
+    // wizard's classifyVoteState handles tied/no-votes/clear-winner branches).
+    const voteCounts = lodging.map((l) => l.votes?.length ?? 0);
+    const maxVotes = voteCounts.length > 0 ? Math.max(...voteCounts) : 0;
+    const winnersCount = voteCounts.filter((v) => v === maxVotes && maxVotes > 0).length;
+    const wizardLodgings = lodging.map((l, i) => {
+      const voteCount = voteCounts[i];
+      const isWinner = maxVotes > 0 && winnersCount === 1 && voteCount === maxVotes;
+      let estimate: number | null = null;
+      if (l.total_cost != null) {
+        estimate = l.total_cost;
+      } else if (l.cost_per_night != null && (l.num_nights ?? nights) != null) {
+        estimate = l.cost_per_night * ((l.num_nights ?? nights)!);
+      }
+      // Summary string: "$1,200/night · 3 nights · 5 rooms"
+      const parts: string[] = [];
+      if (l.cost_per_night != null) parts.push(`$${l.cost_per_night.toLocaleString('en-US')}/night`);
+      const nightsForSummary = l.num_nights ?? nights;
+      if (nightsForSummary != null) parts.push(`${nightsForSummary} nights`);
+      if (l.bedrooms != null) parts.push(`${l.bedrooms} rooms`);
+      else if (l.max_guests != null) parts.push(`max ${l.max_guests}`);
+      return {
+        id: l.id,
+        name: l.name.toLowerCase(),
+        estimateDollars: estimate,
+        summary: parts.join(' · '),
+        voteCount,
+        isVoteWinner: isWinner,
+      };
+    });
+
+    // Headliner — total estimate + per-person display.
+    const headlinerCents = trip.headliner_cost_cents;
+    const headlinerUnit = trip.headliner_cost_unit;
+    const headlinerCtx =
+      trip.headliner_description && headlinerCents != null
+        ? (() => {
+            const unitDollars = headlinerCents / 100;
+            if (headlinerUnit === 'per_person') {
+              return {
+                name: trip.headliner_description!.toLowerCase(),
+                estimateDollars: unitDollars * Math.max(1, inN + holdingN),
+                perPersonDollars: unitDollars,
+              };
+            }
+            // 'total' or null — treat as a total figure
+            return {
+              name: trip.headliner_description!.toLowerCase(),
+              estimateDollars: unitDollars,
+              perPersonDollars: Math.round(unitDollars / Math.max(1, inN + holdingN)),
+            };
+          })()
+        : null;
+
+    // Intra-trip transport (8I split already separates home→meetup flights
+    // into the flights[] table). transport[] holds only intra-trip items.
+    const wizardTransport = transport.map((t) => ({
+      id: t.id,
+      name: t.description.toLowerCase(),
+      estimateDollars: t.estimated_total,
+    }));
+
+    return {
+      tripId: trip.id,
+      slug,
+      themeId,
+      tripName: trip.name,
+      destination: trip.destination,
+      dateStartIso: trip.date_start,
+      dateEndIso: trip.date_end,
+      commitDeadlineIso: trip.commit_deadline,
+      inCount: inN,
+      holdingCount: holdingN,
+      outCount: outN,
+      voteTotalVoters: members.length,
+      lodgings: wizardLodgings,
+      headliner: headlinerCtx,
+      transport: wizardTransport,
+      organizerHandles: {
+        venmo: organizer.venmo_handle ?? null,
+        zelle: organizer.zelle_handle ?? null,
+        cashapp: organizer.cashapp_handle ?? null,
+      },
+    };
+  })();
 
   return (
     <PassportProvider>
@@ -620,6 +737,9 @@ export default async function TripPage({ params, searchParams }: Props) {
         viewerName={viewerName}
         viewerEmail={viewerEmail}
         isOrganizer={isOrganizer}
+        phase={trip.phase}
+        wizardContext={wizardContext}
+        autoOpenWizard={autoOpenWizard}
       />
     </div>
     </PassportProvider>

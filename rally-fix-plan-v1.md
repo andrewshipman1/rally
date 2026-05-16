@@ -6,7 +6,7 @@
 
 ---
 
-## Status Overview (snapshot 2026-05-07)
+## Status Overview (snapshot 2026-05-16)
 
 At-a-glance state of all in-flight + recently-shipped + backlog work
 across Rally. Each row points to its canonical home. Updated after
@@ -29,8 +29,10 @@ Overview rule in `.claude/skills/rally-session-guard/SKILL.md`).
 | Attendee Experience Strategy (Session 10 arc) | ✅ closed (2026-05-03) | `rally-attendee-strategy-v0.md` |
 | Lock phase strategy v0 | ✅ refined to wireframe-ready (2026-05-03 EOD) — 6 gaps closed, master mockup shipped | `rally-lock-phase-strategy-v0.md` + `rally-lock-phase-mockup.html` |
 | Session 11 — Persistent app header (`<AppHeader>` shared chrome) | ✅ shipped + verified (2026-05-03) — initial CC ship + Cowork polish bundle deployed to prod | §Session 11 |
-| Session 12 — Lock implementation arc (Lock-A through Lock-H) | 🟡 in flight — Lock-A shipped 2026-05-07; Lock-B–H queued behind it | §Session 12A + `rally-lock-phase-strategy-v0.md` "Implementation sub-sessions" |
+| Session 12 — Lock implementation arc (Lock-A through Lock-H) | 🟡 in flight — Lock-A + Lock-B shipped; Lock-C–H queued behind | §Session 12A + `rally-lock-phase-strategy-v0.md` "Implementation sub-sessions" |
 | Session 12A — Lock-A: Data foundation (migrations + `fireLock` action) | ✅ shipped + verified (2026-05-07) — migrations applied to prod, schema verified | §Session 12A |
+| Session 12B — Lock-B: Wizard UI (organizer) | 🟡 CC ship 2026-05-16 — tsc + build pass; browser QA + auth-path smoke deferred to Andrew per Lock-A pattern | §Session 12B |
+| Session 12C — Lock-C: Post-lock organizer view (compressed hero + summary card + Module A/B org mode + trip-details expander + sticky removal) | ⏸ backlog — wireframe TBD (Cowork next) | `rally-lock-phase-strategy-v0.md` "Implementation sub-sessions" → Lock-C |
 | Go phase definition | ⏸ backlog | §Backlog → 🏗️ Strategic |
 | Activity feed (buzz) buildout | ⏸ backlog (depends on Lock + Go) | §Backlog → 🏗️ Strategic |
 | Comms drip campaign across trip lifecycle | ⏸ backlog | §Backlog → 🏗️ Strategic |
@@ -26411,6 +26413,958 @@ got reconciled.
 unchanged). `git log --oneline` shows the Session 12A commit on
 main. Code on main matches what landed in prod schema. Lock-B
 brief is the next session to scope.
+
+### Session 12B: "Lock-B — Wizard UI (organizer)"
+
+**Status: briefed 2026-05-07 EOD (Cowork). Awaiting CC kickoff.**
+
+**Promoted from:** the Lock implementation arc per
+`rally-lock-phase-strategy-v0.md`. Second sub-session in the Lock
+arc (12A shipped 2026-05-07; 12B is the wizard UI that wires up to
+the `fireLock` action 12A built). Implementation arc-wide
+breakdown in the strategy doc's "Implementation sub-sessions
+(refined 2026-05-03 EOD)" section.
+
+**References:**
+- **Visual contract: `rally-lock-b-mockup.html`** — 16-frame
+  refined wireframe spanning all 7 happy-path screens (with state
+  variants), 4 edge-case flows, 3 edit-first round-trip frames, and
+  1 error state. This is the source-of-truth for what Lock-B
+  renders. CC reads this BEFORE writing any wizard component code.
+- **Decisions doc: `rally-lock-phase-strategy-v0.md` "Lock-B prep —
+  wizard edge cases (2026-05-07 EOD)" section.** Captures every
+  wireframe-blocking decision from the gap-walk: navigation /
+  persistence (gap 1), edge cases (gap 3), edit-first round-trip
+  (gap 4).
+- **Master journey context: `rally-lock-phase-mockup.html`** —
+  shows where the wizard sits in the broader Lock arc.
+
+**Goal.** Ship the wizard UI that the organizer drives to fire
+lock. Bottom-drawer surface with 7 screens (variable length —
+skip-on-the-fly per missing items), wires up to the `fireLock`
+server action 12A built. Includes the Lock CTA placement on the
+sticky bar, the edit-first round-trip flow with the sticky-bar
+variant during edit-on-sell-from-wizard, drawer-dismiss
+confirmation past screen 1, and graceful handling of RPC error
+returns.
+
+**Decisions locked (from strategy doc + Cowork sessions):**
+
+All decisions from the "Lock-B prep" section of the strategy
+doc are inputs here. The most relevant for implementation:
+
+1. **Wizard surface = tall BottomDrawer** (~85% viewport height),
+   not full-screen overlay. Reuses Rally's existing `BottomDrawer`
+   primitive (precedent: `LodgingAddForm`, `TransportAddForm`,
+   `HeadlinerDrawerForm`).
+2. **One decision per screen** with thin progress bar at top and
+   per-screen back nav.
+3. **Wizard state lives in React component state**, not URL. No
+   `?wizard=step-N` query params (matches existing drawer pattern).
+4. **Drawer-dismiss resets state.** Plus confirmation dialog when
+   wizard is past screen 1.
+5. **Back button rewinds one screen at a time** on screens 2–7.
+   Screen 1's back affordance acts as "cancel" (drawer dismiss).
+6. **Wizard length is computed dynamically** from current trip
+   state on each open: skip headliner screen if no headliner,
+   skip transport screens if no transport rows, skip lodging
+   override if 1 lodging, skip payment handle if no "I'm booking"
+   allocations OR organizer already has a handle.
+7. **Empty trip (zero allocatable items) blocks at verification.**
+8. **`fireLock` is called once on final-review submit.** Wizard
+   doesn't write partial state to the server.
+9. **Edit-first round-trip:** confirmation dialog on tap →
+   drawer dismisses → edit-on-sell mode activates with
+   `entry_point: lock_wizard` flag → sticky bar shows
+   `← back · 🎨 · resume lock →` → tapping resume reopens wizard
+   at screen 1 (fresh state).
+10. **All copy lives in a new lexicon surface**
+    `src/lib/copy/surfaces/lock-wizard.ts`. No hardcoded strings
+    in JSX.
+
+**Scope (numbered, file-referenced):**
+
+1. **New lexicon surface** `src/lib/copy/surfaces/lock-wizard.ts`.
+   Mirrors existing surface files (e.g.,
+   `src/lib/copy/surfaces/builder-state.ts`). Includes:
+
+   ```typescript
+   export const lockWizardLexicon = {
+     // Verify (Screen 1)
+     'verify.heading':            'does this look right?',
+     'verify.sub':                "you'll confirm trip details, lock in actual costs for items you're booking, and decide who fronts what. ~5 min — have your booking confirmations handy.",
+     'verify.cta.continue':       'looks good — continue →',
+     'verify.cta.editFirst':      'edit first',
+     'verify.bumpNote':           'holding members will be bumped to out when lock fires. cost divisor flips from $1 → $2.',
+
+     // Verify — blocked (empty trip)
+     'verify.blocked.heading':    'add something to lock first',
+     'verify.blocked.sub':        "your trip has nothing to allocate yet — add at least one lodging, transport item, or headliner before locking.",
+     'verify.blocked.lodging':    'lodging: none',
+     'verify.blocked.headliner':  'headliner: none',
+     'verify.blocked.transport':  'intra-transport: 0 items',
+
+     // Verify — edit-first confirmation
+     'verify.editFirst.heading':  'editing will reset your lock progress.',
+     'verify.editFirst.sub':      "we'll close the wizard so you can edit your trip. when you're ready, tap resume lock and we'll start from the top.",
+     'verify.editFirst.cta.stay':    'stay in wizard',
+     'verify.editFirst.cta.confirm': 'edit first →',
+
+     // Lodging override (Screen 2)
+     'lodgingOverride.heading':         'which spot?',
+     'lodgingOverride.sub.default':     'vote winner is selected by default. tap to override.',
+     'lodgingOverride.sub.noVotes':     "no one's voted yet — pick the spot.",
+     'lodgingOverride.sub.tied':        'two spots are tied — pick the winner.',
+     'lodgingOverride.sub.singleSpot':  'your trip has one lodging — straight to allocation.',
+     'lodgingOverride.meta.voteCount':  '$1 of $2',
+     'lodgingOverride.cta':             'continue →',
+
+     // Allocation (Screens 3, 4, 5)
+     'allocation.heading.lodging':       "who's booking $1?",
+     'allocation.heading.headliner':     "who's buying $1?",
+     'allocation.heading.transport':     "who's booking the $1?",
+     'allocation.sub.lodging':           "this decides whether it's a shared cost or an individual task.",
+     'allocation.sub.headliner':         '$1 · $2/person.',
+     'allocation.sub.transport':         '$1 · group transport.',
+     'allocation.organizerBooks.label':  "i'm booking",
+     'allocation.organizerBooks.sub.lodging':   'i front the cash, attendees commit to their share + venmo me back',
+     'allocation.organizerBooks.sub.headliner': 'i bulk-buy passes, attendees venmo me back',
+     'allocation.organizerBooks.sub.transport': 'i reserve it, attendees split the cost',
+     'allocation.individualBooks.label': 'each attendee books',
+     'allocation.individualBooks.sub.lodging':   'everyone books their own hotel — goes on their personal checklist',
+     'allocation.individualBooks.sub.headliner': "everyone gets their own pass — on their checklist",
+     'allocation.individualBooks.sub.transport': 'everyone arranges their own — on their checklist',
+     'allocation.noCostNote':            'no cost to confirm — each attendee handles their own.',
+     'allocation.cta':                   'continue →',
+
+     // Cost input (inline on allocation screens 3, 4, 5)
+     'cost.label':       'actual final cost',
+     'cost.hint':        'estimate was $1 · this is what you\'ll charge your card. confirm or overwrite.',
+     'cost.error.empty': "enter the actual cost — this is what attendees will pay back.",
+     'cost.error.invalid': "enter a valid dollar amount.",
+     'cost.error.tooHigh': "that seems unusually high — sure?",
+
+     // Payment handle (Screen 6)
+     'paymentHandle.heading':       'where do they venmo you?',
+     'paymentHandle.sub':           "attendees use this to pay you back. set once, applies to every trip you organize. you can skip and add later.",
+     'paymentHandle.venmo.label':         'venmo',
+     'paymentHandle.venmo.placeholder':   '@your-venmo-handle',
+     'paymentHandle.zelle.label':         'zelle (optional)',
+     'paymentHandle.zelle.placeholder':   'phone or email',
+     'paymentHandle.cashapp.label':       'cashapp (optional)',
+     'paymentHandle.cashapp.placeholder': '$cashtag',
+     'paymentHandle.cta.save':            'save & continue →',
+     'paymentHandle.cta.skip':            "skip — i'll add later",
+
+     // Final review (Screen 7)
+     'review.heading':        'ready to lock?',
+     'review.sub':            'last chance to fix anything. tap a row to edit.',
+     'review.label.spot':            'spot',
+     'review.label.headliner':       'headliner',
+     'review.label.transport':       '$1', // item name (e.g., "airport van")
+     'review.label.yourShare':       'your share total',
+     'review.label.bookingDeadline': 'booking deadline',
+     'review.value.individual':      '$1 · each books', // item name
+     'review.value.organizerBooks':  '$1 · $2 · i\'m booking', // item, cost
+     'review.value.yourShareEmpty':  '$0 (nothing shared)',
+     'review.value.yourShare':       '$$1 each ($2 attendees)', // amount, count
+     'review.value.deadline':        '$1 · $2 days before trip', // date, days
+     'review.cta.editRow':           'change',
+     'review.cta.fire':              'lock it in 🔒',
+     'review.cta.goBack':            'go back',
+
+     // Dismiss confirmation (drawer swipe-down past screen 1)
+     'dismiss.heading':       'discard your lock progress?',
+     'dismiss.sub':           "you're $1 screens in. closing now resets everything — next time you tap lock it in, you'll start over.",
+     'dismiss.cta.keep':      'keep going',
+     'dismiss.cta.discard':   'discard',
+
+     // RPC error states (on final review submit)
+     'error.concurrent.heading':   'trip was already locked',
+     'error.concurrent.body':      'someone else (probably another browser tab) locked this trip while you were filling this out. refresh to see the current state.',
+     'error.already.heading':      'trip is already locked',
+     'error.already.body':         'this trip is in lock state already. refresh to see what\'s happening.',
+     'error.notOrganizer.heading': 'only the organizer can lock',
+     'error.notOrganizer.body':    "you don't have permission to lock this trip.",
+     'error.unauth.heading':       'session expired',
+     'error.unauth.body':          'sign in again to continue.',
+     'error.notFound.heading':     'trip not found',
+     'error.notFound.body':        "the trip you're trying to lock doesn't exist anymore.",
+     'error.network.heading':      'something went wrong',
+     'error.network.body':         'hit a hiccup. try again or refresh the page.',
+     'error.cta.refresh':          'refresh trip page →',
+     'error.cta.retry':            'try again',
+
+     // Sticky bar variant during edit-on-sell-from-wizard
+     'stickyBar.editOnSellFromWizard.resume': 'resume lock →',
+   };
+   ```
+
+2. **New wizard component file structure** under
+   `src/components/trip/lock-wizard/`:
+
+   ```
+   src/components/trip/lock-wizard/
+     LockWizardDrawer.tsx        # main drawer + state machine + step routing
+     useWizardState.ts            # state hook + skip-on-the-fly logic
+     WizardVerifyScreen.tsx       # screen 1 (with blocked + happy variants)
+     WizardLodgingOverrideScreen.tsx  # screen 2
+     WizardAllocationScreen.tsx   # screens 3, 4, 5 (parameterized per item type)
+     WizardPaymentHandleScreen.tsx    # screen 6
+     WizardReviewScreen.tsx       # screen 7
+     WizardConfirmDialog.tsx      # edit-first + dismiss confirmations
+     WizardProgressBar.tsx        # thin top bar
+     types.ts                     # WizardState, WizardStep, etc.
+   ```
+
+   CC can choose to consolidate into fewer files if preferable (the
+   wizard is one mechanic; splitting is for readability, not
+   architecture). If consolidating, keep the lexicon and the state
+   hook as separate files at minimum.
+
+3. **Lock CTA on the sticky bar.** Organizer view, sell phase.
+   The current 9W edit-on-sell sticky-bar implementation needs
+   to gain a `lock it in →` primary CTA when the organizer is in
+   the standard sell view (not edit-on-sell mode). Always
+   visible from sell-phase start (per Lock-B prep decision —
+   no readiness threshold gate). Tap opens the
+   `<LockWizardDrawer>`.
+
+   File touched: `src/components/trip/StickyRsvpBarChassis.tsx`
+   (or wherever the organizer-view sticky bar logic lives — CC
+   verifies via grep). Modification is additive: add the lock
+   CTA element + tap handler. Do NOT remove or modify any
+   existing sticky-bar affordances (`← back · 🎨 · done editing`
+   for the edit-on-sell variant, RSVP CTAs for attendees).
+
+4. **Sticky bar variant during edit-on-sell-from-wizard.**
+   When the user enters edit-on-sell mode via the wizard's
+   `edit first` button, the sticky bar shows
+   `← back · 🎨 · resume lock →` instead of the standard
+   `← back · 🎨 · done editing`. This requires tracking an
+   `entry_point` flag (in component state or via URL param —
+   CC's call, but stay consistent with how 9W tracks edit
+   mode currently).
+
+   File touched: same sticky bar file as #3. Modification adds
+   the conditional variant based on `entry_point`. Tapping
+   `resume lock →` reopens the wizard drawer at screen 1
+   (state already reset per dismiss-resets-state decision).
+
+5. **Wire the wizard's final-review submit to `fireLock`.**
+   The review screen's `lock it in 🔒` CTA calls the existing
+   `fireLock` server action from
+   `src/app/actions/fire-lock.ts` (12A shipped this). Build the
+   `FireLockParams` object from the wizard's accumulated state:
+
+   ```typescript
+   await fireLock({
+     tripId: trip.id,
+     slug: trip.share_slug,
+     lodgingChoice: { lodgingId: state.decisions.lodgingChoice },
+     allocations: state.decisions.allocations,
+     paymentHandles: state.decisions.paymentHandles ?? undefined,
+     lockDeadline: state.decisions.lockDeadline,
+   });
+   ```
+
+   Handle the response: `{ ok: true, lockedAt }` → close drawer
+   + trigger `router.refresh()` so the post-lock view renders
+   (Lock-C builds that, but for Lock-B's ship the trip simply
+   transitions to lock phase + the existing sell-page rendering
+   handles it gracefully even without the new modules). `{ ok:
+   false, error: <code> }` → render the matching error state
+   in the review screen per the lexicon entries in #1.
+
+6. **Trip page wiring.** The `<LockWizardDrawer>` mounts at
+   the trip page root for organizer-view sell-phase trips.
+   File touched: `src/app/trip/[slug]/page.tsx`. Conditional
+   mount based on `viewer.role === 'organizer' && trip.phase ===
+   'sell'`. Drawer's open state lives in client component
+   (wrap or co-locate as needed; CC's call). Drawer hidden by
+   default; opens when the sticky bar's `lock it in →` CTA fires.
+
+7. **No data layer changes.** All migrations + the
+   `fire_lock` RPC + the `fireLock` server action shipped in
+   12A. Lock-B is pure UI work calling the existing surface.
+
+**Hard constraints (DO NOT):**
+
+- **DO NOT use a worktree.** Work directly on main per Andrew's
+  preference established in Lock-A's close-out.
+- **DO NOT modify the data layer.** No migrations, no new
+  columns, no changes to `fire_lock` RPC, no changes to
+  `src/app/actions/fire-lock.ts`, no changes to `src/types/
+  index.ts`. The Lock-A data foundation is complete.
+- **DO NOT touch Module A or Module B components.** Those are
+  Lock-D and Lock-E. The trip's post-lock view will continue to
+  render via the existing sell-page rendering (the trip just
+  transitions to `phase = 'lock'` and the modules continue to
+  show as they did pre-lock for this session). Lock-C builds
+  the new post-lock composition; this session ships only the
+  wizard.
+- **DO NOT modify the trip page hero, marquee, countdown,
+  modules, crew, buzz, or aux sections.** Strictly the sticky
+  bar gains the lock CTA; the wizard drawer mounts at the
+  trip page root.
+- **DO NOT use hardcoded copy strings in JSX.** All user-facing
+  text comes from `lockWizardLexicon` (#1). Add it to the
+  lexicon registry per Rally's existing pattern.
+- **DO NOT preserve wizard state across drawer dismissals.**
+  Reset is the locked behavior.
+- **DO NOT change URL on wizard navigation.** Purely client-side
+  state.
+- **DO NOT skip the dismiss confirmation past screen 1.** The
+  confirmation is a brief-locked frustration safeguard.
+- **DO NOT skip screens silently when conditions aren't met.**
+  When skip-on-the-fly fires, the progress bar denominator
+  adjusts (e.g., "step 2 of 5" instead of "step 2 of 7"); the
+  user sees a coherent counter.
+- **DO NOT introduce a new modal / overlay primitive** for the
+  confirmation dialogs. Reuse Rally's existing pattern (check
+  `src/components/ui/` for a `Modal` / `Dialog` / `Sheet`
+  component before building new). If none exists, escalate to
+  Andrew before creating one — this is an architectural
+  decision.
+- **DO NOT call `fireLock` more than once per submit.** If the
+  CTA is tapped while a request is in-flight, disable the CTA
+  (loading state) and ignore subsequent taps until the response
+  arrives.
+- **DO NOT add the Lock CTA to attendee-view sticky bars.**
+  Organizer-view only. Verify via the same role-gate the rest
+  of the organizer-view chrome uses.
+
+**Acceptance Criteria (testable in browser):**
+
+Mapping 1:1 to the wireframe mockup frames. Each AC corresponds
+to a numbered frame in `rally-lock-b-mockup.html`:
+
+- [ ] **Frame 1:** Organizer on a sell-phase trip page sees the
+  `lock it in →` CTA on the sticky bar. Attendee view does NOT
+  show it.
+- [ ] **Frame 1 (verification):** Tapping `lock it in →` opens
+  a tall bottom drawer showing the verification screen. Trip
+  state summary card matches the trip's actual current state
+  (name, dates, destination, crew counts, lodging vote leader,
+  count of allocatable items). Holding-bump note shows the
+  correct divisor flip.
+- [ ] **Frame 2 (lodging override — clear winner):** On a trip
+  with multiple lodgings and a clear vote winner, screen 2
+  defaults to the winner selected. Tapping a different option
+  changes the selection.
+- [ ] **Frame 3 (allocation — i'm booking):** Selecting
+  "i'm booking" reveals the inline cost field, prefilled with
+  the existing estimate. Tapping "each attendee books" hides
+  the cost field and shows the no-cost note.
+- [ ] **Frame 4 (cost validation):** Entering 0, empty, or
+  invalid input in the cost field while "i'm booking" is
+  selected shows an inline error and disables the continue CTA.
+- [ ] **Frame 5 (headliner):** Trip with a headliner shows
+  screen 4 with the headliner item's allocation choice. No
+  override step.
+- [ ] **Frame 6 (transport):** Each intra-transport item gets
+  its own allocation screen (sequential), with route + estimate
+  shown, inline cost when "i'm booking" is selected.
+- [ ] **Frame 7 (payment handle):** Screen fires only when the
+  organizer has NO existing payment handle AND at least one
+  allocation is "i'm booking." Empty state and partially-
+  filled state both render per the wireframe.
+- [ ] **Frame 7 (payment handle skip path):** Skipping accepts
+  empty handles and continues to review.
+- [ ] **Frame 8 (final review):** All decisions render with
+  editable `change` rows. Tapping `change` jumps back to the
+  relevant wizard screen with prior state intact for that
+  decision; saving on that screen returns to review.
+- [ ] **Frame 8 (lock fire):** Tapping `lock it in 🔒` calls
+  `fireLock`. On success, the drawer closes + the trip page
+  refreshes + the trip is now in `phase = 'lock'`.
+- [ ] **Frame 9 (empty trip blocked):** Trip with no lodging /
+  transport / headliner: tapping the lock CTA opens the
+  verification screen in blocked variant. Continue is disabled.
+  Only path is "edit first."
+- [ ] **Frame 10 (single-lodging skip):** Trip with 1 lodging:
+  the override screen is skipped. Wizard goes verify →
+  allocation directly. Progress bar denominator reflects shorter
+  sequence.
+- [ ] **Frame 11 (vote-state variants):** Override screen
+  renders with appropriate sub-copy for no-votes / tied-votes
+  / clear-winner states. No automatic preselection on no-votes
+  or tied; continue is disabled until user picks.
+- [ ] **Frame 12 (all-individual flow):** When every allocation
+  is "each attendee books," no cost confirmation screens fire,
+  payment-handle screen skips, review shows "your share total:
+  $0 (nothing shared)."
+- [ ] **Frame 13 (edit-first confirmation):** Tapping
+  `edit first` on screen 1 shows the confirmation dialog. Tapping
+  "edit first →" dismisses the drawer + activates edit-on-sell
+  mode.
+- [ ] **Frame 14 (sticky bar variant):** Edit-on-sell mode
+  entered from the wizard shows `← back · 🎨 · resume lock →`.
+  Edit-on-sell entered normally still shows the original
+  `← back · 🎨 · done editing`.
+- [ ] **Frame 14 (resume lock round-trip):** Tapping
+  `resume lock →` reopens the wizard at screen 1 with fresh state.
+  Changes made during edit are reflected (e.g., new transport
+  item appears in wizard's screen sequence).
+- [ ] **Frame 15 (dismiss confirmation past screen 1):** Swiping
+  drawer down on screen 3+ shows the dismiss confirmation. On
+  "discard," state resets. On "keep going," drawer stays open.
+  Screen 1 dismiss does NOT show the confirmation (cancel is
+  the implicit action).
+- [ ] **Frame 16 (concurrent_lock_attempt error):** Simulating
+  the error (e.g., locking the trip via Studio while the wizard
+  is open, then tapping `lock it in 🔒`) shows the error banner
+  on the review screen with "refresh trip page" / "try again"
+  CTAs.
+- [ ] **`router.refresh()` on success** reflects the new
+  `phase = 'lock'` state. (Post-lock rendering improvements
+  come in Lock-C.)
+- [ ] **All wizard copy is lexicon-driven.** Grep
+  `src/components/trip/lock-wizard/` for hardcoded user-facing
+  strings — should return zero matches.
+- [ ] **Mobile-first.** Drawer + screens work at 375px viewport
+  width without overflow or clipping.
+- [ ] **`npx tsc --noEmit`** exit 0.
+- [ ] **`rm -rf .next && npm run build`** clean, no new
+  warnings, no new routes.
+
+**Files to Read (before coding):**
+
+- `.claude/skills/rally-session-guard/SKILL.md` (full).
+- `rally-fix-plan-v1.md` — this Session 12B brief + Status
+  Overview + Session 12A Release Notes (for `fireLock` action's
+  signature + error codes).
+- `rally-lock-phase-strategy-v0.md` — full doc, especially
+  "Cowork session 2 — additional locked decisions" +
+  "Lock-B prep — wizard edge cases" + "Implementation sub-
+  sessions" sections.
+- **`rally-lock-b-mockup.html`** — the visual contract. Open it
+  in a browser; scroll through all 16 frames. Match
+  implementation to what you see.
+- `rally-lock-phase-mockup.html` — broader journey context.
+- `src/components/trip/builder/LodgingAddForm.tsx` — Rally's
+  existing multi-step drawer pattern. Mirror the state-machine
+  approach for the wizard.
+- `src/components/trip/BottomDrawer.tsx` — the drawer primitive
+  to wrap.
+- `src/app/actions/fire-lock.ts` — the action to call on
+  final-review submit. Includes the `FireLockParams` type and
+  the error codes the wizard must handle.
+- `src/components/trip/StickyRsvpBarChassis.tsx` (or wherever
+  the organizer-view sticky bar lives — grep to confirm) — for
+  adding the `lock it in →` CTA + the
+  `resume lock →` variant.
+- `src/app/trip/[slug]/page.tsx` — for wiring the drawer mount
+  at the trip page root.
+- `src/lib/copy/surfaces/builder-state.ts` — a reference lexicon
+  surface to mirror the new `lock-wizard.ts` shape.
+- `src/lib/copy/get-copy.ts` or wherever the lexicon resolver
+  lives — to register the new surface.
+
+**How to QA Solo (CC-side):**
+
+- `cd ~/Desktop/claude/rally && rm -rf .next && npm run dev`.
+- Open Coachella 2026!!! trip page (`/trip/sjtIcYZB`) as
+  organizer. Verify the `lock it in →` CTA appears on the
+  sticky bar.
+- Click `lock it in →`. Verify drawer opens at verification
+  screen with correct trip state.
+- Walk the wizard end-to-end: lodging override → allocation
+  with "i'm booking" + cost → headliner → transport →
+  payment handle → review. Verify each screen renders per the
+  mockup.
+- Test all-individual flow: select "each attendee books" on
+  every allocation. Verify no cost screens fire, payment handle
+  skips, review shows $0 shared.
+- Test edit-first: from verification, tap "edit first." Verify
+  confirmation dialog. Confirm → drawer dismisses + edit-on-sell
+  active with `resume lock →` sticky bar. Tap resume → drawer
+  reopens at screen 1.
+- Test dismiss confirmation: get to screen 3+. Swipe drawer
+  down. Verify confirmation. Tap "discard" → drawer closes.
+  Tap `lock it in →` again → drawer reopens at screen 1 fresh.
+- Test fire path: complete wizard, tap `lock it in 🔒`. Verify
+  trip phase transitions to `lock` in DB. Drawer closes. Trip
+  page refreshes.
+- Test concurrent error (manual): set
+  `phase = 'lock'` on the test trip via Studio while wizard is
+  open. Then complete wizard + tap fire CTA. Verify error
+  banner renders.
+- Test single-lodging skip: create a test trip with only 1
+  lodging. Walk wizard. Verify override screen is skipped.
+- Test empty-trip blocked: create a fresh trip with no
+  modules. Walk wizard. Verify verification blocks + continue
+  is disabled.
+- `npx tsc --noEmit` → exit 0.
+- `rm -rf .next && npm run build` → clean.
+- `git diff --stat` should show: new files in
+  `src/components/trip/lock-wizard/`, new
+  `src/lib/copy/surfaces/lock-wizard.ts`, modified
+  `src/components/trip/StickyRsvpBarChassis.tsx` (or wherever),
+  modified `src/app/trip/[slug]/page.tsx`, possibly modified
+  `src/lib/copy/index.ts` or surface registry. No other files.
+
+**Carryover:**
+
+- **Lock-C is the next session** after Lock-B ships. Lock-C
+  builds the post-lock trip page composition (compressed hero,
+  condensed summary, Module A organizer mode, Module B
+  organizer mode, trip-details expander, sticky bar removed).
+  Per the methodology, Cowork wireframes Lock-C at higher
+  fidelity in parallel with Lock-B's CC implementation.
+- **For this session, the trip's post-lock rendering will be
+  imperfect** — Module A + Module B aren't built yet (those
+  are Lock-D and Lock-E). The user fires lock successfully,
+  the trip is in `phase = 'lock'`, and the existing sell-page
+  modules continue to render (the trip looks the same as
+  pre-lock except phase has flipped). This is acceptable for
+  Lock-B's ship; Lock-C / D / E close the loop.
+- **Attendee view post-lock is also imperfect this session.**
+  Module A (the commitment ceremony surface) is Lock-D; until
+  then, attendees see the same sell-state view. Don't build
+  attendee-side post-lock UI in this session.
+- **Auth-path smoke test of `fire_lock` finally exercised
+  end-to-end** by this session's wizard. Lock-A's release notes
+  flagged this as deferred; Lock-B's QA covers it.
+
+#### Session 12B — Release Notes (CC, 2026-05-16)
+
+**What was built:**
+
+1. **Lexicon surface `src/lib/copy/surfaces/lock-wizard.ts`** — 109
+   keys covering every wizard string: verify happy/blocked/edit-first
+   confirm, lodging override (3 vote-state variants), allocation (3
+   item-type variants × 2 modes + cost validation), payment handle
+   (empty/filled/skip), final review (happy + 7 RPC error categories +
+   all-individual variant), dismiss confirmation, the sell-phase
+   sticky-bar lock CTA, and the edit-on-sell-from-wizard `resume lock →`
+   variant. Registered in `src/lib/copy/types.ts:50` (added `lockWizard`
+   slot) + `src/lib/copy/index.ts:38,69` (import + barrel entry).
+
+2. **Wizard component tree** at `src/components/trip/lock-wizard/`
+   (11 files, ~1.1k LOC):
+   - `types.ts` — `LockWizardContext`, `WizardState`, `WizardStep`
+     (discriminated union), `AllocationDecision`, plus the
+     `allocationKey`/`stepKey`/`classifyVoteState` helpers.
+   - `useWizardState.ts` — state hook + step-sequence computation
+     (`computeSteps` derives the ordered list from `ctx` + `state`
+     on every render → skip-on-the-fly is intrinsic). Owns navigation
+     (`goNext` / `goBack` / `jumpTo`), mutators, and the `parseCost` +
+     `formatDollars` utilities.
+   - `WizardProgressBar.tsx` — thin top bar; fill =
+     `(currentIndex + 1) / totalSteps`.
+   - `WizardConfirmDialog.tsx` — in-drawer overlay (absolutely-
+     positioned card over dimmed wizard); reused for edit-first +
+     dismiss confirmations.
+   - `WizardVerifyScreen.tsx` — happy + blocked variants, summary
+     card (trip / when / where / crew / vote / items-to-allocate),
+     bump-divisor note (`6 → 4` style) shown only when holding > 0.
+   - `WizardLodgingOverrideScreen.tsx` — radio list, vote-state
+     classifier drives sub-copy; continue disabled until selection
+     when no-votes or tied.
+   - `WizardAllocationScreen.tsx` — parametrized by item type.
+     Binary buttons + inline cost input with prefill from estimate,
+     touched-only error rendering, continue disabled until mode picked
+     AND (organizer_books → cost valid).
+   - `WizardPaymentHandleScreen.tsx` — venmo + zelle + cashapp fields;
+     save & continue disabled until venmo filled; explicit skip path.
+   - `WizardReviewScreen.tsx` — editable rows (`change` → `jumpTo`),
+     "your share total" computed from organizer-books actual costs ÷
+     post-lock divisor, booking deadline computed from
+     `lockDeadlineIso` + `dateStartIso`. Calls `fireLock` on
+     `lock it in 🔒`; in-flight CTA disables to `locking…`; RPC error
+     classifier maps codes (`concurrent_lock_attempt`, `already_locked`,
+     `not_organizer`, `not_authenticated`, `trip_not_found`, +
+     validation codes from 032's RAISE EXCEPTIONs, + network fallback)
+     to lexicon-keyed banner copy + `refresh trip page →` / `try again`
+     CTAs.
+   - `LockWizardDrawer.tsx` — orchestrator. Reuses `BottomDrawer`
+     primitive (title=''; CSS overrides via `.lock-wizard-shell`
+     wrapper class re-theme the panel dark for the mockup intent).
+     `resetKey` bumps on every closed → open transition AND on
+     confirmed dismiss → the `useWizardState` hook remounts with
+     fresh state (matches the "drawer-dismiss resets state" decision).
+     Intercepts close intent: past screen 1 → dismiss confirmation;
+     screen 1 → close directly (cancel semantics). Step routing by
+     `currentStep.kind`; back/cancel button label flips per position.
+
+3. **Lock CTA + wizard mount on the sell-phase organizer sticky bar.**
+   `src/components/trip/StickyRsvpBarChassis.tsx:24-44,52-104,109-141`
+   — additive: organizer branch now accepts `phase`,
+   `wizardContext`, `autoOpenWizard` props. When `phase === 'sell'`
+   AND `wizardContext != null`, renders `lock it in →` next to the
+   existing `edit` pill and mounts `<LockWizardDrawer>` co-located.
+   The grid template extended from `1fr auto` → `1fr auto auto`
+   (globals.css:4356) to host the third slot. One-shot ref guard
+   auto-opens the wizard on `?wizard=1` then strips the param via
+   `router.replace(pathname)` — mirrors the existing `?first=1`
+   pattern at `SketchTripShell.tsx:146-154`.
+
+4. **`resume lock →` sticky variant for edit-on-sell-from-wizard.**
+   `src/components/trip/builder/BuilderStickyBar.tsx:18-50,87-91` —
+   new `entryPoint?: 'lock_wizard'` prop. When edit-on-sell mode is
+   active AND `entryPoint === 'lock_wizard'`, the right-slot pill
+   label flips from `done editing` → `resume lock →` (lexicon-keyed
+   via `lockWizard.stickyBar.editOnSellFromWizard.resume`). `onDone`
+   semantics unchanged at the prop level; the caller decides where
+   to navigate based on the flag.
+
+5. **Edit-on-sell return → wizard auto-open round-trip.**
+   `src/components/trip/builder/SketchTripShell.tsx:91-95,121-122,
+   299-322` — new `entryPoint?: 'lock_wizard'` prop, threaded to
+   `BuilderStickyBar`. `onDone` now branches: when
+   `entryPoint === 'lock_wizard'`, push to
+   `/trip/{slug}?wizard=1` (auto-opens the wizard fresh on the
+   standard sell view); otherwise the original
+   `/trip/{slug}` behavior.
+
+6. **fireLock submit wired** — `WizardReviewScreen.tsx:202-282`
+   builds `FireLockParams` from `WizardState` (lodgingChoice,
+   allocations[] with itemType/itemId/mode/actualCost,
+   lockDeadline ISO, paymentHandles when ANY field non-empty),
+   calls the action, handles `{ok: true}` (drawer close +
+   `router.refresh`) vs `{ok: false}` (classify error → render
+   banner + retry/refresh CTAs).
+
+7. **Trip page wiring.** `src/app/trip/[slug]/page.tsx:15,
+   97-105,251-253,287-381,617-627` reads `?entry=lock_wizard` +
+   `?wizard=1` searchParams; passes `entryPoint` to
+   `SketchTripShell` (edit-on-sell branch); builds
+   `wizardContext` for organizer+sell branch with lodging options
+   (per-spot cost + summary string + vote count + winner flag),
+   headliner (estimate computed from `cost_unit` + crew count),
+   transport items, crew counts (in/holding/out), and the
+   organizer's existing payment handles from the `organizer` join.
+   Passes `phase`, `wizardContext`, `autoOpenWizard` to
+   `StickyRsvpBarChassis`.
+
+8. **Wizard CSS suite** appended to `src/app/globals.css:6027-6592`
+   (~565 lines under a clearly demarked Session 12B block).
+   `.lock-wizard-shell` re-themes the BottomDrawer panel dark
+   (`#1a1a1a` bg, `#faf8f5` text) via `:has()` selector — no
+   parallel drawer primitive. All per-screen primitives map 1:1
+   to the mockup's `pf-*` classes for grep-back fidelity:
+   progress bar, step tag, headline/sub, summary card, binary
+   buttons, cost input (with `--invalid` variant), radio list
+   (with `--selected` + `--tied` variants), payment input fields,
+   review rows, primary/secondary CTAs (with `--disabled` state),
+   error + info banners, in-drawer confirm overlay + dialog +
+   3 button variants (primary, secondary, destructive).
+
+**What changed from the brief:**
+
+1. **Lexicon placeholder syntax** — brief used `$1`/`$2`/`$$1`
+   shorthand; translated to `{token}` named placeholders to match
+   `src/lib/copy/interpolate.ts`'s `render()` engine (the only
+   substitution form Rally supports). Words verbatim from brief;
+   only the binding syntax changed.
+
+2. **Two extra lexicon entries beyond the brief's copy block** —
+   added `stickyBar.lockCta` (the `lock it in →` sticky CTA text)
+   and a `stepTag.*` sub-namespace (label dictionary for the step
+   tag header inside the drawer) plus a `verify.summary.*` sub-
+   namespace for the summary card row labels + the vote-value
+   variants (clear-winner / tied / no-votes / single / none) +
+   the crew-value template. All still lexicon-driven; no
+   hardcoded user-facing strings introduced.
+
+3. **In-drawer confirmation dialogs** — no new `Modal`/`Dialog`
+   primitive (none exists in `src/components/ui/`). The mockup
+   actually renders confirmations as in-drawer overlays
+   (dimmed wizard underneath, centered card on top), implemented
+   as ~30 lines of CSS-positioned divs inside the drawer panel.
+   `<WizardConfirmDialog>` is the shared component.
+
+4. **Entry-point flag mechanism** — URL params
+   `?edit=1&entry=lock_wizard` (round-trip exit) +
+   `?wizard=1` (auto-open on return), with auto-strip on
+   consumption. Brief said CC's call between URL or component
+   state, "stay consistent with how 9W tracks edit mode" — 9W
+   uses `?edit=1`, so URL params are the consistent choice and
+   they survive a full page refresh.
+
+5. **Drawer dark surface via `:has()` CSS** — `BottomDrawer`
+   reused per brief; dark-theme applied via
+   `.bottom-drawer-panel:has(.lock-wizard-shell)` overrides
+   rather than a parallel primitive. Modern browser-wide
+   `:has()` support is reliable enough for organizer-side
+   chrome.
+
+6. **`fireLock` allocation payload conditional spread** —
+   `actualCost` is included in the `FireLockAllocation` only
+   when `mode === 'organizer_books'` AND `parseCost` succeeded
+   (matches the zod refine on `AllocationSchema` in
+   `src/app/actions/fire-lock.ts:81-84` — `organizer_books`
+   requires a numeric cost; `individual_books` must omit it).
+
+7. **`StickyRsvpBarChassis` extended (organizer branch),
+   not split.** Brief said "additive". I kept all organizer-
+   sticky logic in this one file and co-hosted the wizard
+   drawer there; an alternative cleaner split into a sibling
+   `<OrganizerSellChrome>` was considered + rejected to
+   minimize file count.
+
+8. **Grid-template-columns bump** in
+   `.chassis .sticky--organizer` (`1fr auto` → `1fr auto auto`)
+   was a single-line edit to host the third (lock) CTA. The
+   grid degrades gracefully on lock/go phases where the third
+   child is absent (third `auto` collapses to 0 width).
+
+9. **Holding-bump note conditional render** — only shown when
+   `holdingCount > 0`. Mockup shows it always; suppressing on
+   zero-holding trips removes a redundant cognitive load
+   (cost divisor flips to itself = noise).
+
+10. **`actual_cost` divisor for per-person estimate** uses
+    post-lock `inCount` (matches the bump-note logic), not
+    pre-lock `inCount + holdingCount`. The wizard speaks to
+    the post-lock world from the moment lock fires.
+
+**What to test (maps 1:1 to the wireframe frames in
+`rally-lock-b-mockup.html`):**
+
+- [ ] **Frame 1 (sticky CTA):** Organizer on Coachella 2026!!!
+  (`/trip/sjtIcYZB`) sees `lock it in →` on the sticky bar
+  beside `edit`. Attendee view does NOT show it (gate:
+  `isOrganizer && phase === 'sell' && wizardContext != null`).
+
+- [ ] **Frame 1 (verify happy):** Tap `lock it in →` →
+  tall dark drawer opens at verify. Trip-state summary card
+  matches reality (name, dates, destination, crew counts,
+  vote leader/count, items-to-allocate). Bump-divisor note
+  reads correctly when holding > 0.
+
+- [ ] **Frame 2 (lodging override — clear winner):** Multiple
+  lodgings + clear winner → vote winner preselected; tap
+  another option → selection moves.
+
+- [ ] **Frame 3 (allocation — i'm booking):** Selecting
+  `i'm booking` reveals cost field prefilled with the
+  estimate. Switching to `each attendee books` hides cost +
+  shows no-cost note.
+
+- [ ] **Frame 4 (cost validation):** With `i'm booking`
+  selected: empty / 0 / non-numeric cost → inline error +
+  continue disabled. Tapping disabled continue surfaces the
+  error (`touched` flag forces render).
+
+- [ ] **Frame 5 (headliner):** Trip with a headliner →
+  screen 4 renders headliner allocation; no override step
+  (headliner is singular per trip).
+
+- [ ] **Frame 6 (transport):** Each intra-transport item
+  gets its own allocation screen sequentially; route +
+  estimate shown in sub-copy; inline cost on `i'm booking`.
+
+- [ ] **Frame 7 (payment handle):** Screen fires ONLY when
+  organizer has zero existing handles AND ≥1 allocation =
+  organizer_books. Empty + partially-filled both render.
+  Save & continue disabled until venmo filled.
+
+- [ ] **Frame 7 (skip path):** Skip CTA dismisses payment
+  step + continues to review with empty handles.
+
+- [ ] **Frame 8 (final review):** All decisions render with
+  `change` buttons. Tapping `change` jumps to the relevant
+  step with prior state intact; save there returns to review.
+
+- [ ] **Frame 8 (lock fire):** Tap `lock it in 🔒` →
+  CTA disables to `locking…` → on success: drawer closes,
+  trip page refreshes, DB `phase = 'lock'`, `lock_deadline`
+  set, allocations + actual_cost columns written,
+  `holding → out` for holding members, payment handles saved
+  on organizer's user row.
+
+- [ ] **Frame 9 (empty trip blocked):** Trip with no
+  lodging/transport/headliner: verify renders blocked
+  variant with info banner. Continue disabled. Only path:
+  `edit first`.
+
+- [ ] **Frame 10 (single-lodging skip):** Trip with 1
+  lodging → override screen skipped (computeSteps in
+  `useWizardState.ts:43-48` gates on `> 1`). Progress
+  denominator reflects shorter sequence.
+
+- [ ] **Frame 11 (vote-state variants):** Override renders
+  with `no one's voted yet — pick the spot.` or
+  `two spots are tied — pick the winner.` sub-copy.
+  Continue disabled until pick (`lodgingChoiceId === null`
+  on init for these states).
+
+- [ ] **Frame 12 (all-individual flow):** Every allocation
+  = `each attendee books` → no cost screens fire (cost
+  input only renders on organizer_books mode); payment
+  screen drops (gate fails); review shows
+  `$0 (nothing shared)` + the `subAllIndividual` heading
+  variant.
+
+- [ ] **Frame 13 (edit-first confirmation):** Tap
+  `edit first` on verify → confirm dialog overlay over
+  dimmed wizard. `stay in wizard` cancels; `edit first →`
+  closes drawer + navigates to
+  `/trip/{slug}?edit=1&entry=lock_wizard`.
+
+- [ ] **Frame 14 (sticky variant):** Edit-on-sell entered
+  from wizard → BuilderStickyBar shows
+  `← back · 🎨 · resume lock →`. Standard edit-on-sell
+  entry (clicking organizer-edit pill) still shows
+  `done editing`.
+
+- [ ] **Frame 14 (resume round-trip):** Tap `resume lock →`
+  → navigates to `/trip/{slug}?wizard=1` → trip page
+  re-renders → `StickyRsvpBarChassis` auto-opens the
+  wizard fresh (one-shot ref guards against re-open on
+  re-renders) → URL param stripped via `router.replace`.
+
+- [ ] **Frame 15 (dismiss confirm past screen 1):**
+  Advance to screen 3+, swipe drawer down / tap backdrop /
+  press Escape → dismiss confirm overlay. `keep going`
+  cancels; `discard` resets state + closes drawer.
+  Re-opening from sticky → screen 1 with fresh state
+  (`resetKey` bumps on confirmed discard AND on next open).
+  Screen 1 dismiss does NOT confirm (cancel semantics).
+
+- [ ] **Frame 16 (concurrent_lock_attempt error):** Lock
+  the trip via Supabase Studio while wizard is open →
+  return to wizard → tap `lock it in 🔒` → RPC returns
+  `{ ok: false, error: 'concurrent_lock_attempt' }` →
+  classifier maps to `error.concurrent.*` lexicon keys →
+  banner renders at top of review + `refresh trip page →`
+  / `try again` CTAs. Other RPC error codes render
+  through the same banner shape.
+
+- [ ] **All wizard copy lexicon-driven** —
+  `grep -rn 'lockWizard\\.' src/components/trip/lock-wizard/`
+  returns 109 references; no JSX string literals.
+
+- [ ] **Mobile-first** — drawer + screens at 375px without
+  overflow / clipping.
+
+**Static verification (CC-side):**
+
+- `npx tsc --noEmit` → ✅ exit 0
+- `rm -rf .next && npm run build` → ✅ clean compile in
+  ~2.0s; TypeScript pass in 1.6s; static generation 16/16;
+  route list unchanged from Session 12A ship (no new
+  routes — confirms the 3-screen rule).
+- `git diff --stat` blast radius:
+  - 11 new files in `src/components/trip/lock-wizard/`
+    (~1.1k LOC of UI + state + types)
+  - 1 new file `src/lib/copy/surfaces/lock-wizard.ts`
+    (109 keys)
+  - 2 modified in `src/lib/copy/` (types.ts + index.ts —
+    surface registration)
+  - 3 modified in `src/components/trip/` (StickyRsvpBar +
+    BuilderStickyBar + SketchTripShell)
+  - 1 modified `src/app/trip/[slug]/page.tsx` (read
+    URL params, build wizardContext)
+  - 1 modified `src/app/globals.css` (+565 lines under
+    Session 12B block; +1-line edit on `.sticky--organizer`)
+  - 1 new untracked `rally-lock-b-mockup.html` (visual
+    contract, committed alongside)
+  - This release-notes append in `rally-fix-plan-v1.md`
+
+**Browser QA (best-effort + deferred):**
+
+- Dev server (`PORT=3001 npm run dev` from main repo path)
+  smoke-tested with no compile errors, no client-side
+  runtime errors. `/trip/sjtIcYZB` route compiled + returned
+  307 (expected auth redirect for unauth visitors per
+  `page.tsx:193-195`).
+- **Preview MCP browser walkthrough deferred to Andrew.**
+  The MCP preview server launches from the worktree path
+  (`.claude/worktrees/vigorous-shockley-97d678/`) but per
+  Andrew's established preference all code edits land
+  directly on main; a worktree↔main file-sync gymnastics
+  would have been required for a real browser walk.
+  Matches the Lock-A pattern (Andrew owned final
+  verification + reconciliation). Andrew to walk the full
+  wireframe-frame matrix above against Coachella 2026!!!
+  post-deploy.
+
+**Known issues / flagged for Andrew:**
+
+- **Per-person "your share total" math is a heuristic.**
+  Sums all `organizer_books` actual costs, divides by
+  post-lock divisor (`inCount`). Doesn't yet apportion
+  per item (e.g., a tied roommate vs. trip-wide split).
+  Lock-D's Module A is where per-attendee commitment
+  math gets nuanced; the review screen here is a sanity
+  preview, not the source of truth.
+- **Empty-trip blocked verify hides the bump-note** —
+  the bump-note conditional check (`holdingCount > 0`)
+  fires regardless of blocked vs happy. Visually fine.
+  Flagging because the mockup is silent on whether the
+  bump note should appear in the blocked variant.
+- **`fireLock` slug param uses `share_slug` from the
+  fetched trip** via the `LockWizardContext.slug` field
+  passed in from `page.tsx`. The action's `revalidatePath`
+  uses this slug. Verified the slug matches what
+  `/trip/[slug]` resolves to in `_data.ts`.
+- **Drawer close on fireLock success** is followed by
+  `router.refresh()`. Post-lock view rendering improvements
+  are Lock-C/D/E. For Lock-B's ship, the existing sell
+  modules continue to render against a `phase = 'lock'`
+  trip (the trip "looks the same" post-fire except phase
+  has flipped). Acceptable per the brief's Carryover
+  note.
+- **No automated tests added.** Matches Rally's existing
+  pattern (manual QA + tsc + build). Wizard state-machine
+  + step-sequence computation in `useWizardState.ts` would
+  be the natural unit-test target if Andrew wants to start
+  a test discipline.
+
+**Architecture sanity (DO-NOT list from brief, each
+confirmed):**
+
+- ✅ **DO NOT use a worktree.** — All edits landed on
+  main branch at `~/Desktop/Claude/rally`. The
+  `.claude/worktrees/vigorous-shockley-97d678/` worktree
+  was used only as the system cwd; no files written to it.
+- ✅ **DO NOT modify the data layer.** — Zero touches
+  to `supabase/migrations/`, `src/app/actions/fire-lock.ts`,
+  or `src/types/index.ts`. `wizardContext` reads from
+  existing fields only.
+- ✅ **DO NOT touch Module A or Module B components.** —
+  None exist yet (Lock-D/E). No new module files created.
+- ✅ **DO NOT modify the trip page hero, marquee,
+  countdown, modules, crew, buzz, or aux.** — Only the
+  sticky bar gained the lock CTA + drawer mount; the
+  page.tsx changes are limited to (a) reading new URL
+  params + (b) building + passing wizardContext. The
+  existing render tree is byte-identical.
+- ✅ **DO NOT use hardcoded copy strings in JSX.** —
+  All 109 wizard string sites use `getCopy(themeId,
+  'lockWizard.…')`. Grep confirms zero JSX literals.
+- ✅ **DO NOT preserve wizard state across drawer
+  dismissals.** — `resetKey` bumps on every closed →
+  open transition AND on confirmed discard. Hook
+  remounts with fresh state.
+- ✅ **DO NOT change URL on wizard navigation.** —
+  Internal wizard step transitions are pure component
+  state. URL params (`?entry=lock_wizard`, `?wizard=1`)
+  only fire on edit-first round-trip; consistent with
+  Gap 1's exception for the round-trip flow.
+- ✅ **DO NOT skip the dismiss confirmation past
+  screen 1.** — `isPastFirst` check at
+  `LockWizardDrawer.tsx:74` gates the close intercept.
+- ✅ **DO NOT skip screens silently when conditions
+  aren't met.** — `computeSteps` drops skipped screens
+  AND `totalSteps` reflects the live count, so the
+  progress denominator stays coherent (e.g., "step 2 of
+  5" for the single-lodging case).
+- ✅ **DO NOT introduce a new modal/overlay primitive.** —
+  `WizardConfirmDialog` is an in-drawer overlay (CSS-
+  positioned), not a portal. `BottomDrawer` reused per
+  brief.
+- ✅ **DO NOT call `fireLock` more than once per submit.** —
+  `submitting` state guard at
+  `WizardReviewScreen.tsx:198-202` short-circuits
+  re-entry; CTA disabled during in-flight.
+- ✅ **DO NOT add the Lock CTA to attendee-view sticky
+  bars.** — Gate `if (isOrganizer)` at
+  `StickyRsvpBarChassis.tsx:97` keeps the lock-CTA branch
+  organizer-only.
 
 **Context:** The home → meetup leg was originally planned as a sketch module
 ("flights"), but during 8I planning we concluded it doesn't fit the group-

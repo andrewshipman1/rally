@@ -90,6 +90,11 @@ type Props = {
    * Edit-on-sell suppresses sketch signifiers (sticker, live row) and
    * swaps the publish button for done-editing. */
   mode?: 'sketch' | 'edit-on-sell';
+  /** Session 12B (Lock-B) — when 'lock_wizard', the user entered
+   * edit-on-sell from the wizard's "edit first" CTA. Swaps the done-
+   * editing pill for "resume lock →" and re-opens the wizard via
+   * ?wizard=1 on exit. */
+  entryPoint?: 'lock_wizard';
 };
 
 export function SketchTripShell({
@@ -118,6 +123,7 @@ export function SketchTripShell({
   activitiesEstimate,
   initial,
   mode = 'sketch',
+  entryPoint,
 }: Props) {
   const isEditOnSell = mode === 'edit-on-sell';
   // Seed state from props on mount only; never re-sync from props,
@@ -300,6 +306,7 @@ export function SketchTripShell({
         themeId={activeThemeId}
         ready={ready}
         mode={mode}
+        entryPoint={entryPoint}
         onBack={() => router.push('/')}
         onThemeOpen={() => setPickerOpen(true)}
         onManualSave={() => void flush()}
@@ -315,8 +322,14 @@ export function SketchTripShell({
           // 9W — edit-on-sell exit: flush any pending autosave, then
           // strip `?edit=1` by navigating back to the bare trip path.
           // Phase stays 'sell' — no transition, no republish.
+          // 12B (Lock-B) — when entered from the lock wizard, redirect
+          // to `?wizard=1` so the trip page auto-opens the wizard fresh.
           await flush();
-          router.push(`/trip/${slug}`);
+          if (entryPoint === 'lock_wizard') {
+            router.push(`/trip/${slug}?wizard=1`);
+          } else {
+            router.push(`/trip/${slug}`);
+          }
         }}
       />
 

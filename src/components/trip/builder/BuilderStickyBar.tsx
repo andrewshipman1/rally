@@ -25,6 +25,11 @@ type Props = {
   onPublish?: () => void;
   /** 9W — invoked by the done-editing pill in edit-on-sell mode. */
   onDone?: () => void;
+  /** Session 12B (Lock-B) — when the user entered edit-on-sell from the lock
+   * wizard's "edit first" CTA, the right slot swaps "done editing" for
+   * "resume lock →". onDone still fires; the consumer decides where to
+   * navigate based on this flag (resume reopens the wizard via ?wizard=1). */
+  entryPoint?: 'lock_wizard';
 };
 
 export function BuilderStickyBar({
@@ -36,8 +41,10 @@ export function BuilderStickyBar({
   onManualSave,
   onPublish,
   onDone,
+  entryPoint,
 }: Props) {
   const isEditMode = mode === 'edit-on-sell';
+  const isFromWizard = isEditMode && entryPoint === 'lock_wizard';
 
   return (
     <>
@@ -78,7 +85,9 @@ export function BuilderStickyBar({
             className="sticky-done"
             onClick={onDone}
           >
-            {getCopy(themeId, 'builderState.editModeDone')}
+            {isFromWizard
+              ? getCopy(themeId, 'lockWizard.stickyBar.editOnSellFromWizard.resume')
+              : getCopy(themeId, 'builderState.editModeDone')}
           </button>
         ) : (
           <button

@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rally — Lock-B: Wizard UI (refined wireframe)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ═══════════════════════════════════════════════════════════
+     LOCK-B — wizard UI refined wireframe (Cowork, 2026-05-07)
+     Predecessor: rally-lock-phase-mockup.html (master journey)
+     Strategy doc: rally-lock-phase-strategy-v0.md
+       "Lock-B prep — wizard edge cases (2026-05-07 EOD)" section
+
+     SCOPE OF THIS DOC (beyond what the master mockup shows):
+     - Happy path at refined fidelity (8 wizard screens, polished)
+     - State variants per screen:
+       - allocation screens: "I'm booking" vs "each attendee books"
+       - cost input: empty / populated / invalid
+       - payment handle: empty / partially filled
+     - Edge-case flows:
+       - empty-trip blocked at verification
+       - single-lodging skip (no override screen)
+       - all-individual allocations (no cost screens)
+       - no-headliner flow
+     - Edit-first round-trip mechanics:
+       - "edit first" confirmation dialog
+       - sticky bar variant during edit-on-sell-from-wizard
+       - drawer-dismiss confirmation (past screen 1)
+     - Error state example:
+       - concurrent_lock_attempt on final review
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --doc-bg: #2a2a2a;
+    --doc-text: #faf8f5;
+    --doc-muted: #888;
+    --doc-accent: #ffd84d;
+    --doc-step: #5bb7d8;
+    --doc-flag: #d8654f;
+    --doc-org: #d8a14f;
+    --doc-att: #5bd89a;
+    --doc-edge: #b87cc0;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    min-height: 100vh;
+    padding: 24px 16px 96px;
+    line-height: 1.5;
+  }
+
+  /* doc chrome */
+  .doc-header { max-width: 920px; margin: 0 auto 32px; text-align: center; }
+  .doc-kicker {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .18em;
+    color: var(--doc-accent); font-weight: 700; margin-bottom: 6px;
+  }
+  .doc-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 28px; color: var(--doc-text); margin-bottom: 10px;
+  }
+  .doc-sub {
+    font-size: 13px; color: var(--doc-muted); line-height: 1.65;
+    max-width: 720px; margin: 0 auto;
+  }
+  .doc-sub code {
+    background: #1a1a1a; padding: 1px 6px; border-radius: 3px;
+    font-size: 11px; color: var(--doc-accent);
+  }
+  .doc-sub strong { color: var(--doc-text); }
+
+  /* part dividers */
+  .part-label {
+    max-width: 920px; margin: 80px auto 8px; padding: 0 8px;
+    border-top: 1px solid #444; padding-top: 32px;
+  }
+  .part-kicker {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .18em;
+    color: var(--doc-accent); font-weight: 700; margin-bottom: 6px;
+  }
+  .part-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 24px; color: var(--doc-text); margin-bottom: 6px;
+  }
+  .part-sub { font-size: 13px; color: var(--doc-muted); line-height: 1.6; max-width: 720px; }
+  .part-sub code {
+    background: #1a1a1a; padding: 1px 5px; border-radius: 3px;
+    font-size: 11px; color: var(--doc-accent);
+  }
+
+  /* step labels */
+  .step-label {
+    max-width: 920px; margin: 44px auto 0; padding: 0 8px;
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  }
+  .step-num {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 28px; color: var(--doc-step); line-height: 1;
+  }
+  .step-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 17px; color: var(--doc-text);
+  }
+  .step-marker {
+    font-size: 9px; text-transform: uppercase; letter-spacing: .14em;
+    font-weight: 700; padding: 3px 8px; border-radius: 4px; margin-left: 4px;
+  }
+  .step-marker.org  { background: var(--doc-org); color: #1a1a1a; }
+  .step-marker.state { background: var(--doc-step); color: #0a1a2a; }
+  .step-marker.edge { background: var(--doc-edge); color: #1a1a1a; }
+  .step-marker.err  { background: var(--doc-flag); color: #1a1a1a; }
+
+  .step-note {
+    max-width: 920px; margin: 4px auto 18px; padding: 0 8px;
+    font-size: 13px; color: var(--doc-muted); line-height: 1.6;
+  }
+  .step-note code {
+    background: #1a1a1a; padding: 1px 5px; border-radius: 3px;
+    font-size: 11px; color: var(--doc-accent);
+  }
+  .step-note strong { color: var(--doc-text); }
+
+  /* row layouts: single, dual (side-by-side states) */
+  .row {
+    display: flex; justify-content: center; gap: 32px;
+    flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .row.dual { gap: 24px; }
+
+  /* phone frame */
+  .phone-frame {
+    width: 350px;
+    background: var(--bg); color: var(--ink);
+    border-radius: 22px; padding-bottom: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    position: relative; overflow: hidden;
+    --bg: #faecdb;
+    --ink: #2a1a0a;
+    --accent: #ff7e3e;
+    --accent2: #1f5c8a;
+    --muted: #8a6a4a;
+    --bang-light: #ff2e7e;
+    --sticker-bg: #ffd84d;
+    font-family: -apple-system, 'DM Sans', sans-serif;
+  }
+  .phone-frame-label {
+    position: absolute; top: -22px; left: 8px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    color: #aaa; font-weight: 700;
+  }
+  .phone-frame-state {
+    position: absolute; top: -22px; right: 8px;
+    font-size: 9px; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--doc-step); font-weight: 700;
+  }
+
+  /* status bar */
+  .pf-status {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 18px 4px;
+    font-size: 11px; color: var(--ink); font-weight: 600;
+  }
+
+  /* dimmed page beneath drawer */
+  .pf-underlay {
+    padding: 8px 16px 14px; opacity: 0.35;
+  }
+  .pf-underlay-title {
+    font-family: Georgia, serif; font-style: italic; font-weight: 800;
+    font-size: 18px; color: var(--ink);
+  }
+  .pf-underlay-sub {
+    font-size: 11px; color: var(--muted); margin-top: 4px;
+  }
+
+  /* ─── wizard drawer ─── */
+  .pf-drawer {
+    position: relative; background: #1a1a1a;
+    border-radius: 22px 22px 0 0; padding: 14px 16px 22px;
+    color: #faf8f5; margin-top: 8px;
+  }
+  .pf-drawer-handle {
+    width: 38px; height: 4px; background: #555;
+    border-radius: 100px; margin: 2px auto 14px;
+  }
+  .pf-drawer-progress {
+    width: 100%; height: 3px; background: #333;
+    border-radius: 100px; overflow: hidden; margin-bottom: 14px;
+  }
+  .pf-drawer-progress-fill {
+    height: 100%; background: var(--accent);
+    border-radius: 100px;
+  }
+  .pf-drawer-step-tag {
+    font-size: 9px; text-transform: uppercase; letter-spacing: .14em;
+    color: var(--accent); font-weight: 700; margin-bottom: 6px;
+    display: flex; justify-content: space-between;
+  }
+  .pf-drawer-step-tag .back {
+    color: #888; cursor: pointer;
+  }
+  .pf-drawer-h {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 22px; line-height: 1.15; margin-bottom: 6px;
+  }
+  .pf-drawer-sub {
+    font-size: 12px; color: #b8b3a8; line-height: 1.5; margin-bottom: 14px;
+  }
+  .pf-drawer-sub code {
+    background: #2a2a2a; padding: 1px 5px; border-radius: 3px;
+    color: var(--accent); font-size: 10px;
+  }
+  .pf-drawer-card {
+    background: #2a2a2a; border: 1px solid #444;
+    border-radius: 12px; padding: 12px 12px; margin-bottom: 10px;
+  }
+  .pf-drawer-card-row {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: #d8d3c4; padding: 3px 0;
+  }
+  .pf-drawer-card-row-key { color: #888; }
+
+  /* binary buttons */
+  .pf-drawer-binary {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 14px;
+  }
+  .pf-drawer-binary-btn {
+    border: 1.5px solid #555; background: #2a2a2a;
+    border-radius: 12px; padding: 14px 10px; text-align: left;
+  }
+  .pf-drawer-binary-btn.selected {
+    border-color: var(--accent); background: #3a330a;
+  }
+  .pf-drawer-binary-btn-label {
+    font-family: Georgia, serif; font-style: italic; font-weight: 800;
+    font-size: 13px; margin-bottom: 4px;
+  }
+  .pf-drawer-binary-btn-sub {
+    font-size: 10px; color: #888; line-height: 1.4;
+  }
+
+  /* cost input */
+  .pf-drawer-cost-input {
+    background: #0a0a0a; border: 1px solid #444;
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;
+  }
+  .pf-drawer-cost-input.invalid {
+    border-color: var(--doc-flag);
+  }
+  .pf-drawer-cost-input-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    color: var(--accent); font-weight: 700; margin-bottom: 6px;
+  }
+  .pf-drawer-cost-input.invalid .pf-drawer-cost-input-label {
+    color: var(--doc-flag);
+  }
+  .pf-drawer-cost-input-field {
+    display: flex; align-items: baseline; gap: 4px; color: #fff;
+  }
+  .pf-drawer-cost-input-currency { font-size: 18px; color: #888; }
+  .pf-drawer-cost-input-amount {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 26px;
+  }
+  .pf-drawer-cost-input-amount.placeholder { color: #666; font-style: italic; font-weight: 400; }
+  .pf-drawer-cost-input-hint {
+    font-size: 10px; color: #888; margin-top: 6px;
+  }
+  .pf-drawer-cost-input-error {
+    font-size: 10px; color: var(--doc-flag); margin-top: 6px;
+    font-weight: 700;
+  }
+
+  /* radio list */
+  .pf-drawer-radio-list { margin-bottom: 14px; }
+  .pf-drawer-radio-row {
+    display: flex; align-items: center; gap: 10px;
+    border: 1.5px solid #444; background: #2a2a2a;
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .pf-drawer-radio-row.selected {
+    border-color: var(--accent); background: #3a330a;
+  }
+  .pf-drawer-radio-row.tied {
+    border-color: var(--accent); background: transparent;
+  }
+  .pf-drawer-radio-circle {
+    width: 16px; height: 16px;
+    border: 1.5px solid #888; border-radius: 50%;
+    flex-shrink: 0; position: relative;
+  }
+  .pf-drawer-radio-row.selected .pf-drawer-radio-circle { border-color: var(--accent); }
+  .pf-drawer-radio-row.selected .pf-drawer-radio-circle::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  }
+  .pf-drawer-radio-content { flex: 1; }
+  .pf-drawer-radio-label { font-weight: 700; color: #fff; }
+  .pf-drawer-radio-sub { font-size: 10px; color: #888; margin-top: 2px; }
+  .pf-drawer-radio-meta { font-size: 10px; color: var(--accent); font-weight: 700; }
+
+  /* form-field input (payment handles) */
+  .pf-drawer-input-field { margin-bottom: 12px; }
+  .pf-drawer-input-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+    color: var(--accent); font-weight: 700; margin-bottom: 4px;
+  }
+  .pf-drawer-input-box {
+    background: #0a0a0a; border: 1px solid #444;
+    border-radius: 10px; padding: 11px 12px;
+    font-size: 13px; color: #fff; font-weight: 600;
+  }
+  .pf-drawer-input-box.placeholder { color: #666; font-style: italic; font-weight: 400; }
+
+  /* review rows */
+  .pf-drawer-review-row {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px dashed #444; padding: 10px 0; font-size: 12px;
+  }
+  .pf-drawer-review-row:last-child { border-bottom: none; }
+  .pf-drawer-review-label {
+    color: #888; font-size: 10px;
+    text-transform: uppercase; letter-spacing: .1em; margin-bottom: 2px;
+  }
+  .pf-drawer-review-value { color: #fff; font-weight: 600; }
+  .pf-drawer-review-edit {
+    font-size: 10px; color: var(--accent); text-decoration: underline;
+  }
+
+  /* CTAs */
+  .pf-drawer-cta {
+    background: var(--accent); color: #1a1a1a;
+    padding: 14px 0; border-radius: 100px; text-align: center;
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 15px; margin-top: 4px;
+  }
+  .pf-drawer-cta.disabled {
+    background: #444; color: #888; font-style: italic;
+  }
+  .pf-drawer-cta-secondary {
+    background: transparent; color: #888; padding: 10px 0;
+    text-align: center; font-size: 12px; text-decoration: underline;
+    margin-top: 4px;
+  }
+
+  /* error banner */
+  .pf-drawer-error {
+    background: rgba(216,101,79,.15);
+    border: 1px solid var(--doc-flag);
+    border-radius: 10px; padding: 12px 12px; margin-bottom: 14px;
+  }
+  .pf-drawer-error-title {
+    font-size: 12px; color: var(--doc-flag); font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .pf-drawer-error-body {
+    font-size: 11px; color: #d8d3c4; line-height: 1.5;
+  }
+
+  /* info banner (empty-trip block) */
+  .pf-drawer-info {
+    background: rgba(91,183,216,.12);
+    border: 1px solid var(--doc-step);
+    border-radius: 10px; padding: 12px 12px; margin-bottom: 14px;
+  }
+  .pf-drawer-info-title {
+    font-size: 12px; color: var(--doc-step); font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .pf-drawer-info-body {
+    font-size: 11px; color: #d8d3c4; line-height: 1.5;
+  }
+
+  /* ─── confirmation dialog overlay (mid-drawer) ─── */
+  .pf-confirm-overlay {
+    position: relative;
+    background: rgba(0,0,0,.6);
+    padding: 60px 20px 20px;
+    border-radius: 0 0 22px 22px;
+  }
+  .pf-confirm-dialog {
+    background: #faf8f5; color: #1a1a1a;
+    border-radius: 14px; padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.5);
+  }
+  .pf-confirm-h {
+    font-family: Georgia, serif; font-style: italic; font-weight: 900;
+    font-size: 18px; margin-bottom: 8px;
+  }
+  .pf-confirm-sub {
+    font-size: 13px; color: #555; line-height: 1.5; margin-bottom: 16px;
+  }
+  .pf-confirm-btn-row {
+    display: flex; gap: 10px;
+  }
+  .pf-confirm-btn {
+    flex: 1; padding: 11px 0; border-radius: 100px;
+    text-align: center; font-weight: 700; font-size: 13px;
+    font-family: Georgia, serif; font-style: italic;
+  }
+  .pf-confirm-btn.primary {
+    background: #1a1a1a; color: #fff;
+  }
+  .pf-confirm-btn.secondary {
+    background: transparent; color: #666;
+    border: 1.5px solid #c8c0a8;
+  }
+  .pf-confirm-btn.destructive {
+    background: var(--doc-flag, #d8654f); color: #fff;
+  }
+
+  /* ─── sticky bar (edit-on-sell variants) ─── */
+  .pf-sticky {
+    margin: 16px 16px 0;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.95);
+    border: 1.5px solid var(--ink);
+    border-radius: 100px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pf-sticky-icon {
+    width: 32px; height: 32px; border-radius: 100px;
+    border: 2px solid var(--ink); background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+  .pf-sticky-cta {
+    flex: 1; background: #1a1a1a; color: #fff;
+    padding: 10px 14px; border-radius: 100px; text-align: center;
+    font-family: Georgia, serif; font-style: italic; font-weight: 800;
+    font-size: 13px;
+  }
+  .pf-sticky-cta.primary {
+    background: var(--accent, #ff7e3e); color: #fff;
+  }
+
+  /* doc note callouts */
+  .doc-note {
+    max-width: 920px; margin: 24px auto;
+    padding: 16px 20px;
+    border-left: 3px solid var(--doc-accent);
+    background: #1f1f1f;
+    font-size: 13px; color: #c8c3b8; line-height: 1.6;
+  }
+  .doc-note strong { color: var(--doc-text); }
+  .doc-note code {
+    background: #1a1a1a; padding: 1px 5px; border-radius: 3px;
+    color: var(--doc-accent); font-size: 11px;
+  }
+
+  /* legend */
+  .doc-legend {
+    max-width: 920px; margin: 32px auto 0;
+    padding: 14px 18px; border-radius: 8px; background: #1f1f1f;
+    display: flex; gap: 18px; flex-wrap: wrap;
+    font-size: 11px; color: #aaa;
+  }
+  .legend-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .legend-pill::before {
+    content: ''; display: inline-block;
+    width: 12px; height: 12px; border-radius: 3px;
+  }
+  .legend-pill.state::before { background: var(--doc-step); }
+  .legend-pill.edge::before  { background: var(--doc-edge); }
+  .legend-pill.err::before   { background: var(--doc-flag); }
+
+  @media (max-width: 768px) {
+    .row, .row.dual { gap: 56px; padding-top: 22px; }
+    .phone-frame { width: 100%; max-width: 360px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div class="doc-kicker">LOCK-B · WIZARD UI · REFINED WIREFRAME · 2026-05-07</div>
+  <h1 class="doc-title">The wizard, screen by screen</h1>
+  <p class="doc-sub">
+    Refined fidelity wireframe for the Lock-B implementation arc. <strong>Master journey</strong> covered the happy path at structural level (<code>rally-lock-phase-mockup.html</code>); <strong>this doc</strong> zooms in on the wizard's state variants, edge cases, edit-first round-trip, and error handling. Decisions all live in <code>rally-lock-phase-strategy-v0.md</code>, "Lock-B prep — wizard edge cases" section.
+  </p>
+  <div class="doc-legend">
+    <span class="legend-pill state">happy-path state variants</span>
+    <span class="legend-pill edge">edge-case flows</span>
+    <span class="legend-pill err">error states</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART 1 — HAPPY PATH AT REFINED FIDELITY
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="part-label">
+  <div class="part-kicker">PART 1 · HAPPY PATH AT FIDELITY</div>
+  <h2 class="part-title">Each wizard screen, polished</h2>
+  <p class="part-sub">
+    Seven screens for a typical 1-lodging + headliner + 1-transport trip. Per-screen state shown in the in-frame "STATE" tag (top-right of each phone frame). All frames use the festival-run theme (Coachella context).
+  </p>
+</div>
+
+<div class="step-label">
+  <span class="step-num">1.</span>
+  <span class="step-title">Screen 1 — verification</span>
+  <span class="step-marker org">organizer</span>
+</div>
+<p class="step-note">
+  Pre-flight check. Trip-state summary + heads-up on what's coming. <code>"edit first"</code> exits the wizard into 9W edit-on-sell with a <code>resume lock →</code> sticky-bar CTA. <code>"looks good — continue"</code> proceeds to screen 2.
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 1/7</span>
+    <span class="phone-frame-state">verify</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-underlay">
+      <div class="pf-underlay-title">coachella 2026!!!</div>
+      <div class="pf-underlay-sub">— trip page dimmed beneath drawer —</div>
+    </div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 14%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 1 of 7 · verify</span><span class="back">cancel</span></div>
+      <div class="pf-drawer-h">does this look right?</div>
+      <div class="pf-drawer-sub">you'll confirm trip details, lock in actual costs for items you're booking, and decide who fronts what. ~5 min — have your booking confirmations handy.</div>
+      <div class="pf-drawer-card">
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">trip</span><span>coachella 2026!!!</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">when</span><span>may 26 → 29</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">where</span><span>palm springs, ca</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">crew</span><span>4 in · 2 holding · 0 out</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">lodging vote</span><span style="color:var(--accent);">cap juluca · 4 of 6</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">items to allocate</span><span>3</span></div>
+      </div>
+      <div style="font-size:10px; color:#888; margin:8px 0 16px; line-height:1.5;">
+        ⓘ holding members will be bumped to <strong style="color:var(--doc-org);">out</strong> when lock fires. cost divisor flips from 6 → 4.
+      </div>
+      <div class="pf-drawer-cta">looks good — continue →</div>
+      <div class="pf-drawer-cta-secondary">edit first</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">2.</span>
+  <span class="step-title">Screen 2 — lodging override (clear vote winner)</span>
+  <span class="step-marker org">organizer</span>
+</div>
+<p class="step-note">
+  Default state: vote winner preselected. Tap a different option to override. Skip this screen entirely if the trip has only 1 lodging option (no choice to make).
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 2/7</span>
+    <span class="phone-frame-state">winner</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 28%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 2 of 7 · lodging</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">which spot?</div>
+      <div class="pf-drawer-sub">vote winner is selected by default. tap to override.</div>
+      <div class="pf-drawer-radio-list">
+        <div class="pf-drawer-radio-row selected">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">cap juluca, anguilla</div>
+            <div class="pf-drawer-radio-sub">$1,200/night · 3 nights · 5 rooms</div>
+          </div>
+          <div class="pf-drawer-radio-meta">4 of 6</div>
+        </div>
+        <div class="pf-drawer-radio-row">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">parker palm springs</div>
+            <div class="pf-drawer-radio-sub">$680/night · 3 nights · 6 rooms</div>
+          </div>
+          <div class="pf-drawer-radio-meta" style="color:#888;">0</div>
+        </div>
+        <div class="pf-drawer-radio-row">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">ace hotel palm springs</div>
+            <div class="pf-drawer-radio-sub">$420/night · 3 nights · 6 rooms</div>
+          </div>
+          <div class="pf-drawer-radio-meta" style="color:#888;">0</div>
+        </div>
+      </div>
+      <div class="pf-drawer-cta">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">3.</span>
+  <span class="step-title">Screen 3 — lodging allocation + inline cost (two state variants)</span>
+  <span class="step-marker org">organizer</span>
+  <span class="step-marker state">2 states</span>
+</div>
+<p class="step-note">
+  The binary that drives Module A / Module B downstream. Left frame: "I'm booking" selected → cost field appears inline. Right frame: "each attendee books" selected → no cost field. Continue is disabled until the binary is picked.
+</p>
+<div class="row dual">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 3/7</span>
+    <span class="phone-frame-state">i'm booking</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 42%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 3 of 7 · lodging</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">who's booking cap juluca?</div>
+      <div class="pf-drawer-sub">this decides whether it's a shared cost or an individual task.</div>
+      <div class="pf-drawer-binary">
+        <div class="pf-drawer-binary-btn selected">
+          <div class="pf-drawer-binary-btn-label">i'm booking</div>
+          <div class="pf-drawer-binary-btn-sub">i front the cash, attendees commit to their share + venmo me back</div>
+        </div>
+        <div class="pf-drawer-binary-btn">
+          <div class="pf-drawer-binary-btn-label">each attendee books</div>
+          <div class="pf-drawer-binary-btn-sub">everyone books their own hotel — goes on their personal checklist</div>
+        </div>
+      </div>
+      <div class="pf-drawer-cost-input">
+        <div class="pf-drawer-cost-input-label">actual final cost</div>
+        <div class="pf-drawer-cost-input-field">
+          <span class="pf-drawer-cost-input-currency">$</span>
+          <span class="pf-drawer-cost-input-amount">18,000</span>
+        </div>
+        <div class="pf-drawer-cost-input-hint">estimate was $18,000 · this is what you'll charge your card. confirm or overwrite.</div>
+      </div>
+      <div class="pf-drawer-cta">continue →</div>
+    </div>
+  </div>
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 3/7</span>
+    <span class="phone-frame-state">each books</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 42%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 3 of 7 · lodging</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">who's booking cap juluca?</div>
+      <div class="pf-drawer-sub">this decides whether it's a shared cost or an individual task.</div>
+      <div class="pf-drawer-binary">
+        <div class="pf-drawer-binary-btn">
+          <div class="pf-drawer-binary-btn-label">i'm booking</div>
+          <div class="pf-drawer-binary-btn-sub">i front the cash, attendees commit to their share + venmo me back</div>
+        </div>
+        <div class="pf-drawer-binary-btn selected">
+          <div class="pf-drawer-binary-btn-label">each attendee books</div>
+          <div class="pf-drawer-binary-btn-sub">everyone books their own hotel — goes on their personal checklist</div>
+        </div>
+      </div>
+      <div style="font-size:11px; color:#888; padding:14px 0 18px; font-style:italic; line-height:1.5;">
+        no cost to confirm — each attendee handles their own.
+      </div>
+      <div class="pf-drawer-cta">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">4.</span>
+  <span class="step-title">Screen 3 — cost validation error state</span>
+  <span class="step-marker org">organizer</span>
+  <span class="step-marker err">invalid input</span>
+</div>
+<p class="step-note">
+  If the organizer tries to continue with an empty / zero / non-numeric cost on an "I'm booking" allocation, the input field flips red with an inline error. <code>continue →</code> stays disabled until the value is valid.
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 3/7</span>
+    <span class="phone-frame-state" style="color:var(--doc-flag);">invalid</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 42%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 3 of 7 · lodging</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">who's booking cap juluca?</div>
+      <div class="pf-drawer-sub">this decides whether it's a shared cost or an individual task.</div>
+      <div class="pf-drawer-binary">
+        <div class="pf-drawer-binary-btn selected">
+          <div class="pf-drawer-binary-btn-label">i'm booking</div>
+          <div class="pf-drawer-binary-btn-sub">i front the cash, attendees commit to their share + venmo me back</div>
+        </div>
+        <div class="pf-drawer-binary-btn">
+          <div class="pf-drawer-binary-btn-label">each attendee books</div>
+          <div class="pf-drawer-binary-btn-sub">everyone books their own hotel — goes on their personal checklist</div>
+        </div>
+      </div>
+      <div class="pf-drawer-cost-input invalid">
+        <div class="pf-drawer-cost-input-label">actual final cost</div>
+        <div class="pf-drawer-cost-input-field">
+          <span class="pf-drawer-cost-input-currency">$</span>
+          <span class="pf-drawer-cost-input-amount placeholder">0</span>
+        </div>
+        <div class="pf-drawer-cost-input-error">enter the actual cost — this is what attendees will pay back.</div>
+      </div>
+      <div class="pf-drawer-cta disabled">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">5.</span>
+  <span class="step-title">Screen 4 — headliner allocation</span>
+  <span class="step-marker org">organizer</span>
+</div>
+<p class="step-note">
+  Singular per trip, no override step. For Coachella the headliner is the festival GA pass. Same binary; <code>each attendee books</code> selected here (most concert/festival passes are individual purchases).
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 4/7</span>
+    <span class="phone-frame-state">each books</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 57%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 4 of 7 · headliner</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">who's buying coachella tix?</div>
+      <div class="pf-drawer-sub">festival GA pass · $499/person.</div>
+      <div class="pf-drawer-binary">
+        <div class="pf-drawer-binary-btn">
+          <div class="pf-drawer-binary-btn-label">i'm booking</div>
+          <div class="pf-drawer-binary-btn-sub">i bulk-buy passes, attendees venmo me back</div>
+        </div>
+        <div class="pf-drawer-binary-btn selected">
+          <div class="pf-drawer-binary-btn-label">each attendee books</div>
+          <div class="pf-drawer-binary-btn-sub">everyone gets their own pass — on their checklist</div>
+        </div>
+      </div>
+      <div class="pf-drawer-cta">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">6.</span>
+  <span class="step-title">Screen 5 — intra-transport allocation + inline cost</span>
+  <span class="step-marker org">organizer</span>
+</div>
+<p class="step-note">
+  One screen per intra-transport item. Charter vans and rental cars typically go "I'm booking"; train tickets and intra-flights typically go individual. <code>transport.link</code> (if the organizer set one in sketch) shows up in the individual attendee's Module B checklist as a "go book this →" deep link.
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 5/7</span>
+    <span class="phone-frame-state">i'm booking</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 71%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 5 of 7 · transport</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">who's booking the airport van?</div>
+      <div class="pf-drawer-sub">LAX → palm springs · group transport.</div>
+      <div class="pf-drawer-binary">
+        <div class="pf-drawer-binary-btn selected">
+          <div class="pf-drawer-binary-btn-label">i'm booking</div>
+          <div class="pf-drawer-binary-btn-sub">i reserve the van, attendees split the cost</div>
+        </div>
+        <div class="pf-drawer-binary-btn">
+          <div class="pf-drawer-binary-btn-label">each attendee books</div>
+          <div class="pf-drawer-binary-btn-sub">everyone arranges their own ride from LAX</div>
+        </div>
+      </div>
+      <div class="pf-drawer-cost-input">
+        <div class="pf-drawer-cost-input-label">actual final cost</div>
+        <div class="pf-drawer-cost-input-field">
+          <span class="pf-drawer-cost-input-currency">$</span>
+          <span class="pf-drawer-cost-input-amount">600</span>
+        </div>
+        <div class="pf-drawer-cost-input-hint">estimate was $600 · confirm or overwrite.</div>
+      </div>
+      <div class="pf-drawer-cta">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">7.</span>
+  <span class="step-title">Screen 6 — payment handle prompt (two state variants)</span>
+  <span class="step-marker org">organizer</span>
+  <span class="step-marker state">2 states</span>
+</div>
+<p class="step-note">
+  Conditional screen — only fires if (a) the organizer has zero payment handles set AND (b) at least one allocation is "I'm booking". Left: empty state (all fields placeholder). Right: partially filled (venmo entered, others skipped — still acceptable). Skip option available either way.
+</p>
+<div class="row dual">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 6/7</span>
+    <span class="phone-frame-state">empty</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 85%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 6 of 7 · payment</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">where do they venmo you?</div>
+      <div class="pf-drawer-sub">attendees use this to pay you back. set once, applies to every trip you organize. you can skip and add later.</div>
+      <div class="pf-drawer-input-field">
+        <div class="pf-drawer-input-label">venmo</div>
+        <div class="pf-drawer-input-box placeholder">@your-venmo-handle</div>
+      </div>
+      <div class="pf-drawer-input-field">
+        <div class="pf-drawer-input-label">zelle (optional)</div>
+        <div class="pf-drawer-input-box placeholder">phone or email</div>
+      </div>
+      <div class="pf-drawer-input-field" style="margin-bottom: 16px;">
+        <div class="pf-drawer-input-label">cashapp (optional)</div>
+        <div class="pf-drawer-input-box placeholder">$cashtag</div>
+      </div>
+      <div class="pf-drawer-cta disabled">save & continue →</div>
+      <div class="pf-drawer-cta-secondary">skip — i'll add later</div>
+    </div>
+  </div>
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 6/7</span>
+    <span class="phone-frame-state">venmo filled</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 85%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 6 of 7 · payment</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">where do they venmo you?</div>
+      <div class="pf-drawer-sub">attendees use this to pay you back. set once, applies to every trip you organize. you can skip and add later.</div>
+      <div class="pf-drawer-input-field">
+        <div class="pf-drawer-input-label">venmo</div>
+        <div class="pf-drawer-input-box">@andrewshipman</div>
+      </div>
+      <div class="pf-drawer-input-field">
+        <div class="pf-drawer-input-label">zelle (optional)</div>
+        <div class="pf-drawer-input-box placeholder">phone or email</div>
+      </div>
+      <div class="pf-drawer-input-field" style="margin-bottom: 16px;">
+        <div class="pf-drawer-input-label">cashapp (optional)</div>
+        <div class="pf-drawer-input-box placeholder">$cashtag</div>
+      </div>
+      <div class="pf-drawer-cta">save & continue →</div>
+      <div class="pf-drawer-cta-secondary">skip — i'll add later</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">8.</span>
+  <span class="step-title">Screen 7 — final review</span>
+  <span class="step-marker org">organizer</span>
+</div>
+<p class="step-note">
+  All decisions in one place. Each <code>change</code> link is a button that jumps back to the relevant wizard screen; on save there, the user returns here. The big yellow <code>lock it in 🔒</code> is the actual lock-fire — calls the <code>fireLock</code> server action.
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 7/7</span>
+    <span class="phone-frame-state">review</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 100%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 7 of 7 · review</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">ready to lock?</div>
+      <div class="pf-drawer-sub">last chance to fix anything. tap a row to edit.</div>
+      <div class="pf-drawer-review-row">
+        <div><div class="pf-drawer-review-label">spot</div><div class="pf-drawer-review-value">cap juluca · $18,000 · i'm booking</div></div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div><div class="pf-drawer-review-label">headliner</div><div class="pf-drawer-review-value">coachella ga · each books</div></div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div><div class="pf-drawer-review-label">airport van</div><div class="pf-drawer-review-value">$600 · i'm booking</div></div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div><div class="pf-drawer-review-label">your share total</div><div class="pf-drawer-review-value" style="color:var(--accent);">$4,650 each (4 attendees)</div></div>
+        <span></span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div><div class="pf-drawer-review-label">booking deadline</div><div class="pf-drawer-review-value">may 12 · 14 days before trip</div></div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-cta" style="margin-top: 18px;">lock it in 🔒</div>
+      <div class="pf-drawer-cta-secondary">go back</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART 2 — EDGE-CASE FLOWS (WIZARD LENGTH VARIES)
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="part-label">
+  <div class="part-kicker">PART 2 · EDGE-CASE FLOWS</div>
+  <h2 class="part-title">When the wizard collapses or contracts</h2>
+  <p class="part-sub">
+    Wizard length is computed dynamically from current trip state on each open. Skip-on-the-fly for missing items. Specific edge cases below.
+  </p>
+</div>
+
+<div class="step-label">
+  <span class="step-num">9.</span>
+  <span class="step-title">Edge — zero allocatable items (blocked at verification)</span>
+  <span class="step-marker org">organizer</span>
+  <span class="step-marker edge">empty trip</span>
+</div>
+<p class="step-note">
+  Trip has no lodging, no transport, no headliner. Verification screen hard-blocks. Continue CTA is disabled; only path forward is <code>edit first</code>. Wizard length effectively = 1 screen (block).
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 1/1</span>
+    <span class="phone-frame-state" style="color:var(--doc-edge);">blocked</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 100%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 1 of 1 · verify</span><span class="back">cancel</span></div>
+      <div class="pf-drawer-h">add something to lock first</div>
+      <div class="pf-drawer-sub">your trip has nothing to allocate yet — add at least one lodging, transport item, or headliner before locking.</div>
+      <div class="pf-drawer-info">
+        <div class="pf-drawer-info-title">trip is empty</div>
+        <div class="pf-drawer-info-body">
+          • lodging: <strong>none</strong><br>
+          • headliner: <strong>none</strong><br>
+          • intra-transport: <strong>0 items</strong>
+        </div>
+      </div>
+      <div class="pf-drawer-cta disabled">continue →</div>
+      <div class="pf-drawer-cta-secondary">edit first</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">10.</span>
+  <span class="step-title">Edge — single lodging (override screen skipped)</span>
+  <span class="step-marker org">organizer</span>
+  <span class="step-marker edge">1 lodging</span>
+</div>
+<p class="step-note">
+  If the trip has only 1 lodging option, the override screen is skipped — no choice to make. Wizard goes verification → lodging allocation directly. Step count shifts (this trip with 1 lodging + 1 transport + no headliner = 5 screens total, not 7).
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 2/5</span>
+    <span class="phone-frame-state" style="color:var(--doc-edge);">no override</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 40%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 2 of 5 · lodging</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">who's booking the airbnb?</div>
+      <div class="pf-drawer-sub">your trip has one lodging — straight to allocation.</div>
+      <div class="pf-drawer-card">
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">spot</span><span style="color:#fff;">3br villa, joshua tree</span></div>
+        <div class="pf-drawer-card-row"><span class="pf-drawer-card-row-key">estimate</span><span>$2,400 / 3 nights</span></div>
+      </div>
+      <div class="pf-drawer-binary">
+        <div class="pf-drawer-binary-btn selected">
+          <div class="pf-drawer-binary-btn-label">i'm booking</div>
+          <div class="pf-drawer-binary-btn-sub">i front the cash, attendees venmo me back</div>
+        </div>
+        <div class="pf-drawer-binary-btn">
+          <div class="pf-drawer-binary-btn-label">each attendee books</div>
+          <div class="pf-drawer-binary-btn-sub">everyone books their own — on their checklist</div>
+        </div>
+      </div>
+      <div class="pf-drawer-cost-input">
+        <div class="pf-drawer-cost-input-label">actual final cost</div>
+        <div class="pf-drawer-cost-input-field">
+          <span class="pf-drawer-cost-input-currency">$</span>
+          <span class="pf-drawer-cost-input-amount">2,400</span>
+        </div>
+      </div>
+      <div class="pf-drawer-cta">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">11.</span>
+  <span class="step-title">Edge — lodging override variants (no votes, tied votes)</span>
+  <span class="step-marker org">organizer</span>
+  <span class="step-marker edge">vote-state</span>
+</div>
+<p class="step-note">
+  Two variants on screen 2 when the lodging vote state isn't "clear winner." Left: nobody voted yet. Right: tied votes. Organizer picks regardless.
+</p>
+<div class="row dual">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 2/7</span>
+    <span class="phone-frame-state" style="color:var(--doc-edge);">no votes</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 28%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 2 of 7 · lodging</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">which spot?</div>
+      <div class="pf-drawer-sub">no one's voted yet — pick the spot.</div>
+      <div class="pf-drawer-radio-list">
+        <div class="pf-drawer-radio-row">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">cap juluca, anguilla</div>
+            <div class="pf-drawer-radio-sub">$1,200/night · 3 nights</div>
+          </div>
+          <div class="pf-drawer-radio-meta" style="color:#888;">0</div>
+        </div>
+        <div class="pf-drawer-radio-row">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">parker palm springs</div>
+            <div class="pf-drawer-radio-sub">$680/night · 3 nights</div>
+          </div>
+          <div class="pf-drawer-radio-meta" style="color:#888;">0</div>
+        </div>
+        <div class="pf-drawer-radio-row">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">ace hotel</div>
+            <div class="pf-drawer-radio-sub">$420/night · 3 nights</div>
+          </div>
+          <div class="pf-drawer-radio-meta" style="color:#888;">0</div>
+        </div>
+      </div>
+      <div class="pf-drawer-cta disabled">continue →</div>
+    </div>
+  </div>
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 2/7</span>
+    <span class="phone-frame-state" style="color:var(--doc-edge);">tied</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 28%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 2 of 7 · lodging</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">which spot?</div>
+      <div class="pf-drawer-sub">two spots are tied — pick the winner.</div>
+      <div class="pf-drawer-radio-list">
+        <div class="pf-drawer-radio-row tied">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">cap juluca, anguilla</div>
+            <div class="pf-drawer-radio-sub">$1,200/night · 3 nights</div>
+          </div>
+          <div class="pf-drawer-radio-meta">2 of 6</div>
+        </div>
+        <div class="pf-drawer-radio-row tied">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">parker palm springs</div>
+            <div class="pf-drawer-radio-sub">$680/night · 3 nights</div>
+          </div>
+          <div class="pf-drawer-radio-meta">2 of 6</div>
+        </div>
+        <div class="pf-drawer-radio-row">
+          <div class="pf-drawer-radio-circle"></div>
+          <div class="pf-drawer-radio-content">
+            <div class="pf-drawer-radio-label">ace hotel</div>
+            <div class="pf-drawer-radio-sub">$420/night · 3 nights</div>
+          </div>
+          <div class="pf-drawer-radio-meta" style="color:#888;">0</div>
+        </div>
+      </div>
+      <div class="pf-drawer-cta disabled">continue →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">12.</span>
+  <span class="step-title">Edge — all-individual flow (no cost screens, no payment handle)</span>
+  <span class="step-marker org">organizer</span>
+  <span class="step-marker edge">all individual</span>
+</div>
+<p class="step-note">
+  Every allocation is "each attendee books." No cost-confirmation steps fire (cost only shows for "I'm booking"). Payment handle screen skips (no money owed). Final review reflects: zero shared costs, all Module B items. Wizard is short — verification → lodging override (if multiple) → lodging alloc → headliner alloc → transport alloc → review.
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 6/6</span>
+    <span class="phone-frame-state" style="color:var(--doc-edge);">all individual</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 100%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 6 of 6 · review</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h">ready to lock?</div>
+      <div class="pf-drawer-sub">all items go on attendees' personal checklists — nothing's shared.</div>
+      <div class="pf-drawer-review-row">
+        <div><div class="pf-drawer-review-label">spot</div><div class="pf-drawer-review-value">cap juluca · each books</div></div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div><div class="pf-drawer-review-label">headliner</div><div class="pf-drawer-review-value">coachella ga · each books</div></div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div><div class="pf-drawer-review-label">airport ride</div><div class="pf-drawer-review-value">each books</div></div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div><div class="pf-drawer-review-label">your share total</div><div class="pf-drawer-review-value" style="color:#888;">$0 (nothing shared)</div></div>
+        <span></span>
+      </div>
+      <div class="pf-drawer-review-row">
+        <div><div class="pf-drawer-review-label">booking deadline</div><div class="pf-drawer-review-value">may 12 · 14 days before trip</div></div>
+        <span class="pf-drawer-review-edit">change</span>
+      </div>
+      <div class="pf-drawer-cta" style="margin-top: 18px;">lock it in 🔒</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART 3 — EDIT-FIRST ROUND-TRIP
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="part-label">
+  <div class="part-kicker">PART 3 · EDIT-FIRST ROUND-TRIP</div>
+  <h2 class="part-title">Exit to edit, come back to wizard</h2>
+  <p class="part-sub">
+    User taps <code>edit first</code> on the verification screen → confirmation dialog → edit-on-sell mode activates with a contextual sticky bar → user edits → taps <code>resume lock →</code> → wizard reopens fresh (state resets per the locked design).
+  </p>
+</div>
+
+<div class="step-label">
+  <span class="step-num">13.</span>
+  <span class="step-title">Step A — "edit first" confirmation dialog</span>
+  <span class="step-marker org">organizer</span>
+</div>
+<p class="step-note">
+  Tapping <code>edit first</code> on screen 1 prompts a confirmation. Prevents accidental loss of wizard state if the user clicked the wrong thing. Note the wizard isn't "lost" anyway (resets on resume), but the confirmation makes it deliberate.
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">edit-first confirm</span>
+    <span class="phone-frame-state">dialog</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer" style="padding-bottom: 2px;">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 14%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 1 of 7 · verify</span><span class="back">cancel</span></div>
+      <div class="pf-drawer-h" style="opacity:0.4;">does this look right?</div>
+      <div class="pf-drawer-sub" style="opacity:0.4;">— wizard dimmed beneath confirmation —</div>
+    </div>
+    <div class="pf-confirm-overlay">
+      <div class="pf-confirm-dialog">
+        <div class="pf-confirm-h">editing will reset your lock progress.</div>
+        <div class="pf-confirm-sub">we'll close the wizard so you can edit your trip. when you're ready, tap <strong>resume lock</strong> and we'll start from the top.</div>
+        <div class="pf-confirm-btn-row">
+          <div class="pf-confirm-btn secondary">stay in wizard</div>
+          <div class="pf-confirm-btn primary">edit first →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">14.</span>
+  <span class="step-title">Step B — edit-on-sell mode with contextual sticky bar</span>
+  <span class="step-marker org">organizer</span>
+</div>
+<p class="step-note">
+  Wizard drawer is dismissed. User is in edit-on-sell mode (9W pattern). Sticky bar's primary CTA is <code>resume lock →</code> instead of the standard <code>done editing</code> — because <code>entry_point: lock_wizard</code> is tracked. Tapping <code>← back</code> in the sticky bar exits both edit mode AND the lock attempt, returns to normal sell view with <code>lock it in →</code> available again.
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">edit-on-sell · from wizard</span>
+    <span class="phone-frame-state">sticky variant</span>
+    <div class="pf-status"><span>9:42</span><span>•••</span></div>
+    <div style="padding: 8px 16px;">
+      <div style="font-family:Georgia,serif; font-style:italic; font-weight:800; font-size: 22px; color: var(--ink);">coachella 2026<span style="color:var(--bang-light);">!!!</span></div>
+      <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">may 26 → 29 · palm springs, ca</div>
+      <div style="font-size: 11px; color: var(--ink); margin-top: 14px; padding: 6px 10px; background: rgba(255,126,62,.12); border-radius: 6px; display: inline-block;">
+        ✎ you're editing · changes save automatically
+      </div>
+      <div style="font-size: 11px; color: var(--muted); margin-top: 16px; font-style: italic;">— underlying modules editable below (lodging, transport, etc.) —</div>
+    </div>
+    <div class="pf-sticky">
+      <div class="pf-sticky-icon">←</div>
+      <div class="pf-sticky-icon">🎨</div>
+      <div class="pf-sticky-cta primary">resume lock →</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-label">
+  <span class="step-num">15.</span>
+  <span class="step-title">Step C — drawer-dismiss confirmation (past screen 1)</span>
+  <span class="step-marker org">organizer</span>
+</div>
+<p class="step-note">
+  If the user swipes the drawer down (or taps outside) at screen 3+, a confirmation fires. Prevents accidental progress loss. State still resets on confirm — the confirmation is gating, not state-preserving.
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">dismiss confirm · past screen 1</span>
+    <span class="phone-frame-state">dialog</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer" style="padding-bottom: 2px;">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 71%"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 5 of 7 · transport</span><span class="back">← back</span></div>
+      <div class="pf-drawer-h" style="opacity:0.4;">who's booking the airport van?</div>
+      <div class="pf-drawer-sub" style="opacity:0.4;">— wizard dimmed beneath confirmation —</div>
+    </div>
+    <div class="pf-confirm-overlay">
+      <div class="pf-confirm-dialog">
+        <div class="pf-confirm-h">discard your lock progress?</div>
+        <div class="pf-confirm-sub">you're 5 screens in. closing now resets everything — next time you tap <strong>lock it in</strong>, you'll start over.</div>
+        <div class="pf-confirm-btn-row">
+          <div class="pf-confirm-btn secondary">keep going</div>
+          <div class="pf-confirm-btn destructive">discard</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART 4 — ERROR STATE
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="part-label">
+  <div class="part-kicker">PART 4 · ERROR STATE</div>
+  <h2 class="part-title">When fireLock fails server-side</h2>
+  <p class="part-sub">
+    The <code>fire_lock</code> RPC returns specific error codes (<code>already_locked</code>, <code>not_organizer</code>, <code>concurrent_lock_attempt</code>, validation errors). Most are unreachable in a normal happy-path flow — the wizard's pre-flight + CAS guards catch them. But <code>concurrent_lock_attempt</code> is reachable if two organizer sessions fire at once. Below: the most realistic error state.
+  </p>
+</div>
+
+<div class="step-label">
+  <span class="step-num">16.</span>
+  <span class="step-title">Final review — concurrent_lock_attempt error</span>
+  <span class="step-marker org">organizer</span>
+  <span class="step-marker err">RPC error</span>
+</div>
+<p class="step-note">
+  Tapping <code>lock it in 🔒</code> fires the action; the RPC returns <code>{ ok: false, error: 'concurrent_lock_attempt' }</code> because another organizer session won the race. The error renders inline at the top of the review screen with a recovery affordance. Other RPC errors render the same shape with different copy.
+</p>
+<div class="row">
+  <div class="phone-frame">
+    <span class="phone-frame-label">wizard 7/7 · error</span>
+    <span class="phone-frame-state" style="color:var(--doc-flag);">concurrent</span>
+    <div class="pf-status"><span>9:41</span><span>•••</span></div>
+    <div class="pf-drawer">
+      <div class="pf-drawer-handle"></div>
+      <div class="pf-drawer-progress"><div class="pf-drawer-progress-fill" style="width: 100%; background: var(--doc-flag);"></div></div>
+      <div class="pf-drawer-step-tag"><span>step 7 of 7 · review</span><span class="back">← back</span></div>
+      <div class="pf-drawer-error">
+        <div class="pf-drawer-error-title">trip was already locked</div>
+        <div class="pf-drawer-error-body">
+          someone else (probably another browser tab) locked this trip while you were filling this out. refresh to see the current state.
+        </div>
+      </div>
+      <div class="pf-drawer-h">ready to lock?</div>
+      <div class="pf-drawer-sub" style="opacity:0.5;">last chance to fix anything. tap a row to edit.</div>
+      <div class="pf-drawer-review-row" style="opacity:0.4;">
+        <div><div class="pf-drawer-review-label">spot</div><div class="pf-drawer-review-value">cap juluca · $18,000 · i'm booking</div></div>
+        <span></span>
+      </div>
+      <div class="pf-drawer-review-row" style="opacity:0.4;">
+        <div><div class="pf-drawer-review-label">headliner</div><div class="pf-drawer-review-value">coachella ga · each books</div></div>
+        <span></span>
+      </div>
+      <div class="pf-drawer-cta">refresh trip page →</div>
+      <div class="pf-drawer-cta-secondary">try again</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CLOSING NOTES
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="doc-note" style="margin-top: 60px;">
+  <strong>How this maps to the Lock-B brief (next):</strong> the 16 frames above resolve every wireframe-blocking decision from the strategy doc's "Lock-B prep" section. The brief will reference this mockup as the visual contract; ACs map 1:1 to frames (every state shown = one or more ACs). Brief-only items: validation rule specifics (Gap 2 from prep), error category copy for non-concurrent RPC errors (Gap 5), refined lexicon entries (Gap 6).
+</div>
+
+<div class="doc-note">
+  <strong>State variants intentionally NOT wireframed (negligible visual delta):</strong> wizard screens with all-"each attendee books" allocations look identical to the right frame in Step 3 — just different item names. Skipping headliner-alloc screen when no headliner exists is the absence of that frame, not a new visual. Wizard with N transport items just shows screens 5a, 5b, 5c … with sequential progress bar advances; one transport screen wireframed (Step 6) is sufficient.
+</div>
+
+<div class="doc-note">
+  <strong>Implementation notes for the brief:</strong>
+  • Drawer uses Rally's existing <code>BottomDrawer</code> primitive (<code>LodgingAddForm</code> precedent).
+  • Wizard state lives in React component state, not URL. Drawer-dismiss → state reset (matches existing drawer pattern).
+  • Progress bar fills proportionally to <code>currentStep / totalSteps</code> where <code>totalSteps</code> is computed dynamically (per gap 3 skip-on-the-fly).
+  • Confirmation dialogs use a TBD primitive (might be a new component, or repurpose existing modal pattern — brief specifies).
+  • Sticky-bar variant in edit-on-sell-from-wizard: track <code>entry_point</code> flag in URL or component state (brief specifies).
+  • <code>fire_lock</code> call site: the review screen's primary CTA → <code>fireLock</code> server action (Lock-A exists) → RPC returns { ok, lockedAt } or { ok: false, error }.
+</div>
+
+</body>
+</html>

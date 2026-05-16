@@ -46,6 +46,8 @@ export interface Lexicon {
   profile: Record<string, Templated>;
   /** §5.28 — Getting Here (per-viewer arrival estimator, Session 9B-1) */
   gettingHere: Record<string, Templated>;
+  /** §5.29 — Lock-B wizard (organizer's sell → lock decision flow). */
+  lockWizard: Record<string, Templated>;
 }
 
 export type SurfaceKey = keyof Lexicon;

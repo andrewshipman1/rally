@@ -4351,7 +4351,8 @@ button:active {
 
 .chassis .sticky--organizer {
   display: grid;
-  grid-template-columns: 1fr auto;
+  /* 12B: third `auto` column hosts the lock-it-in CTA on sell phase. */
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 10px;
 }
@@ -6024,3 +6025,568 @@ button:active {
   text-align: center;
   font-style: italic;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   SESSION 12B — Lock-B wizard
+   Dark-surface drawer overrides + per-screen primitives. Class names
+   map 1:1 to the rally-lock-b-mockup.html pf-* classes; reference the
+   mockup for visual fidelity. The wizard nests inside the existing
+   .bottom-drawer-panel — `.lock-wizard-shell` re-themes the panel
+   without forking the BottomDrawer primitive.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Sticky-bar lock CTA (sell-phase organizer, alongside `edit` pill). */
+.chassis .sticky-organizer-lock {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 100px;
+  background: var(--ink, #1a1a1a);
+  color: var(--bg, #faecdb);
+  border: 2px solid var(--ink, #1a1a1a);
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Dark-surface override for the wizard drawer panel.
+   Targets ANY .bottom-drawer-panel that contains .lock-wizard-shell. */
+.bottom-drawer-panel:has(.lock-wizard-shell) {
+  background: #1a1a1a;
+  color: #faf8f5;
+  border-color: #1a1a1a;
+  padding: 14px 16px calc(22px + env(safe-area-inset-bottom, 16px));
+}
+.bottom-drawer-panel:has(.lock-wizard-shell) .bottom-drawer-handle {
+  background: #555;
+  opacity: 1;
+}
+/* The wizard owns its own step-tag chrome; suppress the drawer's title row. */
+.bottom-drawer-panel:has(.lock-wizard-shell) .bottom-drawer-title {
+  display: none;
+}
+
+.lock-wizard-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  color: #faf8f5;
+  font-family: -apple-system, 'DM Sans', sans-serif;
+}
+
+/* Progress bar */
+.lock-wizard-progress {
+  width: 100%;
+  height: 3px;
+  background: #333;
+  border-radius: 100px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.lock-wizard-progress-fill {
+  height: 100%;
+  background: var(--accent, #ff7e3e);
+  border-radius: 100px;
+  transition: width 0.25s ease;
+}
+.lock-wizard-progress-fill--error {
+  background: #d8654f;
+}
+
+/* Step tag row (step N of M · label + back/cancel) */
+.lock-wizard-step-tag {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent, #ff7e3e);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.lock-wizard-step-tag-back {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 10px;
+  text-transform: lowercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  min-height: 32px;
+}
+.lock-wizard-step-tag-back:hover {
+  color: #ccc;
+}
+
+/* Body wrapper */
+.lock-wizard-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Headline + sub */
+.lock-wizard-h {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 900;
+  font-size: 22px;
+  line-height: 1.15;
+  margin: 4px 0 6px;
+  color: #fff;
+}
+.lock-wizard-sub {
+  font-size: 12px;
+  color: #b8b3a8;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+/* Summary card (verify screen) */
+.lock-wizard-card {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.lock-wizard-card-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #d8d3c4;
+  padding: 3px 0;
+  gap: 12px;
+}
+.lock-wizard-card-row-key {
+  color: #888;
+  flex-shrink: 0;
+}
+.lock-wizard-card-row-value {
+  text-align: right;
+  color: #fff;
+  word-break: break-word;
+}
+
+/* Bump-divisor note (verify screen) */
+.lock-wizard-bump-note {
+  font-size: 10px;
+  color: #888;
+  margin: 8px 0 16px;
+  line-height: 1.5;
+}
+
+/* Binary buttons (allocation screens) */
+.lock-wizard-binary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.lock-wizard-binary-btn {
+  appearance: none;
+  border: 1.5px solid #555;
+  background: #2a2a2a;
+  color: #faf8f5;
+  border-radius: 12px;
+  padding: 14px 10px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lock-wizard-binary-btn--selected {
+  border-color: var(--accent, #ff7e3e);
+  background: #3a330a;
+}
+.lock-wizard-binary-btn-label {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 13px;
+  color: #fff;
+}
+.lock-wizard-binary-btn-sub {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.4;
+}
+
+/* Cost input (inline on allocation screens) */
+.lock-wizard-cost-input {
+  background: #0a0a0a;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.lock-wizard-cost-input--invalid {
+  border-color: #d8654f;
+}
+.lock-wizard-cost-input-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent, #ff7e3e);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.lock-wizard-cost-input--invalid .lock-wizard-cost-input-label {
+  color: #d8654f;
+}
+.lock-wizard-cost-input-field {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: #fff;
+}
+.lock-wizard-cost-input-currency {
+  font-size: 18px;
+  color: #888;
+  flex-shrink: 0;
+}
+.lock-wizard-cost-input-amount {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 900;
+  font-size: 26px;
+  width: 100%;
+  padding: 0;
+  outline: none;
+}
+.lock-wizard-cost-input-amount::placeholder {
+  color: #666;
+  font-style: italic;
+  font-weight: 400;
+}
+.lock-wizard-cost-input-hint {
+  font-size: 10px;
+  color: #888;
+  margin-top: 6px;
+}
+.lock-wizard-cost-input-error {
+  font-size: 10px;
+  color: #d8654f;
+  margin-top: 6px;
+  font-weight: 700;
+}
+.lock-wizard-no-cost-note {
+  font-size: 11px;
+  color: #888;
+  padding: 14px 0 18px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+/* Radio list (lodging override screen) */
+.lock-wizard-radio-list {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lock-wizard-radio-row {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1.5px solid #444;
+  background: #2a2a2a;
+  color: #faf8f5;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+.lock-wizard-radio-row--selected {
+  border-color: var(--accent, #ff7e3e);
+  background: #3a330a;
+}
+.lock-wizard-radio-row--tied {
+  border-color: var(--accent, #ff7e3e);
+  background: transparent;
+}
+.lock-wizard-radio-circle {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #888;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+.lock-wizard-radio-row--selected .lock-wizard-radio-circle {
+  border-color: var(--accent, #ff7e3e);
+}
+.lock-wizard-radio-row--selected .lock-wizard-radio-circle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent, #ff7e3e);
+}
+.lock-wizard-radio-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.lock-wizard-radio-label {
+  font-weight: 700;
+  color: #fff;
+}
+.lock-wizard-radio-sub {
+  font-size: 10px;
+  color: #888;
+}
+.lock-wizard-radio-meta {
+  font-size: 10px;
+  color: var(--accent, #ff7e3e);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.lock-wizard-radio-meta--muted {
+  color: #888;
+}
+
+/* Payment handle form fields */
+.lock-wizard-input-field {
+  margin-bottom: 12px;
+}
+.lock-wizard-input-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent, #ff7e3e);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.lock-wizard-input-box {
+  appearance: none;
+  width: 100%;
+  background: #0a0a0a;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 13px;
+  color: #fff;
+  font-weight: 600;
+  outline: none;
+}
+.lock-wizard-input-box::placeholder {
+  color: #666;
+  font-style: italic;
+  font-weight: 400;
+}
+.lock-wizard-input-box:focus-visible {
+  border-color: var(--accent, #ff7e3e);
+}
+
+/* Review rows (review screen) */
+.lock-wizard-review-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed #444;
+  padding: 10px 0;
+  font-size: 12px;
+  gap: 10px;
+}
+.lock-wizard-review-row:last-of-type {
+  border-bottom: none;
+}
+.lock-wizard-review-label {
+  color: #888;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 2px;
+}
+.lock-wizard-review-value {
+  color: #fff;
+  font-weight: 600;
+  word-break: break-word;
+}
+.lock-wizard-review-value--accent {
+  color: var(--accent, #ff7e3e);
+}
+.lock-wizard-review-value--muted {
+  color: #888;
+}
+.lock-wizard-review-edit {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-size: 10px;
+  color: var(--accent, #ff7e3e);
+  text-decoration: underline;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 4px 6px;
+  font-family: inherit;
+}
+
+/* Primary + secondary CTAs */
+.lock-wizard-cta {
+  appearance: none;
+  width: 100%;
+  background: var(--accent, #ff7e3e);
+  color: #1a1a1a;
+  padding: 14px 0;
+  border: none;
+  border-radius: 100px;
+  text-align: center;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 900;
+  font-size: 15px;
+  margin-top: 4px;
+  cursor: pointer;
+}
+.lock-wizard-cta--disabled,
+.lock-wizard-cta:disabled {
+  background: #444;
+  color: #888;
+  font-style: italic;
+  cursor: not-allowed;
+}
+.lock-wizard-cta-secondary {
+  appearance: none;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #888;
+  padding: 10px 0;
+  text-align: center;
+  font-size: 12px;
+  text-decoration: underline;
+  margin-top: 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Error banner (review screen, RPC error) */
+.lock-wizard-error {
+  background: rgba(216, 101, 79, 0.15);
+  border: 1px solid #d8654f;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.lock-wizard-error-title {
+  font-size: 12px;
+  color: #d8654f;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.lock-wizard-error-body {
+  font-size: 11px;
+  color: #d8d3c4;
+  line-height: 1.5;
+}
+
+/* Info banner (verify-blocked: empty trip) */
+.lock-wizard-info {
+  background: rgba(91, 183, 216, 0.12);
+  border: 1px solid #5bb7d8;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.lock-wizard-info-title {
+  font-size: 12px;
+  color: #5bb7d8;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.lock-wizard-info-body {
+  font-size: 11px;
+  color: #d8d3c4;
+  line-height: 1.5;
+}
+
+/* In-drawer confirmation overlay (edit-first + dismiss). Positions over
+   the wizard body — wizard renders underneath at full opacity for the
+   dimming effect baked into the overlay's backdrop. */
+.lock-wizard-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  border-radius: inherit;
+  z-index: 10;
+}
+.lock-wizard-confirm-dialog {
+  width: 100%;
+  max-width: 360px;
+  background: #faf8f5;
+  color: #1a1a1a;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+.lock-wizard-confirm-h {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 900;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.lock-wizard-confirm-sub {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.lock-wizard-confirm-btn-row {
+  display: flex;
+  gap: 10px;
+}
+.lock-wizard-confirm-btn {
+  appearance: none;
+  flex: 1;
+  padding: 11px 0;
+  border: none;
+  border-radius: 100px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  font-family: Georgia, serif;
+  font-style: italic;
+  cursor: pointer;
+}
+.lock-wizard-confirm-btn--primary {
+  background: #1a1a1a;
+  color: #fff;
+}
+.lock-wizard-confirm-btn--secondary {
+  background: transparent;
+  color: #666;
+  border: 1.5px solid #c8c0a8;
+}
+.lock-wizard-confirm-btn--destructive {
+  background: #d8654f;
+  color: #fff;
+}
+
